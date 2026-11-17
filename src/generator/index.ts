@@ -8,6 +8,7 @@ import { solidLeafGeometry } from './leaf-shapes';
 import { leafGeometry, placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
 import { buildTrunk } from './trunk';
+import { branchSway, writeTrunkSway } from './wind';
 import type { GeometryBuffers, TreeData } from './types';
 
 export { growthTiming } from './growth';
@@ -27,20 +28,27 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
   const sidesOf = (level: number) => (level === 0 ? definition.trunk.sides : definition.branches[level - 1]!.sides);
   const leaves = placeLeaves(definition, branches, random.fork('leaves'));
   const growth = growthTiming(definition, seed, branches, leaves);
-  return {
-    seed,
-    skeleton: { branches, leaves },
-    wood: mergeBuffers(
-      branches.map((b, i) =>
-        sweepBranch(b, sidesOf(b.level), partRandom(seed, b.path), woodSeasonAttribute(seed, definition.variation), growth.branches[i]),
+  const sway = branchSway(branches, definition.branches.length);
+  const wood = mergeBuffers(
+    branches.map((b, i) =>
+      sweepBranch(
+        b,
+        sidesOf(b.level),
+        partRandom(seed, b.path),
+        woodSeasonAttribute(seed, definition.variation),
+        growth.branches[i],
+        sway.get(b.path),
       ),
     ),
-    leaves:
-      definition.leaves.shape === 'card'
-        ? leafGeometry(leaves, definition.branches.length + 1, seed, definition.variation, growth.leaves)
-        : solidLeafGeometry(leaves, definition.leaves.shape, definition.branches.length + 1, seed, definition.variation, growth.leaves),
-    growth,
-  };
+  );
+  const leafBuffers =
+    definition.leaves.shape === 'card'
+      ? leafGeometry(leaves, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway)
+      : solidLeafGeometry(leaves, definition.leaves.shape, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway);
+  const trunkHeight = trunk.points[trunk.points.length - 1]!.position[1];
+  writeTrunkSway(wood, trunkHeight);
+  writeTrunkSway(leafBuffers, trunkHeight);
+  return { seed, skeleton: { branches, leaves }, wood, leaves: leafBuffers, growth };
 }
 
 /** Stable 32-bit hash (hex) of the generated geometry buffers, for determinism checks. */

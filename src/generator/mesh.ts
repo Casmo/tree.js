@@ -1,6 +1,7 @@
 import { createAttributes, writePart, type PartInfo } from './attributes';
 import { branchFrames, pathLength } from './frames';
 import type { GeometryBuffers, GrowthWindow, SkeletonBranch, Vec3 } from './types';
+import type { PartSway } from './wind';
 import { add, normalize, scale } from './vec';
 
 /**
@@ -13,6 +14,7 @@ export function sweepBranch(
   random: number,
   season: Vec3 = [0, 0, 0],
   growth: GrowthWindow = { start: 0, end: 0 },
+  sway?: PartSway,
 ): GeometryBuffers {
   const pts = branch.points;
   const frames = branchFrames(branch);
@@ -24,7 +26,7 @@ export function sweepBranch(
   const uvs = new Float32Array(vertexCount * 2);
   const indices: number[] = [];
   const attributes = createAttributes(vertexCount);
-  const part: PartInfo = { level: branch.level, attach: branch.attach, random, origin: pts[0]!.position, season, growth };
+  const part: PartInfo = { level: branch.level, attach: branch.attach, random, origin: pts[0]!.position, season, growth, sway };
 
   // Radius change per unit length tilts the normals of a tapered branch towards its tip.
   const slope = (pts[0]!.radius - pts[rings - 1]!.radius) / Math.max(pathLength(branch), 1e-6);

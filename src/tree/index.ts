@@ -1,16 +1,12 @@
 import { parseDefinition, type TreeDefinition, type TreeDefinitionInput } from '../definition';
 import { generateTree } from '../generator';
-import { Tree } from './Tree';
+import { Tree, type TreeOptions } from './Tree';
 
 export { Tree, type TreeOptions } from './Tree';
 
-export interface CreateTreeOptions {
+export interface CreateTreeOptions extends TreeOptions {
   /** Picks one individual tree within the Definition's ranges. Default 0. */
   seed?: number;
-  /** Starting Growth, 0 (sapling) .. 1 (fully grown, default). Change it later with `tree.growth`. */
-  growth?: number;
-  /** Initial Season (0 = first day of spring .. 1 = last day of winter). Default 0. */
-  season?: number;
 }
 
 /**
@@ -24,5 +20,5 @@ export function createTree(
 ): Tree {
   const parsed = parseDefinition(definition);
   const seed = options.seed ?? 0;
-  return new Tree(parsed, generateTree(parsed, seed), { growth: options.growth, season: options.season });
+  return new Tree(parsed, generateTree(parsed, seed), { growth: options.growth, wind: options.wind, season: options.season });
 }

@@ -2,6 +2,7 @@ import type { LeafShape, VariationDefinition } from '../definition';
 import { leafSeasonAttribute } from '../season/profile';
 import { createAttributes, partRandom, writePart } from './attributes';
 import type { GeometryBuffers, GrowthWindow, SkeletonLeaf, Vec3 } from './types';
+import { leafSway, NO_SWAY, type PartSway } from './wind';
 import { add, cross, dot, normalize, scale, sub } from './vec';
 
 /**
@@ -82,6 +83,7 @@ export function solidLeafGeometry(
   seed: number,
   variation: Pick<VariationDefinition, 'season'> = { season: 0 },
   growth: GrowthWindow[] = [],
+  branchSway: ReadonlyMap<string, PartSway> = new Map(),
 ): GeometryBuffers {
   const template = TEMPLATES[shape];
   const n = template.positions.length;
@@ -102,6 +104,7 @@ export function solidLeafGeometry(
       origin: leaf.position,
       season: leafSeasonAttribute(seed, variation, leaf.id),
       growth: growth[l] ?? { start: 0, end: 0 },
+      sway: leafSway(branchSway.get(leaf.branch) ?? NO_SWAY, leaf.attach),
     };
     for (let c = 0; c < n; c++) {
       const v = l * n + c;

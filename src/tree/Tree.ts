@@ -5,6 +5,7 @@ import {
   Mesh,
   type Material,
   type MeshStandardNodeMaterial,
+  type NodeMaterial,
   type UniformNode,
 } from 'three/webgpu';
 import { uniform } from 'three/tsl';
@@ -14,6 +15,8 @@ import { clampGrowth, growthPosition } from '../growth';
 import { createBarkMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createSeasonNodes, wrapSeason, type SeasonUniform } from '../season';
+import { hashCombine, hashString, seedToUint32 } from '../random';
+import { applyWind, sceneWind, windOffset, Wind, WindResponse } from '../wind';
 
 function toBufferGeometry(buffers: GeometryBuffers): BufferGeometry {
   const geometry = new BufferGeometry();
@@ -45,11 +48,13 @@ export interface TreeOptions {
   growth?: number;
   /** Season, 0 (first day of spring, default) .. 1 (last day of winter). */
   season?: number;
+  /** The Wind this tree sways with. Default: the scene-wide {@link sceneWind}. */
+  wind?: Wind;
 }
 
 /**
  * A generated tree as a three.js object. Add it to a scene rendered by `WebGPURenderer`.
- * `growth` and `season` only update uniforms: no regeneration, no recompile.
+ * `growth`, `season` and the Wind only update uniforms: no regeneration, no recompile.
  */
 export class Tree extends Group {
   readonly isTree = true;
@@ -65,6 +70,10 @@ export class Tree extends Group {
   readonly growthUniform: UniformNode<'float', number>;
   /** The Season uniform the leaf material reads (shared nodes may reference it). */
   readonly seasonUniform: SeasonUniform;
+  /** The Wind this tree sways with (shared with every other tree using it). */
+  readonly wind: Wind;
+  /** This tree's response to the Wind, from `definition.wind`; `windResponse.set(...)` changes it live. */
+  readonly windResponse: WindResponse;
 
   constructor(definition: TreeDefinition, data: TreeData, options: TreeOptions = {}) {
     super();
@@ -81,6 +90,16 @@ export class Tree extends Group {
     this.wood = treeMesh('wood', toBufferGeometry(data.wood), bark);
     this.leaves = treeMesh('leaves', toBufferGeometry(data.leaves), leaf);
     this.add(this.wood, this.leaves);
+
+    this.wind = options.wind ?? sceneWind;
+    const trunk = data.skeleton.branches[0]!.points;
+    this.windResponse = new WindResponse(definition.wind, {
+      height: trunk[trunk.length - 1]!.position[1],
+      phase: (hashCombine(seedToUint32(data.seed), hashString('wind')) / 4294967296) * Math.PI * 2,
+    });
+    const offset = windOffset(this.wind, this.windResponse);
+    applyWind(this.wood.material as NodeMaterial, offset);
+    applyWind(this.leaves.material, offset);
 
     const season = createSeasonNodes(definition.season);
     applySeasonToLeafMaterial(this.leaves.material, season);

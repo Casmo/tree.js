@@ -91,6 +91,12 @@ export interface TreeAttributes {
    * z = blossom rank (0..1, leaves only; 0 on wood). See `leafSeason` in src/season.
    */
   aSeason: VertexAttribute;
+  /**
+   * Wind weights (vec3, each 0..1): x = trunk sway (pinned at the ground, 1 at the trunk top),
+   * y = branch sway (0 on the trunk, rising towards the outermost twigs), z = leaf flutter (0 on wood,
+   * 0 at a leaf base, 1 at its tip). See `generator/wind.ts`.
+   */
+  aWind: VertexAttribute;
 }
 
 /** Plain geometry buffers (no three.js types), ready to wrap in a BufferGeometry. */
