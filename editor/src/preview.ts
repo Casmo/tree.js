@@ -26,9 +26,9 @@ export class Preview {
   renders = 0;
   /**
    * Draws one frame. Effects preview (#18) can replace this with a RenderPipeline's render.
-   * Must return once the frame is submitted.
+   * May return a promise (the status turns 'rendered' once it resolves).
    */
-  renderFrame: () => Promise<void>;
+  renderFrame: () => void | Promise<void>;
 
   private readonly container: HTMLElement;
   private readonly options: PreviewOptions;
@@ -42,7 +42,7 @@ export class Preview {
     this.renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: options.forceWebGL ?? false });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     container.appendChild(this.renderer.domElement);
-    this.renderFrame = () => this.renderer.renderAsync(this.scene, this.camera);
+    this.renderFrame = () => this.renderer.render(this.scene, this.camera);
 
     this.scene.background = new THREE.Color('#cfe3f0');
     this.scene.add(new THREE.HemisphereLight('#ffffff', '#6a7a4a', 1.5));
@@ -105,13 +105,15 @@ export class Preview {
     this.frameRequested = true;
     requestAnimationFrame(() => {
       this.frameRequested = false;
-      this.renderFrame().then(
-        () => {
-          this.renders++;
-          if (!this.frameRequested) this.options.onStatus?.('rendered');
-        },
-        (error: unknown) => this.options.onStatus?.('error', error instanceof Error ? error : new Error(String(error))),
-      );
+      Promise.resolve()
+        .then(() => this.renderFrame())
+        .then(
+          () => {
+            this.renders++;
+            if (!this.frameRequested) this.options.onStatus?.('rendered');
+          },
+          (error: unknown) => this.options.onStatus?.('error', error instanceof Error ? error : new Error(String(error))),
+        );
     });
   }
 
