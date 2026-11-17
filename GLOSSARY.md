@@ -24,6 +24,22 @@ _Avoid_: Age, progress, scale
 The point in the yearly cycle, a value from 0 (first day of spring) to 1 (last day of winter), that sets a tree's leaf colour and leaf coverage.
 _Avoid_: Weather, time of year
 
+**Season Profile**:
+The part of a Tree Definition that says how leaf colour, leaf coverage and blossom change across Season, as keyframes from 0 to 1.
+_Avoid_: Season preset, season style
+
+**Wind**:
+The sway of branches and leaves, set by a scene-wide direction and strength and a per-tree response.
+_Avoid_: Sway, animation
+
+**Tree Effect**:
+An opt-in post-processing effect that only alters the pixels of trees, such as an outline or leaf glow.
+_Avoid_: Post preset, filter
+
+**Baked Tree**:
+A static export of one tree at a fixed Seed, Growth and Season, with no Growth, Season or Wind left to change.
+_Avoid_: Static mesh, snapshot
+
 **Tree Editor**:
 The web app in which a person designs a Tree Definition and exports it.
 _Avoid_: Designer, builder, playground
