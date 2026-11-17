@@ -6,6 +6,7 @@ import {
   leafSeason,
   parseDefinition,
   sampleTrack,
+  SEASON_PROFILES,
   srgbToLinear,
   wrapSeason,
   type SeasonProfileDefinition,
@@ -193,5 +194,41 @@ describe('Tree.season', () => {
     const tree = createTree({ schemaVersion: 2 });
     expect(tree.leaves.material.colorNode).not.toBeNull();
     expect(tree.leaves.material.maskNode).not.toBeNull(); // coverage cut also applies to shadows
+  });
+});
+
+describe('SEASON_PROFILES', () => {
+  const SPRING = 0.12, SUMMER = 0.37, AUTUMN = 0.62, WINTER = 0.87;
+  const greenish = ([r, g, b]: number[]) => g! > r! && g! > b!;
+  const autumnal = ([r, g, b]: number[]) => r! > g! && r! > b!;
+
+  it('validates as Definition Season Profiles', () => {
+    for (const season of Object.values(SEASON_PROFILES)) {
+      expect(parseDefinition({ schemaVersion: 2, season }).season).toEqual(season);
+    }
+  });
+
+  it('deciduous: green and full in spring and summer, autumn colours in autumn, bare in winter', () => {
+    const p = SEASON_PROFILES.deciduous;
+    for (const s of [SPRING, SUMMER]) {
+      expect(greenish(evaluateSeason(p, s).leafColor)).toBe(true);
+      expect(evaluateSeason(p, s).leafCoverage).toBeGreaterThan(0.95);
+    }
+    expect(autumnal(evaluateSeason(p, AUTUMN).leafColor)).toBe(true);
+    expect(evaluateSeason(p, AUTUMN).leafCoverage).toBeGreaterThan(0.6);
+    expect(evaluateSeason(p, WINTER).leafCoverage).toBe(0);
+  });
+
+  it('evergreen: always full and green, a little darker in winter', () => {
+    const p = SEASON_PROFILES.evergreen;
+    for (const s of [0, SPRING, SUMMER, AUTUMN, WINTER, 1]) {
+      expect(evaluateSeason(p, s).leafCoverage).toBe(1);
+      expect(greenish(evaluateSeason(p, s).leafColor)).toBe(true);
+    }
+    const luma = ([r, g, b]: number[]) => 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+    const summer = luma(evaluateSeason(p, SUMMER).leafColor);
+    const winter = luma(evaluateSeason(p, WINTER).leafColor);
+    expect(winter).toBeLessThan(summer);
+    expect(winter).toBeGreaterThan(summer * 0.5);
   });
 });
