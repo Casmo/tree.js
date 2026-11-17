@@ -2,6 +2,7 @@ import type { TreeDefinition } from '../definition';
 import { createRandom, hashBytes } from '../random';
 import { partRandom } from './attributes';
 import { buildBranches } from './branches';
+import { solidLeafGeometry } from './leaf-shapes';
 import { leafGeometry, placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
 import { buildTrunk } from './trunk';
@@ -26,7 +27,10 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
     seed,
     skeleton: { branches, leaves },
     wood: mergeBuffers(branches.map((b) => sweepBranch(b, sidesOf(b.level), partRandom(seed, b.path)))),
-    leaves: leafGeometry(leaves, definition.branches.length + 1, seed),
+    leaves:
+      definition.leaves.shape === 'card'
+        ? leafGeometry(leaves, definition.branches.length + 1, seed)
+        : solidLeafGeometry(leaves, definition.leaves.shape, definition.branches.length + 1, seed),
   };
 }
 

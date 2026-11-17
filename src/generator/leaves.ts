@@ -13,7 +13,7 @@ const LEAF_WIDTH = 0.5;
  * Places leaves on the outermost branches (the trunk if there are no branch levels).
  * Each leaf draws from `random.fork(leafId)`, so leaves never shift the branches and
  * one leaf never shifts another. The colour tint shared by the whole tree comes from
- * `random.fork('tint')`. Only the 'card' leaf shape exists so far; Styles add 'clump' and 'needle'.
+ * `random.fork('tint')`. The shape ('card' here, 'clump'/'needle' in `leaf-shapes.ts`) only affects the mesh.
  */
 export function placeLeaves(definition: TreeDefinition, branches: SkeletonBranch[], random: Random): SkeletonLeaf[] {
   const { leaves } = definition;

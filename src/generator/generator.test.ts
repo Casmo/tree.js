@@ -303,3 +303,61 @@ describe('per-vertex attributes', () => {
     expect(hashTreeData(copy)).not.toBe(hashTreeData(data));
   });
 });
+
+describe('leaf shapes', () => {
+  const shaped = (shape: 'clump' | 'needle') =>
+    parseDefinition({ schemaVersion: 2, branches: [{ count: 3 }], leaves: { count: 4, shape, size: 0.5, sizeVariation: 0 } });
+
+  for (const shape of ['clump', 'needle'] as const) {
+    it(`${shape}: builds a closed, outward-facing solid per leaf, coloured by its tint`, () => {
+      const { leaves, skeleton } = generateTree(shaped(shape), 3);
+      const vertexCount = leaves.positions.length / 3;
+      const perLeaf = vertexCount / skeleton.leaves.length;
+      expect(Number.isInteger(perLeaf)).toBe(true);
+      expect(perLeaf).toBeGreaterThan(4);
+      // Closed: every edge is shared by exactly two triangles (within one leaf's vertices).
+      const edges = new Map<string, number>();
+      for (let t = 0; t < leaves.indices.length; t += 3) {
+        const tri = [leaves.indices[t]!, leaves.indices[t + 1]!, leaves.indices[t + 2]!];
+        for (let k = 0; k < 3; k++) {
+          const [a, b] = [tri[k]!, tri[(k + 1) % 3]!];
+          const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+          edges.set(key, (edges.get(key) ?? 0) + 1);
+        }
+      }
+      for (const n of edges.values()) expect(n).toBe(2);
+      expectFrontFacesAlongNormals(leaves);
+      skeleton.leaves.forEach((leaf, l) => {
+        for (let v = l * perLeaf; v < (l + 1) * perLeaf; v++) {
+          expect([...leaves.colors!.subarray(v * 3, v * 3 + 3)]).toEqual(leaf.tint.map((c) => Math.fround(c)));
+          expect([...leaves.attributes.aOrigin.array.subarray(v * 3, v * 3 + 3)]).toEqual(leaf.position.map((c) => Math.fround(c)));
+          const along = leaves.attributes.aAlong.array[v]!;
+          expect(along).toBeGreaterThanOrEqual(0);
+          expect(along).toBeLessThanOrEqual(1);
+        }
+      });
+    });
+
+    it(`${shape}: each leaf stays within its size from where it attaches`, () => {
+      const { leaves, skeleton } = generateTree(shaped(shape), 5);
+      const perLeaf = leaves.positions.length / 3 / skeleton.leaves.length;
+      skeleton.leaves.forEach((leaf, l) => {
+        for (let v = l * perLeaf; v < (l + 1) * perLeaf; v++) {
+          const p = leaves.positions.subarray(v * 3, v * 3 + 3);
+          expect(distance([p[0]!, p[1]!, p[2]!], leaf.position)).toBeLessThanOrEqual(leaf.size * 1.001);
+        }
+      });
+    });
+  }
+
+  it('a needle points along its leaf direction: its tip is one leaf size away', () => {
+    const { leaves, skeleton } = generateTree(shaped('needle'), 2);
+    const perLeaf = leaves.positions.length / 3 / skeleton.leaves.length;
+    const leaf = skeleton.leaves[0]!;
+    const tip: Vec3 = [0, 1, 2].map((k) => leaf.position[k]! + leaf.direction[k]! * leaf.size) as Vec3;
+    const nearest = Math.min(
+      ...Array.from({ length: perLeaf }, (_, v) => distance([...leaves.positions.subarray(v * 3, v * 3 + 3)] as Vec3, tip)),
+    );
+    expect(nearest).toBeLessThan(1e-5);
+  });
+});
