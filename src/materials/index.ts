@@ -15,6 +15,7 @@ export { createShadedMaterial } from './shading';
 export function createBarkMaterial(definition: TreeDefinition, textures?: TextureOptions): MeshStandardNodeMaterial {
   const material = createShadedMaterial(definition.materials.shading);
   material.name = 'tree.js bark';
+  material.userData.treePart = 'bark'; // Tree Effects (`/effects`) find tree pixels by it
   const base = color(definition.materials.bark.color);
   // Slightly darker towards the base for a little depth, purely in TSL (flat colour for flat shading).
   const shaded = isFlatShading(definition.materials.shading)
@@ -35,6 +36,7 @@ export function createBarkMaterial(definition: TreeDefinition, textures?: Textur
 export function createLeafMaterial(definition: TreeDefinition, textures?: TextureOptions): MeshStandardNodeMaterial {
   const material = createShadedMaterial(definition.materials.shading);
   material.name = 'tree.js leaves';
+  material.userData.treePart = 'leaves';
   material.color.set(definition.season.leafColor[0]!.value);
   material.vertexColors = true;
   material.side = DoubleSide;

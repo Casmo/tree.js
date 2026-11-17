@@ -24,6 +24,8 @@ export default defineConfig(({ command }) => ({
         'styles/realistic': resolve(import.meta.dirname, 'src/styles/realistic/index.ts'),
         // React Three Fiber bindings; react and @react-three/fiber are optional peers, kept external.
         react: resolve(import.meta.dirname, 'src/react/index.ts'),
+        // Tree Effects: opt-in post-processing nodes (three/addons stay external).
+        effects: resolve(import.meta.dirname, 'src/effects/index.ts'),
       },
       formats: ['es'],
     },
