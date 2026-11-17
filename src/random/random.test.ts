@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRandom, hashString } from './index';
+import { createRandom, hashString, seedRandom } from './index';
 
 describe('hashString (FNV-1a 32-bit)', () => {
   it('matches the published FNV-1a test vectors', () => {
@@ -59,5 +59,19 @@ describe('createRandom', () => {
   it('is stable across releases (golden values for seed 12345)', () => {
     const r = createRandom(12345);
     expect(Array.from({ length: 3 }, () => r.next())).toMatchSnapshot();
+  });
+});
+
+describe('seedRandom', () => {
+  it('is one stable 0..1 number per Seed and key, without any stream draws', () => {
+    expect(seedRandom(42, 'wind')).toBe(seedRandom(42, 'wind'));
+    expect(seedRandom(42, 'wind')).not.toBe(seedRandom(43, 'wind'));
+    expect(seedRandom(42, 'wind')).not.toBe(seedRandom(42, 'season'));
+    for (let i = 0; i < 1000; i++) {
+      const v = seedRandom(i, `0.${i}/2`);
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThan(1);
+    }
+    expect(seedRandom(42, 'wind')).toMatchInlineSnapshot(`0.8724716163706034`);
   });
 });

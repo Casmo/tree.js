@@ -1,5 +1,5 @@
 import type { HexColor, Keyframe, SeasonProfileDefinition, VariationDefinition } from '../definition';
-import { hashCombine, hashString, seedToUint32 } from '../random';
+import { seedRandom } from '../random';
 import { pow } from '../math';
 
 /**
@@ -83,17 +83,12 @@ export function evaluateSeason(profile: SeasonProfileDefinition, season: number,
   };
 }
 
-/** Stable 0..1 (exclusive) number from the Seed and a key (no stream draws, ADR 0003). */
-function seasonRandom(seed: number, key: string): number {
-  return hashCombine(seedToUint32(seed), hashString(key)) / 4294967296;
-}
-
 /**
  * A Seed's Season timing shift for the whole tree: within ± half of `variation.season`.
  * Per-leaf jitter ({@link leafSeasonAttribute}) takes the other half, so a leaf stays within the range.
  */
 export function seasonShift(seed: number, variation: Pick<VariationDefinition, 'season'>): number {
-  return (seasonRandom(seed, 'season') * 2 - 1) * (variation.season / 2);
+  return (seedRandom(seed, 'season') * 2 - 1) * (variation.season / 2);
 }
 
 /**
@@ -107,11 +102,11 @@ export function leafSeasonAttribute(
   variation: Pick<VariationDefinition, 'season'>,
   leafId: string,
 ): [shift: number, coverageRank: number, blossomRank: number] {
-  const jitter = (seasonRandom(seed, `${leafId}#season`) * 2 - 1) * (variation.season / 2);
+  const jitter = (seedRandom(seed, `${leafId}#season`) * 2 - 1) * (variation.season / 2);
   return [
     seasonShift(seed, variation) + jitter,
-    seasonRandom(seed, `${leafId}#coverage`),
-    seasonRandom(seed, `${leafId}#blossom`),
+    seedRandom(seed, `${leafId}#coverage`),
+    seedRandom(seed, `${leafId}#blossom`),
   ];
 }
 

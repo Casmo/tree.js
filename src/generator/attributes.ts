@@ -1,11 +1,5 @@
-import { hashCombine, hashString, seedToUint32 } from '../random';
 import type { GrowthWindow, TreeAttributes, Vec3 } from './types';
 import { NO_SWAY, type PartSway } from './wind';
-
-/** Stable 0..1 number for a part, from the Seed and its branch path or leaf id (no stream draws). */
-export function partRandom(seed: number, key: string): number {
-  return hashCombine(seedToUint32(seed), hashString(key)) / 4294967296;
-}
 
 /** The facts shared by every vertex of one part (branch or leaf). */
 export interface PartInfo {

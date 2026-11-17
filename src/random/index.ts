@@ -97,3 +97,11 @@ function fromState(origin: number): Random {
       fromState(hashCombine(origin, typeof key === 'number' ? seedToUint32(key) : hashString(key))),
   };
 }
+
+/**
+ * A stable 0..1 (exclusive) number from a Seed and a key (a branch path, leaf id, purpose...).
+ * It makes no stream draws (ADR 0003), so it never shifts or is shifted by other random numbers.
+ */
+export function seedRandom(seed: number, key: string): number {
+  return hashCombine(seedToUint32(seed), hashString(key)) / 4294967296;
+}

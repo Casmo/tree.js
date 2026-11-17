@@ -1,6 +1,6 @@
 import { cos, sin } from '../math';
 import type { Sculpt, TreeDefinition } from '../definition';
-import { partRandom } from './attributes';
+import { seedRandom } from '../random';
 import type { SkeletonBranch, SkeletonLeaf, Vec3 } from './types';
 import { add, scale, sub } from './vec';
 
@@ -62,7 +62,7 @@ export function sculptLeaves(leaves: SkeletonLeaf[], sculpts: Sculpt[], seed: nu
   return leaves.filter((leaf) => {
     let coverage = 1;
     for (const s of painted) if (inSubtree(leaf.branch, s.path)) coverage = s.coverage;
-    return partRandom(seed, `sculpt/${leaf.id}`) < coverage;
+    return seedRandom(seed, `sculpt/${leaf.id}`) < coverage;
   });
 }
 

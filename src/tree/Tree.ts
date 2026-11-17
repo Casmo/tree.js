@@ -18,7 +18,7 @@ import { createBarkMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createSeasonNodes, wrapSeason, type SeasonUniform } from '../season';
 import { textureReady, type TextureOptions } from '../textures';
-import { hashCombine, hashString, seedToUint32 } from '../random';
+import { seedRandom } from '../random';
 import { applyWind, sceneWind, windOffset, Wind, WindBinding, WindResponse } from '../wind';
 
 /**
@@ -135,7 +135,7 @@ export class Tree extends Group {
     const trunk = data.skeleton.branches.find((b) => b.parent === null)?.points;
     this.windResponse = new WindResponse(definition.wind, {
       height: trunk ? trunk[trunk.length - 1]!.position[1] : 1,
-      phase: (hashCombine(seedToUint32(data.seed), hashString('wind')) / 4294967296) * Math.PI * 2,
+      phase: seedRandom(data.seed, 'wind') * Math.PI * 2,
     });
     const offset = windOffset(this.windBinding, this.windResponse);
     applyWind(this.wood.material as NodeMaterial, offset);

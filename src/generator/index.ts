@@ -1,7 +1,7 @@
 import type { TreeDefinition } from '../definition';
 import { createRandom, hashBytes } from '../random';
 import { woodSeasonAttribute } from '../season/profile';
-import { partRandom } from './attributes';
+import { seedRandom } from '../random';
 import { buildBranches } from './branches';
 import { growthTiming } from './growth';
 import { solidLeafGeometry } from './leaf-shapes';
@@ -36,7 +36,7 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
       sweepBranch(
         b,
         sidesOf(b.level),
-        partRandom(seed, b.path),
+        seedRandom(seed, b.path),
         woodSeasonAttribute(seed, definition.variation),
         growth.branches[i],
         sway.get(b.path),

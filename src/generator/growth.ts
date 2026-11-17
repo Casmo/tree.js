@@ -1,6 +1,6 @@
 import { pow } from '../math';
 import type { TreeDefinition } from '../definition';
-import { partRandom } from './attributes';
+import { seedRandom } from '../random';
 import type { GrowthTiming, GrowthWindow, SkeletonBranch, SkeletonLeaf } from './types';
 
 // Raw timeline units (normalised to 0..1 afterwards, so only their ratios matter).
@@ -49,10 +49,10 @@ export function growthTiming(
 
   const total = Math.max(0, ...branchWindows.map((w) => w.end), ...leafWindows.map((w) => w.end));
   const v = definition.variation.growth;
-  const k = 1 + (2 * partRandom(seed, 'growth') - 1) * v;
+  const k = 1 + (2 * seedRandom(seed, 'growth') - 1) * v;
   const warp = (t: number) => (total > 0 ? pow(Math.min(1, t / total), k) : 0);
   const finish = (w: GrowthWindow, key: string): GrowthWindow => {
-    const delay = partRandom(seed, `growth/${key}`) * (v / 2) * (w.end - w.start);
+    const delay = seedRandom(seed, `growth/${key}`) * (v / 2) * (w.end - w.start);
     return { start: warp(w.start + delay), end: warp(w.end) };
   };
   return {

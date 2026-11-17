@@ -1,7 +1,8 @@
 import { cos, sin } from '../math';
 import type { LeafShape, VariationDefinition } from '../definition';
 import { leafSeasonAttribute } from '../season/profile';
-import { createAttributes, partRandom, writePart } from './attributes';
+import { seedRandom } from '../random';
+import { createAttributes, writePart } from './attributes';
 import type { GeometryBuffers, GrowthWindow, SkeletonLeaf, Vec3 } from './types';
 import { leafSway, NO_SWAY, type PartSway } from './wind';
 import { add, cross, dot, normalize, scale, sub } from './vec';
@@ -128,7 +129,7 @@ export function solidLeafGeometry(
     const part = {
       level,
       attach: leaf.attach,
-      random: partRandom(seed, leaf.id),
+      random: seedRandom(seed, leaf.id),
       origin: leaf.position,
       season: leafSeasonAttribute(seed, variation, leaf.id),
       growth: growth[l] ?? { start: 0, end: 0 },
