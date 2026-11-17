@@ -17,7 +17,13 @@ function sceneGeometryHash(tree: Tree): string {
   return meshes(tree)
     .map((m) => {
       const g = m.geometry as BufferGeometry;
-      const array = (name: string) => g.getAttribute(name)?.array as Float32Array;
+      // De-interleaves too (the part attributes share one interleaved buffer).
+      const array = (name: string) => {
+        const attribute = g.getAttribute(name);
+        if (!attribute) return undefined as unknown as Float32Array;
+        const n = attribute.itemSize;
+        return Float32Array.from({ length: attribute.count * n }, (_, i) => attribute.getComponent(Math.floor(i / n), i % n));
+      };
       const custom = Object.keys(g.attributes).filter((name) => name.startsWith('a'));
       return hashGeometry({
         positions: array('position'),
@@ -34,6 +40,17 @@ function sceneGeometryHash(tree: Tree): string {
 }
 
 describe('createTree', () => {
+  it('keeps every mesh within WebGPU\'s default limit of 8 vertex buffers', () => {
+    // Textured leaves read position, normal, uv, colour and the Growth/Season/Wind attributes.
+    const tree = createTree({ schemaVersion: 2, materials: { leaf: { map: 'realistic/leaf.png' } } });
+    for (const mesh of meshes(tree)) {
+      const buffers = new Set(
+        Object.values((mesh.geometry as BufferGeometry).attributes).map((a) => ('data' in a ? a.data : a)),
+      );
+      expect(buffers.size, mesh.name).toBeLessThanOrEqual(8);
+    }
+  });
+
   it('returns a three.js object with a wood mesh and a leaf mesh', () => {
     const tree = createTree(definition, { seed: 1 });
     expect(tree).toBeInstanceOf(Object3D);

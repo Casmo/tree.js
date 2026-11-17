@@ -21,9 +21,20 @@ export {
 export { createRandom, hashString, hashCombine, type Random } from './random';
 export { createBarkMaterial, createLeafMaterial } from './materials';
 export { growPositions, growthPosition, SAPLING_SCALE, SAPLING_THICKNESS } from './growth';
+export {
+  DEFAULT_TEXTURE_BASE_PATH,
+  getTextureOptions,
+  loadTexture,
+  resolveTextureUrl,
+  setTextureOptions,
+  textureReady,
+  type TextureKind,
+  type TextureOptions,
+} from './textures';
 export { assertWebGPURenderer, UnsupportedRendererError } from './renderer';
 export { Wind, sceneWind, WindResponse, windOffset, applyWind, objectWindDirection, type WindDirection, type WindOptions, type WindFrame } from './wind';
 export type { TreeStyle } from './styles/types';
+export { loadStyle, STYLE_NAMES, type StyleName } from './styles/registry';
 export {
   createForest,
   Forest,

@@ -44,3 +44,15 @@ test('Wind sways every tree with its own phase', async ({ page }) => {
   expect(result).toMatchObject({ status: 'rendered' });
   await expect(page.locator('canvas')).toHaveScreenshot('forest-wind-webgpu.png', mask(page));
 });
+
+for (const [style, form] of [
+  ['stylized', 'broadleaf'],
+  ['realistic', 'conifer'],
+] as const) {
+  test(`a ${style} ${form} forest (Style materials and textures, instanced)`, async ({ page }) => {
+    const { result, errors } = await render(page, `trees=100&style=${style}&form=${form}`);
+    expect(errors).toEqual([]);
+    expect(result).toMatchObject({ status: 'rendered', backend: 'webgpu', drawCalls: 4 * 2 + 2 });
+    await expect(page.locator('canvas')).toHaveScreenshot(`forest-${style}-${form}-webgpu.png`, mask(page));
+  });
+}

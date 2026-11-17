@@ -9,8 +9,19 @@
 //   ?uneven=1  per-tree Growth (younger towards the back) and Season (autumn towards the right)
 //   ?wind=<strength>&windTime=<s>  scene-wide Wind; windTime pins the clock
 //   ?cut=<n>  remove every n-th tree after planting (the others must not change)
+//   ?style=<name>&form=conifer  a built-in Style's Definition instead of the example's own
 import * as THREE from 'three/webgpu';
-import { createForest, createRandom, sceneWind, SEASON_PROFILES, type ForestPlacement, type TreeDefinitionInput } from '../../src/index';
+import {
+  createForest,
+  createRandom,
+  loadStyle,
+  sceneWind,
+  SEASON_PROFILES,
+  type ForestPlacement,
+  type StyleName,
+  type TreeDefinition,
+  type TreeDefinitionInput,
+} from '../../src/index';
 
 declare global {
   interface Window {
@@ -67,8 +78,14 @@ for (let i = 0; i < count; i++) {
   placements.push({ id: i, position: [x, 0, z], rotation: jitter.range(0, Math.PI * 2), scale: jitter.range(0.8, 1.2) });
 }
 
+async function loadDefinition(): Promise<TreeDefinitionInput | TreeDefinition> {
+  const style = params.get('style');
+  if (!style) return definition;
+  return (await loadStyle(style as StyleName))[params.get('form') === 'conifer' ? 'conifer' : 'broadleaf'];
+}
+
 async function main(): Promise<void> {
-  const forest = createForest(definition, placements, {
+  const forest = createForest(await loadDefinition(), placements, {
     variants: number('variants', 4),
     seed: number('seed', 1),
     growth: number('growth', 1),
@@ -84,6 +101,7 @@ async function main(): Promise<void> {
       tree.season = 0.37 + Math.min(Math.max((x + half) / (2 * half), 0), 1) * 0.35;
     }
   }
+  await forest.ready; // textures (realistic Style) are loaded before the first frame
   scene.add(forest);
 
   const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: params.get('backend') === 'webgl' });

@@ -20,6 +20,7 @@ import { createBarkMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createSeasonNodes, wrapSeason, type SeasonUniform } from '../season';
 import { clampGrowth } from '../growth';
+import { textureReady, type TextureOptions } from '../textures';
 import { sceneWind, Wind, WindResponse } from '../wind';
 import { INSTANCE_ATTRIBUTES, INSTANCE_STRIDE, forestPosition, instanceState } from './nodes';
 import {
@@ -45,6 +46,8 @@ export interface ForestOptions {
   season?: number;
   /** The Wind the forest sways with. Default: the scene-wide `sceneWind`. */
   wind?: Wind;
+  /** Where the Definition's textures load from (as `createTree(..., { textures })`). */
+  textures?: TextureOptions;
 }
 
 /** What the GPU draws one tree with (after its offsets). */
@@ -188,6 +191,7 @@ export class ForestVariant {
     seed: number,
     wind: Wind,
     capacity: number,
+    textures?: TextureOptions,
   ) {
     this.index = index;
     this.seed = seed;
@@ -197,9 +201,9 @@ export class ForestVariant {
     this.windResponse = new WindResponse(definition.wind, { height, phase: 0 });
 
     const position = forestPosition(wind, this.windResponse);
-    this.barkMaterial = createBarkMaterial(definition);
+    this.barkMaterial = createBarkMaterial(definition, textures);
     this.barkMaterial.positionNode = position;
-    this.leafMaterial = createLeafMaterial(definition);
+    this.leafMaterial = createLeafMaterial(definition, textures);
     this.leafMaterial.positionNode = position;
     applySeasonToLeafMaterial(this.leafMaterial, createSeasonNodes(definition.season, instanceState().season as unknown as SeasonUniform));
 
@@ -353,6 +357,8 @@ export class Forest extends Group {
   /** The Wind every tree of this forest sways with. */
   readonly wind: Wind;
   readonly variants: readonly ForestVariant[];
+  /** Resolves once every texture has loaded (at once without textures); rejects if one fails. */
+  readonly ready: Promise<void>;
   private readonly byKey = new Map<string, ForestTree>();
   private growthValue: number;
   private seasonValue: number;
@@ -371,8 +377,11 @@ export class Forest extends Group {
     const capacity = Math.max(MIN_CAPACITY, 2 ** Math.ceil(Math.log2(Math.max(1, (placements.length / count) * 1.25))));
     this.variants = Array.from(
       { length: count },
-      (_, i) => new ForestVariant(this, definition, i, variantSeed(this.seed, i), this.wind, capacity),
+      (_, i) => new ForestVariant(this, definition, i, variantSeed(this.seed, i), this.wind, capacity, options.textures),
     );
+    const textures = this.variants.flatMap((v) => [v.barkMaterial.map, v.barkMaterial.normalMap, v.leafMaterial.map]);
+    this.ready = Promise.all(textures.filter((t) => t !== null).map(textureReady)).then(() => undefined);
+    this.ready.catch(() => {}); // only reported to whoever awaits it
     for (const placement of placements) this.addTree(placement);
   }
 
