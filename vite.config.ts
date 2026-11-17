@@ -8,6 +8,7 @@ export default defineConfig({
   build: {
     target: 'es2022',
     sourcemap: true,
+    minify: false,
     lib: {
       entry: { index: resolve(import.meta.dirname, 'src/index.ts') },
       formats: ['es'],
