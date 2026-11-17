@@ -35,7 +35,19 @@ const ground = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(
 );
 scene.add(ground);
 
-const tree = createTree({ schemaVersion: 1 }, { seed });
+// The defaults plus a third branching level and fuller foliage.
+const tree = createTree(
+  {
+    schemaVersion: 2,
+    branches: [
+      { count: 7, angle: 50 },
+      { count: 4, start: 0.2, angle: 40, length: 0.45, sides: 4, sections: 3 },
+      { count: 3, start: 0.3, end: 1, angle: 35, length: 0.5, sides: 3, sections: 2 },
+    ],
+    leaves: { count: 6, size: 0.35 },
+  },
+  { seed },
+);
 scene.add(tree);
 
 async function main(): Promise<void> {

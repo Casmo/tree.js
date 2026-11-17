@@ -62,7 +62,8 @@ export function sampleBranch(branch: SkeletonBranch, frames: Frame[], t: number)
     const segment = length(sub(b.position, a.position));
     if (walked + segment >= target || i === pts.length - 1) {
       const f = segment > 0 ? Math.min(Math.max((target - walked) / segment, 0), 1) : 0;
-      const tangent = normalize(lerp(frames[i - 1]!.tangent, frames[i]!.tangent, f));
+      // The direction of the centre-line segment itself, so children leave at exactly their declared angle.
+      const tangent = normalize(sub(b.position, a.position));
       const normal = normalize(sub(frames[i - 1]!.normal, scale(tangent, dot(frames[i - 1]!.normal, tangent))));
       return {
         position: lerp(a.position, b.position, f),

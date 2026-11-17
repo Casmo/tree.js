@@ -9,24 +9,26 @@ import type { TreeDefinition } from '../definition';
 export function createBarkMaterial(definition: TreeDefinition): MeshStandardNodeMaterial {
   const material = new MeshStandardNodeMaterial();
   material.name = 'tree.js bark';
-  const base = color(definition.bark.color);
+  const base = color(definition.materials.bark.color);
   // Slightly darker towards the base for a little depth, purely in TSL.
   material.colorNode = mix(base.mul(0.75), base, uv().y.clamp(0, 1).pow(float(0.5)));
-  material.roughness = 0.9;
+  material.roughness = definition.materials.bark.roughness;
   material.metalness = 0;
   return material;
 }
 
 /**
- * Leaf material: a TSL node material lit from both sides, coloured by the per-leaf
- * vertex colours the Generator writes (the Seed's colour variation). Season colours: ticket #7.
+ * Leaf material: a TSL node material lit from both sides. Its colour is the Season Profile's
+ * leaf colour at Season 0, multiplied by the per-leaf vertex colours the Generator writes
+ * (the Seed's tint). Ticket #7 replaces the fixed colour with keyframes evaluated in TSL.
  */
-export function createLeafMaterial(): MeshStandardNodeMaterial {
+export function createLeafMaterial(definition: TreeDefinition): MeshStandardNodeMaterial {
   const material = new MeshStandardNodeMaterial();
   material.name = 'tree.js leaves';
+  material.color.set(definition.season.leafColor[0]!.value);
   material.vertexColors = true;
   material.side = DoubleSide;
-  material.roughness = 0.75;
+  material.roughness = definition.materials.leaf.roughness;
   material.metalness = 0;
   return material;
 }

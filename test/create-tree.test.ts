@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DoubleSide, Mesh, Object3D, type BufferGeometry } from 'three/webgpu';
 import { createTree, hashGeometry, TreeDefinitionError, UnsupportedRendererError, type Tree, type TreeAttributes } from '../src/index';
 
-const definition = { schemaVersion: 1 } as const;
+const definition = { schemaVersion: 2 } as const;
 
 function meshes(tree: Tree): Mesh[] {
   const out: Mesh[] = [];
@@ -50,6 +50,16 @@ describe('createTree', () => {
       expect(g.getAttribute('aOrigin').itemSize).toBe(3);
       expect(g.getAttribute('aLevel').count).toBe(g.getAttribute('position').count);
     }
+  });
+
+  it('colours leaves from the Season Profile (at Season 0) and the leaf material settings', () => {
+    const tree = createTree({
+      schemaVersion: 2,
+      season: { leafColor: [{ t: 0, value: '#336699' }] },
+      materials: { leaf: { roughness: 0.42 } },
+    });
+    expect(tree.leaves.material.color.getHexString()).toBe('336699');
+    expect(tree.leaves.material.roughness).toBe(0.42);
   });
 
   it('draws leaves double-sided with their per-leaf vertex colours', () => {

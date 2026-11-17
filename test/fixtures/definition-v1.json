@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "trunk": { "length": 5, "radius": 0.3, "taper": 0.5, "sides": 7, "sections": 6, "lengthVariation": 0.1, "bend": 0.05 },
+  "bark": { "color": "#55402a" }
+}

@@ -18,6 +18,8 @@ export interface SkeletonBranch {
   level: number;
   /** Where the branch sits on its parent, as a fraction (0..1) of the parent's length; 0 for the trunk. */
   attach: number;
+  /** Unit direction the branch leaves its parent in (before bend and gravity); straight up for the trunk. */
+  direction: Vec3;
   points: SkeletonPoint[];
 }
 
@@ -41,8 +43,12 @@ export interface SkeletonLeaf {
   normal: Vec3;
   /** Leaf length (base to tip). */
   size: number;
-  /** Leaf colour, sRGB channels 0..1 (the geometry's `colors` hold the linear values). */
-  color: Vec3;
+  /**
+   * The Seed's colour variation for this leaf: an RGB multiplier, each channel within
+   * 1 ± the Definition's `variation.color`. The leaf material multiplies its (Season) colour
+   * by it; the geometry's vertex `colors` hold the same values.
+   */
+  tint: Vec3;
 }
 
 export interface TreeSkeleton {

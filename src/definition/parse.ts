@@ -1,119 +1,76 @@
-import { DEFAULT_BRANCH_LEVEL, DEFAULT_DEFINITION } from './defaults';
-import { CURRENT_SCHEMA_VERSION, type TreeDefinition } from './types';
+import { MIGRATIONS } from './migrations';
+import { isObject, TreeDefinitionError, validateDefinition } from './schema';
+import { CURRENT_SCHEMA_VERSION, type DeepPartial, type TreeDefinition, type TreeDefinitionInput } from './types';
 
-/** Thrown for an invalid Tree Definition; `field` is the dotted path of the bad field. */
-export class TreeDefinitionError extends Error {
-  readonly field: string;
-  constructor(field: string, message: string) {
-    super(`Invalid Tree Definition: ${field} ${message}`);
-    this.name = 'TreeDefinitionError';
-    this.field = field;
+export { TreeDefinitionError } from './schema';
+
+/**
+ * Turns untrusted input into a complete, valid Tree Definition:
+ * - `input` is a Definition object (e.g. parsed JSON) or a JSON string;
+ * - older `schemaVersion`s are migrated to {@link CURRENT_SCHEMA_VERSION};
+ * - missing fields are filled from {@link DEFAULT_DEFINITION} (missing fields of a
+ *   `branches[i]` entry from {@link DEFAULT_BRANCH_LEVEL});
+ * - every field is validated; unknown fields are rejected.
+ * Throws {@link TreeDefinitionError} naming the first bad field (`field`, e.g. `branches[1].angle`).
+ * Never mutates `input`.
+ */
+export function parseDefinition(input: unknown): TreeDefinition {
+  let raw = input;
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw);
+    } catch (e) {
+      throw new TreeDefinitionError('(root)', `is not valid JSON: ${(e as Error).message}`);
+    }
   }
+  if (!isObject(raw)) throw new TreeDefinitionError('(root)', 'must be an object');
+  const version = raw.schemaVersion;
+  if (version === undefined) throw new TreeDefinitionError('schemaVersion', 'is missing');
+  if (!Number.isInteger(version) || (version as number) < 1) {
+    throw new TreeDefinitionError('schemaVersion', `must be an integer >= 1, got ${JSON.stringify(version)}`);
+  }
+  if ((version as number) > CURRENT_SCHEMA_VERSION) {
+    throw new TreeDefinitionError(
+      'schemaVersion',
+      `is ${version}, newer than this version of @casmo/tree.js supports (${CURRENT_SCHEMA_VERSION}); upgrade the library`,
+    );
+  }
+  for (let v = version as number; v < CURRENT_SCHEMA_VERSION; v++) raw = MIGRATIONS[v]!(raw as Record<string, unknown>);
+  return validateDefinition(raw as Record<string, unknown>);
 }
 
-type Rule = (value: unknown) => string | null;
+/** Changes to apply on top of a Definition: any subset of its fields (arrays replace as a whole). */
+export type DefinitionPatch = DeepPartial<Omit<TreeDefinition, 'schemaVersion'>>;
 
-const positive: Rule = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? null : 'must be a number > 0');
-const unit: Rule = (v) => (typeof v === 'number' && v >= 0 && v <= 1 ? null : 'must be a number from 0 to 1');
-const intAtLeast =
-  (min: number): Rule =>
-  (v) => (Number.isInteger(v) && (v as number) >= min ? null : `must be an integer >= ${min}`);
-const hexColor: Rule = (v) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? null : 'must be a colour like "#6b4a2b"');
+/**
+ * Starts from a Definition (e.g. a built-in Style) and changes a few parameters:
+ * objects are merged deeply, arrays and values replace. Returns a new, validated Definition.
+ *
+ * ```ts
+ * const tall = extendDefinition(broadleaf, { trunk: { length: 7 }, wind: { leaves: 1 } });
+ * ```
+ */
+export function extendDefinition(base: TreeDefinition | TreeDefinitionInput, patch: DefinitionPatch): TreeDefinition {
+  const parsed = parseDefinition(base);
+  if (!isObject(patch)) throw new TreeDefinitionError('(root)', 'patch must be an object');
+  return parseDefinition({ ...merge(parsed as unknown as Record<string, unknown>, patch), schemaVersion: CURRENT_SCHEMA_VERSION });
+}
 
-const between =
-  (min: number, max: number): Rule =>
-  (v) => (typeof v === 'number' && v >= min && v <= max ? null : `must be a number from ${min} to ${max}`);
-
-type Rules = Record<string, Rule>;
-
-const BRANCH_LEVEL_RULES: Rules = {
-  count: intAtLeast(0),
-  countVariation: unit,
-  start: unit,
-  length: positive,
-  lengthVariation: unit,
-  radius: unit,
-  taper: unit,
-  angle: between(0, 180),
-  angleVariation: between(0, 180),
-  bend: unit,
-  sides: intAtLeast(3),
-  sections: intAtLeast(1),
-};
-
-const RULES: Record<string, Rules> = {
-  trunk: {
-    length: positive,
-    radius: positive,
-    taper: unit,
-    sides: intAtLeast(3),
-    sections: intAtLeast(1),
-    lengthVariation: unit,
-    bend: unit,
-  },
-  bark: { color: hexColor },
-  leaves: {
-    count: intAtLeast(0),
-    start: unit,
-    size: positive,
-    sizeVariation: unit,
-    color: hexColor,
-    colorVariation: unit,
-  },
-};
-
-
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
+function merge(base: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...base };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) continue;
+    out[key] = isObject(value) && isObject(base[key]) ? merge(base[key], value) : value;
+  }
+  return out;
 }
 
 /**
- * Turns untrusted input (e.g. parsed JSON) into a complete, valid Tree Definition:
- * checks `schemaVersion`, fills defaults and validates every field.
- * Throws {@link TreeDefinitionError} naming the first bad field.
- *
- * Full schema, migration of older versions and richer validation: ticket #3.
+ * Fetches a Tree Definition JSON file (e.g. a Tree Editor export) and parses it with
+ * {@link parseDefinition}. Rejects with an Error for an HTTP error, or a TreeDefinitionError.
  */
-export function parseDefinition(input: unknown): TreeDefinition {
-  if (!isObject(input)) throw new TreeDefinitionError('(root)', 'must be an object');
-  if (input.schemaVersion !== CURRENT_SCHEMA_VERSION) {
-    throw new TreeDefinitionError(
-      'schemaVersion',
-      input.schemaVersion === undefined
-        ? 'is missing'
-        : `must be ${CURRENT_SCHEMA_VERSION}, got ${JSON.stringify(input.schemaVersion)}`,
-    );
-  }
-  const out: Record<string, unknown> = { schemaVersion: CURRENT_SCHEMA_VERSION };
-  for (const [section, rules] of Object.entries(RULES)) {
-    const defaults = (DEFAULT_DEFINITION as unknown as Record<string, Record<string, unknown>>)[section]!;
-    out[section] = parseSection(section, input[section], defaults, rules);
-  }
-  // Branch levels: a given array replaces the default levels; each level is filled from DEFAULT_BRANCH_LEVEL.
-  const branches = input.branches;
-  if (branches === undefined) {
-    out.branches = DEFAULT_DEFINITION.branches.map((level) => ({ ...level }));
-  } else if (!Array.isArray(branches)) {
-    throw new TreeDefinitionError('branches', 'must be an array of branch levels');
-  } else {
-    out.branches = branches.map((level: unknown, i) =>
-      parseSection(`branches.${i}`, level, { ...DEFAULT_BRANCH_LEVEL }, BRANCH_LEVEL_RULES),
-    );
-  }
-  return out as unknown as TreeDefinition;
-}
-
-function parseSection(
-  field: string,
-  given: unknown,
-  defaults: Record<string, unknown>,
-  rules: Rules,
-): Record<string, unknown> {
-  if (given !== undefined && !isObject(given)) throw new TreeDefinitionError(field, 'must be an object');
-  const merged: Record<string, unknown> = { ...defaults, ...given };
-  for (const [key, rule] of Object.entries(rules)) {
-    const problem = rule(merged[key]);
-    if (problem) throw new TreeDefinitionError(`${field}.${key}`, `${problem}, got ${JSON.stringify(merged[key])}`);
-  }
-  return merged;
+export async function fetchDefinition(url: string | URL, init?: RequestInit): Promise<TreeDefinition> {
+  const response = await fetch(url, init);
+  if (!response.ok) throw new Error(`Could not load Tree Definition from ${String(url)}: HTTP ${response.status}`);
+  return parseDefinition(await response.text());
 }

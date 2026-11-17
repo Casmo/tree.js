@@ -13,17 +13,17 @@ const LEAF_WIDTH = 0.5;
  * Places leaves on the outermost branches (the trunk if there are no branch levels).
  * Each leaf draws from `random.fork(leafId)`, so leaves never shift the branches and
  * one leaf never shifts another. The colour tint shared by the whole tree comes from
- * `random.fork('tint')`.
+ * `random.fork('tint')`. Only the 'card' leaf shape exists so far; Styles add 'clump' and 'needle'.
  */
 export function placeLeaves(definition: TreeDefinition, branches: SkeletonBranch[], random: Random): SkeletonLeaf[] {
   const { leaves } = definition;
   if (leaves.count === 0) return [];
   const outermost = definition.branches.length;
-  const base = hexToSrgb(leaves.color);
   // Per-tree tint and per-leaf brightness each take half the colour range, so together they stay within it.
-  const half = leaves.colorVariation / 2;
+  const half = definition.variation.color / 2;
   const tintRandom = random.fork('tint');
-  const tint = base.map(() => tintRandom.range(-half, half));
+  const treeTint = [0, 1, 2].map(() => tintRandom.range(-half, half));
+  const tilt = Math.min(leaves.angle, 180) * DEG;
 
   const out: SkeletonLeaf[] = [];
   for (const branch of branches) {
@@ -35,7 +35,6 @@ export function placeLeaves(definition: TreeDefinition, branches: SkeletonBranch
       const t = leaves.start + ((1 - leaves.start) * (i + r.range(0.1, 0.9))) / leaves.count;
       const at = sampleBranch(branch, frames, t);
       const azimuth = r.range(0, Math.PI * 2);
-      const tilt = r.range(35, 75) * DEG;
       const across = add(scale(at.normal, Math.cos(azimuth)), scale(at.binormal, Math.sin(azimuth)));
       const direction = normalize(add(scale(at.tangent, Math.cos(tilt)), scale(across, Math.sin(tilt))));
       // Card plane faces up as much as possible (sunlit side), with some random roll.
@@ -46,14 +45,14 @@ export function placeLeaves(definition: TreeDefinition, branches: SkeletonBranch
       const normal = normalize(add(scale(up, Math.cos(roll)), scale(side, Math.sin(roll))));
       const size = leaves.size * (1 + r.range(-leaves.sizeVariation, leaves.sizeVariation));
       const brightness = r.range(-half, half);
-      const color = base.map((c, k) => Math.min(1, Math.max(0, c * (1 + tint[k]! + brightness)))) as Vec3;
-      out.push({ id, branch: branch.path, index: i, attach: t, position: at.position, direction, normal, size, color });
+      const tint = treeTint.map((c) => 1 + c + brightness) as Vec3;
+      out.push({ id, branch: branch.path, index: i, attach: t, position: at.position, direction, normal, size, tint });
     }
   }
   return out;
 }
 
-/** One diamond-shaped card per leaf (4 vertices, 2 triangles), coloured per vertex. */
+/** One diamond-shaped card per leaf (4 vertices, 2 triangles); vertex colours carry the leaf's tint. */
 export function leafGeometry(leaves: SkeletonLeaf[], level: number, seed: number): GeometryBuffers {
   const positions = new Float32Array(leaves.length * 4 * 3);
   const normals = new Float32Array(leaves.length * 4 * 3);
@@ -73,26 +72,16 @@ export function leafGeometry(leaves: SkeletonLeaf[], level: number, seed: number
     ];
     const cornerUvs = [0.5, 0, 1, 0.4, 0.5, 1, 0, 0.4];
     const part = { level, attach: leaf.attach, random: partRandom(seed, leaf.id), origin: leaf.position };
-    const linear = leaf.color.map(srgbToLinear);
     for (let c = 0; c < 4; c++) {
       const v = l * 4 + c;
       positions.set(corners[c]!, v * 3);
       normals.set(leaf.normal, v * 3);
       uvs.set([cornerUvs[c * 2]!, cornerUvs[c * 2 + 1]!], v * 2);
-      colors.set(linear, v * 3);
+      colors.set(leaf.tint, v * 3);
       writePart(attributes, v, part, cornerUvs[c * 2 + 1]!);
     }
     const v0 = l * 4;
     indices.set([v0, v0 + 1, v0 + 2, v0, v0 + 2, v0 + 3], l * 6);
   });
   return { positions, normals, uvs, colors, indices, attributes };
-}
-
-function hexToSrgb(hex: string): Vec3 {
-  const n = parseInt(hex.slice(1), 16);
-  return [((n >> 16) & 0xff) / 255, ((n >> 8) & 0xff) / 255, (n & 0xff) / 255];
-}
-
-function srgbToLinear(c: number): number {
-  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
 }

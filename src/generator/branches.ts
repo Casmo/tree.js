@@ -4,13 +4,14 @@ import { branchFrames, pathLength, sampleBranch } from './frames';
 import type { SkeletonBranch, SkeletonPoint, Vec3 } from './types';
 import { add, normalize, scale } from './vec';
 
-const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const DEG = Math.PI / 180;
+/** How far `gravity` = ±1 turns a branch over its whole length (sum of per-section pulls). */
+const GRAVITY_PER_BRANCH = 1.5;
 
 /**
  * Grows all branching levels below the trunk, breadth first (level by level).
  *
- * Branch path stability (ADR 0003): a parent's child count comes from `random.fork(parentPath)`
+ * Branch path stability (ADR 0003): a parent's spiral phase comes from `random.fork(parentPath)`
  * and each child's shape from `random.fork(childPath)`. So a branch depends only on its
  * ancestors and its own path, never on its siblings' subtrees, on deeper levels or on leaves.
  */
@@ -29,9 +30,8 @@ export function buildBranches(definition: TreeDefinition, trunk: SkeletonBranch,
 }
 
 function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, random: Random): SkeletonBranch[] {
-  const parentRandom = random.fork(parent.path);
-  const count = Math.max(0, Math.round(level.count * (1 + parentRandom.range(-level.countVariation, level.countVariation))));
-  const azimuth0 = parentRandom.range(0, Math.PI * 2);
+  const count = level.count;
+  const azimuth0 = random.fork(parent.path).range(0, Math.PI * 2);
   const frames = branchFrames(parent);
   const parentLength = pathLength(parent);
 
@@ -39,13 +39,16 @@ function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, rand
   for (let i = 0; i < count; i++) {
     const path = `${parent.path}.${i}`;
     const r = random.fork(path);
-    const t = level.start + ((1 - level.start) * (i + r.range(0.15, 0.85))) / count;
+    const t = level.start + ((level.end - level.start) * (i + r.range(0.15, 0.85))) / count;
     const at = sampleBranch(parent, frames, t);
 
-    const angle = Math.min(Math.max(level.angle + r.range(-level.angleVariation, level.angleVariation), 0), 180) * DEG;
-    const azimuth = azimuth0 + i * GOLDEN_ANGLE + r.range(-0.3, 0.3);
+    const angle = Math.min(level.angle * (1 + r.range(-level.angleVariation, level.angleVariation)), 180) * DEG;
+    const azimuth = azimuth0 + i * level.spiral * DEG;
     const across = add(scale(at.normal, Math.cos(azimuth)), scale(at.binormal, Math.sin(azimuth)));
-    let direction = normalize(add(scale(at.tangent, Math.cos(angle)), scale(across, Math.sin(angle))));
+    const start = normalize(add(scale(at.tangent, Math.cos(angle)), scale(across, Math.sin(angle))));
+    // Gravity bends the branch up (+) or down (-) a little more with every section.
+    const pull: Vec3 = [0, (level.gravity * GRAVITY_PER_BRANCH) / level.sections, 0];
+    let direction = start;
 
     const length = parentLength * level.length * (1 + r.range(-level.lengthVariation, level.lengthVariation));
     const step = length / level.sections;
@@ -57,10 +60,10 @@ function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, rand
       points.push({ position, radius: baseRadius * (1 + (level.taper - 1) * (s / level.sections)) });
       if (s === level.sections) break;
       const wander: Vec3 = [r.range(-1, 1), r.range(-1, 1), r.range(-1, 1)];
-      direction = normalize(add(direction, scale(wander, level.bend)));
+      direction = normalize(add(add(direction, scale(wander, level.bend)), pull));
       position = add(position, scale(direction, step));
     }
-    children.push({ path, parent: parent.path, level: parent.level + 1, attach: t, points });
+    children.push({ path, parent: parent.path, level: parent.level + 1, attach: t, direction: start, points });
   }
   return children;
 }

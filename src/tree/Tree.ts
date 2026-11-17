@@ -51,7 +51,7 @@ export class Tree extends Group {
     this.data = data;
 
     this.wood = treeMesh('wood', toBufferGeometry(data.wood), createBarkMaterial(definition));
-    this.leaves = treeMesh('leaves', toBufferGeometry(data.leaves), createLeafMaterial());
+    this.leaves = treeMesh('leaves', toBufferGeometry(data.leaves), createLeafMaterial(definition));
     this.add(this.wood, this.leaves);
   }
 
