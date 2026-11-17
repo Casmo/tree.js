@@ -202,6 +202,7 @@ export interface TreeDefinition {
   schemaVersion: typeof CURRENT_SCHEMA_VERSION;
   /** Optional human-readable name. */
   name: string;
+  /** 'conifer': the branches from the trunk shrink towards its tip (a cone); 'broadleaf': they don't. */
   form: TreeForm;
   trunk: TrunkDefinition;
   /** Branching levels below the trunk (0..{@link MAX_BRANCH_LEVELS} entries). */

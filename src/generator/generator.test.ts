@@ -361,3 +361,24 @@ describe('leaf shapes', () => {
     expect(nearest).toBeLessThan(1e-5);
   });
 });
+
+describe('Forms', () => {
+  const crown = { branches: [{ count: 12, start: 0.2, end: 0.95, lengthVariation: 0, angleVariation: 0, bend: 0 }] };
+  const lengths = (form: 'broadleaf' | 'conifer') =>
+    generateTree(parseDefinition({ schemaVersion: 2, form, trunk: { bend: 0 }, ...crown }), 4)
+      .skeleton.branches.filter((b) => b.level === 1)
+      .map((b) => ({ attach: b.attach, length: pathLength(b) }));
+
+  it('a conifer grows a cone: branches from the trunk get shorter towards the top', () => {
+    const branches = lengths('conifer');
+    for (let i = 1; i < branches.length; i++) expect(branches[i]!.length).toBeLessThan(branches[i - 1]!.length);
+    expect(branches.at(-1)!.length).toBeLessThan(branches[0]!.length * 0.3);
+    // The lowest branch keeps (about) the declared length.
+    expect(branches[0]!.length).toBeGreaterThan(lengths('broadleaf')[0]!.length * 0.9);
+  });
+
+  it('a broadleaf keeps the declared branch length all the way up', () => {
+    const branches = lengths('broadleaf');
+    expect(branches.at(-1)!.length).toBeCloseTo(branches[0]!.length, 5);
+  });
+});
