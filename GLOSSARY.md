@@ -40,6 +40,10 @@ _Avoid_: Post preset, filter
 A static export of one tree at a fixed Seed, Growth and Season, with no Growth, Season or Wind left to change.
 _Avoid_: Static mesh, snapshot
 
+**Sculpt**:
+A hand edit made in the Tree Editor to one branch or leaf area of the tree produced by one specific Seed; it has no effect on any other Seed.
+_Avoid_: Override, tweak, manual edit
+
 **Forest**:
 Many trees of one Tree Definition placed together, drawn from a few shared Variants; each tree keeps its own look when others are added or removed.
 _Avoid_: Group, scatter, instances
