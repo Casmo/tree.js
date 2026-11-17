@@ -21,6 +21,20 @@ const BRANCH_AMPLITUDE = 0.1;
 const LEAF_AMPLITUDE = 0.2;
 
 /**
+ * Overrides for trees that are not one object each (Forest instances): the Wind direction in
+ * the tree's own space and the tree's phase (radians), e.g. from per-instance attributes.
+ */
+export interface WindFrame {
+  direction?: Node<'vec3'>;
+  phase?: Node<'float'>;
+}
+
+/** The scene Wind direction in the rendered object's space (rotation only, normalized). */
+export function objectWindDirection(wind: Wind): Node<'vec3'> {
+  return modelWorldMatrixInverse.mul(vec4(wind.uniforms.direction, 0)).xyz.normalize();
+}
+
+/**
  * TSL node: the Wind displacement (vec3, object space) of each vertex, from the per-vertex
  * `aWind` weights (trunk sway, branch sway, leaf flutter), the tree's Wind response and the
  * scene Wind. It only depends on geometry attributes and uniforms, so it adds onto any other
@@ -31,17 +45,18 @@ const LEAF_AMPLITUDE = 0.2;
  *   plus a little cross-wind motion;
  * - leaves: flutter along their normal, more at the tip.
  * All of it is scaled by slow gusts. Wind direction is world space; it is turned into the tree's
- * object space (rotation only, so a scaled-up tree sways proportionally more).
+ * object space (rotation only, so a scaled-up tree sways proportionally more). `frame` replaces
+ * that direction and the response's phase (see {@link WindFrame}).
  */
-export function windOffset(wind: Wind, response: WindResponse): Node<'vec3'> {
+export function windOffset(wind: Wind, response: WindResponse, frame: WindFrame = {}): Node<'vec3'> {
   const weights = attribute('aWind', 'vec3');
   const random = attribute('aRandom', 'float');
   const origin = attribute('aOrigin', 'vec3');
   const r = response.uniforms;
   const strength = wind.uniforms.strength;
 
-  const t = wind.uniforms.time.mul(r.frequency).add(r.phase);
-  const direction = modelWorldMatrixInverse.mul(vec4(wind.uniforms.direction, 0)).xyz.normalize();
+  const t = wind.uniforms.time.mul(r.frequency).add(frame.phase ?? r.phase);
+  const direction = (frame.direction ?? objectWindDirection(wind)).normalize();
   const across = cross(direction, vec3(0, 1, 0));
   // 0.6 .. 1: two slow, incommensurate waves.
   const gust = sin(t.mul(0.37)).add(sin(t.mul(0.91).add(1.7))).mul(0.1).add(0.8);

@@ -38,3 +38,4 @@ button.remove { margin: 0; padding: 0 6px; font-size: 11px; }
 .keyframe .control label:empty { display: none; }
 .control.color { grid-template-columns: 7.5em 3em 1fr; }
 .control.color output { text-align: left; }
+.history { display: flex; padding: 0 12px 4px; }
