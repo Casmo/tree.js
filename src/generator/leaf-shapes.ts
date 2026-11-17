@@ -1,3 +1,4 @@
+import { cos, sin } from '../math';
 import type { LeafShape, VariationDefinition } from '../definition';
 import { leafSeasonAttribute } from '../season/profile';
 import { createAttributes, partRandom, writePart } from './attributes';
@@ -72,7 +73,7 @@ function needleTemplate(): SolidTemplate {
   const triangles: [number, number, number][] = [];
   for (let s = 0; s < NEEDLE_SIDES; s++) {
     const angle = (s / NEEDLE_SIDES) * Math.PI * 2;
-    const radial: Vec3 = [Math.cos(angle), Math.sin(angle), 0];
+    const radial: Vec3 = [cos(angle), sin(angle), 0];
     positions.push([radial[0] * NEEDLE_RADIUS, radial[1] * NEEDLE_RADIUS, NEEDLE_WAIST]);
     normals.push(radial);
     const a = 2 + s;

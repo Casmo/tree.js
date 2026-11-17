@@ -1,3 +1,4 @@
+import { cos, sin } from '../math';
 import type { BranchLevelDefinition, TreeDefinition } from '../definition';
 import type { Random } from '../random';
 import { branchFrames, pathLength, sampleBranch } from './frames';
@@ -51,8 +52,8 @@ function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, rand
 
     const angle = Math.min(level.angle * (1 + r.range(-level.angleVariation, level.angleVariation)), 180) * DEG;
     const azimuth = azimuth0 + i * level.spiral * DEG;
-    const across = add(scale(at.normal, Math.cos(azimuth)), scale(at.binormal, Math.sin(azimuth)));
-    const start = normalize(add(scale(at.tangent, Math.cos(angle)), scale(across, Math.sin(angle))));
+    const across = add(scale(at.normal, cos(azimuth)), scale(at.binormal, sin(azimuth)));
+    const start = normalize(add(scale(at.tangent, cos(angle)), scale(across, sin(angle))));
     // Gravity bends the branch up (+) or down (-) a little more with every section.
     const pull: Vec3 = [0, (level.gravity * GRAVITY_PER_BRANCH) / level.sections, 0];
     let direction = start;

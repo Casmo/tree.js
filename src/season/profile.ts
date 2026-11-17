@@ -1,5 +1,6 @@
 import type { HexColor, Keyframe, SeasonProfileDefinition, VariationDefinition } from '../definition';
 import { hashCombine, hashString, seedToUint32 } from '../random';
+import { pow } from '../math';
 
 /**
  * Pure JS evaluator of the Season Profile: the CPU twin of the TSL nodes in `./nodes.ts`.
@@ -43,7 +44,7 @@ export function wrapSeason(s: number): number {
 
 /** sRGB transfer curve -> linear, per channel (as three.js `SRGBToLinear`). */
 export function srgbToLinear(c: number): number {
-  return c < 0.04045 ? c * 0.0773993808 : Math.pow(c * 0.9478672986 + 0.0521327014, 2.4);
+  return c < 0.04045 ? c * 0.0773993808 : pow(c * 0.9478672986 + 0.0521327014, 2.4);
 }
 
 /** `#rrggbb` -> linear RGB. */

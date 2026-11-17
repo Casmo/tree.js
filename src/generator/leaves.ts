@@ -1,3 +1,4 @@
+import { cos, sin } from '../math';
 import type { TreeDefinition, VariationDefinition } from '../definition';
 import { leafSeasonAttribute } from '../season/profile';
 import type { Random } from '../random';
@@ -37,14 +38,14 @@ export function placeLeaves(definition: TreeDefinition, branches: SkeletonBranch
       const t = leaves.start + ((1 - leaves.start) * (i + r.range(0.1, 0.9))) / leaves.count;
       const at = sampleBranch(branch, frames, t);
       const azimuth = r.range(0, Math.PI * 2);
-      const across = add(scale(at.normal, Math.cos(azimuth)), scale(at.binormal, Math.sin(azimuth)));
-      const direction = normalize(add(scale(at.tangent, Math.cos(tilt)), scale(across, Math.sin(tilt))));
+      const across = add(scale(at.normal, cos(azimuth)), scale(at.binormal, sin(azimuth)));
+      const direction = normalize(add(scale(at.tangent, cos(tilt)), scale(across, sin(tilt))));
       // Card plane faces up as much as possible (sunlit side), with some random roll.
       const side0 = cross(direction, [0, 1, 0]);
       const side = dot(side0, side0) > 1e-6 ? normalize(side0) : perpendicular(direction);
       const roll = r.range(-0.4, 0.4);
       const up = cross(side, direction);
-      const normal = normalize(add(scale(up, Math.cos(roll)), scale(side, Math.sin(roll))));
+      const normal = normalize(add(scale(up, cos(roll)), scale(side, sin(roll))));
       const size = leaves.size * (1 + r.range(-leaves.sizeVariation, leaves.sizeVariation));
       const brightness = r.range(-half, half);
       const tint = treeTint.map((c) => 1 + c + brightness) as Vec3;

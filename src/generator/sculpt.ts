@@ -1,3 +1,4 @@
+import { cos, sin } from '../math';
 import type { Sculpt, TreeDefinition } from '../definition';
 import { partRandom } from './attributes';
 import type { SkeletonBranch, SkeletonLeaf, Vec3 } from './types';
@@ -67,7 +68,7 @@ export function sculptLeaves(leaves: SkeletonLeaf[], sculpts: Sculpt[], seed: nu
 
 /** The rotation of a three.js `Euler(x, y, z, 'XYZ')` (matrix Rx * Ry * Rz) as a function on vectors. */
 function eulerXYZ([x, y, z]: Vec3): (v: Vec3) => Vec3 {
-  const [a, b, c, d, e, f] = [Math.cos(x), Math.sin(x), Math.cos(y), Math.sin(y), Math.cos(z), Math.sin(z)];
+  const [a, b, c, d, e, f] = [cos(x), sin(x), cos(y), sin(y), cos(z), sin(z)];
   const [ae, af, be, bf] = [a * e, a * f, b * e, b * f];
   const m = [c * e, -c * f, d, af + be * d, ae - bf * d, -b * c, bf - ae * d, be + af * d, a * c];
   return ([vx, vy, vz]) => [

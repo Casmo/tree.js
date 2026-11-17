@@ -1,3 +1,4 @@
+import { cos, sin } from '../math';
 import { createAttributes, writePart, type PartInfo } from './attributes';
 import { branchFrames, pathLength } from './frames';
 import type { GeometryBuffers, GrowthWindow, SkeletonBranch, Vec3 } from './types';
@@ -37,7 +38,7 @@ export function sweepBranch(
     const { tangent, normal, binormal } = frames[r]!;
     for (let s = 0; s <= sides; s++) {
       const angle = ((s % sides) / sides) * Math.PI * 2;
-      const radial = add(scale(normal, Math.cos(angle)), scale(binormal, Math.sin(angle)));
+      const radial = add(scale(normal, cos(angle)), scale(binormal, sin(angle)));
       positions.set(add(position, scale(radial, radius)), v * 3);
       normals.set(normalize(add(radial, scale(tangent, slope))), v * 3);
       uvs.set([s / sides, r / (rings - 1)], v * 2);
