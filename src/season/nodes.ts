@@ -1,5 +1,5 @@
 import { Color, type NodeMaterial, type UniformNode } from 'three/webgpu';
-import { attribute, float, fract, mix, select, uniform, varying } from 'three/tsl';
+import { attribute, float, fract, mix, select, uniform, varying, vec4 } from 'three/tsl';
 import type { Keyframe, SeasonProfileDefinition } from '../definition';
 import { KEYFRAME_EPSILON } from './profile';
 
@@ -64,10 +64,11 @@ export function createSeasonNodes(
 }
 
 /**
- * Hooks Season into a leaf material: `colorNode` (times the vertex-colour tint) and
- * `maskNode`, which also cuts fallen leaves out of the shadow pass.
+ * Hooks Season into a leaf material: `colorNode` (times the vertex-colour tint, and times the
+ * material's existing `colorNode`, such as a leaf card texture with alpha) and `maskNode`, which
+ * also cuts fallen leaves out of the shadow pass.
  */
 export function applySeasonToLeafMaterial(material: NodeMaterial, nodes: SeasonNodes): void {
-  material.colorNode = nodes.color;
+  material.colorNode = material.colorNode ? vec4(nodes.color, 1).mul(material.colorNode as Node) : nodes.color;
   material.maskNode = nodes.visible;
 }

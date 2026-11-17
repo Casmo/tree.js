@@ -20,5 +20,10 @@ export function createTree(
 ): Tree {
   const parsed = parseDefinition(definition);
   const seed = options.seed ?? 0;
-  return new Tree(parsed, generateTree(parsed, seed), { growth: options.growth, wind: options.wind, season: options.season });
+  return new Tree(parsed, generateTree(parsed, seed), {
+    growth: options.growth,
+    wind: options.wind,
+    season: options.season,
+    textures: options.textures,
+  });
 }

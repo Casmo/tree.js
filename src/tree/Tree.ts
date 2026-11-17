@@ -2,6 +2,8 @@ import {
   BufferAttribute,
   BufferGeometry,
   Group,
+  InterleavedBuffer,
+  InterleavedBufferAttribute,
   Mesh,
   type Material,
   type MeshStandardNodeMaterial,
@@ -15,8 +17,34 @@ import { clampGrowth, growthPosition } from '../growth';
 import { createBarkMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createSeasonNodes, wrapSeason, type SeasonUniform } from '../season';
+import { textureReady, type TextureOptions } from '../textures';
 import { hashCombine, hashString, seedToUint32 } from '../random';
 import { applyWind, sceneWind, windOffset, Wind, WindResponse } from '../wind';
+
+/**
+ * The Generator's per-vertex part attributes (`aLevel`, `aSeason`, `aWind`, ...) go into one
+ * interleaved vertex buffer: WebGPU allows only 8 vertex buffers per draw by default, and a
+ * textured leaf already reads position, normal, uv and colour besides Growth, Season and Wind.
+ */
+function setPartAttributes(geometry: BufferGeometry, attributes: GeometryBuffers['attributes']): void {
+  const entries = Object.entries(attributes);
+  const stride = entries.reduce((sum, [, a]) => sum + a.itemSize, 0);
+  const count = geometry.getAttribute('position').count;
+  const data = new Float32Array(count * stride);
+  let offset = 0;
+  for (const [, { array, itemSize }] of entries) {
+    for (let v = 0; v < count; v++) {
+      for (let c = 0; c < itemSize; c++) data[v * stride + offset + c] = array[v * itemSize + c]!;
+    }
+    offset += itemSize;
+  }
+  const buffer = new InterleavedBuffer(data, stride);
+  offset = 0;
+  for (const [name, { itemSize }] of entries) {
+    geometry.setAttribute(name, new InterleavedBufferAttribute(buffer, itemSize, offset));
+    offset += itemSize;
+  }
+}
 
 function toBufferGeometry(buffers: GeometryBuffers): BufferGeometry {
   const geometry = new BufferGeometry();
@@ -24,9 +52,7 @@ function toBufferGeometry(buffers: GeometryBuffers): BufferGeometry {
   geometry.setAttribute('normal', new BufferAttribute(buffers.normals, 3));
   geometry.setAttribute('uv', new BufferAttribute(buffers.uvs, 2));
   if (buffers.colors) geometry.setAttribute('color', new BufferAttribute(buffers.colors, 3));
-  for (const [name, { array, itemSize }] of Object.entries(buffers.attributes)) {
-    geometry.setAttribute(name, new BufferAttribute(array, itemSize));
-  }
+  setPartAttributes(geometry, buffers.attributes);
   geometry.setIndex(new BufferAttribute(buffers.indices, 1));
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
@@ -50,6 +76,11 @@ export interface TreeOptions {
   season?: number;
   /** The Wind this tree sways with. Default: the scene-wide {@link sceneWind}. */
   wind?: Wind;
+  /**
+   * Where this tree's textures load from (base path / per-URL overrides); takes precedence over
+   * the app-wide `setTextureOptions`. Only Definitions with textures (e.g. the realistic Style) use it.
+   */
+  textures?: TextureOptions;
 }
 
 /**
@@ -75,6 +106,12 @@ export class Tree extends Group {
   /** This tree's response to the Wind, from `definition.wind`; `windResponse.set(...)` changes it live. */
   readonly windResponse: WindResponse;
 
+  /**
+   * Resolves once every texture of this tree has loaded (at once for a tree without textures);
+   * rejects if one fails. Await it before a first render that must show the textures.
+   */
+  readonly ready: Promise<void>;
+
   constructor(definition: TreeDefinition, data: TreeData, options: TreeOptions = {}) {
     super();
     this.name = 'Tree';
@@ -83,12 +120,15 @@ export class Tree extends Group {
     this.data = data;
 
     this.growthUniform = uniform(clampGrowth(options.growth ?? 1));
-    const bark = createBarkMaterial(definition);
-    const leaf = createLeafMaterial(definition);
+    const bark = createBarkMaterial(definition, options.textures);
+    const leaf = createLeafMaterial(definition, options.textures);
     bark.positionNode = growthPosition(this.growthUniform);
     leaf.positionNode = growthPosition(this.growthUniform);
     this.wood = treeMesh('wood', toBufferGeometry(data.wood), bark);
     this.leaves = treeMesh('leaves', toBufferGeometry(data.leaves), leaf);
+    const textures = [bark.map, bark.normalMap, leaf.map].filter((t) => t !== null);
+    this.ready = Promise.all(textures.map(textureReady)).then(() => undefined);
+    this.ready.catch(() => {}); // only reported to whoever awaits it
     this.add(this.wood, this.leaves);
 
     this.wind = options.wind ?? sceneWind;

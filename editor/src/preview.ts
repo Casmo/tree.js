@@ -33,6 +33,8 @@ export class Preview {
   private readonly container: HTMLElement;
   private readonly options: PreviewOptions;
   private frameRequested = false;
+  /** Trees whose textures are still loading. */
+  private pendingTextures = 0;
   private ready = false;
   private unsubscribe: () => void = () => {};
 
@@ -85,6 +87,20 @@ export class Preview {
         this.tree?.dispose();
         this.tree = tree;
         this.scene.add(tree);
+        // Textured Styles (realistic): draw again once the images are in. Until then the status stays
+        // 'loading' (see pendingTextures), so "rendered" means the tree as it really looks.
+        this.pendingTextures++;
+        tree.ready.then(
+          () => {
+            this.pendingTextures--;
+            this.requestRender();
+          },
+          (error: unknown) => {
+            this.pendingTextures--;
+            if (this.tree === tree) this.options.onStatus?.('error', error instanceof Error ? error : new Error(String(error)));
+            else this.requestRender();
+          },
+        );
         // Re-frame only for a new starting point, not while the designer tweaks parameters.
         if (!previous || state.source !== previous.source) this.frame(tree);
       } else {
@@ -110,7 +126,7 @@ export class Preview {
         .then(
           () => {
             this.renders++;
-            if (!this.frameRequested) this.options.onStatus?.('rendered');
+            if (!this.frameRequested && this.pendingTextures === 0) this.options.onStatus?.('rendered');
           },
           (error: unknown) => this.options.onStatus?.('error', error instanceof Error ? error : new Error(String(error))),
         );

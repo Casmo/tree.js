@@ -6,18 +6,30 @@
 //   ?growth=<0..1>  Growth (default 1, fully grown); only a uniform changes
 //   ?season=<0..1>  Season (default 0.37, summer)
 //   ?form=conifer  an evergreen conifer instead of the deciduous broadleaf
-//   ?style=low-poly|stylized  grow that built-in Style's Definition for the form (loaded with a dynamic import)
+//   ?style=low-poly|stylized|realistic  grow that built-in Style's Definition for the form (loaded with a dynamic import)
+//   ?textureBase=<url>  load relative texture URLs (the realistic Style's) from this base path / CDN
+//   ?barkMap=<url>&leafMap=<url>  use these textures instead of the Definition's (custom textures)
 //   ?wind=<strength>  scene-wide Wind strength (default 0 = calm); animates unless windTime is given
 //   ?windTime=<s>  pin the Wind clock (deterministic screenshots)
 //   ?shadows=1  enable shadow mapping (sun casts, ground receives)
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
-import { createTree, sceneWind, SEASON_PROFILES, type TreeDefinition, type TreeDefinitionInput, type TreeStyle } from '../../src/index';
+import {
+  createTree,
+  extendDefinition,
+  sceneWind,
+  SEASON_PROFILES,
+  setTextureOptions,
+  type TreeDefinition,
+  type TreeDefinitionInput,
+  type TreeStyle,
+} from '../../src/index';
 
 // Built-in Styles are separate chunks, fetched only when asked for.
 const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
   'low-poly': () => import('../../src/styles/low-poly'),
   stylized: () => import('../../src/styles/stylized'),
+  realistic: () => import('../../src/styles/realistic'),
 };
 
 declare global {
@@ -113,8 +125,24 @@ function frame(object: THREE.Object3D): void {
   camera.lookAt(centre);
 }
 
+/** `?barkMap=` / `?leafMap=`: custom textures on top of the chosen Definition. */
+function withCustomTextures(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
+  const barkMap = params.get('barkMap');
+  const leafMap = params.get('leafMap');
+  if (!barkMap && !leafMap) return definition;
+  return extendDefinition(definition, {
+    materials: {
+      ...(barkMap ? { bark: { color: '#ffffff', map: barkMap, normalMap: null } } : {}),
+      ...(leafMap ? { leaf: { map: leafMap } } : {}),
+    },
+  });
+}
+
 async function main(): Promise<void> {
-  const tree = createTree(await loadDefinition(), { seed, growth, season });
+  const textureBase = params.get('textureBase');
+  if (textureBase) setTextureOptions({ basePath: textureBase });
+  const tree = createTree(withCustomTextures(await loadDefinition()), { seed, growth, season });
+  await tree.ready; // textures (realistic Style, custom maps) are loaded before the first frame
   scene.add(tree);
   if (params.get('style')) frame(tree);
 
