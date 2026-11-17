@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Euler, Quaternion, Vector3 } from 'three/webgpu';
 import { generateTree, hashTreeData, parseDefinition, type SkeletonBranch, type TreeDefinition } from '@casmo/tree.js';
-import { deleteBranch, moveBranch } from './sculpts';
+import { deleteBranch, moveBranch, paintLeaves } from './sculpts';
 
 const def = parseDefinition({ schemaVersion: 2 });
 const paths = (definition: typeof def, seed: number) => generateTree(definition, seed).skeleton.branches.map((b) => b.path);
@@ -43,5 +43,26 @@ describe('Sculpt edits', () => {
     }
     // Repeated moves of the same branch stay one Sculpt where that gives the same tree.
     expect(definition.sculpts.length).toBeLessThan(turns.length);
+  });
+
+  it('painting sets the leaf coverage of branches; painting full coverage back restores the tree', () => {
+    const seed = 3;
+    const leafy = generateTree(def, seed).skeleton.leaves;
+    const branches = [...new Set(leafy.map((l) => l.branch))].slice(0, 6);
+    const on = (definition: TreeDefinition) =>
+      generateTree(definition, seed).skeleton.leaves.filter((l) => branches.includes(l.branch)).length;
+    const before = on(def);
+
+    const bare = paintLeaves(def, seed, branches, 0);
+    expect(on(bare)).toBe(0);
+    expect(generateTree(bare, seed).skeleton.leaves.length).toBe(leafy.length - before);
+    const half = paintLeaves(bare, seed, branches, 0.5);
+    expect(on(half)).toBeGreaterThan(0);
+    expect(on(half)).toBeLessThan(before);
+    expect(half.sculpts).toHaveLength(branches.length); // repainting replaces, it does not pile up
+
+    const restored = paintLeaves(half, seed, branches, 1);
+    expect(restored.sculpts).toEqual([]);
+    expect(hashTreeData(generateTree(restored, seed))).toBe(hashTreeData(generateTree(def, seed)));
   });
 });

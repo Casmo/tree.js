@@ -54,3 +54,24 @@ function eulerTuple(rotation: Quaternion): [number, number, number] {
   const euler = new Euler().setFromQuaternion(rotation, 'XYZ');
   return [euler.x, euler.y, euler.z];
 }
+
+/**
+ * Paints the leaf coverage (0 = bare .. 1 = all leaves) of the given branches (and everything on them)
+ * on `seed`. Painting a branch again replaces its earlier paint; paint that changes nothing (e.g.
+ * full coverage where no other paint applies) is left out, so the Definition stays tidy.
+ */
+export function paintLeaves(definition: TreeDefinition, seed: number, paths: readonly string[], coverage: number): TreeDefinition {
+  let sculpts = definition.sculpts;
+  for (const path of paths) {
+    sculpts = sculpts.filter((s) => !(s.seed === seed && s.action === 'leaves' && s.path === path));
+    if (leafCoverage(sculpts, seed, path) !== coverage) sculpts = [...sculpts, { seed, path, action: 'leaves', coverage }];
+  }
+  return sculpts === definition.sculpts ? definition : withSculpts(definition, sculpts);
+}
+
+/** The painted leaf coverage of branch `path` on `seed` (the last paint covering it wins; 1 if unpainted). */
+export function leafCoverage(sculpts: readonly Sculpt[], seed: number, path: string): number {
+  let coverage = 1;
+  for (const s of sculpts) if (s.seed === seed && s.action === 'leaves' && inSubtree(path, s.path)) coverage = s.coverage;
+  return coverage;
+}
