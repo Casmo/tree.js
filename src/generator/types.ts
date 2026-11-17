@@ -81,6 +81,11 @@ export interface TreeAttributes {
   /** Base point of the part (vec3): pivot for growing and swaying it. */
   aOrigin: VertexAttribute;
   /**
+   * Season (vec3): x = timing shift from the Seed (within ± `variation.season`), y = coverage rank,
+   * z = blossom rank (0..1, leaves only; 0 on wood). See `leafSeason` in src/season.
+   */
+  aSeason: VertexAttribute;
+  /**
    * Wind weights (vec3, each 0..1): x = trunk sway (pinned at the ground, 1 at the trunk top),
    * y = branch sway (0 on the trunk, rising towards the outermost twigs), z = leaf flutter (0 on wood,
    * 0 at a leaf base, 1 at its tip). See `generator/wind.ts`.

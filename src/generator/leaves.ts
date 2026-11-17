@@ -1,4 +1,5 @@
-import type { TreeDefinition } from '../definition';
+import type { TreeDefinition, VariationDefinition } from '../definition';
+import { leafSeasonAttribute } from '../season/profile';
 import type { Random } from '../random';
 import { createAttributes, partRandom, writePart } from './attributes';
 import { branchFrames, sampleBranch } from './frames';
@@ -58,6 +59,7 @@ export function leafGeometry(
   leaves: SkeletonLeaf[],
   level: number,
   seed: number,
+  variation: Pick<VariationDefinition, 'season'> = { season: 0 },
   branchSway: ReadonlyMap<string, PartSway> = new Map(),
 ): GeometryBuffers {
   const positions = new Float32Array(leaves.length * 4 * 3);
@@ -82,6 +84,7 @@ export function leafGeometry(
       attach: leaf.attach,
       random: partRandom(seed, leaf.id),
       origin: leaf.position,
+      season: leafSeasonAttribute(seed, variation, leaf.id),
       sway: leafSway(branchSway.get(leaf.branch) ?? NO_SWAY, leaf.attach),
     };
     for (let c = 0; c < 4; c++) {

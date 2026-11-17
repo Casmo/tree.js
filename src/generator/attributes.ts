@@ -13,6 +13,8 @@ export interface PartInfo {
   attach: number;
   random: number;
   origin: Vec3;
+  /** `aSeason` (vec3): Season timing shift, coverage rank, blossom rank (see src/season). */
+  season: Vec3;
   /** Wind weights of the part (branch sway, leaf flutter); trunk sway is filled in from heights. */
   sway?: PartSway;
 }
@@ -26,6 +28,7 @@ export function createAttributes(vertexCount: number): TreeAttributes {
     aAttach: scalar(),
     aRandom: scalar(),
     aOrigin: { array: new Float32Array(vertexCount * 3), itemSize: 3 },
+    aSeason: { array: new Float32Array(vertexCount * 3), itemSize: 3 },
     aWind: { array: new Float32Array(vertexCount * 3), itemSize: 3 },
   };
 }
@@ -37,6 +40,7 @@ export function writePart(attributes: TreeAttributes, v: number, part: PartInfo,
   attributes.aAttach.array[v] = part.attach;
   attributes.aRandom.array[v] = part.random;
   attributes.aOrigin.array.set(part.origin, v * 3);
+  attributes.aSeason.array.set(part.season, v * 3);
   const sway = part.sway ?? NO_SWAY;
   attributes.aWind.array[v * 3 + 1] = Math.min(sway.base + sway.gain * along, 1);
   attributes.aWind.array[v * 3 + 2] = sway.flutter ? along : 0;
