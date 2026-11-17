@@ -40,6 +40,14 @@ _Avoid_: Post preset, filter
 A static export of one tree at a fixed Seed, Growth and Season, with no Growth, Season or Wind left to change.
 _Avoid_: Static mesh, snapshot
 
+**Forest**:
+Many trees of one Tree Definition placed together, drawn from a few shared Variants; each tree keeps its own look when others are added or removed.
+_Avoid_: Group, scatter, instances
+
+**Variant**:
+One Seed's tree shared by many trees in a Forest.
+_Avoid_: Copy, clone
+
 **Tree Editor**:
 The web app in which a person designs a Tree Definition and exports it.
 _Avoid_: Designer, builder, playground
