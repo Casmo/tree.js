@@ -18,3 +18,4 @@ export {
 export { createRandom, hashString, hashCombine, type Random } from './random';
 export { createBarkMaterial, createLeafMaterial } from './materials';
 export { assertWebGPURenderer, UnsupportedRendererError } from './renderer';
+export { Wind, sceneWind, type WindDirection, type WindOptions } from './wind';
