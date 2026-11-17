@@ -84,14 +84,14 @@ test('Growth and Season sliders update the preview live; Seed regenerates', asyn
     });
 
   const screenshotBefore = await page.locator('#preview canvas').screenshot();
-  await page.getByLabel('Growth').fill('0.4');
-  await page.getByLabel('Season').fill('0.7');
+  await page.getByLabel('Growth', { exact: true }).fill('0.4');
+  await page.getByLabel('Season', { exact: true }).fill('0.7');
   await waitForEditor(page);
   expect(await readTree()).toMatchObject({ id: before.treeId, growth: 0.4, season: 0.7 }); // uniforms only
   expect(await page.locator('#preview canvas').screenshot()).not.toEqual(screenshotBefore);
   await expect(page.locator('#preview canvas')).toHaveScreenshot('growth-0.4-season-0.7.png');
 
-  await page.getByLabel('Seed').fill('7');
+  await page.getByLabel('Seed', { exact: true }).fill('7');
   await waitForEditor(page);
   const regenerated = await readTree();
   expect(regenerated).toMatchObject({ seed: 7, growth: 0.4, season: 0.7 });
