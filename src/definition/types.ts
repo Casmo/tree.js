@@ -1,17 +1,39 @@
-/** Current Tree Definition schema version. Bump (with a migration) when the format changes. */
-export const CURRENT_SCHEMA_VERSION = 1;
+/**
+ * Tree Definition schema (see GLOSSARY.md). Plain JSON: it is what the Tree Editor exports
+ * and what `createTree` consumes. Every field is documented with its unit and allowed range;
+ * the runtime rules live in `schema.ts` and the defaults in `defaults.ts`.
+ *
+ * Conventions: lengths in metres (scene units), angles in degrees, colours as `#rrggbb`,
+ * "fraction" fields are 0..1. Fields named `*Variation` are Seed ranges: the Seed picks a
+ * value within ± that fraction of the base value.
+ */
 
-/** Trunk parameters. Lengths are in metres (scene units). */
+/**
+ * Current Tree Definition schema version. Bump it, and add a migration in `migrations.ts`,
+ * whenever the format changes or a generator change would alter existing trees (ADR 0003).
+ */
+export const CURRENT_SCHEMA_VERSION = 2;
+
+/** `#rrggbb` colour string. */
+export type HexColor = string;
+
+/** [x, y, z] */
+export type Vec3Tuple = [number, number, number];
+
+/** The overall kind of tree a Definition grows. */
+export type TreeForm = 'broadleaf' | 'conifer';
+
+/** Trunk parameters (branch level 0). */
 export interface TrunkDefinition {
-  /** Trunk length at full Growth. */
+  /** Trunk length at full Growth, metres (> 0). */
   length: number;
-  /** Radius at the base. */
+  /** Radius at the base, metres (> 0). */
   radius: number;
   /** Tip radius as a fraction of the base radius (0 = point, 1 = cylinder). */
   taper: number;
-  /** Number of sides around the trunk (>= 3). */
+  /** Number of sides around the trunk (integer >= 3). */
   sides: number;
-  /** Number of sections along the trunk (>= 1). */
+  /** Number of sections along the trunk (integer >= 1). */
   sections: number;
   /** Seed range: the Seed scales length by up to ± this fraction (0..1). */
   lengthVariation: number;
@@ -19,22 +41,192 @@ export interface TrunkDefinition {
   bend: number;
 }
 
-export interface BarkDefinition {
-  /** Base bark colour, `#rrggbb`. */
-  color: string;
+/**
+ * One level of branching. `branches[0]` grows from the trunk, `branches[1]` from the
+ * level-1 branches, and so on (at most {@link MAX_BRANCH_LEVELS} levels).
+ */
+export interface BranchLevelDefinition {
+  /** Child branches per parent branch (integer >= 0). */
+  count: number;
+  /** Where along the parent children start, as a fraction of the parent length (0..1). */
+  start: number;
+  /** Where along the parent children stop, as a fraction of the parent length (0..1, >= start). */
+  end: number;
+  /** Angle between parent and child direction, degrees (0..180). */
+  angle: number;
+  /** Seed range: ± this fraction of `angle` (0..1). */
+  angleVariation: number;
+  /** Rotation around the parent between successive children, degrees (0..360; 137.5 = golden angle). */
+  spiral: number;
+  /** Child length as a fraction of the parent's length (> 0). */
+  length: number;
+  /** Seed range: ± this fraction of `length` (0..1). */
+  lengthVariation: number;
+  /** Child base radius as a fraction of the parent's radius where it attaches (0..1). */
+  radius: number;
+  /** Tip radius as a fraction of the base radius (0..1). */
+  taper: number;
+  /** Number of sides around each branch (integer >= 3). */
+  sides: number;
+  /** Number of sections along each branch (integer >= 1). */
+  sections: number;
+  /** Seed range: maximum sideways drift per section, as a fraction of the section length (0..1). */
+  bend: number;
+  /** Upward (+) or downward (−) pull on the branch tip (−1..1). */
+  gravity: number;
+}
+
+/** Maximum number of branching levels below the trunk. */
+export const MAX_BRANCH_LEVELS = 4;
+
+/** How a leaf is drawn: a flat card, a rounded clump of foliage, or a needle cluster. */
+export type LeafShape = 'card' | 'clump' | 'needle';
+
+/** Leaves, placed on the last branching level (or the trunk if there are no branches). */
+export interface LeavesDefinition {
+  /** Leaves per terminal branch (integer >= 0; 0 = no leaves). */
+  count: number;
+  /** Leaf shape. */
+  shape: LeafShape;
+  /** Leaf size (width and length of a card / clump diameter), metres (> 0). */
+  size: number;
+  /** Seed range: ± this fraction of `size` (0..1). */
+  sizeVariation: number;
+  /** Where along the terminal branch leaves start, as a fraction of its length (0..1). */
+  start: number;
+  /** Angle between branch and leaf, degrees (0..180). */
+  angle: number;
+}
+
+/** Material shading model. Low-poly uses `flat`, stylized `toon`, realistic `standard`. */
+export type Shading = 'standard' | 'flat' | 'toon';
+
+export interface BarkMaterialDefinition {
+  /** Base bark colour. */
+  color: HexColor;
+  /** PBR roughness (0..1). */
+  roughness: number;
+  /** Colour texture URL (resolved against the app's texture base path), or null for none. */
+  map: string | null;
+  /** Normal map URL, or null for none. */
+  normalMap: string | null;
+}
+
+export interface LeafMaterialDefinition {
+  /** PBR roughness (0..1). Leaf colour comes from the Season Profile. */
+  roughness: number;
+  /** Leaf card texture URL (alpha cut-out), or null for none. */
+  map: string | null;
+  /** Alpha cut-off for `map` (0..1). */
+  alphaTest: number;
+}
+
+export interface MaterialsDefinition {
+  shading: Shading;
+  bark: BarkMaterialDefinition;
+  leaf: LeafMaterialDefinition;
+}
+
+/** One keyframe of a Season Profile track. `t` is the Season (0 = first day of spring .. 1 = last day of winter). */
+export interface Keyframe<V> {
+  t: number;
+  value: V;
 }
 
 /**
+ * How leaf colour, leaf coverage and blossom change across Season. Each track needs
+ * at least one keyframe; keyframes are sorted by `t` (non-decreasing).
+ */
+export interface SeasonProfileDefinition {
+  /** Leaf colour keyframes. */
+  leafColor: Keyframe<HexColor>[];
+  /** Leaf coverage keyframes (0 = bare .. 1 = full). */
+  leafCoverage: Keyframe<number>[];
+  /** Blossom amount keyframes (0 = none .. 1 = full bloom). */
+  blossom: Keyframe<number>[];
+  /** Blossom colour. */
+  blossomColor: HexColor;
+}
+
+/** Per-tree response to the scene-wide Wind. All 0 (stiff) .. 1 (very flexible). */
+export interface WindResponseDefinition {
+  /** Sway of the trunk. */
+  trunk: number;
+  /** Sway of the branches. */
+  branches: number;
+  /** Flutter of the leaves. */
+  leaves: number;
+  /** Sway speed multiplier (> 0; 1 = default). */
+  frequency: number;
+}
+
+/** Seed ranges that are not tied to one tree part. All 0 (none) .. 1. */
+export interface VariationDefinition {
+  /** How much the Seed shifts bark and leaf colours. */
+  color: number;
+  /** How much the Seed shifts the timing of Growth (fraction of the 0..1 range). */
+  growth: number;
+  /** How much the Seed shifts the timing of Season (fraction of the 0..1 range). */
+  season: number;
+}
+
+interface SculptBase {
+  /** The Seed the Sculpt was made on; every other Seed ignores it (ADR 0003). */
+  seed: number;
+  /** Branch path, e.g. "0" (trunk) or "0.3.1". */
+  path: string;
+}
+/** Removes a branch and everything growing from it. */
+export interface DeleteSculpt extends SculptBase {
+  action: 'delete';
+}
+/** Rotates (Euler XYZ, radians) and scales a branch around its base. */
+export interface MoveSculpt extends SculptBase {
+  action: 'move';
+  rotation: Vec3Tuple;
+  /** Length scale (> 0). */
+  scale: number;
+}
+/** Sets the leaf coverage (0..1) of a branch and everything growing from it. */
+export interface LeavesSculpt extends SculptBase {
+  action: 'leaves';
+  coverage: number;
+}
+/** A hand edit made in the Tree Editor, tied to one Seed. */
+export type Sculpt = DeleteSculpt | MoveSculpt | LeavesSculpt;
+
+/**
  * The full parameter set that describes how a tree is generated, independent of any Seed.
- * Plain JSON: it is what the Tree Editor exports.
  */
 export interface TreeDefinition {
   schemaVersion: typeof CURRENT_SCHEMA_VERSION;
+  /** Optional human-readable name. */
+  name: string;
+  form: TreeForm;
   trunk: TrunkDefinition;
-  bark: BarkDefinition;
+  /** Branching levels below the trunk (0..{@link MAX_BRANCH_LEVELS} entries). */
+  branches: BranchLevelDefinition[];
+  leaves: LeavesDefinition;
+  materials: MaterialsDefinition;
+  season: SeasonProfileDefinition;
+  wind: WindResponseDefinition;
+  variation: VariationDefinition;
+  sculpts: Sculpt[];
 }
 
-type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
+/**
+ * Deep partial for Definition input. Objects may omit fields (they get defaults); arrays
+ * replace the default array as a whole. Branch levels may be partial (missing fields come
+ * from {@link DEFAULT_BRANCH_LEVEL}); keyframes and Sculpts must be complete.
+ */
+export type DeepPartial<T> = T extends (infer U)[]
+  ? (U extends Keyframe<unknown> | Sculpt ? U : DeepPartial<U>)[]
+  : T extends object
+    ? { [K in keyof T]?: DeepPartial<T[K]> }
+    : T;
 
-/** What callers may pass: `schemaVersion` plus any subset of the fields; the rest is defaulted. */
+/**
+ * What callers may pass: `schemaVersion` plus any subset of the fields; the rest is defaulted.
+ * Older `schemaVersion`s are accepted and migrated.
+ */
 export type TreeDefinitionInput = { schemaVersion: number } & DeepPartial<Omit<TreeDefinition, 'schemaVersion'>>;

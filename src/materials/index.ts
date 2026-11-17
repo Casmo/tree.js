@@ -9,10 +9,10 @@ import type { TreeDefinition } from '../definition';
 export function createBarkMaterial(definition: TreeDefinition): MeshStandardNodeMaterial {
   const material = new MeshStandardNodeMaterial();
   material.name = 'tree.js bark';
-  const base = color(definition.bark.color);
+  const base = color(definition.materials.bark.color);
   // Slightly darker towards the base for a little depth, purely in TSL.
   material.colorNode = mix(base.mul(0.75), base, uv().y.clamp(0, 1).pow(float(0.5)));
-  material.roughness = 0.9;
+  material.roughness = definition.materials.bark.roughness;
   material.metalness = 0;
   return material;
 }

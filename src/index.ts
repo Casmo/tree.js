@@ -1,15 +1,6 @@
 // Core entry point of @casmo/tree.js.
 export { createTree, Tree, type CreateTreeOptions } from './tree';
-export {
-  CURRENT_SCHEMA_VERSION,
-  DEFAULT_DEFINITION,
-  parseDefinition,
-  TreeDefinitionError,
-  type TreeDefinition,
-  type TreeDefinitionInput,
-  type TrunkDefinition,
-  type BarkDefinition,
-} from './definition';
+export * from './definition';
 export {
   generateTree,
   hashGeometry,

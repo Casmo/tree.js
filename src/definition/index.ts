@@ -1,4 +1,33 @@
-export { CURRENT_SCHEMA_VERSION } from './types';
-export type { TreeDefinition, TreeDefinitionInput, TrunkDefinition, BarkDefinition } from './types';
-export { DEFAULT_DEFINITION } from './defaults';
-export { parseDefinition, TreeDefinitionError } from './parse';
+export { CURRENT_SCHEMA_VERSION, MAX_BRANCH_LEVELS } from './types';
+export type {
+  TreeDefinition,
+  TreeDefinitionInput,
+  DeepPartial,
+  HexColor,
+  Vec3Tuple,
+  TreeForm,
+  TrunkDefinition,
+  BranchLevelDefinition,
+  LeafShape,
+  LeavesDefinition,
+  Shading,
+  MaterialsDefinition,
+  BarkMaterialDefinition,
+  LeafMaterialDefinition,
+  Keyframe,
+  SeasonProfileDefinition,
+  WindResponseDefinition,
+  VariationDefinition,
+  Sculpt,
+  DeleteSculpt,
+  MoveSculpt,
+  LeavesSculpt,
+} from './types';
+export { DEFAULT_DEFINITION, DEFAULT_BRANCH_LEVEL } from './defaults';
+export {
+  parseDefinition,
+  extendDefinition,
+  fetchDefinition,
+  TreeDefinitionError,
+  type DefinitionPatch,
+} from './parse';
