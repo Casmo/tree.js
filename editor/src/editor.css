@@ -39,3 +39,10 @@ button.remove { margin: 0; padding: 0 6px; font-size: 11px; }
 .control.color { grid-template-columns: 7.5em 3em 1fr; }
 .control.color output { text-align: left; }
 .history { display: flex; padding: 0 12px 4px; }
+.sculpt-tools { display: flex; flex-wrap: wrap; }
+.sculpt-tools button[aria-pressed='true'] { background: #557a3a; color: #fff; border-color: #3f5c2b; }
+ul.sculpts { list-style: none; margin: 2px 0; padding: 0; max-height: 9em; overflow-y: auto; }
+ul.sculpts li { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 12px; }
+#seed-warning { max-width: 22em; border: 1px solid #c4ccbb; border-radius: 6px; }
+#seed-warning h2 { font-size: 14px; margin: 0 0 6px; }
+#seed-warning form { display: flex; justify-content: flex-end; gap: 6px; }

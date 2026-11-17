@@ -39,13 +39,16 @@ export interface MoveDelta {
 export function moveBranch(definition: TreeDefinition, seed: number, path: string, delta: MoveDelta): TreeDefinition {
   const sculpts = definition.sculpts;
   const related = (s: Sculpt) => s.seed === seed && s.action === 'move' && (inSubtree(s.path, path) || inSubtree(path, s.path));
-  const last = sculpts.findLastIndex(related);
+  let last = -1;
+  sculpts.forEach((s, i) => {
+    if (related(s)) last = i;
+  });
   const existing = last >= 0 ? sculpts[last]! : null;
   const rotation = new Quaternion(...delta.rotation);
   if (existing?.action === 'move' && existing.path === path) {
     const total = rotation.multiply(new Quaternion().setFromEuler(new Euler(...existing.rotation, 'XYZ')));
     const merged: Sculpt = { ...existing, rotation: eulerTuple(total), scale: existing.scale * delta.scale };
-    return withSculpts(definition, sculpts.with(last, merged));
+    return withSculpts(definition, sculpts.map((s, i) => (i === last ? merged : s)));
   }
   return withSculpts(definition, [...sculpts, { seed, path, action: 'move', rotation: eulerTuple(rotation), scale: delta.scale }]);
 }
@@ -74,4 +77,14 @@ export function leafCoverage(sculpts: readonly Sculpt[], seed: number, path: str
   let coverage = 1;
   for (const s of sculpts) if (s.seed === seed && s.action === 'leaves' && inSubtree(path, s.path)) coverage = s.coverage;
   return coverage;
+}
+
+/** Removes the Sculpt at `index` of `definition.sculpts`. */
+export function removeSculpt(definition: TreeDefinition, index: number): TreeDefinition {
+  return withSculpts(definition, definition.sculpts.filter((_, i) => i !== index));
+}
+
+/** Removes every Sculpt made on `seed` (the other Seeds keep theirs). */
+export function clearSculpts(definition: TreeDefinition, seed: number): TreeDefinition {
+  return withSculpts(definition, definition.sculpts.filter((s) => s.seed !== seed));
 }

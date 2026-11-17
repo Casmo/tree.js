@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Euler, Quaternion, Vector3 } from 'three/webgpu';
 import { generateTree, hashTreeData, parseDefinition, type SkeletonBranch, type TreeDefinition } from '@casmo/tree.js';
-import { deleteBranch, moveBranch, paintLeaves } from './sculpts';
+import { clearSculpts, deleteBranch, moveBranch, paintLeaves, removeSculpt } from './sculpts';
 
 const def = parseDefinition({ schemaVersion: 2 });
 const paths = (definition: typeof def, seed: number) => generateTree(definition, seed).skeleton.branches.map((b) => b.path);
@@ -64,5 +64,11 @@ describe('Sculpt edits', () => {
     const restored = paintLeaves(half, seed, branches, 1);
     expect(restored.sculpts).toEqual([]);
     expect(hashTreeData(generateTree(restored, seed))).toBe(hashTreeData(generateTree(def, seed)));
+  });
+
+  it('removes one Sculpt, or clears those of one Seed only', () => {
+    const edited = deleteBranch(deleteBranch(deleteBranch(def, 3, '0.1'), 4, '0.2'), 3, '0.3');
+    expect(removeSculpt(edited, 1).sculpts.map((s) => s.path)).toEqual(['0.1', '0.3']);
+    expect(clearSculpts(edited, 3).sculpts).toEqual([{ seed: 4, path: '0.2', action: 'delete' }]);
   });
 });

@@ -1,4 +1,6 @@
 // Preview state that is not part of the Definition: Seed, Growth and Season.
+// Seed changes go through the Sculpt Seed guard (a warning when the current Seed has Sculpts).
+import { seedGuard } from '../sculpt/seed-dialog';
 import { numberControl } from './controls';
 import type { Panel } from './types';
 
@@ -15,7 +17,7 @@ export const previewPanel: Panel = {
         max: 9999,
         step: 1,
         get: (state) => state.seed,
-        set: (store, seed) => store.set({ seed }),
+        set: (store, seed) => void seedGuard(store).changeSeed(seed),
       }),
       numberControl(context, {
         label: 'Growth',
