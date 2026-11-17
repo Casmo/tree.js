@@ -9,7 +9,7 @@ The full parameter set that describes how a tree is generated (trunk, branches, 
 _Avoid_: Config, preset, recipe
 
 **Seed**:
-A number that, combined with a Tree Definition, picks one specific individual tree; the same Definition and Seed always give the same tree.
+A number that, combined with a Tree Definition, picks one specific individual tree, varying its shape, colours and how it responds to Growth and Season within the Definition's ranges; the same Definition and Seed always give the same tree.
 _Avoid_: Random, variation id
 
 **Style**:
@@ -17,11 +17,11 @@ A named, ready-made Tree Definition shipped with the library, such as low-poly, 
 _Avoid_: Theme, type, kind
 
 **Growth**:
-How far a tree has grown, from sapling to fully grown.
+How far a tree has grown, a value from 0 (sapling) to 1 (fully grown) that the app may change at any moment to animate it.
 _Avoid_: Age, progress, scale
 
 **Season**:
-The point in the yearly cycle that sets a tree's leaf colour and leaf coverage.
+The point in the yearly cycle, a value from 0 (first day of spring) to 1 (last day of winter), that sets a tree's leaf colour and leaf coverage.
 _Avoid_: Weather, time of year
 
 **Tree Editor**:
