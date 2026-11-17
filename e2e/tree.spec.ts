@@ -31,3 +31,21 @@ test('the classic WebGLRenderer gets a clear error pointing to WebGPURenderer', 
   expect(result.status).toBe('error');
   expect(result.error).toMatch(/requires WebGPURenderer/);
 });
+
+for (const backend of ['webgpu', 'webgl2'] as const) {
+  test(`Wind bends the tree and its shadow (${backend})`, async ({ page }) => {
+    const query = `seed=1&shadows=1&windTime=2${backend === 'webgl2' ? '&backend=webgl' : ''}`;
+    const canvas = page.locator('canvas');
+    const mask = { mask: [page.locator('#status')] };
+
+    await page.goto(`/examples/vanilla/?${query}&wind=0`);
+    expect(await waitForExample(page)).toEqual({ status: 'rendered', backend });
+    const calm = await canvas.screenshot(mask);
+
+    await page.goto(`/examples/vanilla/?${query}&wind=2`);
+    expect(await waitForExample(page)).toEqual({ status: 'rendered', backend });
+    const windy = await canvas.screenshot(mask);
+    expect(windy.equals(calm)).toBe(false);
+    await expect(canvas).toHaveScreenshot(`tree-wind-${backend}.png`, mask);
+  });
+}

@@ -3,9 +3,12 @@
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?renderer=classic  use the unsupported classic WebGLRenderer (shows the error)
 //   ?seed=<n>  pick a Seed (default 1)
+//   ?wind=<strength>  scene-wide Wind strength (default 0 = calm); animates unless windTime is given
+//   ?windTime=<s>  pin the Wind clock (deterministic screenshots)
+//   ?shadows=1  enable shadow mapping (sun casts, ground receives)
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
-import { createTree } from '../../src/index';
+import { createTree, sceneWind } from '../../src/index';
 
 declare global {
   interface Window {
@@ -17,6 +20,11 @@ window.treeExample = { status: 'loading' };
 const params = new URLSearchParams(location.search);
 const seed = Number(params.get('seed') ?? 1);
 const statusEl = document.getElementById('status')!;
+const windStrength = Number(params.get('wind') ?? 0);
+const windTime = params.get('windTime');
+const shadows = params.get('shadows') === '1';
+sceneWind.set({ direction: [1, 0, -0.4], strength: windStrength });
+if (windTime !== null) sceneWind.time = Number(windTime);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#cfe3f0');
@@ -28,11 +36,17 @@ scene.add(new THREE.HemisphereLight('#ffffff', '#6a7a4a', 1.5));
 const sun = new THREE.DirectionalLight('#ffffff', 2.5);
 sun.position.set(5, 8, 3);
 scene.add(sun);
+if (shadows) {
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  Object.assign(sun.shadow.camera, { left: -7, right: 7, top: 9, bottom: -3 });
+}
 
 const ground = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(
   new THREE.CircleGeometry(6, 48).rotateX(-Math.PI / 2),
   new THREE.MeshStandardNodeMaterial({ color: '#7da05a' }),
 );
+ground.receiveShadow = true;
 scene.add(ground);
 
 // The defaults plus a third branching level and fuller foliage.
@@ -62,6 +76,7 @@ async function main(): Promise<void> {
   }
 
   const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: params.get('backend') === 'webgl' });
+  renderer.shadowMap.enabled = shadows;
   renderer.setPixelRatio(1);
   renderer.setSize(innerWidth, innerHeight);
   document.body.appendChild(renderer.domElement);
@@ -78,6 +93,8 @@ async function main(): Promise<void> {
 
   await renderer.renderAsync(scene, camera);
   window.treeExample = { status: 'rendered', backend };
+  // A swaying tree needs a render loop; with a pinned Wind clock one frame is enough.
+  if (windStrength > 0 && windTime === null) renderer.setAnimationLoop(() => renderer.render(scene, camera));
 }
 
 main().catch((error: unknown) => {

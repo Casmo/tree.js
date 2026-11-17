@@ -18,7 +18,7 @@ import type { WindResponse } from './response';
 const TRUNK_AMPLITUDE = 0.15;
 const BRANCH_AMPLITUDE = 0.1;
 // Leaf flutter, as a fraction of the distance from the leaf base.
-const LEAF_AMPLITUDE = 0.35;
+const LEAF_AMPLITUDE = 0.2;
 
 /**
  * TSL node: the Wind displacement (vec3, object space) of each vertex, from the per-vertex
