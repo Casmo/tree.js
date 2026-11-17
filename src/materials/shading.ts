@@ -1,5 +1,6 @@
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import type { Shading } from '../definition';
+import { SoftToonNodeMaterial } from './toon';
 
 /**
  * The Style layer of the tree materials: the base node material for a Definition's
@@ -10,10 +11,11 @@ import type { Shading } from '../definition';
  * - `flat` (low-poly): faceted lighting from the screen-space face normal (`flatShading`), so
  *   facets stay correct when Growth or Wind move vertices in `positionNode`. Rough, no gloss.
  * - `standard` (realistic): smooth PBR shading.
- * - `toon` (stylized): standard until the stylized Style ships its own toon material.
+ * - `toon` (stylized): soft two-tone toon lighting (`SoftToonNodeMaterial`, still a standard
+ *   node material underneath), smooth normals so leaf clumps read as rounded.
  */
 export function createShadedMaterial(shading: Shading): MeshStandardNodeMaterial {
-  const material = new MeshStandardNodeMaterial();
+  const material = shading === 'toon' ? new SoftToonNodeMaterial() : new MeshStandardNodeMaterial();
   material.flatShading = shading === 'flat';
   return material;
 }

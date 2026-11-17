@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`stylized Style (dynamic import of the /styles/stylized subpath) > broadleaf: matches the golden geometry hash (determinism across releases) 1`] = `"c3137f01"`;
+
+exports[`stylized Style (dynamic import of the /styles/stylized subpath) > conifer: matches the golden geometry hash (determinism across releases) 1`] = `"acc97ab4"`;

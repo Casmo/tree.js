@@ -5,7 +5,7 @@
 //   ?seed=<n>  pick a Seed (default 1)
 //   ?season=<0..1>  Season (default 0.37, summer)
 //   ?form=conifer  an evergreen conifer instead of the deciduous broadleaf
-//   ?style=low-poly  grow that built-in Style's Definition for the form (loaded with a dynamic import)
+//   ?style=low-poly|stylized  grow that built-in Style's Definition for the form (loaded with a dynamic import)
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
 import { createTree, SEASON_PROFILES, type TreeDefinition, type TreeDefinitionInput, type TreeStyle } from '../../src/index';
@@ -13,6 +13,7 @@ import { createTree, SEASON_PROFILES, type TreeDefinition, type TreeDefinitionIn
 // Built-in Styles are separate chunks, fetched only when asked for.
 const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
   'low-poly': () => import('../../src/styles/low-poly'),
+  stylized: () => import('../../src/styles/stylized'),
 };
 
 declare global {
