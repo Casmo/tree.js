@@ -11,6 +11,7 @@ import type { GeometryBuffers, TreeData } from '../generator';
 import { createBarkMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createSeasonNodes, wrapSeason, type SeasonUniform } from '../season';
+import { textureReady, type TextureOptions } from '../textures';
 
 function toBufferGeometry(buffers: GeometryBuffers): BufferGeometry {
   const geometry = new BufferGeometry();
@@ -53,15 +54,26 @@ export class Tree extends Group {
   /** The Season uniform the leaf material reads (shared nodes may reference it). */
   readonly seasonUniform: SeasonUniform;
 
-  constructor(definition: TreeDefinition, data: TreeData, options: { season?: number } = {}) {
+  /**
+   * Resolves once every texture of this tree has loaded (at once for a tree without textures);
+   * rejects if one fails. Await it before a first render that must show the textures.
+   */
+  readonly ready: Promise<void>;
+
+  constructor(definition: TreeDefinition, data: TreeData, options: { season?: number; textures?: TextureOptions } = {}) {
     super();
     this.name = 'Tree';
     this.definition = definition;
     this.seed = data.seed;
     this.data = data;
 
-    this.wood = treeMesh('wood', toBufferGeometry(data.wood), createBarkMaterial(definition));
-    this.leaves = treeMesh('leaves', toBufferGeometry(data.leaves), createLeafMaterial(definition));
+    const bark = createBarkMaterial(definition, options.textures);
+    const leaf = createLeafMaterial(definition, options.textures);
+    this.wood = treeMesh('wood', toBufferGeometry(data.wood), bark);
+    this.leaves = treeMesh('leaves', toBufferGeometry(data.leaves), leaf);
+    const textures = [bark.map, bark.normalMap, leaf.map].filter((t) => t !== null);
+    this.ready = Promise.all(textures.map(textureReady)).then(() => undefined);
+    this.ready.catch(() => {}); // only reported to whoever awaits it
     this.add(this.wood, this.leaves);
 
     const season = createSeasonNodes(definition.season);

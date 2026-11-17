@@ -1,5 +1,6 @@
 import { parseDefinition, type TreeDefinition, type TreeDefinitionInput } from '../definition';
 import { generateTree } from '../generator';
+import type { TextureOptions } from '../textures';
 import { Tree } from './Tree';
 
 export { Tree } from './Tree';
@@ -9,6 +10,11 @@ export interface CreateTreeOptions {
   seed?: number;
   /** Initial Season (0 = first day of spring .. 1 = last day of winter). Default 0. */
   season?: number;
+  /**
+   * Where this tree's textures load from (base path / per-URL overrides); takes precedence over
+   * the app-wide `setTextureOptions`. Only Definitions with textures (e.g. the realistic Style) use it.
+   */
+  textures?: TextureOptions;
 }
 
 /**
@@ -22,5 +28,5 @@ export function createTree(
 ): Tree {
   const parsed = parseDefinition(definition);
   const seed = options.seed ?? 0;
-  return new Tree(parsed, generateTree(parsed, seed), { season: options.season });
+  return new Tree(parsed, generateTree(parsed, seed), { season: options.season, textures: options.textures });
 }

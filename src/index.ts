@@ -18,5 +18,15 @@ export {
 } from './generator';
 export { createRandom, hashString, hashCombine, type Random } from './random';
 export { createBarkMaterial, createLeafMaterial } from './materials';
+export {
+  DEFAULT_TEXTURE_BASE_PATH,
+  getTextureOptions,
+  loadTexture,
+  resolveTextureUrl,
+  setTextureOptions,
+  textureReady,
+  type TextureKind,
+  type TextureOptions,
+} from './textures';
 export { assertWebGPURenderer, UnsupportedRendererError } from './renderer';
 export type { TreeStyle } from './styles/types';
