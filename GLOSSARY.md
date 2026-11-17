@@ -13,8 +13,12 @@ A number that, combined with a Tree Definition, picks one specific individual tr
 _Avoid_: Random, variation id
 
 **Style**:
-A named, ready-made Tree Definition shipped with the library, such as low-poly, stylized or realistic.
+A visual look shipped with the library, such as low-poly, stylized or realistic, provided as one ready-made Tree Definition per Form.
 _Avoid_: Theme, type, kind
+
+**Form**:
+The overall kind of tree a Tree Definition grows, such as broadleaf or conifer.
+_Avoid_: Species, tree type
 
 **Growth**:
 How far a tree has grown, a value from 0 (sapling) to 1 (fully grown) that the app may change at any moment to animate it.
