@@ -170,7 +170,7 @@ const treeDefinition = obj<TreeDefinition>({
   branches: arr(branchLevel, { max: MAX_BRANCH_LEVELS, itemFallback: DEFAULT_BRANCH_LEVEL }),
   leaves: obj({
     count: intAtLeast(0),
-    shape: oneOf('card', 'clump', 'needle'),
+    shape: oneOf('card', 'clump', 'needle', 'puff'),
     size: positive,
     sizeVariation: unit,
     start: unit,

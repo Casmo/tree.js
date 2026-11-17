@@ -20,6 +20,7 @@ export default defineConfig(({ command }) => ({
         index: resolve(import.meta.dirname, 'src/index.ts'),
         // Styles: one lazily importable chunk each (`await import('@casmo/tree.js/styles/<name>')`).
         'styles/low-poly': resolve(import.meta.dirname, 'src/styles/low-poly/index.ts'),
+        'styles/stylized': resolve(import.meta.dirname, 'src/styles/stylized/index.ts'),
         'styles/realistic': resolve(import.meta.dirname, 'src/styles/realistic/index.ts'),
       },
       formats: ['es'],

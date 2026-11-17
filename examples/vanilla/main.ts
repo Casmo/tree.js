@@ -3,16 +3,21 @@
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?renderer=classic  use the unsupported classic WebGLRenderer (shows the error)
 //   ?seed=<n>  pick a Seed (default 1)
+//   ?growth=<0..1>  Growth (default 1, fully grown); only a uniform changes
 //   ?season=<0..1>  Season (default 0.37, summer)
 //   ?form=conifer  an evergreen conifer instead of the deciduous broadleaf
-//   ?style=low-poly|realistic  grow that built-in Style's Definition for the form (loaded with a dynamic import)
+//   ?style=low-poly|stylized|realistic  grow that built-in Style's Definition for the form (loaded with a dynamic import)
 //   ?textureBase=<url>  load relative texture URLs (the realistic Style's) from this base path / CDN
 //   ?barkMap=<url>&leafMap=<url>  use these textures instead of the Definition's (custom textures)
+//   ?wind=<strength>  scene-wide Wind strength (default 0 = calm); animates unless windTime is given
+//   ?windTime=<s>  pin the Wind clock (deterministic screenshots)
+//   ?shadows=1  enable shadow mapping (sun casts, ground receives)
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
 import {
   createTree,
   extendDefinition,
+  sceneWind,
   SEASON_PROFILES,
   setTextureOptions,
   type TreeDefinition,
@@ -23,6 +28,7 @@ import {
 // Built-in Styles are separate chunks, fetched only when asked for.
 const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
   'low-poly': () => import('../../src/styles/low-poly'),
+  stylized: () => import('../../src/styles/stylized'),
   realistic: () => import('../../src/styles/realistic'),
 };
 
@@ -43,8 +49,14 @@ declare global {
 window.treeExample = { status: 'loading' };
 const params = new URLSearchParams(location.search);
 const seed = Number(params.get('seed') ?? 1);
+const growth = Number(params.get('growth') ?? 1);
 const season = Number(params.get('season') ?? 0.37);
 const statusEl = document.getElementById('status')!;
+const windStrength = Number(params.get('wind') ?? 0);
+const windTime = params.get('windTime');
+const shadows = params.get('shadows') === '1';
+sceneWind.set({ direction: [1, 0, -0.4], strength: windStrength });
+if (windTime !== null) sceneWind.time = Number(windTime);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#cfe3f0');
@@ -56,11 +68,17 @@ scene.add(new THREE.HemisphereLight('#ffffff', '#6a7a4a', 1.5));
 const sun = new THREE.DirectionalLight('#ffffff', 2.5);
 sun.position.set(5, 8, 3);
 scene.add(sun);
+if (shadows) {
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  Object.assign(sun.shadow.camera, { left: -7, right: 7, top: 9, bottom: -3 });
+}
 
 const ground = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(
   new THREE.CircleGeometry(6, 48).rotateX(-Math.PI / 2),
   new THREE.MeshStandardNodeMaterial({ color: '#7da05a' }),
 );
+ground.receiveShadow = true;
 scene.add(ground);
 
 // Broadleaf: the defaults plus a third branching level, fuller foliage and the deciduous Season Profile.
@@ -123,7 +141,7 @@ function withCustomTextures(definition: TreeDefinitionInput | TreeDefinition): T
 async function main(): Promise<void> {
   const textureBase = params.get('textureBase');
   if (textureBase) setTextureOptions({ basePath: textureBase });
-  const tree = createTree(withCustomTextures(await loadDefinition()), { seed, season });
+  const tree = createTree(withCustomTextures(await loadDefinition()), { seed, growth, season });
   await tree.ready; // textures (realistic Style, custom maps) are loaded before the first frame
   scene.add(tree);
   if (params.get('style')) frame(tree);
@@ -139,13 +157,14 @@ async function main(): Promise<void> {
   }
 
   const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: params.get('backend') === 'webgl' });
+  renderer.shadowMap.enabled = shadows;
   renderer.setPixelRatio(1);
   renderer.setSize(innerWidth, innerHeight);
   document.body.appendChild(renderer.domElement);
   await renderer.init();
 
   const backend = (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'webgpu' : 'webgl2';
-  statusEl.textContent = `WebGPURenderer (${backend}) - ${tree.definition.name || form} - seed ${seed}`;
+  statusEl.textContent = `WebGPURenderer (${backend}) - ${tree.definition.name || form} - seed ${seed}, growth ${growth}`;
 
   addEventListener('resize', () => {
     camera.aspect = innerWidth / innerHeight;
@@ -161,6 +180,8 @@ async function main(): Promise<void> {
     void renderer.renderAsync(scene, camera).then(() => (window.treeExample.status = 'rendered'));
   };
   window.treeExample = { status: 'rendered', backend, leafGeometryId, setSeason };
+  // A swaying tree needs a render loop; with a pinned Wind clock one frame is enough.
+  if (windStrength > 0 && windTime === null) renderer.setAnimationLoop(() => renderer.render(scene, camera));
 }
 
 main().catch((error: unknown) => {

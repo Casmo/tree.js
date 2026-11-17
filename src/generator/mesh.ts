@@ -1,13 +1,21 @@
 import { createAttributes, writePart, type PartInfo } from './attributes';
 import { branchFrames, pathLength } from './frames';
-import type { GeometryBuffers, SkeletonBranch, Vec3 } from './types';
+import type { GeometryBuffers, GrowthWindow, SkeletonBranch, Vec3 } from './types';
+import type { PartSway } from './wind';
 import { add, normalize, scale } from './vec';
 
 /**
  * Sweeps a ring of `sides` vertices along a branch's points, using parallel-transport
  * frames so branches in any direction get even rings, and caps the tip.
  */
-export function sweepBranch(branch: SkeletonBranch, sides: number, random: number, season: Vec3 = [0, 0, 0]): GeometryBuffers {
+export function sweepBranch(
+  branch: SkeletonBranch,
+  sides: number,
+  random: number,
+  season: Vec3 = [0, 0, 0],
+  growth: GrowthWindow = { start: 0, end: 0 },
+  sway?: PartSway,
+): GeometryBuffers {
   const pts = branch.points;
   const frames = branchFrames(branch);
   const rings = pts.length;
@@ -18,7 +26,7 @@ export function sweepBranch(branch: SkeletonBranch, sides: number, random: numbe
   const uvs = new Float32Array(vertexCount * 2);
   const indices: number[] = [];
   const attributes = createAttributes(vertexCount);
-  const part: PartInfo = { level: branch.level, attach: branch.attach, random, origin: pts[0]!.position, season };
+  const part: PartInfo = { level: branch.level, attach: branch.attach, random, origin: pts[0]!.position, season, growth, sway };
 
   // Radius change per unit length tilts the normals of a tapered branch towards its tip.
   const slope = (pts[0]!.radius - pts[rings - 1]!.radius) / Math.max(pathLength(branch), 1e-6);
@@ -33,7 +41,7 @@ export function sweepBranch(branch: SkeletonBranch, sides: number, random: numbe
       positions.set(add(position, scale(radial, radius)), v * 3);
       normals.set(normalize(add(radial, scale(tangent, slope))), v * 3);
       uvs.set([s / sides, r / (rings - 1)], v * 2);
-      writePart(attributes, v, part, r / (rings - 1));
+      writePart(attributes, v, part, r / (rings - 1), radius);
       v++;
     }
   }
