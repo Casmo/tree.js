@@ -3,6 +3,7 @@
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?renderer=classic  use the unsupported classic WebGLRenderer (shows the error)
 //   ?seed=<n>  pick a Seed (default 1)
+//   ?growth=<0..1>  Growth (default 1, fully grown); only a uniform changes
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
 import { createTree } from '../../src/index';
@@ -16,6 +17,7 @@ declare global {
 window.treeExample = { status: 'loading' };
 const params = new URLSearchParams(location.search);
 const seed = Number(params.get('seed') ?? 1);
+const growth = Number(params.get('growth') ?? 1);
 const statusEl = document.getElementById('status')!;
 
 const scene = new THREE.Scene();
@@ -46,7 +48,7 @@ const tree = createTree(
     ],
     leaves: { count: 6, size: 0.35 },
   },
-  { seed },
+  { seed, growth },
 );
 scene.add(tree);
 
@@ -68,7 +70,7 @@ async function main(): Promise<void> {
   await renderer.init();
 
   const backend = (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'webgpu' : 'webgl2';
-  statusEl.textContent = `WebGPURenderer (${backend}) - seed ${seed}`;
+  statusEl.textContent = `WebGPURenderer (${backend}) - seed ${seed}, growth ${growth}`;
 
   addEventListener('resize', () => {
     camera.aspect = innerWidth / innerHeight;
