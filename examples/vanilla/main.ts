@@ -6,7 +6,7 @@
 //   ?growth=<0..1>  Growth (default 1, fully grown); only a uniform changes
 //   ?season=<0..1>  Season (default 0.37, summer)
 //   ?form=conifer  an evergreen conifer instead of the deciduous broadleaf
-//   ?style=low-poly  grow that built-in Style's Definition for the form (loaded with a dynamic import)
+//   ?style=low-poly|stylized  grow that built-in Style's Definition for the form (loaded with a dynamic import)
 //   ?wind=<strength>  scene-wide Wind strength (default 0 = calm); animates unless windTime is given
 //   ?windTime=<s>  pin the Wind clock (deterministic screenshots)
 //   ?shadows=1  enable shadow mapping (sun casts, ground receives)
@@ -17,6 +17,7 @@ import { createTree, sceneWind, SEASON_PROFILES, type TreeDefinition, type TreeD
 // Built-in Styles are separate chunks, fetched only when asked for.
 const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
   'low-poly': () => import('../../src/styles/low-poly'),
+  stylized: () => import('../../src/styles/stylized'),
 };
 
 declare global {

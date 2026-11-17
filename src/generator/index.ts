@@ -7,6 +7,7 @@ import { growthTiming } from './growth';
 import { solidLeafGeometry } from './leaf-shapes';
 import { leafGeometry, placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
+import { sculptBranches, sculptLeaves, sculptsFor } from './sculpt';
 import { buildTrunk } from './trunk';
 import { branchSway, writeTrunkSway } from './wind';
 import type { GeometryBuffers, TreeData } from './types';
@@ -24,9 +25,10 @@ export type { GrowthTiming, GrowthWindow, GeometryBuffers, TreeAttributes, Verte
 export function generateTree(definition: TreeDefinition, seed: number): TreeData {
   const random = createRandom(seed);
   const trunk = buildTrunk(definition, random.fork('trunk'));
-  const branches = [trunk, ...buildBranches(definition, trunk, random.fork('branches'))];
+  const sculpts = sculptsFor(definition, seed);
+  const branches = sculptBranches([trunk, ...buildBranches(definition, trunk, random.fork('branches'))], sculpts);
   const sidesOf = (level: number) => (level === 0 ? definition.trunk.sides : definition.branches[level - 1]!.sides);
-  const leaves = placeLeaves(definition, branches, random.fork('leaves'));
+  const leaves = sculptLeaves(placeLeaves(definition, branches, random.fork('leaves')), sculpts, seed);
   const growth = growthTiming(definition, seed, branches, leaves);
   const sway = branchSway(branches, definition.branches.length);
   const wood = mergeBuffers(
@@ -45,7 +47,9 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
     definition.leaves.shape === 'card'
       ? leafGeometry(leaves, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway)
       : solidLeafGeometry(leaves, definition.leaves.shape, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway);
-  const trunkHeight = trunk.points[trunk.points.length - 1]!.position[1];
+  // The (possibly Sculpted) trunk's tip; a deleted trunk leaves an empty tree.
+  const sculptedTrunk = branches[0]?.parent === null ? branches[0] : trunk;
+  const trunkHeight = sculptedTrunk.points[sculptedTrunk.points.length - 1]!.position[1];
   writeTrunkSway(wood, trunkHeight);
   writeTrunkSway(leafBuffers, trunkHeight);
   return { seed, skeleton: { branches, leaves }, wood, leaves: leafBuffers, growth };

@@ -79,8 +79,11 @@ export interface BranchLevelDefinition {
 /** Maximum number of branching levels below the trunk. */
 export const MAX_BRANCH_LEVELS = 4;
 
-/** How a leaf is drawn: a flat card, a rounded clump of foliage, or a needle cluster. */
-export type LeafShape = 'card' | 'clump' | 'needle';
+/**
+ * How a leaf is drawn: a flat card, a faceted clump of foliage, a needle cluster, or a puff
+ * (a smooth round ball of foliage, for toon shading).
+ */
+export type LeafShape = 'card' | 'clump' | 'needle' | 'puff';
 
 /** Leaves, placed on the last branching level (or the trunk if there are no branches). */
 export interface LeavesDefinition {

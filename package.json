@@ -24,6 +24,10 @@
       "types": "./dist/styles/low-poly/index.d.ts",
       "import": "./dist/styles/low-poly.js"
     },
+    "./styles/stylized": {
+      "types": "./dist/styles/stylized/index.d.ts",
+      "import": "./dist/styles/stylized.js"
+    },
     "./react": {
       "types": "./dist/react/index.d.ts",
       "import": "./dist/react.js"

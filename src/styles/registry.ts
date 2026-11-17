@@ -6,6 +6,7 @@ import type { TreeStyle } from './types';
  */
 export const STYLE_LOADERS = {
   'low-poly': () => import('./low-poly'),
+  stylized: () => import('./stylized'),
 } satisfies Record<string, () => Promise<{ default: TreeStyle }>>;
 
 /** Name of a built-in Style, e.g. 'low-poly'. */
