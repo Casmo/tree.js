@@ -161,4 +161,11 @@ describe('createTree', () => {
       ).not.toThrow();
     }
   });
+
+  it('gives an empty tree when a Sculpt deletes the trunk', () => {
+    const tree = createTree({ schemaVersion: 2, sculpts: [{ seed: 1, path: '0', action: 'delete' }] }, { seed: 1 });
+    expect(tree.data.skeleton.branches).toEqual([]);
+    expect(tree.wood.geometry.getAttribute('position').count).toBe(0);
+    tree.dispose();
+  });
 });

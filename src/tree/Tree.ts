@@ -132,9 +132,10 @@ export class Tree extends Group {
     this.add(this.wood, this.leaves);
 
     this.wind = options.wind ?? sceneWind;
-    const trunk = data.skeleton.branches[0]!.points;
+    // A Sculpt may delete the trunk (an empty tree): any height will do then.
+    const trunk = data.skeleton.branches.find((b) => b.parent === null)?.points;
     this.windResponse = new WindResponse(definition.wind, {
-      height: trunk[trunk.length - 1]!.position[1],
+      height: trunk ? trunk[trunk.length - 1]!.position[1] : 1,
       phase: (hashCombine(seedToUint32(data.seed), hashString('wind')) / 4294967296) * Math.PI * 2,
     });
     const offset = windOffset(this.wind, this.windResponse);

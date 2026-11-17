@@ -196,8 +196,9 @@ export class ForestVariant {
     this.index = index;
     this.seed = seed;
     this.data = generateTree(definition, seed);
-    const trunk = this.data.skeleton.branches[0]!.points;
-    const height = trunk[trunk.length - 1]!.position[1];
+    // A Sculpt on this Variant's Seed may delete the trunk (an empty tree): any height will do then.
+    const trunk = this.data.skeleton.branches.find((b) => b.parent === null)?.points;
+    const height = trunk ? trunk[trunk.length - 1]!.position[1] : 1;
     this.windResponse = new WindResponse(definition.wind, { height, phase: 0 });
 
     const position = forestPosition(wind, this.windResponse);
