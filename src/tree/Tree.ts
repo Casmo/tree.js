@@ -1,8 +1,23 @@
-import { BufferAttribute, BufferGeometry, Group, Mesh, type Material, type MeshStandardNodeMaterial } from 'three/webgpu';
+import {
+  BufferAttribute,
+  BufferGeometry,
+  Group,
+  Mesh,
+  type Material,
+  type MeshStandardNodeMaterial,
+  type NodeMaterial,
+} from 'three/webgpu';
 import type { TreeDefinition } from '../definition';
 import type { GeometryBuffers, TreeData } from '../generator';
 import { createBarkMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
+import { hashCombine, hashString, seedToUint32 } from '../random';
+import { applyWind, sceneWind, windOffset, Wind, WindResponse } from '../wind';
+
+export interface TreeOptions {
+  /** The Wind this tree sways with. Default: the scene-wide {@link sceneWind}. */
+  wind?: Wind;
+}
 
 function toBufferGeometry(buffers: GeometryBuffers): BufferGeometry {
   const geometry = new BufferGeometry();
@@ -42,8 +57,12 @@ export class Tree extends Group {
   readonly wood: Mesh<BufferGeometry, Material>;
   /** Leaf cards (empty geometry for a bare tree). */
   readonly leaves: Mesh<BufferGeometry, MeshStandardNodeMaterial>;
+  /** The Wind this tree sways with (shared with every other tree using it). */
+  readonly wind: Wind;
+  /** This tree's response to the Wind, from `definition.wind`; `windResponse.set(...)` changes it live. */
+  readonly windResponse: WindResponse;
 
-  constructor(definition: TreeDefinition, data: TreeData) {
+  constructor(definition: TreeDefinition, data: TreeData, options: TreeOptions = {}) {
     super();
     this.name = 'Tree';
     this.definition = definition;
@@ -53,6 +72,16 @@ export class Tree extends Group {
     this.wood = treeMesh('wood', toBufferGeometry(data.wood), createBarkMaterial(definition));
     this.leaves = treeMesh('leaves', toBufferGeometry(data.leaves), createLeafMaterial(definition));
     this.add(this.wood, this.leaves);
+
+    this.wind = options.wind ?? sceneWind;
+    const trunk = data.skeleton.branches[0]!.points;
+    this.windResponse = new WindResponse(definition.wind, {
+      height: trunk[trunk.length - 1]!.position[1],
+      phase: (hashCombine(seedToUint32(data.seed), hashString('wind')) / 4294967296) * Math.PI * 2,
+    });
+    const offset = windOffset(this.wind, this.windResponse);
+    applyWind(this.wood.material as NodeMaterial, offset);
+    applyWind(this.leaves.material, offset);
   }
 
   /** Frees the GPU resources (geometries and materials) of this tree and removes it from its parent. */

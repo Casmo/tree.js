@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Vector3 } from 'three/webgpu';
-import { sceneWind, Wind } from '../src/index';
+import { Vector3, type NodeMaterial } from 'three/webgpu';
+import { createTree, sceneWind, Wind } from '../src/index';
 
 /** What the renderer does with the time uniform once per render (NodeFrame -> node.update). */
 function renderAt(wind: Wind, seconds: number): number {
@@ -67,5 +67,49 @@ describe('Wind', () => {
 
   it('there is one scene-wide Wind that every tree listens to by default', () => {
     expect(sceneWind).toBeInstanceOf(Wind);
+  });
+});
+
+describe('trees and Wind', () => {
+  const definition = { schemaVersion: 2 } as const;
+
+  it('every tree listens to the scene-wide Wind unless given its own', () => {
+    const a = createTree(definition, { seed: 1 });
+    const b = createTree(definition, { seed: 2 });
+    expect(a.wind).toBe(sceneWind);
+    expect(b.wind).toBe(sceneWind);
+    const storm = new Wind({ strength: 3 });
+    expect(createTree(definition, { seed: 3, wind: storm }).wind).toBe(storm);
+  });
+
+  it('wood and leaves are displaced by the Wind in the vertex stage (which the shadow pass reuses)', () => {
+    const tree = createTree(definition, { seed: 1 });
+    expect((tree.wood.material as NodeMaterial).positionNode).toBeTruthy();
+    expect(tree.leaves.material.positionNode).toBeTruthy();
+  });
+
+  it('takes its Wind response from the Definition', () => {
+    const stiff = createTree({ schemaVersion: 2, wind: { trunk: 0, branches: 0.1, leaves: 0.2, frequency: 0.5 } });
+    expect(stiff.windResponse.values).toEqual({ trunk: 0, branches: 0.1, leaves: 0.2, frequency: 0.5 });
+    expect(stiff.windResponse.uniforms.trunk.value).toBe(0);
+    expect(stiff.windResponse.uniforms.frequency.value).toBe(0.5);
+    const willow = createTree({ schemaVersion: 2, wind: { trunk: 0.6, branches: 1, leaves: 1 } });
+    expect(willow.windResponse.values).toEqual({ trunk: 0.6, branches: 1, leaves: 1, frequency: 1 });
+  });
+
+  it('the Wind response can be changed live without rebuilding the tree', () => {
+    const tree = createTree(definition, { seed: 1 });
+    const material = tree.wood.material;
+    tree.windResponse.set({ branches: 0.9 });
+    expect(tree.windResponse.values.branches).toBe(0.9);
+    expect(tree.windResponse.uniforms.branches.value).toBe(0.9);
+    expect(tree.wood.material).toBe(material);
+    expect(() => tree.windResponse.set({ frequency: 0 })).toThrow(RangeError);
+  });
+
+  it('trees of different Seeds sway out of step', () => {
+    const phase = (seed: number) => createTree(definition, { seed }).windResponse.uniforms.phase.value;
+    expect(phase(1)).toBe(phase(1));
+    expect(phase(1)).not.toBe(phase(2));
   });
 });

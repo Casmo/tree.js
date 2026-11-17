@@ -1,10 +1,10 @@
 import { parseDefinition, type TreeDefinition, type TreeDefinitionInput } from '../definition';
 import { generateTree } from '../generator';
-import { Tree } from './Tree';
+import { Tree, type TreeOptions } from './Tree';
 
-export { Tree } from './Tree';
+export { Tree, type TreeOptions } from './Tree';
 
-export interface CreateTreeOptions {
+export interface CreateTreeOptions extends TreeOptions {
   /** Picks one individual tree within the Definition's ranges. Default 0. */
   seed?: number;
 }
@@ -20,5 +20,5 @@ export function createTree(
 ): Tree {
   const parsed = parseDefinition(definition);
   const seed = options.seed ?? 0;
-  return new Tree(parsed, generateTree(parsed, seed));
+  return new Tree(parsed, generateTree(parsed, seed), { wind: options.wind });
 }
