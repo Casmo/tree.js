@@ -24,3 +24,4 @@ export { growPositions, growthPosition, SAPLING_SCALE, SAPLING_THICKNESS } from 
 export { assertWebGPURenderer, UnsupportedRendererError } from './renderer';
 export { Wind, sceneWind, WindResponse, windOffset, applyWind, type WindDirection, type WindOptions } from './wind';
 export type { TreeStyle } from './styles/types';
+export { loadStyle, STYLE_NAMES, type StyleName } from './styles/registry';
