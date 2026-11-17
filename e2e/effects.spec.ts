@@ -57,7 +57,7 @@ const backends = [
 ];
 
 for (const backend of backends) {
-  for (const style of backend.name === 'webgpu' ? styles : ['stylized']) {
+  for (const style of styles) {
     test(`Tree Effects for ${style} only change tree pixels (${backend.name})`, async ({ page }) => {
       const base = `style=${style}${backend.query}`;
       const mask = await shot(page, `${base}&view=mask`);

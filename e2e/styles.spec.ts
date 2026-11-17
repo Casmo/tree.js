@@ -27,21 +27,27 @@ for (const style of styles) {
   }
 }
 
-// The stylized Style through the year (pink blossom in early spring, autumn colours, bare broadleaf /
-// evergreen conifer in winter) and while growing (Growth and Season are uniforms; the geometry is the same).
+// Every Style x Form through the year (autumn colours; bare broadleaf / evergreen conifer in winter)
+// and while growing (Growth and Season are uniforms; the geometry is the same). WebGPU backend.
+const states = [
+  { name: 'growth-0-7', query: '&growth=0.7' },
+  { name: 'autumn', query: '&season=0.62' },
+  { name: 'winter', query: '&season=0.85' },
+];
+// Plus the stylized broadleaf's pink blossom in early spring, also while still growing.
 const stylizedStates = [
   { form: 'broadleaf', name: 'blossom', query: '&season=0.04' },
-  { form: 'broadleaf', name: 'autumn', query: '&season=0.62' },
-  { form: 'broadleaf', name: 'winter', query: '&season=0.85' },
-  { form: 'conifer', name: 'winter', query: '&season=0.85' },
   { form: 'broadleaf', name: 'growth-0-85-blossom', query: '&growth=0.85&season=0.04' },
-  { form: 'conifer', name: 'growth-0-85', query: '&growth=0.85' },
 ];
-for (const { form, name, query } of stylizedStates) {
-  test(`stylized ${form}: ${name}`, async ({ page }) => {
-    await page.goto(`/examples/vanilla/?style=stylized&form=${form}&seed=1${query}`);
+const shots = [
+  ...styles.flatMap((style) => forms.flatMap((form) => states.map((state) => ({ style, form, ...state })))),
+  ...stylizedStates.map((state) => ({ style: 'stylized', ...state })),
+];
+for (const { style, form, name, query } of shots) {
+  test(`${style} ${form}: ${name}`, async ({ page }) => {
+    await page.goto(`/examples/vanilla/?style=${style}&form=${form}&seed=1${query}`);
     expect(await waitForExample(page)).toMatchObject({ status: 'rendered', backend: 'webgpu' });
-    await expect(page.locator('canvas')).toHaveScreenshot(`stylized-${form}-${name}.png`, {
+    await expect(page.locator('canvas')).toHaveScreenshot(`${style}-${form}-${name}.png`, {
       mask: [page.locator('#status')],
     });
   });
