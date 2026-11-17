@@ -1,7 +1,7 @@
 import type { Node } from 'three/webgpu';
 import { attribute, cross, positionGeometry, positionLocal } from 'three/tsl';
 import { growthPosition } from '../growth';
-import { objectWindDirection, windOffset, type Wind, type WindResponse } from '../wind';
+import { objectWindDirection, windOffset, type WindResponse, type WindSource } from '../wind';
 
 /**
  * Per-instance data of a Forest (one interleaved instanced buffer, 8 floats per tree):
@@ -35,7 +35,7 @@ function rotate(v: Node<'vec3'>, inverse = false): Node<'vec3'> {
  * instance rotation and scale: M·(p + d) = M·p + R·s·d. The Wind direction goes the other way
  * (forest -> tree space) and each tree sways with its own phase.
  */
-export function forestPosition(wind: Wind, response: WindResponse): Node<'vec3'> {
+export function forestPosition(wind: WindSource, response: WindResponse): Node<'vec3'> {
   const { scale, growth, windPhase } = instanceState();
   const grown = growthPosition(growth, positionGeometry);
   const offset = windOffset(wind, response, { direction: rotate(objectWindDirection(wind), true), phase: windPhase });

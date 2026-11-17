@@ -1,12 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { Vector3, type NodeMaterial } from 'three/webgpu';
-import { createTree, sceneWind, Wind } from '../src/index';
+import { Vector3, type Node, type NodeMaterial } from 'three/webgpu';
+import { createForest, createTree, sceneWind, Wind } from '../src/index';
 
 /** What the renderer does with the time uniform once per render (NodeFrame -> node.update). */
 function renderAt(wind: Wind, seconds: number): number {
   const node = wind.uniforms.time as unknown as { update(frame: { time: number }): void; value: number };
   node.update({ time: seconds });
   return node.value;
+}
+
+/**
+ * Simulates one render of a material: every per-render uniform in its vertex position graph is
+ * updated (as the renderer's NodeFrame does), and their values are returned: what the shader sways with.
+ */
+function drawnWindValues(material: NodeMaterial, seconds = 100): unknown[] {
+  const values: unknown[] = [];
+  (material.positionNode as Node).traverse((node) => {
+    const n = node as unknown as { updateType: string; update?(frame: { time: number }): void; value?: unknown };
+    if (n.updateType !== 'render' || !n.update) return;
+    n.update({ time: seconds });
+    values.push(n.value instanceof Vector3 ? n.value.toArray() : n.value);
+  });
+  return values;
 }
 
 describe('Wind', () => {
@@ -111,5 +126,52 @@ describe('trees and Wind', () => {
     const phase = (seed: number) => createTree(definition, { seed }).windResponse.uniforms.phase.value;
     expect(phase(1)).toBe(phase(1));
     expect(phase(1)).not.toBe(phase(2));
+  });
+
+  it('switches to another Wind without regenerating or recompiling the tree', () => {
+    const tree = createTree(definition, { seed: 1 });
+    const { wood, leaves } = tree;
+    const [geometry, material, positionNode] = [wood.geometry, wood.material as NodeMaterial, (wood.material as NodeMaterial).positionNode];
+    const version = material.version;
+    expect(drawnWindValues(material)).toContain(100); // the scene Wind follows the renderer clock
+
+    const storm = new Wind({ direction: [0, 0, 1], strength: 2.5 });
+    storm.time = 7.25;
+    tree.wind = storm;
+    expect(tree.wind).toBe(storm);
+    expect(tree.wood).toBe(wood);
+    expect(tree.leaves).toBe(leaves);
+    expect(wood.geometry).toBe(geometry);
+    expect(wood.material).toBe(material);
+    expect(material.positionNode).toBe(positionNode);
+    expect(material.version).toBe(version);
+    for (const m of [material, leaves.material]) {
+      const drawn = drawnWindValues(m);
+      expect(drawn).toContain(2.5);
+      expect(drawn).toContain(7.25);
+      expect(drawn).toContainEqual([0, 0, 1]);
+    }
+
+    storm.strength = 0.5; // later changes to the bound Wind show up too
+    expect(drawnWindValues(material)).toContain(0.5);
+    tree.wind = sceneWind;
+    expect(drawnWindValues(material)).not.toContain(0.5);
+  });
+
+  it('a Forest switches to another Wind without rebuilding its Variants', () => {
+    const forest = createForest(definition, [{ position: [0, 0, 0] }], { variants: 1 });
+    const variant = forest.variants[0]!;
+    const [wood, material, positionNode] = [variant.wood, variant.barkMaterial, variant.barkMaterial.positionNode];
+    const storm = new Wind({ direction: [0, 0, -1], strength: 3.5 });
+    forest.wind = storm;
+    expect(forest.wind).toBe(storm);
+    expect(forest.variants[0]).toBe(variant);
+    expect(variant.wood).toBe(wood);
+    expect(variant.barkMaterial).toBe(material);
+    expect(material.positionNode).toBe(positionNode);
+    for (const m of [variant.barkMaterial, variant.leafMaterial]) {
+      expect(drawnWindValues(m)).toContain(3.5);
+      expect(drawnWindValues(m)).toContainEqual([0, 0, -1]);
+    }
   });
 });

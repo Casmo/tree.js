@@ -7,7 +7,7 @@ import { createForest, type Forest as ForestObject } from '../forest';
 import { forestTreeKey, type ForestPlacement } from '../forest/placement';
 import { clampGrowth } from '../growth/evaluate';
 import { wrapSeason } from '../season/profile';
-import type { Wind as WindObject } from '../wind';
+import { sceneWind, type Wind as WindObject } from '../wind';
 import { useTreeStyle } from './useTreeStyle';
 
 type GroupProps = Omit<ThreeElements['group'], 'args' | 'object' | 'children' | 'ref' | 'castShadow' | 'receiveShadow' | 'dispose'>;
@@ -97,8 +97,8 @@ function syncForest(forest: ForestObject, placements: readonly ForestTreePlaceme
 
 /**
  * Many trees of one Definition, drawn instanced (a `Forest`). Changing `placements` plants or cuts
- * only the affected trees; Growth, Season and shadow props only update instance data and meshes.
- * A new `definition` (by value), `style`/`form`, `variants`, `seed` or `wind` rebuilds the forest.
+ * only the affected trees; Growth, Season, Wind and shadow props only update instance data, uniforms
+ * and meshes. A new `definition` (by value), `style`/`form`, `variants` or `seed` rebuilds the forest.
  * The forest is disposed of on unmount.
  */
 export function Forest({
@@ -124,8 +124,8 @@ export function Forest({
   const [generation, setGeneration] = useState(0);
   const forest = useMemo(
     () => createForest(JSON.parse(key) as TreeDefinitionInput, [], { variants, seed, wind, growth, season }),
-    // placements/growth/season are synced by the layout effect below.
-    [key, variants, seed, wind, generation],
+    // placements/growth/season/wind are synced by the layout effects below.
+    [key, variants, seed, generation],
   );
 
   useEffect(() => {
@@ -135,6 +135,10 @@ export function Forest({
       forest.dispose();
     };
   }, [forest]);
+
+  useLayoutEffect(() => {
+    forest.wind = wind ?? sceneWind;
+  }, [forest, wind]);
 
   useLayoutEffect(() => {
     syncForest(forest, placements, growth, season);

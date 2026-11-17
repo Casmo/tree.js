@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
-import type { Tree as TreeObject } from '../../src/index';
+import { sceneWind, Wind as WindObject, type Tree as TreeObject } from '../../src/index';
 import { Tree } from '../../src/react';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -44,6 +44,21 @@ describe('<Tree> (React Three Fiber)', () => {
     expect(after).toBe(before);
     expect(after.growth).toBeCloseTo(0.7);
     expect(after.season).toBeCloseTo(0.6);
+  });
+
+  it('changing the wind only rebinds the same tree to the new Wind', async () => {
+    const gusts = new WindObject({ strength: 1 });
+    renderer = await ReactThreeTestRenderer.create(<Tree definition={definition} seed={3} />, { gl });
+    const before = sceneTree(renderer);
+    expect(before.wind).toBe(sceneWind);
+
+    await renderer.update(<Tree definition={definition} seed={3} wind={gusts} />);
+    expect(sceneTree(renderer)).toBe(before);
+    expect(before.wind).toBe(gusts);
+
+    await renderer.update(<Tree definition={definition} seed={3} />);
+    expect(sceneTree(renderer)).toBe(before);
+    expect(before.wind).toBe(sceneWind);
   });
 
   it('a new seed regenerates the tree and disposes of the old one', async () => {

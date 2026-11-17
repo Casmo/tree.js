@@ -11,7 +11,7 @@ import {
   vec3,
   vec4,
 } from 'three/tsl';
-import type { Wind } from './Wind';
+import type { WindUniforms } from './Wind';
 import type { WindResponse } from './response';
 
 // Sway amplitudes at Wind strength 1 and response 1, as a fraction of the trunk height.
@@ -29,8 +29,13 @@ export interface WindFrame {
   phase?: Node<'float'>;
 }
 
+/** Anything holding Wind uniforms: a {@link Wind} or a {@link WindBinding} that follows one. */
+export interface WindSource {
+  readonly uniforms: WindUniforms;
+}
+
 /** The scene Wind direction in the rendered object's space (rotation only, normalized). */
-export function objectWindDirection(wind: Wind): Node<'vec3'> {
+export function objectWindDirection(wind: WindSource): Node<'vec3'> {
   return modelWorldMatrixInverse.mul(vec4(wind.uniforms.direction, 0)).xyz.normalize();
 }
 
@@ -48,7 +53,7 @@ export function objectWindDirection(wind: Wind): Node<'vec3'> {
  * object space (rotation only, so a scaled-up tree sways proportionally more). `frame` replaces
  * that direction and the response's phase (see {@link WindFrame}).
  */
-export function windOffset(wind: Wind, response: WindResponse, frame: WindFrame = {}): Node<'vec3'> {
+export function windOffset(wind: WindSource, response: WindResponse, frame: WindFrame = {}): Node<'vec3'> {
   const weights = attribute('aWind', 'vec3');
   const random = attribute('aRandom', 'float');
   const origin = attribute('aOrigin', 'vec3');

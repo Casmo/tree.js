@@ -21,7 +21,7 @@ import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createSeasonNodes, wrapSeason, type SeasonUniform } from '../season';
 import { clampGrowth } from '../growth';
 import { textureReady, type TextureOptions } from '../textures';
-import { sceneWind, Wind, WindResponse } from '../wind';
+import { sceneWind, Wind, WindBinding, WindResponse, type WindSource } from '../wind';
 import { INSTANCE_ATTRIBUTES, INSTANCE_STRIDE, forestPosition, instanceState } from './nodes';
 import {
   delayedGrowth,
@@ -189,7 +189,7 @@ export class ForestVariant {
     definition: TreeDefinition,
     index: number,
     seed: number,
-    wind: Wind,
+    wind: WindSource,
     capacity: number,
     textures?: TextureOptions,
   ) {
@@ -355,12 +355,11 @@ export class Forest extends Group {
   readonly definition: TreeDefinition;
   /** The forest seed. */
   readonly seed: number;
-  /** The Wind every tree of this forest sways with. */
-  readonly wind: Wind;
   readonly variants: readonly ForestVariant[];
   /** Resolves once every texture has loaded (at once without textures); rejects if one fails. */
   readonly ready: Promise<void>;
   private readonly byKey = new Map<string, ForestTree>();
+  private readonly windBinding: WindBinding;
   private growthValue: number;
   private seasonValue: number;
 
@@ -371,19 +370,31 @@ export class Forest extends Group {
     this.name = 'Forest';
     this.definition = definition;
     this.seed = options.seed ?? 0;
-    this.wind = options.wind ?? sceneWind;
+    this.windBinding = new WindBinding(options.wind ?? sceneWind);
     this.growthValue = clampGrowth(options.growth ?? 1);
     this.seasonValue = checkedSeason(options.season ?? 0);
 
     const capacity = Math.max(MIN_CAPACITY, 2 ** Math.ceil(Math.log2(Math.max(1, (placements.length / count) * 1.25))));
     this.variants = Array.from(
       { length: count },
-      (_, i) => new ForestVariant(this, definition, i, variantSeed(this.seed, i), this.wind, capacity, options.textures),
+      (_, i) => new ForestVariant(this, definition, i, variantSeed(this.seed, i), this.windBinding, capacity, options.textures),
     );
     const textures = this.variants.flatMap((v) => [v.barkMaterial.map, v.barkMaterial.normalMap, v.leafMaterial.map]);
     this.ready = Promise.all(textures.filter((t) => t !== null).map(textureReady)).then(() => undefined);
     this.ready.catch(() => {}); // only reported to whoever awaits it
     for (const placement of placements) this.addTree(placement);
+  }
+
+  /**
+   * The Wind every tree of this forest sways with. Assigning another Wind only rebinds uniforms:
+   * no rebuild, no recompile.
+   */
+  get wind(): Wind {
+    return this.windBinding.wind;
+  }
+
+  set wind(value: Wind) {
+    this.windBinding.wind = value;
   }
 
   /** Every tree, in the order they were added. */

@@ -19,7 +19,7 @@ import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createSeasonNodes, wrapSeason, type SeasonUniform } from '../season';
 import { textureReady, type TextureOptions } from '../textures';
 import { hashCombine, hashString, seedToUint32 } from '../random';
-import { applyWind, sceneWind, windOffset, Wind, WindResponse } from '../wind';
+import { applyWind, sceneWind, windOffset, Wind, WindBinding, WindResponse } from '../wind';
 
 /**
  * The Generator's per-vertex part attributes (`aLevel`, `aSeason`, `aWind`, ...) go into one
@@ -101,10 +101,9 @@ export class Tree extends Group {
   readonly growthUniform: UniformNode<'float', number>;
   /** The Season uniform the leaf material reads (shared nodes may reference it). */
   readonly seasonUniform: SeasonUniform;
-  /** The Wind this tree sways with (shared with every other tree using it). */
-  readonly wind: Wind;
   /** This tree's response to the Wind, from `definition.wind`; `windResponse.set(...)` changes it live. */
   readonly windResponse: WindResponse;
+  private readonly windBinding: WindBinding;
 
   /**
    * Resolves once every texture of this tree has loaded (at once for a tree without textures);
@@ -131,14 +130,14 @@ export class Tree extends Group {
     this.ready.catch(() => {}); // only reported to whoever awaits it
     this.add(this.wood, this.leaves);
 
-    this.wind = options.wind ?? sceneWind;
+    this.windBinding = new WindBinding(options.wind ?? sceneWind);
     // A Sculpt may delete the trunk (an empty tree): any height will do then.
     const trunk = data.skeleton.branches.find((b) => b.parent === null)?.points;
     this.windResponse = new WindResponse(definition.wind, {
       height: trunk ? trunk[trunk.length - 1]!.position[1] : 1,
       phase: (hashCombine(seedToUint32(data.seed), hashString('wind')) / 4294967296) * Math.PI * 2,
     });
-    const offset = windOffset(this.wind, this.windResponse);
+    const offset = windOffset(this.windBinding, this.windResponse);
     applyWind(this.wood.material as NodeMaterial, offset);
     applyWind(this.leaves.material, offset);
 
@@ -146,6 +145,18 @@ export class Tree extends Group {
     applySeasonToLeafMaterial(this.leaves.material, season);
     this.seasonUniform = season.season;
     this.season = options.season ?? 0;
+  }
+
+  /**
+   * The Wind this tree sways with (shared with every other tree using it). Assigning another
+   * Wind only rebinds uniforms: no regeneration, no recompile.
+   */
+  get wind(): Wind {
+    return this.windBinding.wind;
+  }
+
+  set wind(value: Wind) {
+    this.windBinding.wind = value;
   }
 
   /**

@@ -4,7 +4,7 @@ import type { TreeDefinition, TreeDefinitionInput, TreeForm } from '../definitio
 import type { TreeStyle } from '../styles/types';
 import type { StyleName } from '../styles/registry';
 import { createTree, type Tree as TreeObject } from '../tree';
-import type { Wind as WindObject } from '../wind';
+import { sceneWind, type Wind as WindObject } from '../wind';
 import { useTreeStyle } from './useTreeStyle';
 
 type GroupProps = Omit<ThreeElements['group'], 'args' | 'object' | 'children' | 'ref' | 'castShadow' | 'receiveShadow' | 'dispose'>;
@@ -39,8 +39,8 @@ export interface TreeProps extends GroupProps {
 const disposed = new WeakSet<TreeObject>();
 
 /**
- * A procedural tree. Growth, Season and shadow props only update the existing tree; a new
- * `seed`, `definition` (by value), `style`/`form` or `wind` regenerates it. The tree is disposed
+ * A procedural tree. Growth, Season, Wind and shadow props only update the existing tree; a new
+ * `seed`, `definition` (by value) or `style`/`form` regenerates it. The tree is disposed
  * of on unmount.
  */
 export function Tree({
@@ -67,8 +67,8 @@ export function Tree({
   const [generation, setGeneration] = useState(0);
   const tree = useMemo(
     () => createTree(JSON.parse(key) as TreeDefinitionInput, { seed, wind, growth, season }),
-    // growth/season are only the starting values; the effects below keep them in sync.
-    [key, seed, wind, generation],
+    // growth/season/wind are only the starting values; the effects below keep them in sync.
+    [key, seed, generation],
   );
 
   useEffect(() => {
@@ -78,6 +78,10 @@ export function Tree({
       tree.dispose();
     };
   }, [tree]);
+
+  useLayoutEffect(() => {
+    tree.wind = wind ?? sceneWind;
+  }, [tree, wind]);
 
   useLayoutEffect(() => {
     tree.growth = growth;

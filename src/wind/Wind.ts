@@ -81,3 +81,27 @@ export class Wind {
 
 /** The scene-wide Wind every tree sways with by default. */
 export const sceneWind = new Wind();
+
+/** The uniforms Wind nodes read: those of a {@link Wind}, or of a {@link WindBinding}. */
+export type WindUniforms = Wind['uniforms'];
+
+/**
+ * Per-object Wind uniforms that follow whichever Wind is bound to them, read once per render.
+ * Trees and Forests build their Wind nodes on these, so switching to another Wind is one
+ * assignment: no new nodes, no recompile, no regeneration.
+ */
+export class WindBinding {
+  /** The bound Wind. */
+  wind: Wind;
+  readonly uniforms: WindUniforms;
+
+  constructor(wind: Wind) {
+    this.wind = wind;
+    const direction = wind.uniforms.direction.value.clone();
+    this.uniforms = {
+      direction: uniform(direction).onRenderUpdate(() => direction.copy(this.wind.uniforms.direction.value)),
+      strength: uniform(wind.strength).onRenderUpdate(() => this.wind.strength),
+      time: uniform(0).onRenderUpdate((frame) => this.wind.time ?? frame.time),
+    };
+  }
+}

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
-import type { Forest as ForestObject, ForestTree, Vec3 } from '../../src/index';
+import { sceneWind, Wind as WindObject, type Forest as ForestObject, type ForestTree, type Vec3 } from '../../src/index';
 import { Forest } from '../../src/react';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -125,6 +125,22 @@ describe('<Forest> (React Three Fiber)', () => {
 
     await renderer.update(<Forest definition={definition} variants={3} seed={9} placements={placements} />);
     expect(sceneForest(renderer).seed).toBe(9);
+  });
+
+  it('changing the wind only rebinds the same forest to the new Wind', async () => {
+    const placements = [{ id: 'a', position: [0, 0, 0] as Vec3 }];
+    const gusts = new WindObject({ strength: 1 });
+    renderer = await ReactThreeTestRenderer.create(<Forest definition={definition} variants={1} placements={placements} />, { gl });
+    const before = sceneForest(renderer);
+    expect(before.wind).toBe(sceneWind);
+
+    await renderer.update(<Forest definition={definition} variants={1} placements={placements} wind={gusts} />);
+    expect(sceneForest(renderer)).toBe(before);
+    expect(before.wind).toBe(gusts);
+
+    await renderer.update(<Forest definition={definition} variants={1} placements={placements} />);
+    expect(sceneForest(renderer)).toBe(before);
+    expect(before.wind).toBe(sceneWind);
   });
 
   it('unmounting disposes of the forest', async () => {
