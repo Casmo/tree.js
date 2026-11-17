@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DoubleSide, Mesh, Object3D, type BufferGeometry } from 'three/webgpu';
-import { createTree, hashGeometry, TreeDefinitionError, UnsupportedRendererError, type Tree } from '../src/index';
+import { createTree, hashGeometry, TreeDefinitionError, UnsupportedRendererError, type Tree, type TreeAttributes } from '../src/index';
 
 const definition = { schemaVersion: 1 } as const;
 
@@ -17,11 +17,17 @@ function sceneGeometryHash(tree: Tree): string {
   return meshes(tree)
     .map((m) => {
       const g = m.geometry as BufferGeometry;
+      const array = (name: string) => g.getAttribute(name)?.array as Float32Array;
+      const custom = Object.keys(g.attributes).filter((name) => name.startsWith('a'));
       return hashGeometry({
-        positions: g.getAttribute('position').array as Float32Array,
-        normals: g.getAttribute('normal').array as Float32Array,
-        uvs: g.getAttribute('uv').array as Float32Array,
+        positions: array('position'),
+        normals: array('normal'),
+        uvs: array('uv'),
+        colors: array('color'),
         indices: g.getIndex()!.array as Uint32Array,
+        attributes: Object.fromEntries(
+          custom.map((name) => [name, { array: array(name), itemSize: g.getAttribute(name).itemSize }]),
+        ) as TreeAttributes,
       });
     })
     .join('/');
@@ -34,6 +40,16 @@ describe('createTree', () => {
     expect(meshes(tree)).toEqual([tree.wood, tree.leaves]);
     expect(tree.data.skeleton.branches.length).toBeGreaterThan(1);
     expect(tree.leaves.geometry.getAttribute('position').count).toBeGreaterThan(0);
+  });
+
+  it('puts the Generator\'s per-vertex attributes on every mesh, for Growth, Season and Wind', () => {
+    const tree = createTree(definition, { seed: 1 });
+    for (const mesh of meshes(tree)) {
+      const g = mesh.geometry as BufferGeometry;
+      for (const name of ['aLevel', 'aAlong', 'aAttach', 'aRandom']) expect(g.getAttribute(name).itemSize).toBe(1);
+      expect(g.getAttribute('aOrigin').itemSize).toBe(3);
+      expect(g.getAttribute('aLevel').count).toBe(g.getAttribute('position').count);
+    }
   });
 
   it('draws leaves double-sided with their per-leaf vertex colours', () => {

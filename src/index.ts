@@ -23,6 +23,8 @@ export {
   type SkeletonPoint,
   type SkeletonLeaf,
   type GeometryBuffers,
+  type TreeAttributes,
+  type VertexAttribute,
   type Vec3,
 } from './generator';
 export { createRandom, hashString, hashCombine, type Random } from './random';

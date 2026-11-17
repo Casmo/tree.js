@@ -20,5 +20,5 @@ export function buildTrunk(definition: TreeDefinition, random: Random): Skeleton
     }
     points.push({ position: [x, t * length, z], radius: trunk.radius * (1 + (trunk.taper - 1) * t) });
   }
-  return { path: '0', parent: null, level: 0, points };
+  return { path: '0', parent: null, level: 0, attach: 0, points };
 }

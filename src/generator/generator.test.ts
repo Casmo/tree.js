@@ -224,3 +224,53 @@ describe('leaves', () => {
     }
   });
 });
+
+describe('per-vertex attributes', () => {
+  const levels = def.branches.length;
+  const data = generateTree(def, 8);
+
+  for (const [mesh, buffers] of [
+    ['wood', data.wood],
+    ['leaves', data.leaves],
+  ] as const) {
+    it(`${mesh}: every attribute has one value per vertex, within range`, () => {
+      const vertexCount = buffers.positions.length / 3;
+      const { aLevel, aAlong, aAttach, aRandom, aOrigin } = buffers.attributes;
+      for (const a of [aLevel, aAlong, aAttach, aRandom]) {
+        expect(a.itemSize).toBe(1);
+        expect(a.array.length).toBe(vertexCount);
+      }
+      expect(aOrigin.itemSize).toBe(3);
+      expect(aOrigin.array.length).toBe(vertexCount * 3);
+      for (const a of [aAlong, aAttach, aRandom]) {
+        for (const x of a.array) {
+          expect(x).toBeGreaterThanOrEqual(0);
+          expect(x).toBeLessThanOrEqual(1);
+        }
+      }
+      for (const x of aLevel.array) {
+        expect(Number.isInteger(x)).toBe(true);
+        if (mesh === 'leaves') expect(x).toBe(levels + 1);
+        else expect(x).toBeLessThanOrEqual(levels);
+      }
+    });
+  }
+
+  it('wood: each branch is pinned to its own base point, the trunk at the origin', () => {
+    const { aOrigin, aLevel } = data.wood.attributes;
+    const bases = new Set(data.skeleton.branches.map((b) => b.points[0]!.position.map((x) => Math.fround(x)).join()));
+    const origins = new Set<string>();
+    for (let v = 0; v < aLevel.array.length; v++) {
+      const o = [...aOrigin.array.subarray(v * 3, v * 3 + 3)];
+      origins.add(o.join());
+      if (aLevel.array[v] === 0) expect(o).toEqual([0, 0, 0]);
+    }
+    expect(origins).toEqual(bases);
+  });
+
+  it('changing an attribute changes the hash', () => {
+    const copy = generateTree(def, 8);
+    copy.wood.attributes.aRandom.array[0] = 0.123;
+    expect(hashTreeData(copy)).not.toBe(hashTreeData(data));
+  });
+});

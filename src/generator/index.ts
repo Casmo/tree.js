@@ -1,12 +1,13 @@
 import type { TreeDefinition } from '../definition';
 import { createRandom, hashBytes } from '../random';
+import { partRandom } from './attributes';
 import { buildBranches } from './branches';
 import { leafGeometry, placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
 import { buildTrunk } from './trunk';
 import type { GeometryBuffers, TreeData } from './types';
 
-export type { GeometryBuffers, SkeletonBranch, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
+export type { GeometryBuffers, TreeAttributes, VertexAttribute, SkeletonBranch, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
 
 /**
  * The Generator: a pure function from a (parsed) Tree Definition and a Seed to tree data.
@@ -24,8 +25,8 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
   return {
     seed,
     skeleton: { branches, leaves },
-    wood: mergeBuffers(branches.map((b) => sweepBranch(b, sidesOf(b.level)))),
-    leaves: leafGeometry(leaves),
+    wood: mergeBuffers(branches.map((b) => sweepBranch(b, sidesOf(b.level), partRandom(seed, b.path)))),
+    leaves: leafGeometry(leaves, definition.branches.length + 1, seed),
   };
 }
 
@@ -41,6 +42,9 @@ export function hashTreeData(data: TreeData): string {
 
 function hashBuffers(geometry: GeometryBuffers, h?: number): number {
   const arrays = [geometry.positions, geometry.normals, geometry.uvs, geometry.colors, geometry.indices];
+  for (const name of Object.keys(geometry.attributes).sort()) {
+    arrays.push(geometry.attributes[name]!.array);
+  }
   for (const array of arrays) {
     if (array) h = hashBytes(new Uint8Array(array.buffer, array.byteOffset, array.byteLength), h);
   }

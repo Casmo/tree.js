@@ -16,6 +16,8 @@ export interface SkeletonBranch {
   parent: string | null;
   /** 0 = trunk, 1 = first branching level, ... */
   level: number;
+  /** Where the branch sits on its parent, as a fraction (0..1) of the parent's length; 0 for the trunk. */
+  attach: number;
   points: SkeletonPoint[];
 }
 
@@ -29,6 +31,8 @@ export interface SkeletonLeaf {
   branch: string;
   /** Index of the leaf on its branch (0 nearest the branch base). */
   index: number;
+  /** Where the leaf sits on its branch, as a fraction (0..1) of the branch length. */
+  attach: number;
   /** Attachment point on the branch centre line. */
   position: Vec3;
   /** Unit vector from the attachment point to the leaf tip. */
@@ -47,10 +51,32 @@ export interface TreeSkeleton {
   leaves: SkeletonLeaf[];
 }
 
+/** A custom per-vertex attribute: `itemSize` floats per vertex. */
+export interface VertexAttribute {
+  array: Float32Array;
+  itemSize: number;
+}
+
 /**
- * Plain geometry buffers (no three.js types), ready to wrap in a BufferGeometry.
- * Later tickets add per-vertex attributes (Growth, Season, Wind) under `attributes`.
+ * Per-vertex attributes every tree mesh carries; Growth, Season and Wind (tickets #6-#8)
+ * are computed from these in TSL, and may add their own entries.
+ * A "part" is a branch (wood mesh) or a leaf (leaves mesh).
  */
+export interface TreeAttributes {
+  [name: string]: VertexAttribute;
+  /** Part level: 0 = trunk, n = branching level n, leaves = number of branch levels + 1. */
+  aLevel: VertexAttribute;
+  /** Position of the vertex along its part, 0 at the base to 1 at the tip. */
+  aAlong: VertexAttribute;
+  /** Where the part sits on its parent (0..1 of the parent's length); 0 for the trunk. */
+  aAttach: VertexAttribute;
+  /** Stable random number per part (0..1), from the Seed and the branch path / leaf id. */
+  aRandom: VertexAttribute;
+  /** Base point of the part (vec3): pivot for growing and swaying it. */
+  aOrigin: VertexAttribute;
+}
+
+/** Plain geometry buffers (no three.js types), ready to wrap in a BufferGeometry. */
 export interface GeometryBuffers {
   positions: Float32Array;
   normals: Float32Array;
@@ -58,6 +84,7 @@ export interface GeometryBuffers {
   /** Optional per-vertex colours, linear RGB (leaves). */
   colors?: Float32Array;
   indices: Uint32Array;
+  attributes: TreeAttributes;
 }
 
 /** Everything the Generator produces for one Definition + Seed. Pure data, Node-safe. */

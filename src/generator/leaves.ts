@@ -1,5 +1,6 @@
 import type { TreeDefinition } from '../definition';
 import type { Random } from '../random';
+import { createAttributes, partRandom, writePart } from './attributes';
 import { branchFrames, sampleBranch } from './frames';
 import type { GeometryBuffers, SkeletonBranch, SkeletonLeaf, Vec3 } from './types';
 import { add, cross, dot, normalize, perpendicular, scale } from './vec';
@@ -46,19 +47,20 @@ export function placeLeaves(definition: TreeDefinition, branches: SkeletonBranch
       const size = leaves.size * (1 + r.range(-leaves.sizeVariation, leaves.sizeVariation));
       const brightness = r.range(-half, half);
       const color = base.map((c, k) => Math.min(1, Math.max(0, c * (1 + tint[k]! + brightness)))) as Vec3;
-      out.push({ id, branch: branch.path, index: i, position: at.position, direction, normal, size, color });
+      out.push({ id, branch: branch.path, index: i, attach: t, position: at.position, direction, normal, size, color });
     }
   }
   return out;
 }
 
 /** One diamond-shaped card per leaf (4 vertices, 2 triangles), coloured per vertex. */
-export function leafGeometry(leaves: SkeletonLeaf[]): GeometryBuffers {
+export function leafGeometry(leaves: SkeletonLeaf[], level: number, seed: number): GeometryBuffers {
   const positions = new Float32Array(leaves.length * 4 * 3);
   const normals = new Float32Array(leaves.length * 4 * 3);
   const uvs = new Float32Array(leaves.length * 4 * 2);
   const colors = new Float32Array(leaves.length * 4 * 3);
   const indices = new Uint32Array(leaves.length * 6);
+  const attributes = createAttributes(leaves.length * 4);
   leaves.forEach((leaf, l) => {
     const side = cross(leaf.direction, leaf.normal); // right-handed: direction x normal points to the card's right
     const halfWidth = (leaf.size * LEAF_WIDTH) / 2;
@@ -70,6 +72,7 @@ export function leafGeometry(leaves: SkeletonLeaf[]): GeometryBuffers {
       add(mid, scale(side, -halfWidth)),
     ];
     const cornerUvs = [0.5, 0, 1, 0.4, 0.5, 1, 0, 0.4];
+    const part = { level, attach: leaf.attach, random: partRandom(seed, leaf.id), origin: leaf.position };
     const linear = leaf.color.map(srgbToLinear);
     for (let c = 0; c < 4; c++) {
       const v = l * 4 + c;
@@ -77,11 +80,12 @@ export function leafGeometry(leaves: SkeletonLeaf[]): GeometryBuffers {
       normals.set(leaf.normal, v * 3);
       uvs.set([cornerUvs[c * 2]!, cornerUvs[c * 2 + 1]!], v * 2);
       colors.set(linear, v * 3);
+      writePart(attributes, v, part, cornerUvs[c * 2 + 1]!);
     }
     const v0 = l * 4;
     indices.set([v0, v0 + 1, v0 + 2, v0, v0 + 2, v0 + 3], l * 6);
   });
-  return { positions, normals, uvs, colors, indices };
+  return { positions, normals, uvs, colors, indices, attributes };
 }
 
 function hexToSrgb(hex: string): Vec3 {

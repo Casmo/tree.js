@@ -10,6 +10,9 @@ function toBufferGeometry(buffers: GeometryBuffers): BufferGeometry {
   geometry.setAttribute('normal', new BufferAttribute(buffers.normals, 3));
   geometry.setAttribute('uv', new BufferAttribute(buffers.uvs, 2));
   if (buffers.colors) geometry.setAttribute('color', new BufferAttribute(buffers.colors, 3));
+  for (const [name, { array, itemSize }] of Object.entries(buffers.attributes)) {
+    geometry.setAttribute(name, new BufferAttribute(array, itemSize));
+  }
   geometry.setIndex(new BufferAttribute(buffers.indices, 1));
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();

@@ -60,7 +60,7 @@ function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, rand
       direction = normalize(add(direction, scale(wander, level.bend)));
       position = add(position, scale(direction, step));
     }
-    children.push({ path, parent: parent.path, level: parent.level + 1, points });
+    children.push({ path, parent: parent.path, level: parent.level + 1, attach: t, points });
   }
   return children;
 }
