@@ -1,8 +1,8 @@
 // Which Tree Effects the preview shows: a toggle per effect, with the settings of a Style's
-// suggested combination (TREE_EFFECT_PRESETS). Pure logic; the panel and preview wiring live in
+// suggested combination (SUGGESTED_TREE_EFFECTS). Pure logic; the panel and preview wiring live in
 // panels/effects-panel.ts and effects-preview.ts.
 import { STYLE_NAMES, type StyleName } from '@casmo/tree.js';
-import { TREE_EFFECT_PRESETS, type TreeEffectsPreset } from '@casmo/tree.js/effects';
+import { SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from '@casmo/tree.js/effects';
 
 /** The Tree Effects, in the order they are applied. */
 export const EFFECT_NAMES = ['grade', 'glow', 'outline'] as const;
@@ -27,19 +27,19 @@ export function styleOfSource(source: string): StyleName | null {
 
 /** The toggles of a Style's suggested combination. */
 export function suggestedEffects(style: StyleName): EffectToggles {
-  const preset = TREE_EFFECT_PRESETS[style];
-  return { grade: !!preset.grade, glow: !!preset.glow, outline: !!preset.outline };
+  const settings = SUGGESTED_TREE_EFFECTS[style];
+  return { grade: !!settings.grade, glow: !!settings.glow, outline: !!settings.outline };
 }
 
 /**
  * The combination to render: the switched-on effects with the Style's settings (an effect's own
  * defaults where the Style does not suggest it). Null when every effect is off.
  */
-export function effectsPreset(style: StyleName, toggles: EffectToggles): TreeEffectsPreset | null {
-  const suggested = TREE_EFFECT_PRESETS[style];
-  const preset: TreeEffectsPreset = {};
+export function effectsSettings(style: StyleName, toggles: EffectToggles): TreeEffectsSettings | null {
+  const suggested = SUGGESTED_TREE_EFFECTS[style];
+  const settings: TreeEffectsSettings = {};
   for (const name of EFFECT_NAMES) {
-    if (toggles[name]) Object.assign(preset, { [name]: suggested[name] ?? {} });
+    if (toggles[name]) Object.assign(settings, { [name]: suggested[name] ?? {} });
   }
-  return Object.keys(preset).length > 0 ? preset : null;
+  return Object.keys(settings).length > 0 ? settings : null;
 }

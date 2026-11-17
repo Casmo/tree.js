@@ -258,11 +258,11 @@ compose with your other effects:
 ```ts
 import * as THREE from 'three/webgpu';
 import { float, screenUV, vec4 } from 'three/tsl';
-import { applyTreeEffects, TREE_EFFECT_PRESETS, treeEffectsPass } from '@casmo/tree.js/effects';
+import { applyTreeEffects, SUGGESTED_TREE_EFFECTS, treeEffectsPass } from '@casmo/tree.js/effects';
 
 const pipeline = new THREE.RenderPipeline(renderer);
 const input = treeEffectsPass(scene, camera); // { pass, color, mask }
-const trees = applyTreeEffects(input, TREE_EFFECT_PRESETS['low-poly']); // or treeOutline / leafGlow / treeColorGrade
+const trees = applyTreeEffects(input, SUGGESTED_TREE_EFFECTS['low-poly']); // or treeOutline / leafGlow / treeColorGrade
 const vignette = float(1).sub(screenUV.sub(0.5).length().mul(0.9).pow(2)); // your own effect on top
 pipeline.outputNode = vec4(trees.rgb.mul(vignette), 1);
 renderer.setAnimationLoop(() => pipeline.render());

@@ -3,13 +3,13 @@ import { readFileSync } from 'node:fs';
 import { texture, vec4 } from 'three/tsl';
 import { createTree } from '../../src/index';
 import { MeshStandardNodeMaterial, PerspectiveCamera, Scene, Texture, type Renderer } from 'three/webgpu';
-import { applyTreeEffects, createTreeEffects, TREE_EFFECT_PRESETS, treePartOf } from '../../src/effects';
+import { applyTreeEffects, createTreeEffects, SUGGESTED_TREE_EFFECTS, treePartOf } from '../../src/effects';
 
 describe('Tree Effects', () => {
   it('suggests a combination of effects for each built-in Style', () => {
-    expect(Object.keys(TREE_EFFECT_PRESETS).sort()).toEqual(['low-poly', 'realistic', 'stylized']);
-    for (const preset of Object.values(TREE_EFFECT_PRESETS)) {
-      expect(Object.keys(preset).length).toBeGreaterThan(0);
+    expect(Object.keys(SUGGESTED_TREE_EFFECTS).sort()).toEqual(['low-poly', 'realistic', 'stylized']);
+    for (const settings of Object.values(SUGGESTED_TREE_EFFECTS)) {
+      expect(Object.keys(settings).length).toBeGreaterThan(0);
     }
   });
 
@@ -31,13 +31,13 @@ describe('Tree Effects', () => {
   it('switches between the suggested combinations of the Styles in one pipeline', () => {
     const renderer = { isWebGPURenderer: true } as unknown as Renderer;
     const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'low-poly' });
-    expect(effects.preset).toBe(TREE_EFFECT_PRESETS['low-poly']);
+    expect(effects.settings).toBe(SUGGESTED_TREE_EFFECTS['low-poly']);
     const before = effects.pipeline.outputNode;
     effects.set('stylized');
-    expect(effects.preset).toBe(TREE_EFFECT_PRESETS.stylized);
+    expect(effects.settings).toBe(SUGGESTED_TREE_EFFECTS.stylized);
     expect(effects.pipeline.outputNode).not.toBe(before);
     effects.set(null);
-    expect(effects.preset).toEqual({});
+    expect(effects.settings).toEqual({});
     expect(effects.pipeline.outputNode).toBe(effects.scenePass.color);
     expect(() => effects.set('unknown' as never)).toThrow(/unknown/);
   });

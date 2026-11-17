@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_DEFINITION } from '@casmo/tree.js';
-import { TREE_EFFECT_PRESETS, type TreeEffectsPreset } from '@casmo/tree.js/effects';
+import { SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from '@casmo/tree.js/effects';
 import { createEditorStore } from './store';
 import { createEffectsPreview, type EffectsPreviewTarget } from './effects-preview';
 
@@ -15,15 +15,15 @@ function setup(source = 'stylized/broadleaf') {
     renderFrame: () => void drawn.push('plain'),
     requestRender: () => void renders.count++,
   };
-  const pipelines: { preset: TreeEffectsPreset | null; disposed: boolean }[] = [];
+  const pipelines: { settings: TreeEffectsSettings | null; disposed: boolean }[] = [];
   const store = createEditorStore({ definition: DEFAULT_DEFINITION, source });
   const effects = createEffectsPreview(preview, store, {
     create: () => {
-      const pipeline = { preset: null as TreeEffectsPreset | null, disposed: false };
+      const pipeline = { settings: null as TreeEffectsSettings | null, disposed: false };
       pipelines.push(pipeline);
       return {
-        set: (preset) => void (pipeline.preset = preset),
-        render: () => void drawn.push(`effects:${Object.keys(pipeline.preset ?? {}).join('+')}`),
+        set: (settings) => void (pipeline.settings = settings),
+        render: () => void drawn.push(`effects:${Object.keys(pipeline.settings ?? {}).join('+')}`),
         dispose: () => void (pipeline.disposed = true),
       };
     },
@@ -63,7 +63,7 @@ describe('Tree Effects preview', () => {
     effects.applySuggested();
     expect(effects.toggles).toEqual({ grade: true, glow: false, outline: true });
     expect(draw()).toBe('effects:grade+outline');
-    expect(pipelines.at(-1)!.preset).toEqual(TREE_EFFECT_PRESETS['low-poly']);
+    expect(pipelines.at(-1)!.settings).toEqual(SUGGESTED_TREE_EFFECTS['low-poly']);
   });
 
   it('follows the Style of a newly chosen starting point, keeping the toggles', () => {
@@ -71,7 +71,7 @@ describe('Tree Effects preview', () => {
     effects.toggle('outline', true);
     store.loadDefinition(DEFAULT_DEFINITION, 'stylized/conifer');
     expect(effects.style).toBe('stylized');
-    expect(pipelines.at(-1)!.preset).toEqual({ outline: TREE_EFFECT_PRESETS.stylized.outline });
+    expect(pipelines.at(-1)!.settings).toEqual({ outline: SUGGESTED_TREE_EFFECTS.stylized.outline });
     // An imported file has no Style: keep the last one.
     store.loadDefinition(DEFAULT_DEFINITION, 'oak.tree.json');
     expect(effects.style).toBe('stylized');
@@ -82,7 +82,7 @@ describe('Tree Effects preview', () => {
     expect(effects.style).toBe('low-poly'); // no Style known: the first built-in one
     effects.setStyle('realistic');
     effects.applySuggested();
-    expect(pipelines.at(-1)!.preset).toEqual(TREE_EFFECT_PRESETS.realistic);
+    expect(pipelines.at(-1)!.settings).toEqual(SUGGESTED_TREE_EFFECTS.realistic);
   });
 
   it('reuses one pipeline and disposes it with the preview effects', () => {

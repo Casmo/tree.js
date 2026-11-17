@@ -3,7 +3,7 @@ export { TREE_MASK, createTreeMask, treeMaskMRT, treeEffectsPass, treePartOf, ty
 export { treeOutline, type TreeOutlineOptions } from './outline';
 export { leafGlow, type LeafGlowOptions } from './glow';
 export { treeColorGrade, type TreeColorGradeOptions } from './grade';
-export { TREE_EFFECT_PRESETS, type TreeEffectsPreset } from './presets';
+export { SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from './suggested';
 export {
   applyTreeEffects,
   createTreeEffects,

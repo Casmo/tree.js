@@ -4,14 +4,14 @@ import type { LeafGlowOptions } from './glow';
 import type { TreeOutlineOptions } from './outline';
 
 /** A combination of Tree Effects; leave an effect out to skip it. `{}` = no effects. */
-export interface TreeEffectsPreset {
+export interface TreeEffectsSettings {
   grade?: TreeColorGradeOptions;
   glow?: LeafGlowOptions;
   outline?: TreeOutlineOptions;
 }
 
 /** The suggested combination of Tree Effects for each built-in Style. */
-export const TREE_EFFECT_PRESETS: Record<StyleName, TreeEffectsPreset> = {
+export const SUGGESTED_TREE_EFFECTS: Record<StyleName, TreeEffectsSettings> = {
   // Crisp facets: a dark ink line and slightly punchier colours.
   'low-poly': {
     grade: { saturation: 1.15, contrast: 1.1 },

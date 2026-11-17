@@ -3,8 +3,8 @@
 // (no pipeline); the first effect switched on creates the pipeline, later changes reuse it.
 // The choice is preview-only: it is not part of the Definition (nor of undo or autosave).
 import { STYLE_NAMES, type StyleName } from '@casmo/tree.js';
-import { createTreeEffects, type TreeEffectsPreset } from '@casmo/tree.js/effects';
-import { EFFECT_NAMES, effectsPreset, NO_EFFECTS, styleOfSource, suggestedEffects, type EffectName, type EffectToggles } from './effects-choice';
+import { createTreeEffects, type TreeEffectsSettings } from '@casmo/tree.js/effects';
+import { EFFECT_NAMES, effectsSettings, NO_EFFECTS, styleOfSource, suggestedEffects, type EffectName, type EffectToggles } from './effects-choice';
 import type { Preview } from './preview';
 import type { EditorStore } from './store';
 
@@ -13,7 +13,7 @@ export type EffectsPreviewTarget = Pick<Preview, 'renderer' | 'scene' | 'camera'
 
 /** A post-processing pipeline drawing a combination of Tree Effects (TreeEffects from the library). */
 export interface EffectsPipeline {
-  set(preset: TreeEffectsPreset | null): void;
+  set(settings: TreeEffectsSettings | null): void;
   render(): void;
   dispose(): void;
 }
@@ -28,7 +28,7 @@ export interface EffectsPreview {
   readonly style: StyleName;
   readonly toggles: EffectToggles;
   /** What is drawn now (null: no effects). */
-  readonly preset: TreeEffectsPreset | null;
+  readonly settings: TreeEffectsSettings | null;
   toggle(name: EffectName, on: boolean): void;
   setStyle(style: StyleName): void;
   /** Switches on exactly the effects of the Style's suggested combination. */
@@ -43,17 +43,17 @@ export function createEffectsPreview(preview: EffectsPreviewTarget, store: Edito
   const listeners = new Set<() => void>();
   let style: StyleName = styleOfSource(store.state.source) ?? STYLE_NAMES[0]!;
   let toggles: EffectToggles = NO_EFFECTS;
-  let preset: TreeEffectsPreset | null = null;
+  let settings: TreeEffectsSettings | null = null;
   let pipeline: EffectsPipeline | null = null;
 
   const update = (nextStyle: StyleName, nextToggles: EffectToggles): void => {
     if (nextStyle === style && EFFECT_NAMES.every((name) => nextToggles[name] === toggles[name])) return;
     style = nextStyle;
     toggles = Object.freeze({ ...nextToggles });
-    preset = effectsPreset(style, toggles);
-    if (preset) {
+    settings = effectsSettings(style, toggles);
+    if (settings) {
       pipeline ??= create(preview);
-      pipeline.set(preset);
+      pipeline.set(settings);
       const active = pipeline;
       preview.renderFrame = () => active.render();
     } else {
@@ -76,8 +76,8 @@ export function createEffectsPreview(preview: EffectsPreviewTarget, store: Edito
     get toggles() {
       return toggles;
     },
-    get preset() {
-      return preset;
+    get settings() {
+      return settings;
     },
     toggle: (name, on) => update(style, { ...toggles, [name]: on }),
     setStyle: (next) => update(next, toggles),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { TREE_EFFECT_PRESETS } from '@casmo/tree.js/effects';
-import { effectsPreset, styleOfSource, suggestedEffects } from './effects-choice';
+import { SUGGESTED_TREE_EFFECTS } from '@casmo/tree.js/effects';
+import { effectsSettings, styleOfSource, suggestedEffects } from './effects-choice';
 
 describe('styleOfSource', () => {
   it('takes the Style of a built-in starting point', () => {
@@ -22,19 +22,19 @@ describe('suggestedEffects', () => {
   });
 });
 
-describe('effectsPreset', () => {
+describe('effectsSettings', () => {
   it('is null when every effect is off (the preview renders without post-processing)', () => {
-    expect(effectsPreset('stylized', { grade: false, glow: false, outline: false })).toBeNull();
+    expect(effectsSettings('stylized', { grade: false, glow: false, outline: false })).toBeNull();
   });
   it("uses the Style's settings for the effects that are on", () => {
-    expect(effectsPreset('stylized', { grade: false, glow: true, outline: false })).toEqual({
+    expect(effectsSettings('stylized', { grade: false, glow: true, outline: false })).toEqual({
       glow: { color: '#fff6c8', intensity: 0.45, threshold: 0.3, radius: 8 },
     });
   });
   it("is the Style's suggested combination when its suggestion is applied", () => {
-    expect(effectsPreset('low-poly', suggestedEffects('low-poly'))).toEqual(TREE_EFFECT_PRESETS['low-poly']);
+    expect(effectsSettings('low-poly', suggestedEffects('low-poly'))).toEqual(SUGGESTED_TREE_EFFECTS['low-poly']);
   });
   it("uses the effect's defaults when the Style does not suggest it", () => {
-    expect(effectsPreset('low-poly', { grade: false, glow: true, outline: false })).toEqual({ glow: {} });
+    expect(effectsSettings('low-poly', { grade: false, glow: true, outline: false })).toEqual({ glow: {} });
   });
 });

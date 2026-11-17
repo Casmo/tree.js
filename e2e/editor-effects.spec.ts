@@ -42,7 +42,7 @@ test('each Tree Effect can be toggled in the preview', async ({ page }) => {
     await toggle.uncheck();
     expect(await changedPixels(page, none, await shot(page)), `${label} off again`).toBe(0);
   }
-  expect(await page.evaluate(() => window.treeEditor.effects?.preset)).toBeNull();
+  expect(await page.evaluate(() => window.treeEditor.effects?.settings)).toBeNull();
 });
 
 test("applies the current Style's suggested combination with one action", async ({ page }) => {

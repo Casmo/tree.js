@@ -13,9 +13,9 @@ import { createTree, type TreeStyle } from '@casmo/tree.js';
 import {
   applyTreeEffects,
   createTreeEffects,
-  TREE_EFFECT_PRESETS,
+  SUGGESTED_TREE_EFFECTS,
   treeEffectsPass,
-  type TreeEffectsPreset,
+  type TreeEffectsSettings,
 } from '@casmo/tree.js/effects';
 
 const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
@@ -32,25 +32,25 @@ declare global {
 
 window.effectsExample = { status: 'loading' };
 const params = new URLSearchParams(location.search);
-const styleName = (params.get('style') ?? 'low-poly') as keyof typeof TREE_EFFECT_PRESETS;
+const styleName = (params.get('style') ?? 'low-poly') as keyof typeof SUGGESTED_TREE_EFFECTS;
 const form = params.get('form') === 'conifer' ? 'conifer' : 'broadleaf';
 const effectsParam = params.get('effects') ?? 'style';
 const statusEl = document.getElementById('status')!;
 
 /** One effect of the Style's combination (with its settings, or a default), all of it, or none. */
-function chosenPreset(): TreeEffectsPreset {
-  const preset = TREE_EFFECT_PRESETS[styleName];
+function chosenEffects(): TreeEffectsSettings {
+  const settings = SUGGESTED_TREE_EFFECTS[styleName];
   switch (effectsParam) {
     case 'none':
       return {};
     case 'outline':
-      return { outline: preset.outline ?? {} };
+      return { outline: settings.outline ?? {} };
     case 'glow':
-      return { glow: preset.glow ?? { intensity: 0.8 } };
+      return { glow: settings.glow ?? { intensity: 0.8 } };
     case 'grade':
-      return { grade: preset.grade ?? { saturation: 1.3 } };
+      return { grade: settings.grade ?? { saturation: 1.3 } };
     case 'style':
-      return preset;
+      return settings;
     default:
       throw new Error(`Unknown effects "${effectsParam}"`);
   }
@@ -95,7 +95,7 @@ async function main(): Promise<void> {
   const backend = (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'webgpu' : 'webgl2';
   statusEl.textContent = `Tree Effects (${backend}) - ${styleName} ${form} - ${effectsParam}`;
 
-  const preset = chosenPreset();
+  const settings = chosenEffects();
 
   let render: () => void;
   if (params.get('view') === 'mask' || params.get('pipeline') === 'custom') {
@@ -106,14 +106,14 @@ async function main(): Promise<void> {
       pipeline.outputColorTransform = false;
       pipeline.outputNode = vec4(input.mask.rgb, 1);
     } else {
-      const treeColor = applyTreeEffects(input, preset);
+      const treeColor = applyTreeEffects(input, settings);
       // The user's own effect afterwards: a vignette over the whole image.
       const vignette = float(1).sub(screenUV.sub(0.5).length().mul(0.9).pow(2));
       pipeline.outputNode = vec4(treeColor.rgb.mul(vignette), 1);
     }
     render = () => pipeline.render();
   } else {
-    const effects = createTreeEffects(renderer, scene, camera, { effects: preset });
+    const effects = createTreeEffects(renderer, scene, camera, { effects: settings });
     render = () => effects.render();
   }
   // Post-processing passes (the outline's selection passes) build their pipelines on first use;
