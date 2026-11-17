@@ -1,25 +1,21 @@
-import { RenderPipeline, type Camera, type Material, type Mesh, type Node, type Object3D, type Renderer, type Scene } from 'three/webgpu';
+import { RenderPipeline, type Camera, type Node, type Object3D, type Renderer, type Scene } from 'three/webgpu';
 import type { StyleName } from '../styles/registry';
 import { leafGlow } from './glow';
 import { treeColorGrade } from './grade';
-import { treeEffectsPass, treePartOf, type TreeEffectInput, type TreeEffectsPass } from './mask';
-import { treeOutline, type TreeOutlineTarget } from './outline';
+import { treeEffectsPass, type TreeEffectInput, type TreeEffectsPass } from './mask';
+import { treeOutline } from './outline';
 import { TREE_EFFECT_PRESETS, type TreeEffectsPreset } from './presets';
 
 /**
  * Applies a combination of Tree Effects to `input` and returns the resulting colour node, for use in
  * your own post-processing pipeline (`pipeline.outputNode = applyTreeEffects(...)`, or feed it into
  * more effects). Order: colour grade, leaf glow, outline. An empty preset returns `input.color`.
- * `target` is only needed for the outline.
  */
-export function applyTreeEffects(input: TreeEffectInput, preset: TreeEffectsPreset, target?: TreeOutlineTarget): Node<'vec4'> {
+export function applyTreeEffects(input: TreeEffectInput, preset: TreeEffectsPreset): Node<'vec4'> {
   let color = input.color;
   if (preset.grade) color = treeColorGrade({ color, mask: input.mask }, preset.grade);
   if (preset.glow) color = leafGlow({ color, mask: input.mask }, preset.glow);
-  if (preset.outline) {
-    if (!target) throw new Error('applyTreeEffects: the outline needs a target {scene, camera, selectedObjects}');
-    color = treeOutline({ color, mask: input.mask }, target, preset.outline);
-  }
+  if (preset.outline) color = treeOutline({ color, mask: input.mask }, preset.outline);
   return color;
 }
 
@@ -34,25 +30,14 @@ function resolvePreset(choice: TreeEffectsChoice): TreeEffectsPreset {
   return preset;
 }
 
-/** Collects every mesh in `root` drawn with a tree material. */
-export function findTreeMeshes(root: Object3D, out: Object3D[] = []): Object3D[] {
-  root.traverse((object) => {
-    const mesh = object as Partial<Mesh>;
-    if (!mesh.isMesh) return;
-    const materials = (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) as Material[];
-    if (materials.some((m) => treePartOf(m) !== null)) out.push(object);
-  });
-  return out;
-}
-
 export interface TreeEffectsOptions {
   /** Which effects: a Style name (its suggested combination), a preset, or `null` (none). Default: none. */
   effects?: TreeEffectsChoice;
   /**
-   * The trees to outline. Default: every tree mesh in the scene, looked up on each render, so
-   * regenerated or added trees are picked up automatically.
+   * The trees to outline (Trees, Forests, groups of them; mutable, read on every draw).
+   * Default: every tree in the scene.
    */
-  trees?: Object3D[];
+  selection?: Object3D[];
 }
 
 /**
@@ -65,19 +50,12 @@ export class TreeEffects {
   readonly pipeline: RenderPipeline;
   /** The scene pass (colour + tree mask). */
   readonly scenePass: TreeEffectsPass;
-  /** The outlined trees (mutable array). */
-  readonly selectedObjects: Object3D[];
-  private readonly autoSelect: boolean;
-  private readonly target: TreeOutlineTarget;
   private nodes: Node[] = [];
   private current: TreeEffectsPreset = {};
 
   constructor(renderer: Renderer, scene: Scene, camera: Camera, options: TreeEffectsOptions = {}) {
     this.pipeline = new RenderPipeline(renderer);
-    this.scenePass = treeEffectsPass(scene, camera);
-    this.autoSelect = options.trees === undefined;
-    this.selectedObjects = options.trees ?? [];
-    this.target = { scene, camera, selectedObjects: this.selectedObjects };
+    this.scenePass = treeEffectsPass(scene, camera, options.selection ?? null);
     this.set(options.effects ?? null);
   }
 
@@ -90,7 +68,7 @@ export class TreeEffects {
   set(effects: TreeEffectsChoice): void {
     this.current = resolvePreset(effects);
     this.disposeNodes();
-    const output = applyTreeEffects(this.scenePass, this.current, this.target);
+    const output = applyTreeEffects(this.scenePass, this.current);
     this.nodes = collectEffectNodes(output, this.scenePass.color);
     this.pipeline.outputNode = output;
     this.pipeline.needsUpdate = true;
@@ -98,14 +76,7 @@ export class TreeEffects {
 
   /** Renders the scene with the effects (call instead of `renderer.render(scene, camera)`). */
   render(): void {
-    this.refreshSelection();
     this.pipeline.render();
-  }
-
-  /** Async variant of {@link render}. */
-  async renderAsync(): Promise<void> {
-    this.refreshSelection();
-    await this.pipeline.renderAsync();
   }
 
   dispose(): void {
@@ -114,26 +85,20 @@ export class TreeEffects {
     this.pipeline.dispose();
   }
 
-  private refreshSelection(): void {
-    if (!this.autoSelect || !this.current.outline) return;
-    this.selectedObjects.length = 0;
-    findTreeMeshes(this.target.scene, this.selectedObjects);
-  }
-
   private disposeNodes(): void {
     for (const node of this.nodes) node.dispose();
     this.nodes = [];
   }
 }
 
-/** The render-target owning nodes (outline, blur) in an effects graph, to dispose them on change. */
+/** The render-target owning nodes (blur) in an effects graph, to dispose them on change. */
 function collectEffectNodes(output: Node, stop: Node): Node[] {
   const found = new Set<Node>();
   const visit = (node: Node, seen: Set<Node>): void => {
     if (seen.has(node) || node === stop) return;
     seen.add(node);
-    const n = node as Node & { isOutlineNode?: boolean; isGaussianBlurNode?: boolean };
-    if (n.isOutlineNode || n.isGaussianBlurNode) found.add(node);
+    const n = node as Node & { isGaussianBlurNode?: boolean };
+    if (n.isGaussianBlurNode) found.add(node);
     for (const child of node.getChildren()) visit(child as Node, seen);
   };
   visit(output, new Set());

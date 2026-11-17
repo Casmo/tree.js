@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { vec4 } from 'three/tsl';
+import { readFileSync } from 'node:fs';
+import { texture, vec4 } from 'three/tsl';
 import { createTree } from '../../src/index';
-import { Mesh, BoxGeometry, Group, PerspectiveCamera, Scene, type Renderer } from 'three/webgpu';
-import { applyTreeEffects, createTreeEffects, findTreeMeshes, TREE_EFFECT_PRESETS, treePartOf } from '../../src/effects';
+import { MeshStandardNodeMaterial, PerspectiveCamera, Scene, Texture, type Renderer } from 'three/webgpu';
+import { applyTreeEffects, createTreeEffects, TREE_EFFECT_PRESETS, treePartOf } from '../../src/effects';
 
 describe('Tree Effects', () => {
   it('suggests a combination of effects for each built-in Style', () => {
@@ -23,18 +23,9 @@ describe('Tree Effects', () => {
   });
 
   it('leaves the colour untouched without effects and composes the chosen ones onto it', () => {
-    const input = { color: vec4(0.2, 0.4, 0.1, 1), mask: vec4(1, 1, 0, 1) };
+    const input = { color: vec4(0.2, 0.4, 0.1, 1), mask: texture(new Texture()) };
     expect(applyTreeEffects(input, {})).toBe(input.color);
     expect(applyTreeEffects(input, { grade: { saturation: 2 } })).not.toBe(input.color);
-    expect(() => applyTreeEffects(input, { outline: {} })).toThrow(/target/);
-  });
-
-  it('finds the tree meshes in a scene', () => {
-    const scene = new Scene();
-    const tree = createTree({ schemaVersion: 2, leaves: { count: 2 } }, { seed: 1 });
-    const group = new Group().add(tree);
-    scene.add(group, new Mesh(new BoxGeometry(), new MeshStandardNodeMaterial()));
-    expect(findTreeMeshes(scene)).toEqual([tree.wood, tree.leaves]);
   });
 
   it('switches between the suggested combinations of the Styles in one pipeline', () => {
@@ -49,5 +40,15 @@ describe('Tree Effects', () => {
     expect(effects.preset).toEqual({});
     expect(effects.pipeline.outputNode).toBe(effects.scenePass.color);
     expect(() => effects.set('unknown' as never)).toThrow(/unknown/);
+  });
+});
+
+describe('/effects packaging', () => {
+  const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
+
+  it('is published as the @casmo/tree.js/effects subpath and not pulled in by the core entry', () => {
+    const pkg = JSON.parse(read('package.json'));
+    expect(pkg.exports['./effects']).toEqual({ types: './dist/effects/index.d.ts', import: './dist/effects.js' });
+    expect(read('src/index.ts')).not.toMatch(/\.\/effects/);
   });
 });
