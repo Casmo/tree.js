@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DoubleSide, Mesh, Object3D, type BufferGeometry } from 'three/webgpu';
+import { DoubleSide, Mesh, Object3D, type BufferGeometry, type MeshStandardNodeMaterial } from 'three/webgpu';
 import { createTree, hashGeometry, TreeDefinitionError, UnsupportedRendererError, type Tree, type TreeAttributes } from '../src/index';
 
 const definition = { schemaVersion: 2 } as const;
@@ -67,6 +67,15 @@ describe('createTree', () => {
     expect(tree.leaves.material.side).toBe(DoubleSide);
     expect(tree.leaves.material.vertexColors).toBe(true);
     expect(tree.leaves.geometry.getAttribute('color').count).toBe(tree.leaves.geometry.getAttribute('position').count);
+  });
+
+  it('flat shading (low-poly) draws every mesh faceted; standard shading is smooth', () => {
+    for (const mesh of meshes(createTree({ schemaVersion: 2, materials: { shading: 'flat' } }, { seed: 1 }))) {
+      expect((mesh.material as MeshStandardNodeMaterial).flatShading).toBe(true);
+    }
+    for (const mesh of meshes(createTree({ schemaVersion: 2, materials: { shading: 'standard' } }, { seed: 1 }))) {
+      expect((mesh.material as MeshStandardNodeMaterial).flatShading).toBe(false);
+    }
   });
 
   it('gives an identical geometry hash for the same Definition and Seed', () => {

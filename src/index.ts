@@ -20,3 +20,4 @@ export { createRandom, hashString, hashCombine, type Random } from './random';
 export { createBarkMaterial, createLeafMaterial } from './materials';
 export { assertWebGPURenderer, UnsupportedRendererError } from './renderer';
 export { Wind, sceneWind, WindResponse, windOffset, applyWind, type WindDirection, type WindOptions } from './wind';
+export type { TreeStyle } from './styles/types';

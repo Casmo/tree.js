@@ -88,4 +88,20 @@ describe('per-vertex Wind attributes (aWind = trunk sway, branch sway, leaf flut
     const bare = generateTree(parseDefinition({ schemaVersion: 2, branches: [], leaves: { count: 5 } }), 1);
     for (const w of weights(bare.leaves)) expect(w.branch).toBe(0);
   });
+
+  for (const shape of ['clump', 'needle'] as const) {
+    it(`solid '${shape}' leaves flutter too: weights within 0..1, growing from base to tip, riding their twig`, () => {
+      const solid = generateTree(parseDefinition({ ...def, leaves: { ...def.leaves, shape } }), 3);
+      const leaves = weights(solid.leaves);
+      expect(solid.leaves.attributes.aWind.array.length).toBe(solid.leaves.positions.length);
+      for (const w of leaves) {
+        expect(w.leaf).toBeCloseTo(w.along, 6);
+        expect(w.branch).toBeGreaterThan(0);
+        expect(w.trunk).toBeGreaterThanOrEqual(0);
+        expect(w.trunk).toBeLessThanOrEqual(1);
+      }
+      expect(Math.max(...leaves.map((w) => w.leaf))).toBeGreaterThan(0.9);
+      expect(Math.min(...leaves.map((w) => w.leaf))).toBeLessThan(0.1);
+    });
+  }
 });
