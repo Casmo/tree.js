@@ -32,7 +32,7 @@ export {
   type TextureOptions,
 } from './textures';
 export { assertWebGPURenderer, UnsupportedRendererError } from './renderer';
-export { Wind, sceneWind, WindResponse, windOffset, applyWind, type WindDirection, type WindOptions } from './wind';
+export { Wind, sceneWind, WindResponse, windOffset, applyWind, objectWindDirection, type WindDirection, type WindOptions, type WindFrame } from './wind';
 export type { TreeStyle } from './styles/types';
 export { loadStyle, STYLE_NAMES, type StyleName } from './styles/registry';
 export {
@@ -42,3 +42,13 @@ export {
   type BakeOptions,
   type ExportBakedTreeOptions,
 } from './bake';
+export {
+  createForest,
+  Forest,
+  ForestTree,
+  ForestVariant,
+  type ForestOptions,
+  type ForestPlacement,
+  type ForestInstanceState,
+  type ForestTreeTraits,
+} from './forest';
