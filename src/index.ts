@@ -18,3 +18,4 @@ export {
 export { createRandom, hashString, hashCombine, type Random } from './random';
 export { createBarkMaterial, createLeafMaterial } from './materials';
 export { assertWebGPURenderer, UnsupportedRendererError } from './renderer';
+export type { TreeStyle } from './styles/types';

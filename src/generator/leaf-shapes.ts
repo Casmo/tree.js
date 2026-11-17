@@ -36,7 +36,7 @@ function clumpTemplate(): SolidTemplate {
 
 /** Needle tuft: a slim five-sided spindle from the attachment point (z = 0) to the tip (z = 1). */
 const NEEDLE_SIDES = 5;
-const NEEDLE_RADIUS = 0.2;
+const NEEDLE_RADIUS = 0.28;
 const NEEDLE_WAIST = 0.25;
 function needleTemplate(): SolidTemplate {
   const positions: Vec3[] = [[0, 0, 0], [0, 0, 1]];

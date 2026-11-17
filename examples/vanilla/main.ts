@@ -3,9 +3,15 @@
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?renderer=classic  use the unsupported classic WebGLRenderer (shows the error)
 //   ?seed=<n>  pick a Seed (default 1)
+//   ?style=low-poly&form=broadleaf|conifer  grow a built-in Style's Definition (loaded with a dynamic import)
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
-import { createTree } from '../../src/index';
+import { createTree, type TreeDefinition, type TreeDefinitionInput, type TreeStyle } from '../../src/index';
+
+// Built-in Styles are separate chunks, fetched only when asked for.
+const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
+  'low-poly': () => import('../../src/styles/low-poly'),
+};
 
 declare global {
   interface Window {
@@ -36,21 +42,42 @@ const ground = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(
 scene.add(ground);
 
 // The defaults plus a third branching level and fuller foliage.
-const tree = createTree(
-  {
-    schemaVersion: 2,
-    branches: [
-      { count: 7, angle: 50 },
-      { count: 4, start: 0.2, angle: 40, length: 0.45, sides: 4, sections: 3 },
-      { count: 3, start: 0.3, end: 1, angle: 35, length: 0.5, sides: 3, sections: 2 },
-    ],
-    leaves: { count: 6, size: 0.35 },
-  },
-  { seed },
-);
-scene.add(tree);
+const showcase: TreeDefinitionInput = {
+  schemaVersion: 2,
+  branches: [
+    { count: 7, angle: 50 },
+    { count: 4, start: 0.2, angle: 40, length: 0.45, sides: 4, sections: 3 },
+    { count: 3, start: 0.3, end: 1, angle: 35, length: 0.5, sides: 3, sections: 2 },
+  ],
+  leaves: { count: 6, size: 0.35 },
+};
+
+async function loadDefinition(): Promise<TreeDefinitionInput | TreeDefinition> {
+  const styleName = params.get('style');
+  if (!styleName) return showcase;
+  const load = styles[styleName];
+  if (!load) throw new Error(`Unknown style "${styleName}"`);
+  const style = (await load()).default;
+  return style[params.get('form') === 'conifer' ? 'conifer' : 'broadleaf'];
+}
+
+/** Points the camera at the whole tree (Style trees differ in size). */
+function frame(object: THREE.Object3D): void {
+  const box = new THREE.Box3().setFromObject(object);
+  const size = box.getSize(new THREE.Vector3());
+  const centre = box.getCenter(new THREE.Vector3());
+  const distance = (Math.max(size.y, size.x, size.z) / 2 / Math.tan((camera.fov * Math.PI) / 360)) * 1.25;
+  const direction = new THREE.Vector3(1, 0.35, 1).normalize();
+  camera.position.copy(centre).addScaledVector(direction, distance);
+  camera.lookAt(centre);
+}
+
 
 async function main(): Promise<void> {
+  const tree = createTree(await loadDefinition(), { seed });
+  scene.add(tree);
+  if (params.get('style')) frame(tree);
+
   if (params.get('renderer') === 'classic') {
     // A classic-renderer app uses classic materials; only the tree brings TSL node materials.
     ground.material = new MeshStandardMaterial({ color: '#7da05a' });
@@ -68,7 +95,7 @@ async function main(): Promise<void> {
   await renderer.init();
 
   const backend = (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'webgpu' : 'webgl2';
-  statusEl.textContent = `WebGPURenderer (${backend}) - seed ${seed}`;
+  statusEl.textContent = `WebGPURenderer (${backend}) - ${tree.definition.name || 'tree'} - seed ${seed}`;
 
   addEventListener('resize', () => {
     camera.aspect = innerWidth / innerHeight;
