@@ -16,7 +16,8 @@ import { trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { clampGrowth, growthPosition } from '../growth';
 import { createBarkMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
-import { applySeasonToLeafMaterial, createSeasonNodes, wrapSeason, type SeasonUniform } from '../season';
+import { applySeasonToLeafMaterial, createSeasonNodes, type SeasonUniform } from '../season';
+import { checkedSeason } from '../season/check';
 import { textureReady, type TextureOptions } from '../textures';
 import { seedRandom } from '../random';
 import { applyWind, sceneWind, windOffset, Wind, WindBinding, WindResponse } from '../wind';
@@ -167,8 +168,7 @@ export class Tree extends Group {
   }
 
   set season(value: number) {
-    if (!Number.isFinite(value)) throw new RangeError(`Tree.season must be a finite number, got ${value}`);
-    this.seasonUniform.value = wrapSeason(value);
+    this.seasonUniform.value = checkedSeason(value);
   }
 
   /**

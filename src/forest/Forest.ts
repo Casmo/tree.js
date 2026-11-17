@@ -18,7 +18,8 @@ import type { TreeDefinition } from '../definition';
 import { generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
-import { applySeasonToLeafMaterial, createSeasonNodes, wrapSeason, type SeasonUniform } from '../season';
+import { applySeasonToLeafMaterial, createSeasonNodes, type SeasonUniform } from '../season';
+import { checkedSeason } from '../season/check';
 import { clampGrowth } from '../growth';
 import { textureReady, type TextureOptions } from '../textures';
 import { sceneWind, Wind, WindBinding, WindResponse, type WindSource } from '../wind';
@@ -116,11 +117,6 @@ export class ForestTree implements ForestTreeTraits {
     this.seasonValue = checkedSeason(value);
     this.onChange(this);
   }
-}
-
-function checkedSeason(value: number): number {
-  if (!Number.isFinite(value)) throw new RangeError(`Season must be a finite number, got ${value}`);
-  return wrapSeason(value);
 }
 
 /** Packs generator buffers into one interleaved vertex buffer, so a Variant takes a single vertex buffer slot. */
