@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { createTree, extendDefinition, generateTree, hashTreeData, parseDefinition, type TreeDefinition } from '../../src/index';
+import { createTree, extendDefinition, hashTreeData, parseDefinition, type TreeDefinition } from '../../src/index';
+import { generateTree } from '../../src/generator';
 
 const lowPoly = await import('../../src/styles/low-poly');
 const forms = { broadleaf: lowPoly.broadleaf, conifer: lowPoly.conifer };

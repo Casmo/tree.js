@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   createTree,
   evaluateSeason,
-  generateTree,
   leafSeason,
   parseDefinition,
   partSeasonAt,
@@ -12,6 +11,7 @@ import {
   wrapSeason,
   type SeasonProfileDefinition,
 } from '../src/index';
+import { generateTree } from '../src/generator';
 
 const profile: SeasonProfileDefinition = {
   leafColor: [

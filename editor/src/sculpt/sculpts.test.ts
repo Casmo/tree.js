@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { Euler, Quaternion, Vector3 } from 'three/webgpu';
-import { generateTree, hashTreeData, parseDefinition, type SkeletonBranch, type TreeDefinition } from '@casmo/tree.js';
+import { createTree, hashTreeData, parseDefinition, type SkeletonBranch, type TreeDefinition } from '@casmo/tree.js';
 import { clearSculpts, deleteBranch, moveBranch, paintLeaves, removeSculpt } from './sculpts';
 
+/** The generated data of a tree (public API: what `createTree` grows). */
+const treeData = (definition: TreeDefinition, seed: number) => createTree(definition, { seed }).data;
+
 const def = parseDefinition({ schemaVersion: 2 });
-const paths = (definition: typeof def, seed: number) => generateTree(definition, seed).skeleton.branches.map((b) => b.path);
+const paths = (definition: typeof def, seed: number) => treeData(definition, seed).skeleton.branches.map((b) => b.path);
 
 describe('Sculpt edits', () => {
   it('deleting a branch removes it and everything on it, on the current Seed only', () => {
@@ -12,7 +15,7 @@ describe('Sculpt edits', () => {
     expect(paths(edited, 3)).not.toContain('0.1');
     expect(paths(edited, 3).some((p) => p.startsWith('0.1.'))).toBe(false);
     expect(paths(edited, 3)).toContain('0.2');
-    expect(hashTreeData(generateTree(edited, 4))).toBe(hashTreeData(generateTree(def, 4)));
+    expect(hashTreeData(treeData(edited, 4))).toBe(hashTreeData(treeData(def, 4)));
   });
 
   it('each move turns (and stretches) the branch as it looks now, with everything on it', () => {
@@ -26,10 +29,10 @@ describe('Sculpt edits', () => {
     ];
     let definition: TreeDefinition = def;
     for (const [path, euler, scale] of turns) {
-      const before = generateTree(definition, seed).skeleton.branches;
+      const before = treeData(definition, seed).skeleton.branches;
       const rotation = new Quaternion().setFromEuler(euler);
       definition = moveBranch(definition, seed, path, { rotation: rotation.toArray() as [number, number, number, number], scale });
-      const after = new Map(generateTree(definition, seed).skeleton.branches.map((b) => [b.path, b]));
+      const after = new Map(treeData(definition, seed).skeleton.branches.map((b) => [b.path, b]));
       const base = new Vector3(...before.find((b) => b.path === path)!.points[0]!.position);
       const expected = (p: SkeletonBranch['points'][number]['position']) =>
         new Vector3(...p).sub(base).multiplyScalar(scale).applyQuaternion(rotation).add(base);
@@ -47,15 +50,15 @@ describe('Sculpt edits', () => {
 
   it('painting sets the leaf coverage of branches; painting full coverage back restores the tree', () => {
     const seed = 3;
-    const leafy = generateTree(def, seed).skeleton.leaves;
+    const leafy = treeData(def, seed).skeleton.leaves;
     const branches = [...new Set(leafy.map((l) => l.branch))].slice(0, 6);
     const on = (definition: TreeDefinition) =>
-      generateTree(definition, seed).skeleton.leaves.filter((l) => branches.includes(l.branch)).length;
+      treeData(definition, seed).skeleton.leaves.filter((l) => branches.includes(l.branch)).length;
     const before = on(def);
 
     const bare = paintLeaves(def, seed, branches, 0);
     expect(on(bare)).toBe(0);
-    expect(generateTree(bare, seed).skeleton.leaves.length).toBe(leafy.length - before);
+    expect(treeData(bare, seed).skeleton.leaves.length).toBe(leafy.length - before);
     const half = paintLeaves(bare, seed, branches, 0.5);
     expect(on(half)).toBeGreaterThan(0);
     expect(on(half)).toBeLessThan(before);
@@ -63,7 +66,7 @@ describe('Sculpt edits', () => {
 
     const restored = paintLeaves(half, seed, branches, 1);
     expect(restored.sculpts).toEqual([]);
-    expect(hashTreeData(generateTree(restored, seed))).toBe(hashTreeData(generateTree(def, seed)));
+    expect(hashTreeData(treeData(restored, seed))).toBe(hashTreeData(treeData(def, seed)));
   });
 
   it('removes one Sculpt, or clears those of one Seed only', () => {

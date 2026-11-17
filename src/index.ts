@@ -3,7 +3,6 @@ export { createTree, Tree, type CreateTreeOptions, type TreeOptions } from './tr
 export * from './definition';
 export * from './season';
 export {
-  generateTree,
   hashGeometry,
   hashTreeData,
   type TreeData,
@@ -18,9 +17,8 @@ export {
   type VertexAttribute,
   type Vec3,
 } from './generator';
-export { createRandom, hashString, hashCombine, type Random } from './random';
+export { createRandom, type Random } from './random';
 export { createBarkMaterial, createLeafMaterial } from './materials';
-export { growPositions, growthPosition, SAPLING_SCALE, SAPLING_THICKNESS } from './growth';
 export {
   DEFAULT_TEXTURE_BASE_PATH,
   getTextureOptions,
@@ -32,7 +30,7 @@ export {
   type TextureOptions,
 } from './textures';
 export { assertWebGPURenderer, UnsupportedRendererError } from './renderer';
-export { Wind, sceneWind, WindResponse, windOffset, applyWind, objectWindDirection, type WindDirection, type WindOptions, type WindFrame } from './wind';
+export { Wind, sceneWind, WindResponse, type WindDirection, type WindOptions } from './wind';
 export type { TreeStyle } from './styles/types';
 export { loadStyle, STYLE_NAMES, type StyleName } from './styles/registry';
 export {

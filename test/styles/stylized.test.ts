@@ -4,13 +4,13 @@ import {
   createTree,
   evaluateSeason,
   extendDefinition,
-  generateTree,
   hashTreeData,
   leafSeason,
   partSeasonAt,
   parseDefinition,
   type TreeDefinition,
 } from '../../src/index';
+import { generateTree } from '../../src/generator';
 
 const stylized = await import('../../src/styles/stylized');
 const forms = { broadleaf: stylized.broadleaf, conifer: stylized.conifer };

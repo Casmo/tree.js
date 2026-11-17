@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { MeshStandardNodeMaterial } from 'three/webgpu';
-import { createTree, generateTree, hashTreeData, parseDefinition, resolveTextureUrl } from '../../src/index';
+import { createTree, hashTreeData, parseDefinition, resolveTextureUrl } from '../../src/index';
+import { generateTree } from '../../src/generator';
 
 const realistic = await import('../../src/styles/realistic');
 const forms = { broadleaf: realistic.broadleaf, conifer: realistic.conifer };

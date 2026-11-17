@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { Quaternion, Vector3 } from 'three/webgpu';
-import { generateTree, parseDefinition } from '@casmo/tree.js';
+import { createTree, parseDefinition, type TreeDefinition } from '@casmo/tree.js';
 import { brushBranches, dragTurn, nearestBranch } from './pick';
 
+/** The generated data of a tree (public API: what `createTree` grows). */
+const treeData = (definition: TreeDefinition, seed: number) => createTree(definition, { seed }).data;
+
 const def = parseDefinition({ schemaVersion: 2 });
-const { branches } = generateTree(def, 3).skeleton;
+const { branches } = treeData(def, 3).skeleton;
 
 describe('picking parts of the tree', () => {
   it('a point on the bark of a branch picks that branch', () => {
