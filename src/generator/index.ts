@@ -1,7 +1,6 @@
 import type { TreeDefinition } from '../definition';
-import { createRandom, hashBytes } from '../random';
+import { createRandom, hashBytes, seedRandom } from '../random';
 import { woodSeasonAttribute } from '../season/profile';
-import { seedRandom } from '../random';
 import { buildBranches } from './branches';
 import { growthTiming } from './growth';
 import { solidLeafGeometry } from './leaf-shapes';
@@ -10,7 +9,7 @@ import { mergeBuffers, sweepBranch } from './mesh';
 import { sculptBranches, sculptLeaves, sculptsFor } from './sculpt';
 import { buildTrunk } from './trunk';
 import { branchSway, writeTrunkSway } from './wind';
-import type { GeometryBuffers, TreeData } from './types';
+import type { GeometryBuffers, TreeData, TreeSkeleton } from './types';
 
 export { growthTiming } from './growth';
 export type { GrowthTiming, GrowthWindow, GeometryBuffers, TreeAttributes, VertexAttribute, SkeletonBranch, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
@@ -47,12 +46,19 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
     definition.leaves.shape === 'card'
       ? leafGeometry(leaves, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway)
       : solidLeafGeometry(leaves, definition.leaves.shape, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway);
-  // The (possibly Sculpted) trunk's tip; a deleted trunk leaves an empty tree.
-  const sculptedTrunk = branches[0]?.parent === null ? branches[0] : trunk;
-  const trunkHeight = sculptedTrunk.points[sculptedTrunk.points.length - 1]!.position[1];
-  writeTrunkSway(wood, trunkHeight);
-  writeTrunkSway(leafBuffers, trunkHeight);
-  return { seed, skeleton: { branches, leaves }, wood, leaves: leafBuffers, growth };
+  const skeleton = { branches, leaves };
+  writeTrunkSway(wood, trunkHeight(skeleton));
+  writeTrunkSway(leafBuffers, trunkHeight(skeleton));
+  return { seed, skeleton, wood, leaves: leafBuffers, growth };
+}
+
+/**
+ * Height of the (possibly Sculpted) trunk's tip: the scale of a tree's Wind sway. A Sculpt may
+ * delete the trunk (an empty tree, nothing sways); the height is then 1.
+ */
+export function trunkHeight(skeleton: Pick<TreeSkeleton, 'branches'>): number {
+  const trunk = skeleton.branches.find((b) => b.parent === null)?.points;
+  return trunk ? trunk[trunk.length - 1]!.position[1] : 1;
 }
 
 /** Stable 32-bit hash (hex) of the generated geometry buffers, for determinism checks. */

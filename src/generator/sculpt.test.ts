@@ -1,7 +1,7 @@
 import { Euler, Vector3 } from 'three/webgpu';
 import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition, type Sculpt } from '../definition';
-import { generateTree, hashTreeData, type Vec3 } from './index';
+import { generateTree, hashTreeData, trunkHeight, type Vec3 } from './index';
 
 const def = parseDefinition({ schemaVersion: 2 });
 const sculpted = (...sculpts: Sculpt[]) => extendDefinition(def, { sculpts });
@@ -125,6 +125,15 @@ describe('Sculpts (Seed-bound hand edits, ADR 0003)', () => {
     expect(data.skeleton.leaves).toEqual([]);
     expect(data.wood.positions.length).toBe(0);
     expect(data.leaves.positions.length).toBe(0);
+    expect(trunkHeight(data.skeleton)).toBe(1); // any height will do for Wind on an empty tree
+  });
+
+  it('trunk height is the height of the (sculpted) trunk tip', () => {
+    const plain = generateTree(def, 7);
+    const trunk = plain.skeleton.branches[0]!.points;
+    expect(trunkHeight(plain.skeleton)).toBe(trunk[trunk.length - 1]!.position[1]);
+    const shorter = generateTree(sculpted({ seed: 7, path: '0', action: 'move', rotation: [0, 0, 0], scale: 0.5 }), 7);
+    expect(trunkHeight(shorter.skeleton)).toBeCloseTo(trunkHeight(plain.skeleton) / 2, 5);
   });
 
   it('skips Sculpts whose branch does not exist for this Seed', () => {

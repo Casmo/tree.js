@@ -15,7 +15,7 @@ import {
   type MeshStandardNodeMaterial,
 } from 'three/webgpu';
 import type { TreeDefinition } from '../definition';
-import { generateTree, type GeometryBuffers, type TreeData } from '../generator';
+import { generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createSeasonNodes, wrapSeason, type SeasonUniform } from '../season';
@@ -196,9 +196,7 @@ export class ForestVariant {
     this.index = index;
     this.seed = seed;
     this.data = generateTree(definition, seed);
-    // A Sculpt on this Variant's Seed may delete the trunk (an empty tree): any height will do then.
-    const trunk = this.data.skeleton.branches.find((b) => b.parent === null)?.points;
-    const height = trunk ? trunk[trunk.length - 1]!.position[1] : 1;
+    const height = trunkHeight(this.data.skeleton);
     this.windResponse = new WindResponse(definition.wind, { height, phase: 0 });
 
     const position = forestPosition(wind, this.windResponse);

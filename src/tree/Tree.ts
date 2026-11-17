@@ -12,7 +12,7 @@ import {
 } from 'three/webgpu';
 import { uniform } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
-import type { GeometryBuffers, TreeData } from '../generator';
+import { trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { clampGrowth, growthPosition } from '../growth';
 import { createBarkMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
@@ -131,10 +131,8 @@ export class Tree extends Group {
     this.add(this.wood, this.leaves);
 
     this.windBinding = new WindBinding(options.wind ?? sceneWind);
-    // A Sculpt may delete the trunk (an empty tree): any height will do then.
-    const trunk = data.skeleton.branches.find((b) => b.parent === null)?.points;
     this.windResponse = new WindResponse(definition.wind, {
-      height: trunk ? trunk[trunk.length - 1]!.position[1] : 1,
+      height: trunkHeight(data.skeleton),
       phase: seedRandom(data.seed, 'wind') * Math.PI * 2,
     });
     const offset = windOffset(this.windBinding, this.windResponse);
