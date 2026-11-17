@@ -1,4 +1,4 @@
-// Minimal vanilla three.js example: one trunk-only tree on WebGPURenderer.
+// Minimal vanilla three.js example: one tree (trunk, branch levels, leaves) on WebGPURenderer.
 // Query parameters (used by the Playwright tests):
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?renderer=classic  use the unsupported classic WebGLRenderer (shows the error)
@@ -21,8 +21,8 @@ const statusEl = document.getElementById('status')!;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#cfe3f0');
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
-camera.position.set(6, 3, 6);
-camera.lookAt(0, 2, 0);
+camera.position.set(8.5, 4.5, 8.5);
+camera.lookAt(0, 3, 0);
 
 scene.add(new THREE.HemisphereLight('#ffffff', '#6a7a4a', 1.5));
 const sun = new THREE.DirectionalLight('#ffffff', 2.5);
@@ -30,7 +30,7 @@ sun.position.set(5, 8, 3);
 scene.add(sun);
 
 const ground = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(
-  new THREE.CircleGeometry(4, 48).rotateX(-Math.PI / 2),
+  new THREE.CircleGeometry(6, 48).rotateX(-Math.PI / 2),
   new THREE.MeshStandardNodeMaterial({ color: '#7da05a' }),
 );
 scene.add(ground);
