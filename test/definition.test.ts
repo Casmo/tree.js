@@ -37,6 +37,7 @@ describe('Definition migration', () => {
     // A v1 tree was a bare trunk; migration keeps it that way.
     expect(def.branches).toEqual([]);
     expect(def.leaves.count).toBe(0);
+    expect(def.sculpts).toEqual([]);
   });
 
   it('createTree accepts a v1 file', () => {
@@ -117,6 +118,14 @@ describe('Definition validation names the bad field', () => {
       { schemaVersion: 2, sculpts: [{ seed: 1, path: '0.1', action: 'move', rotation: [0, 1], scale: 1 }] },
       'sculpts[0].rotation',
     ],
+    [
+      'move sculpt scale',
+      { schemaVersion: 2, sculpts: [{ seed: 1, path: '0.1', action: 'move', rotation: [0, 1, 0], scale: 0 }] },
+      'sculpts[0].scale',
+    ],
+    ['leaves sculpt coverage', { schemaVersion: 2, sculpts: [{ seed: 1, path: '0', action: 'leaves', coverage: 1.5 }] }, 'sculpts[0].coverage'],
+    ['sculpt seed', { schemaVersion: 2, sculpts: [{ seed: Infinity, path: '0', action: 'delete' }] }, 'sculpts[0].seed'],
+    ['sculpt field of another action', { schemaVersion: 2, sculpts: [{ seed: 1, path: '0', action: 'delete', scale: 2 }] }, 'sculpts[0].scale'],
     ['bad field after migration', { schemaVersion: 1, bark: { color: 'red' } }, 'materials.bark.color'],
   ];
   it.each(cases)('%s', (_name, input, field) => {
