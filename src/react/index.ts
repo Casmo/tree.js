@@ -4,3 +4,4 @@ export { Tree, type TreeProps } from './Tree';
 export { Wind, type WindProps } from './Wind';
 export { useTreeStyle, preloadTreeStyle } from './useTreeStyle';
 export type { StyleName } from '../styles/registry';
+export { Forest, type ForestProps, type ForestTreePlacement } from './Forest';
