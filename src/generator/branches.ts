@@ -22,14 +22,21 @@ export function buildBranches(definition: TreeDefinition, trunk: SkeletonBranch,
     const parent = queue[q]!;
     const level = definition.branches[parent.level];
     if (!level) continue;
-    const children = growChildren(parent, level, random);
+    const children = growChildren(parent, level, random, definition.form === 'conifer' && parent.level === 0);
     out.push(...children);
     queue.push(...children);
   }
   return out;
 }
 
-function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, random: Random): SkeletonBranch[] {
+/** Shortest conifer trunk branch, as a fraction of the declared length (keeps the top from being bare). */
+const MIN_CONE = 0.1;
+
+/**
+ * `cone`: the conifer Form. Branches from the trunk shrink linearly from the declared length at
+ * `start` towards the trunk tip, so the crown is a cone. A broadleaf keeps the declared length.
+ */
+function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, random: Random, cone: boolean): SkeletonBranch[] {
   const count = level.count;
   const azimuth0 = random.fork(parent.path).range(0, Math.PI * 2);
   const frames = branchFrames(parent);
@@ -50,7 +57,8 @@ function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, rand
     const pull: Vec3 = [0, (level.gravity * GRAVITY_PER_BRANCH) / level.sections, 0];
     let direction = start;
 
-    const length = parentLength * level.length * (1 + r.range(-level.lengthVariation, level.lengthVariation));
+    const profile = cone ? Math.max(MIN_CONE, (1 - t) / Math.max(1 - level.start, 1e-6)) : 1;
+    const length = parentLength * level.length * profile * (1 + r.range(-level.lengthVariation, level.lengthVariation));
     const step = length / level.sections;
     const baseRadius = at.radius * level.radius;
 

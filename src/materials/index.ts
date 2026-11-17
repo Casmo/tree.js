@@ -1,17 +1,22 @@
-import { DoubleSide, MeshStandardNodeMaterial } from 'three/webgpu';
+import { DoubleSide, type MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, mix, uv, float } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
+import { createShadedMaterial, isFlatShading } from './shading';
+
+export { createShadedMaterial } from './shading';
 
 /**
  * Bark material: a TSL node material (ADR 0002). Growth/Season/Wind uniforms and
  * per-Style variants hook in here in later tickets (#5-#10).
  */
 export function createBarkMaterial(definition: TreeDefinition): MeshStandardNodeMaterial {
-  const material = new MeshStandardNodeMaterial();
+  const material = createShadedMaterial(definition.materials.shading);
   material.name = 'tree.js bark';
   const base = color(definition.materials.bark.color);
-  // Slightly darker towards the base for a little depth, purely in TSL.
-  material.colorNode = mix(base.mul(0.75), base, uv().y.clamp(0, 1).pow(float(0.5)));
+  // Slightly darker towards the base for a little depth, purely in TSL (flat colour for flat shading).
+  material.colorNode = isFlatShading(definition.materials.shading)
+    ? base
+    : mix(base.mul(0.75), base, uv().y.clamp(0, 1).pow(float(0.5)));
   material.roughness = definition.materials.bark.roughness;
   material.metalness = 0;
   return material;
@@ -23,7 +28,7 @@ export function createBarkMaterial(definition: TreeDefinition): MeshStandardNode
  * (`applySeasonToLeafMaterial`), whose colour is multiplied by the per-leaf vertex colours (the Seed's tint).
  */
 export function createLeafMaterial(definition: TreeDefinition): MeshStandardNodeMaterial {
-  const material = new MeshStandardNodeMaterial();
+  const material = createShadedMaterial(definition.materials.shading);
   material.name = 'tree.js leaves';
   material.color.set(definition.season.leafColor[0]!.value);
   material.vertexColors = true;

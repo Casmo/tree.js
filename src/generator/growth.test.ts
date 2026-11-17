@@ -86,3 +86,17 @@ describe('aGrowth attribute', () => {
     });
   }
 });
+
+describe('aGrowth on solid leaf shapes', () => {
+  for (const shape of ['clump', 'needle'] as const) {
+    it(`${shape}: every leaf vertex carries its leaf's (late) Growth window`, () => {
+      const data = generateTree(extendDefinition(def, { leaves: { shape } }), 2);
+      const { aGrowth } = data.leaves.attributes;
+      expect(aGrowth.array.length).toBe(data.leaves.positions.length);
+      for (let v = 0; v < aGrowth.array.length / 3; v++) {
+        expect(aGrowth.array[v * 3]).toBeGreaterThanOrEqual(0.5);
+        expect(aGrowth.array[v * 3 + 1]).toBeLessThanOrEqual(1);
+      }
+    });
+  }
+});

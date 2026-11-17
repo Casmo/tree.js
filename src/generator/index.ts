@@ -4,6 +4,7 @@ import { woodSeasonAttribute } from '../season/profile';
 import { partRandom } from './attributes';
 import { buildBranches } from './branches';
 import { growthTiming } from './growth';
+import { solidLeafGeometry } from './leaf-shapes';
 import { leafGeometry, placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
 import { buildTrunk } from './trunk';
@@ -34,7 +35,10 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
         sweepBranch(b, sidesOf(b.level), partRandom(seed, b.path), woodSeasonAttribute(seed, definition.variation), growth.branches[i]),
       ),
     ),
-    leaves: leafGeometry(leaves, definition.branches.length + 1, seed, definition.variation, growth.leaves),
+    leaves:
+      definition.leaves.shape === 'card'
+        ? leafGeometry(leaves, definition.branches.length + 1, seed, definition.variation, growth.leaves)
+        : solidLeafGeometry(leaves, definition.leaves.shape, definition.branches.length + 1, seed, definition.variation, growth.leaves),
     growth,
   };
 }

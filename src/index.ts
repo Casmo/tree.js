@@ -22,3 +22,4 @@ export { createRandom, hashString, hashCombine, type Random } from './random';
 export { createBarkMaterial, createLeafMaterial } from './materials';
 export { growPositions, growthPosition, SAPLING_SCALE, SAPLING_THICKNESS } from './growth';
 export { assertWebGPURenderer, UnsupportedRendererError } from './renderer';
+export type { TreeStyle } from './styles/types';

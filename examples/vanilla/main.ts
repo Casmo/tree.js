@@ -6,9 +6,15 @@
 //   ?growth=<0..1>  Growth (default 1, fully grown); only a uniform changes
 //   ?season=<0..1>  Season (default 0.37, summer)
 //   ?form=conifer  an evergreen conifer instead of the deciduous broadleaf
+//   ?style=low-poly  grow that built-in Style's Definition for the form (loaded with a dynamic import)
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
-import { createTree, SEASON_PROFILES, type TreeDefinitionInput } from '../../src/index';
+import { createTree, SEASON_PROFILES, type TreeDefinition, type TreeDefinitionInput, type TreeStyle } from '../../src/index';
+
+// Built-in Styles are separate chunks, fetched only when asked for.
+const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
+  'low-poly': () => import('../../src/styles/low-poly'),
+};
 
 declare global {
   interface Window {
@@ -71,10 +77,32 @@ const conifer: TreeDefinitionInput = {
   leaves: { count: 8, size: 0.3 },
   season: SEASON_PROFILES.evergreen,
 };
-const tree = createTree(params.get('form') === 'conifer' ? conifer : broadleaf, { seed, growth, season });
-scene.add(tree);
+const form = params.get('form') === 'conifer' ? 'conifer' : 'broadleaf';
+
+async function loadDefinition(): Promise<TreeDefinitionInput | TreeDefinition> {
+  const styleName = params.get('style');
+  if (!styleName) return form === 'conifer' ? conifer : broadleaf;
+  const load = styles[styleName];
+  if (!load) throw new Error(`Unknown style "${styleName}"`);
+  return (await load()).default[form];
+}
+
+/** Points the camera at the whole tree (Style trees differ in size). */
+function frame(object: THREE.Object3D): void {
+  const box = new THREE.Box3().setFromObject(object);
+  const size = box.getSize(new THREE.Vector3());
+  const centre = box.getCenter(new THREE.Vector3());
+  const distance = (Math.max(size.y, size.x, size.z) / 2 / Math.tan((camera.fov * Math.PI) / 360)) * 1.25;
+  const direction = new THREE.Vector3(1, 0.35, 1).normalize();
+  camera.position.copy(centre).addScaledVector(direction, distance);
+  camera.lookAt(centre);
+}
 
 async function main(): Promise<void> {
+  const tree = createTree(await loadDefinition(), { seed, growth, season });
+  scene.add(tree);
+  if (params.get('style')) frame(tree);
+
   if (params.get('renderer') === 'classic') {
     // A classic-renderer app uses classic materials; only the tree brings TSL node materials.
     ground.material = new MeshStandardMaterial({ color: '#7da05a' });
@@ -92,7 +120,7 @@ async function main(): Promise<void> {
   await renderer.init();
 
   const backend = (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'webgpu' : 'webgl2';
-  statusEl.textContent = `WebGPURenderer (${backend}) - seed ${seed}, growth ${growth}`;
+  statusEl.textContent = `WebGPURenderer (${backend}) - ${tree.definition.name || form} - seed ${seed}, growth ${growth}`;
 
   addEventListener('resize', () => {
     camera.aspect = innerWidth / innerHeight;
