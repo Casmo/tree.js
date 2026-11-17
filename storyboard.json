@@ -1,0 +1,127 @@
+{
+ "title": "Grow, season and sculpt trees in the Tree Editor",
+ "kicker": "New \u00b7 tree.js",
+ "app": "tree-js",
+ "url": "http://localhost:5350/editor/?start=low-poly/broadleaf&seed=1",
+ "setup": [
+  {
+   "wait": 3000
+  }
+ ],
+ "chapters": [
+  {
+   "title": "Pick a Style / Form start",
+   "steps": [
+    {
+     "click": "#start",
+     "zoom": true
+    },
+    {
+     "press": "ArrowDown"
+    },
+    {
+     "press": "Enter"
+    },
+    {
+     "click": "#start"
+    },
+    {
+     "press": "ArrowDown"
+    },
+    {
+     "press": "Enter"
+    }
+   ]
+  },
+  {
+   "title": "Seed, Growth and Season sliders",
+   "steps": [
+    {
+     "click": "#seed",
+     "zoom": true
+    },
+    {
+     "click": "#growth"
+    },
+    {
+     "press": "Home"
+    },
+    {
+     "press": "End"
+    },
+    {
+     "click": "#season"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    }
+   ]
+  },
+  {
+   "title": "Edit parameters and Tree Effects",
+   "steps": [
+    {
+     "type": "6",
+     "into": "[id='trunk.length']",
+     "zoom": true
+    },
+    {
+     "press": "Enter"
+    },
+    {
+     "click": "role=button[name='Apply stylized suggestion']",
+     "zoom": true
+    },
+    {
+     "scroll": "text=Season Profile"
+    }
+   ]
+  },
+  {
+   "title": "Sculpt, undo, redo and export",
+   "steps": [
+    {
+     "click": "role=button[name=Delete]",
+     "zoom": true
+    },
+    {
+     "click": "#preview canvas"
+    },
+    {
+     "click": "#undo",
+     "zoom": true
+    },
+    {
+     "click": "#redo"
+    },
+    {
+     "scroll": "#export-json"
+    },
+    {
+     "hover": "#export-gltf",
+     "zoom": true
+    }
+   ]
+  },
+  {
+   "title": "Examples: vanilla, forest and React",
+   "steps": [
+    {
+     "goto": "/examples/vanilla/?style=realistic"
+    },
+    {
+     "goto": "/examples/forest/"
+    },
+    {
+     "goto": "/examples/react/"
+    }
+   ]
+  }
+ ]
+}
