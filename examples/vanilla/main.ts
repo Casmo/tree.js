@@ -23,13 +23,13 @@ import {
   type TreeDefinition,
   type TreeDefinitionInput,
   type TreeStyle,
-} from '../../src/index';
+} from '@casmo/tree.js';
 
 // Built-in Styles are separate chunks, fetched only when asked for.
 const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
-  'low-poly': () => import('../../src/styles/low-poly'),
-  stylized: () => import('../../src/styles/stylized'),
-  realistic: () => import('../../src/styles/realistic'),
+  'low-poly': () => import('@casmo/tree.js/styles/low-poly'),
+  stylized: () => import('@casmo/tree.js/styles/stylized'),
+  realistic: () => import('@casmo/tree.js/styles/realistic'),
 };
 
 declare global {

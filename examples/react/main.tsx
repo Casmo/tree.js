@@ -10,8 +10,8 @@ import * as THREE from 'three/webgpu';
 import { Suspense, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Forest, Tree, Wind, useTreeStyle, type ForestTreePlacement } from '../../src/react';
-import type { Forest as ForestObject } from '../../src/index';
+import { Forest, Tree, Wind, useTreeStyle, type ForestTreePlacement } from '@casmo/tree.js/react';
+import type { Forest as ForestObject } from '@casmo/tree.js';
 
 declare global {
   interface Window {

@@ -21,7 +21,7 @@ import {
   type StyleName,
   type TreeDefinition,
   type TreeDefinitionInput,
-} from '../../src/index';
+} from '@casmo/tree.js';
 
 declare global {
   interface Window {

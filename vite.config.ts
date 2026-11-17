@@ -7,7 +7,8 @@ import { defineConfig } from 'vitest/config';
 // The Tree Editor (editor/) imports the library by its package name, like any app would;
 // in this repo those names resolve to the sources (see also `paths` in tsconfig.json).
 export const packageAliases = [
-  { find: /^@casmo\/tree\.js\/styles\/([\w-]+)$/, replacement: resolve(import.meta.dirname, 'src/styles/$1/index.ts') },
+  // Subpaths: '/styles/<name>', '/react', '/effects' -> src/<subpath>/index.ts
+  { find: /^@casmo\/tree\.js\/([\w/-]+)$/, replacement: resolve(import.meta.dirname, 'src/$1/index.ts') },
   { find: /^@casmo\/tree\.js$/, replacement: resolve(import.meta.dirname, 'src/index.ts') },
 ];
 

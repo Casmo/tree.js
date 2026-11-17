@@ -21,6 +21,8 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run build:editor
+      # The bundled examples build like an app would; the CDN example's e2e test needs dist/ (npm run build).
+      - run: npm run build:examples
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4

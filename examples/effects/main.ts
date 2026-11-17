@@ -9,19 +9,19 @@
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 import * as THREE from 'three/webgpu';
 import { float, screenUV, vec4 } from 'three/tsl';
-import { createTree, type TreeStyle } from '../../src/index';
+import { createTree, type TreeStyle } from '@casmo/tree.js';
 import {
   applyTreeEffects,
   createTreeEffects,
   TREE_EFFECT_PRESETS,
   treeEffectsPass,
   type TreeEffectsPreset,
-} from '../../src/effects';
+} from '@casmo/tree.js/effects';
 
 const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
-  'low-poly': () => import('../../src/styles/low-poly'),
-  stylized: () => import('../../src/styles/stylized'),
-  realistic: () => import('../../src/styles/realistic'),
+  'low-poly': () => import('@casmo/tree.js/styles/low-poly'),
+  stylized: () => import('@casmo/tree.js/styles/stylized'),
+  realistic: () => import('@casmo/tree.js/styles/realistic'),
 };
 
 declare global {
