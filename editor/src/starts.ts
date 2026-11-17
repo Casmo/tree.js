@@ -4,6 +4,7 @@ import type { TreeDefinition, TreeForm, TreeStyle } from '@casmo/tree.js';
 
 const STYLES: Record<string, { label: string; load: () => Promise<{ default: TreeStyle }> }> = {
   'low-poly': { label: 'Low-poly', load: () => import('@casmo/tree.js/styles/low-poly') },
+  stylized: { label: 'Stylized', load: () => import('@casmo/tree.js/styles/stylized') },
 };
 
 const FORMS: TreeForm[] = ['broadleaf', 'conifer'];

@@ -4,7 +4,7 @@ import { loadStart, STARTS } from './starts';
 
 describe('starting points', () => {
   it('offers every built-in Style in both Forms', () => {
-    expect(STARTS.map((start) => start.id)).toEqual(expect.arrayContaining(['low-poly/broadleaf', 'low-poly/conifer']));
+    expect(STARTS.map((start) => start.id)).toEqual(expect.arrayContaining(['low-poly/broadleaf', 'low-poly/conifer', 'stylized/broadleaf', 'stylized/conifer']));
   });
 
   it.each(STARTS.map((start) => [start.id, start] as const))('%s loads a valid Definition of its Form', async (_id, start) => {
