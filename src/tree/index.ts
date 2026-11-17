@@ -7,6 +7,8 @@ export { Tree } from './Tree';
 export interface CreateTreeOptions {
   /** Picks one individual tree within the Definition's ranges. Default 0. */
   seed?: number;
+  /** Initial Season (0 = first day of spring .. 1 = last day of winter). Default 0. */
+  season?: number;
 }
 
 /**
@@ -20,5 +22,5 @@ export function createTree(
 ): Tree {
   const parsed = parseDefinition(definition);
   const seed = options.seed ?? 0;
-  return new Tree(parsed, generateTree(parsed, seed));
+  return new Tree(parsed, generateTree(parsed, seed), { season: options.season });
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createTree,
   evaluateSeason,
   generateTree,
   leafSeason,
@@ -151,5 +152,46 @@ describe('leafSeason', () => {
 
   it('applies the leaf timing shift', () => {
     expect(leafSeason(profile, 0.4, ranks(0.2, 0.3, 0.5)).visible).toBe(false); // coverage at 0.6 is 0
+  });
+});
+
+describe('Tree.season', () => {
+  it('starts at 0 (first day of spring)', () => {
+    expect(createTree({ schemaVersion: 2 }).season).toBe(0);
+  });
+
+  it('only updates a uniform: no new geometry, no new material, no recompile', () => {
+    const tree = createTree({ schemaVersion: 2 }, { seed: 3 });
+    const { geometry, material } = tree.leaves;
+    const { version } = material;
+    const positions = geometry.getAttribute('position');
+    tree.season = 0.6;
+    expect(tree.season).toBe(0.6);
+    expect(tree.seasonUniform.value).toBe(0.6);
+    expect(tree.leaves.geometry).toBe(geometry);
+    expect(geometry.getAttribute('position')).toBe(positions);
+    expect(tree.leaves.material).toBe(material);
+    expect(material.version).toBe(version);
+  });
+
+  it('wraps values outside 0..1 around the year', () => {
+    const tree = createTree({ schemaVersion: 2 });
+    tree.season = 1.25;
+    expect(tree.season).toBeCloseTo(0.25, 9);
+  });
+
+  it('rejects a non-finite Season', () => {
+    const tree = createTree({ schemaVersion: 2 });
+    expect(() => (tree.season = Number.NaN)).toThrow(RangeError);
+  });
+
+  it('can be set at creation', () => {
+    expect(createTree({ schemaVersion: 2 }, { season: 0.7 }).seasonUniform.value).toBe(0.7);
+  });
+
+  it('drives the leaf colour and leaf coverage through the leaf material nodes', () => {
+    const tree = createTree({ schemaVersion: 2 });
+    expect(tree.leaves.material.colorNode).not.toBeNull();
+    expect(tree.leaves.material.maskNode).not.toBeNull(); // coverage cut also applies to shadows
   });
 });
