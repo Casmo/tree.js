@@ -22,6 +22,7 @@ export default defineConfig({
         index: resolve(import.meta.dirname, 'src/index.ts'),
         // Styles: one lazily importable chunk each (`await import('@casmo/tree.js/styles/<name>')`).
         'styles/low-poly': resolve(import.meta.dirname, 'src/styles/low-poly/index.ts'),
+        'styles/stylized': resolve(import.meta.dirname, 'src/styles/stylized/index.ts'),
       },
       formats: ['es'],
     },

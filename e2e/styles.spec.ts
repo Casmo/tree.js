@@ -6,7 +6,7 @@ async function waitForExample(page: Page) {
 }
 
 // Reference screenshots for every built-in Style x Form, on both backends of WebGPURenderer.
-const styles = ['low-poly'];
+const styles = ['low-poly', 'stylized'];
 const forms = ['broadleaf', 'conifer'];
 const backends = [
   { name: 'webgpu', query: '' },
@@ -25,6 +25,26 @@ for (const style of styles) {
       });
     }
   }
+}
+
+// The stylized Style through the year (pink blossom in early spring, autumn colours, bare broadleaf /
+// evergreen conifer in winter) and while growing (Growth and Season are uniforms; the geometry is the same).
+const stylizedStates = [
+  { form: 'broadleaf', name: 'blossom', query: '&season=0.04' },
+  { form: 'broadleaf', name: 'autumn', query: '&season=0.62' },
+  { form: 'broadleaf', name: 'winter', query: '&season=0.85' },
+  { form: 'conifer', name: 'winter', query: '&season=0.85' },
+  { form: 'broadleaf', name: 'growth-0-85-blossom', query: '&growth=0.85&season=0.04' },
+  { form: 'conifer', name: 'growth-0-85', query: '&growth=0.85' },
+];
+for (const { form, name, query } of stylizedStates) {
+  test(`stylized ${form}: ${name}`, async ({ page }) => {
+    await page.goto(`/examples/vanilla/?style=stylized&form=${form}&seed=1${query}`);
+    expect(await waitForExample(page)).toMatchObject({ status: 'rendered', backend: 'webgpu' });
+    await expect(page.locator('canvas')).toHaveScreenshot(`stylized-${form}-${name}.png`, {
+      mask: [page.locator('#status')],
+    });
+  });
 }
 
 test('a Style is fetched only when the app imports it', async ({ page }) => {

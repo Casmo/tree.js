@@ -305,10 +305,10 @@ describe('per-vertex attributes', () => {
 });
 
 describe('leaf shapes', () => {
-  const shaped = (shape: 'clump' | 'needle') =>
+  const shaped = (shape: 'clump' | 'needle' | 'puff') =>
     parseDefinition({ schemaVersion: 2, branches: [{ count: 3 }], leaves: { count: 4, shape, size: 0.5, sizeVariation: 0 } });
 
-  for (const shape of ['clump', 'needle'] as const) {
+  for (const shape of ['clump', 'needle', 'puff'] as const) {
     it(`${shape}: builds a closed, outward-facing solid per leaf, coloured by its tint`, () => {
       const { leaves, skeleton } = generateTree(shaped(shape), 3);
       const vertexCount = leaves.positions.length / 3;
@@ -349,6 +349,22 @@ describe('leaf shapes', () => {
       });
     });
   }
+
+  it('a puff is a smooth round ball: every vertex half a leaf size from its centre, with radial normals', () => {
+    const { leaves, skeleton } = generateTree(shaped('puff'), 4);
+    const perLeaf = leaves.positions.length / 3 / skeleton.leaves.length;
+    expect(perLeaf).toBeGreaterThanOrEqual(40);
+    skeleton.leaves.forEach((leaf, l) => {
+      const centre: Vec3 = [0, 1, 2].map((k) => leaf.position[k]! + (leaf.direction[k]! * leaf.size) / 2) as Vec3;
+      for (let v = l * perLeaf; v < (l + 1) * perLeaf; v++) {
+        const p: Vec3 = [...leaves.positions.subarray(v * 3, v * 3 + 3)] as Vec3;
+        const n: Vec3 = [...leaves.normals.subarray(v * 3, v * 3 + 3)] as Vec3;
+        expect(distance(p, centre)).toBeCloseTo(leaf.size / 2, 4);
+        const outward = [0, 1, 2].map((k) => (p[k]! - centre[k]!) / (leaf.size / 2));
+        expect(outward[0]! * n[0] + outward[1]! * n[1] + outward[2]! * n[2]).toBeCloseTo(1, 4);
+      }
+    });
+  });
 
   it('a needle points along its leaf direction: its tip is one leaf size away', () => {
     const { leaves, skeleton } = generateTree(shaped('needle'), 2);

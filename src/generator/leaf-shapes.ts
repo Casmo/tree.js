@@ -36,6 +36,32 @@ function clumpTemplate(): SolidTemplate {
   return { positions: normals.map((n) => add(centre, scale(n, 0.5))), normals, triangles };
 }
 
+/**
+ * Stylized foliage puff: an icosphere (the clump's icosahedron with every triangle split in
+ * four, new vertices pushed onto the sphere), diameter 1, from the attachment point outward.
+ * Smooth radial normals, so toon shading makes it read as a soft round ball.
+ */
+function puffTemplate(): SolidTemplate {
+  const ico = clumpTemplate();
+  const centre: Vec3 = [0, 0, 0.5];
+  const normals = [...ico.normals];
+  const midpoints = new Map<string, number>();
+  const midpoint = (a: number, b: number): number => {
+    const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+    let index = midpoints.get(key);
+    if (index === undefined) {
+      index = normals.push(normalize(add(normals[a]!, normals[b]!))) - 1;
+      midpoints.set(key, index);
+    }
+    return index;
+  };
+  const triangles: [number, number, number][] = ico.triangles.flatMap(([a, b, c]) => {
+    const [ab, bc, ca] = [midpoint(a, b), midpoint(b, c), midpoint(c, a)];
+    return [[a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]] as [number, number, number][];
+  });
+  return { positions: normals.map((n) => add(centre, scale(n, 0.5))), normals, triangles };
+}
+
 /** Needle tuft: a slim five-sided spindle from the attachment point (z = 0) to the tip (z = 1). */
 const NEEDLE_SIDES = 5;
 const NEEDLE_RADIUS = 0.28;
@@ -59,6 +85,7 @@ function needleTemplate(): SolidTemplate {
 const TEMPLATES: Record<Exclude<LeafShape, 'card'>, SolidTemplate> = {
   clump: orient(clumpTemplate()),
   needle: orient(needleTemplate()),
+  puff: orient(puffTemplate()),
 };
 
 /** Fixes each triangle's winding so its front face points along its vertex normals (CCW = front). */
@@ -72,7 +99,7 @@ function orient(template: SolidTemplate): SolidTemplate {
 }
 
 /**
- * Leaf geometry for the solid shapes ('clump', 'needle'): one small closed mesh per leaf,
+ * Leaf geometry for the solid shapes ('clump', 'needle', 'puff'): one small closed mesh per leaf,
  * placed in the leaf's frame (across, normal, direction) and scaled by its size. Like cards,
  * every vertex carries the leaf's tint as its colour and the leaf's part attributes.
  */
