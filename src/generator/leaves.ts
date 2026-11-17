@@ -1,4 +1,5 @@
-import type { TreeDefinition } from '../definition';
+import type { TreeDefinition, VariationDefinition } from '../definition';
+import { leafSeasonAttribute } from '../season/profile';
 import type { Random } from '../random';
 import { createAttributes, partRandom, writePart } from './attributes';
 import { branchFrames, sampleBranch } from './frames';
@@ -57,6 +58,7 @@ export function leafGeometry(
   leaves: SkeletonLeaf[],
   level: number,
   seed: number,
+  variation: Pick<VariationDefinition, 'season'> = { season: 0 },
   growth: GrowthWindow[] = [],
 ): GeometryBuffers {
   const positions = new Float32Array(leaves.length * 4 * 3);
@@ -81,6 +83,7 @@ export function leafGeometry(
       attach: leaf.attach,
       random: partRandom(seed, leaf.id),
       origin: leaf.position,
+      season: leafSeasonAttribute(seed, variation, leaf.id),
       growth: growth[l] ?? { start: 0, end: 0 },
     };
     for (let c = 0; c < 4; c++) {

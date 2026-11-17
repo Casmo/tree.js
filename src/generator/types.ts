@@ -86,6 +86,11 @@ export interface TreeAttributes {
    * line (the branch radius there; 0 for leaves and branch tips), used to thicken over Growth.
    */
   aGrowth: VertexAttribute;
+  /**
+   * Season (vec3): x = timing shift from the Seed (within ± `variation.season`), y = coverage rank,
+   * z = blossom rank (0..1, leaves only; 0 on wood). See `leafSeason` in src/season.
+   */
+  aSeason: VertexAttribute;
 }
 
 /** Plain geometry buffers (no three.js types), ready to wrap in a BufferGeometry. */

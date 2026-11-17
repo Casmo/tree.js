@@ -4,13 +4,23 @@
 //   ?renderer=classic  use the unsupported classic WebGLRenderer (shows the error)
 //   ?seed=<n>  pick a Seed (default 1)
 //   ?growth=<0..1>  Growth (default 1, fully grown); only a uniform changes
+//   ?season=<0..1>  Season (default 0.37, summer)
+//   ?form=conifer  an evergreen conifer instead of the deciduous broadleaf
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
-import { createTree } from '../../src/index';
+import { createTree, SEASON_PROFILES, type TreeDefinitionInput } from '../../src/index';
 
 declare global {
   interface Window {
-    treeExample: { status: 'loading' | 'rendered' | 'error'; backend?: string; error?: string };
+    treeExample: {
+      status: 'loading' | 'rendered' | 'error';
+      backend?: string;
+      error?: string;
+      /** id of the leaf BufferGeometry, to check that Season does not regenerate. */
+      leafGeometryId?: number;
+      /** Sets `tree.season` and re-renders (status goes 'loading' -> 'rendered'). */
+      setSeason?: (season: number) => void;
+    };
   }
 }
 
@@ -18,6 +28,7 @@ window.treeExample = { status: 'loading' };
 const params = new URLSearchParams(location.search);
 const seed = Number(params.get('seed') ?? 1);
 const growth = Number(params.get('growth') ?? 1);
+const season = Number(params.get('season') ?? 0.37);
 const statusEl = document.getElementById('status')!;
 
 const scene = new THREE.Scene();
@@ -37,19 +48,30 @@ const ground = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(
 );
 scene.add(ground);
 
-// The defaults plus a third branching level and fuller foliage.
-const tree = createTree(
-  {
-    schemaVersion: 2,
-    branches: [
-      { count: 7, angle: 50 },
-      { count: 4, start: 0.2, angle: 40, length: 0.45, sides: 4, sections: 3 },
-      { count: 3, start: 0.3, end: 1, angle: 35, length: 0.5, sides: 3, sections: 2 },
-    ],
-    leaves: { count: 6, size: 0.35 },
-  },
-  { seed, growth },
-);
+// Broadleaf: the defaults plus a third branching level, fuller foliage and the deciduous Season Profile.
+const broadleaf: TreeDefinitionInput = {
+  schemaVersion: 2,
+  branches: [
+    { count: 7, angle: 50 },
+    { count: 4, start: 0.2, angle: 40, length: 0.45, sides: 4, sections: 3 },
+    { count: 3, start: 0.3, end: 1, angle: 35, length: 0.5, sides: 3, sections: 2 },
+  ],
+  leaves: { count: 6, size: 0.35 },
+  season: SEASON_PROFILES.deciduous,
+};
+// Conifer: a tall trunk with many short, near-horizontal branches and the evergreen Season Profile.
+const conifer: TreeDefinitionInput = {
+  schemaVersion: 2,
+  form: 'conifer',
+  trunk: { length: 6, radius: 0.18, taper: 0.9 },
+  branches: [
+    { count: 22, start: 0.15, end: 0.95, angle: 80, length: 0.28, gravity: -0.3 },
+    { count: 3, start: 0.2, angle: 45, length: 0.4, sides: 3, sections: 2 },
+  ],
+  leaves: { count: 8, size: 0.3 },
+  season: SEASON_PROFILES.evergreen,
+};
+const tree = createTree(params.get('form') === 'conifer' ? conifer : broadleaf, { seed, growth, season });
 scene.add(tree);
 
 async function main(): Promise<void> {
@@ -78,8 +100,14 @@ async function main(): Promise<void> {
     renderer.setSize(innerWidth, innerHeight);
   });
 
+  const leafGeometryId = tree.leaves.geometry.id;
   await renderer.renderAsync(scene, camera);
-  window.treeExample = { status: 'rendered', backend };
+  const setSeason = (value: number): void => {
+    window.treeExample.status = 'loading';
+    tree.season = value; // a uniform update: no regeneration
+    void renderer.renderAsync(scene, camera).then(() => (window.treeExample.status = 'rendered'));
+  };
+  window.treeExample = { status: 'rendered', backend, leafGeometryId, setSeason };
 }
 
 main().catch((error: unknown) => {

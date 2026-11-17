@@ -9,6 +9,8 @@ export interface CreateTreeOptions {
   seed?: number;
   /** Starting Growth, 0 (sapling) .. 1 (fully grown, default). Change it later with `tree.growth`. */
   growth?: number;
+  /** Initial Season (0 = first day of spring .. 1 = last day of winter). Default 0. */
+  season?: number;
 }
 
 /**
@@ -22,5 +24,5 @@ export function createTree(
 ): Tree {
   const parsed = parseDefinition(definition);
   const seed = options.seed ?? 0;
-  return new Tree(parsed, generateTree(parsed, seed), { growth: options.growth });
+  return new Tree(parsed, generateTree(parsed, seed), { growth: options.growth, season: options.season });
 }

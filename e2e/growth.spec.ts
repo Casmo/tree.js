@@ -10,12 +10,12 @@ async function render(page: Page, query: string) {
 // then leaves late. Growth 1 is the plain static tree (tree-webgpu.png in tree.spec.ts).
 for (const growth of [0, 0.3, 0.55, 0.8]) {
   test(`Growth ${growth} on the WebGPU backend`, async ({ page }) => {
-    expect(await render(page, `growth=${growth}`)).toEqual({ status: 'rendered', backend: 'webgpu' });
+    expect(await render(page, `growth=${growth}`)).toMatchObject({ status: 'rendered', backend: 'webgpu' });
     await expect(page.locator('canvas')).toHaveScreenshot(`growth-${growth}-webgpu.png`, { mask: [page.locator('#status')] });
   });
 }
 
 test('Growth on the WebGL2 fallback of WebGPURenderer', async ({ page }) => {
-  expect(await render(page, 'growth=0.55&backend=webgl')).toEqual({ status: 'rendered', backend: 'webgl2' });
+  expect(await render(page, 'growth=0.55&backend=webgl')).toMatchObject({ status: 'rendered', backend: 'webgl2' });
   await expect(page.locator('canvas')).toHaveScreenshot('growth-0.55-webgl2.png', { mask: [page.locator('#status')] });
 });

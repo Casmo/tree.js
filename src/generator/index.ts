@@ -1,5 +1,6 @@
 import type { TreeDefinition } from '../definition';
 import { createRandom, hashBytes } from '../random';
+import { woodSeasonAttribute } from '../season/profile';
 import { partRandom } from './attributes';
 import { buildBranches } from './branches';
 import { growthTiming } from './growth';
@@ -29,9 +30,11 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
     seed,
     skeleton: { branches, leaves },
     wood: mergeBuffers(
-      branches.map((b, i) => sweepBranch(b, sidesOf(b.level), partRandom(seed, b.path), growth.branches[i])),
+      branches.map((b, i) =>
+        sweepBranch(b, sidesOf(b.level), partRandom(seed, b.path), woodSeasonAttribute(seed, definition.variation), growth.branches[i]),
+      ),
     ),
-    leaves: leafGeometry(leaves, definition.branches.length + 1, seed, growth.leaves),
+    leaves: leafGeometry(leaves, definition.branches.length + 1, seed, definition.variation, growth.leaves),
     growth,
   };
 }
