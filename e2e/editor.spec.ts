@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
-import { createTree, CURRENT_SCHEMA_VERSION, parseDefinition } from '../src/index';
+import { validateBytes } from 'gltf-validator';
+import type { Mesh } from 'three/webgpu';
+import { bakeTree, createTree, CURRENT_SCHEMA_VERSION, parseDefinition } from '../src/index';
 import { STARTS } from '../editor/src/starts';
 
 /** Waits until the preview has drawn the latest change, then returns the editor's state. */
@@ -96,6 +98,55 @@ test('Growth and Season sliders update the preview live; Seed regenerates', asyn
   const regenerated = await readTree();
   expect(regenerated).toMatchObject({ seed: 7, growth: 0.4, season: 0.7 });
   expect(regenerated.id).not.toBe(before.treeId);
+});
+
+/** The JSON chunk of a .glb. */
+function glbJson(glb: Buffer) {
+  const length = glb.readUInt32LE(12);
+  return JSON.parse(glb.subarray(20, 20 + length).toString('utf8'));
+}
+
+async function exportGltf(page: Page) {
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export glTF' }).click();
+  const download = await downloading;
+  const glb = await readFile((await download.path())!);
+  const report = await validateBytes(new Uint8Array(glb));
+  expect(report.issues.numErrors, JSON.stringify(report.issues.messages.slice(0, 5))).toBe(0);
+  return { name: download.suggestedFilename(), glb, json: glbJson(glb) };
+}
+
+test('exports a Baked Tree glTF of the current Seed, Growth and Season', async ({ page }) => {
+  await page.goto('/editor/?start=low-poly/broadleaf&seed=3&growth=0.9&season=0.62');
+  const { state } = await waitForEditor(page);
+  expect(state).toMatchObject({ seed: 3, growth: 0.9, season: 0.62 });
+
+  const { name, json } = await exportGltf(page);
+  expect(name).toBe(`${state!.definition.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.glb`);
+  expect(json.animations ?? []).toEqual([]);
+  expect(json.materials.every((m: { pbrMetallicRoughness?: object }) => m.pbrMetallicRoughness)).toBe(true);
+
+  // Same Baked Tree as the library makes in Node from the same Definition, Seed, Growth and Season.
+  const baked = bakeTree(createTree(state!.definition, { seed: 3 }), { growth: 0.9, season: 0.62 });
+  const counts = Object.fromEntries(
+    json.nodes
+      .filter((n: { mesh?: number }) => n.mesh !== undefined)
+      .map((n: { name: string; mesh: number }) => [n.name, json.accessors[json.meshes[n.mesh].primitives[0].attributes.POSITION].count]),
+  );
+  expect(Object.keys(counts)).toEqual(['wood', 'leaves']);
+  expect(counts).toEqual(
+    Object.fromEntries(baked.children.map((m) => [m.name, (m as Mesh).geometry.getAttribute('position').count])),
+  );
+});
+
+test('exports a textured (realistic) Baked Tree with its images embedded', async ({ page }) => {
+  await page.goto('/editor/?start=realistic/broadleaf&seed=1&season=0.3');
+  expect(await waitForEditor(page)).toMatchObject({ status: 'rendered' });
+  const { json } = await exportGltf(page);
+  expect(json.images.length).toBeGreaterThanOrEqual(2);
+  const bark = json.materials.find((m: { name: string }) => m.name === 'bark');
+  expect(bark.normalTexture).toBeDefined();
+  expect(bark.pbrMetallicRoughness.baseColorTexture).toBeDefined();
 });
 
 test('the editor also runs on the WebGL2 fallback', async ({ page }) => {
