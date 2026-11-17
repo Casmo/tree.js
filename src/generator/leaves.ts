@@ -3,7 +3,8 @@ import { leafSeasonAttribute } from '../season/profile';
 import type { Random } from '../random';
 import { createAttributes, partRandom, writePart } from './attributes';
 import { branchFrames, sampleBranch } from './frames';
-import type { GeometryBuffers, SkeletonBranch, SkeletonLeaf, Vec3 } from './types';
+import type { GeometryBuffers, GrowthWindow, SkeletonBranch, SkeletonLeaf, Vec3 } from './types';
+import { leafSway, NO_SWAY, type PartSway } from './wind';
 import { add, cross, dot, normalize, perpendicular, scale } from './vec';
 
 const DEG = Math.PI / 180;
@@ -59,6 +60,8 @@ export function leafGeometry(
   level: number,
   seed: number,
   variation: Pick<VariationDefinition, 'season'> = { season: 0 },
+  growth: GrowthWindow[] = [],
+  branchSway: ReadonlyMap<string, PartSway> = new Map(),
 ): GeometryBuffers {
   const positions = new Float32Array(leaves.length * 4 * 3);
   const normals = new Float32Array(leaves.length * 4 * 3);
@@ -83,6 +86,8 @@ export function leafGeometry(
       random: partRandom(seed, leaf.id),
       origin: leaf.position,
       season: leafSeasonAttribute(seed, variation, leaf.id),
+      growth: growth[l] ?? { start: 0, end: 0 },
+      sway: leafSway(branchSway.get(leaf.branch) ?? NO_SWAY, leaf.attach),
     };
     for (let c = 0; c < 4; c++) {
       const v = l * 4 + c;

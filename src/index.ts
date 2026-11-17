@@ -1,5 +1,5 @@
 // Core entry point of @casmo/tree.js.
-export { createTree, Tree, type CreateTreeOptions } from './tree';
+export { createTree, Tree, type CreateTreeOptions, type TreeOptions } from './tree';
 export * from './definition';
 export * from './season';
 export {
@@ -7,6 +7,8 @@ export {
   hashGeometry,
   hashTreeData,
   type TreeData,
+  type GrowthTiming,
+  type GrowthWindow,
   type TreeSkeleton,
   type SkeletonBranch,
   type SkeletonPoint,
@@ -18,5 +20,7 @@ export {
 } from './generator';
 export { createRandom, hashString, hashCombine, type Random } from './random';
 export { createBarkMaterial, createLeafMaterial } from './materials';
+export { growPositions, growthPosition, SAPLING_SCALE, SAPLING_THICKNESS } from './growth';
 export { assertWebGPURenderer, UnsupportedRendererError } from './renderer';
+export { Wind, sceneWind, WindResponse, windOffset, applyWind, type WindDirection, type WindOptions } from './wind';
 export type { TreeStyle } from './styles/types';

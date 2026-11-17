@@ -3,13 +3,16 @@ import { createRandom, hashBytes } from '../random';
 import { woodSeasonAttribute } from '../season/profile';
 import { partRandom } from './attributes';
 import { buildBranches } from './branches';
+import { growthTiming } from './growth';
 import { solidLeafGeometry } from './leaf-shapes';
 import { leafGeometry, placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
 import { buildTrunk } from './trunk';
+import { branchSway, writeTrunkSway } from './wind';
 import type { GeometryBuffers, TreeData } from './types';
 
-export type { GeometryBuffers, TreeAttributes, VertexAttribute, SkeletonBranch, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
+export { growthTiming } from './growth';
+export type { GrowthTiming, GrowthWindow, GeometryBuffers, TreeAttributes, VertexAttribute, SkeletonBranch, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
 
 /**
  * The Generator: a pure function from a (parsed) Tree Definition and a Seed to tree data.
@@ -24,15 +27,28 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
   const branches = [trunk, ...buildBranches(definition, trunk, random.fork('branches'))];
   const sidesOf = (level: number) => (level === 0 ? definition.trunk.sides : definition.branches[level - 1]!.sides);
   const leaves = placeLeaves(definition, branches, random.fork('leaves'));
-  return {
-    seed,
-    skeleton: { branches, leaves },
-    wood: mergeBuffers(branches.map((b) => sweepBranch(b, sidesOf(b.level), partRandom(seed, b.path), woodSeasonAttribute(seed, definition.variation)))),
-    leaves:
-      definition.leaves.shape === 'card'
-        ? leafGeometry(leaves, definition.branches.length + 1, seed, definition.variation)
-        : solidLeafGeometry(leaves, definition.leaves.shape, definition.branches.length + 1, seed, definition.variation),
-  };
+  const growth = growthTiming(definition, seed, branches, leaves);
+  const sway = branchSway(branches, definition.branches.length);
+  const wood = mergeBuffers(
+    branches.map((b, i) =>
+      sweepBranch(
+        b,
+        sidesOf(b.level),
+        partRandom(seed, b.path),
+        woodSeasonAttribute(seed, definition.variation),
+        growth.branches[i],
+        sway.get(b.path),
+      ),
+    ),
+  );
+  const leafBuffers =
+    definition.leaves.shape === 'card'
+      ? leafGeometry(leaves, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway)
+      : solidLeafGeometry(leaves, definition.leaves.shape, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway);
+  const trunkHeight = trunk.points[trunk.points.length - 1]!.position[1];
+  writeTrunkSway(wood, trunkHeight);
+  writeTrunkSway(leafBuffers, trunkHeight);
+  return { seed, skeleton: { branches, leaves }, wood, leaves: leafBuffers, growth };
 }
 
 /** Stable 32-bit hash (hex) of the generated geometry buffers, for determinism checks. */

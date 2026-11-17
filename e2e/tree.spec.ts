@@ -61,3 +61,21 @@ test.describe('Season', () => {
     await expect(page.locator('canvas')).toHaveScreenshot('broadleaf-winter.png', { mask: [page.locator('#status')] });
   });
 });
+
+for (const backend of ['webgpu', 'webgl2'] as const) {
+  test(`Wind bends the tree and its shadow, together with Season (autumn, ${backend})`, async ({ page }) => {
+    const query = `seed=1&season=0.62&shadows=1&windTime=2${backend === 'webgl2' ? '&backend=webgl' : ''}`;
+    const canvas = page.locator('canvas');
+    const mask = { mask: [page.locator('#status')] };
+
+    await page.goto(`/examples/vanilla/?${query}&wind=0`);
+    expect(await waitForExample(page)).toMatchObject({ status: 'rendered', backend });
+    const calm = await canvas.screenshot(mask);
+
+    await page.goto(`/examples/vanilla/?${query}&wind=2`);
+    expect(await waitForExample(page)).toMatchObject({ status: 'rendered', backend });
+    const windy = await canvas.screenshot(mask);
+    expect(windy.equals(calm)).toBe(false);
+    await expect(canvas).toHaveScreenshot(`tree-wind-${backend}.png`, mask);
+  });
+}

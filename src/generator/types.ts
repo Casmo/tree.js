@@ -81,10 +81,22 @@ export interface TreeAttributes {
   /** Base point of the part (vec3): pivot for growing and swaying it. */
   aOrigin: VertexAttribute;
   /**
+   * Growth (vec3): x = Growth at which the part starts to sprout, y = Growth at which it is fully
+   * grown (its window, see `TreeData.growth`), z = distance of the vertex from the part's centre
+   * line (the branch radius there; 0 for leaves and branch tips), used to thicken over Growth.
+   */
+  aGrowth: VertexAttribute;
+  /**
    * Season (vec3): x = timing shift from the Seed (within ± `variation.season`), y = coverage rank,
    * z = blossom rank (0..1, leaves only; 0 on wood). See `leafSeason` in src/season.
    */
   aSeason: VertexAttribute;
+  /**
+   * Wind weights (vec3, each 0..1): x = trunk sway (pinned at the ground, 1 at the trunk top),
+   * y = branch sway (0 on the trunk, rising towards the outermost twigs), z = leaf flutter (0 on wood,
+   * 0 at a leaf base, 1 at its tip). See `generator/wind.ts`.
+   */
+  aWind: VertexAttribute;
 }
 
 /** Plain geometry buffers (no three.js types), ready to wrap in a BufferGeometry. */
@@ -98,6 +110,18 @@ export interface GeometryBuffers {
   attributes: TreeAttributes;
 }
 
+/** The span of Growth (0..1) over which one part grows from nothing to full size. */
+export interface GrowthWindow {
+  start: number;
+  end: number;
+}
+
+/** Growth windows per part, parallel to `TreeSkeleton.branches` and `TreeSkeleton.leaves`. */
+export interface GrowthTiming {
+  branches: GrowthWindow[];
+  leaves: GrowthWindow[];
+}
+
 /** Everything the Generator produces for one Definition + Seed. Pure data, Node-safe. */
 export interface TreeData {
   seed: number;
@@ -106,4 +130,6 @@ export interface TreeData {
   wood: GeometryBuffers;
   /** Leaf cards, vertex coloured. Empty buffers for a bare tree. */
   leaves: GeometryBuffers;
+  /** When each part grows (the Seed shifts it within `variation.growth`). Also in the `aGrowth` attribute. */
+  growth: GrowthTiming;
 }
