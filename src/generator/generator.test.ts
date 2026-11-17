@@ -14,7 +14,7 @@ describe('generateTree', () => {
   });
 
   it('builds a closed-index, well-formed trunk mesh', () => {
-    const { geometry } = generateTree(def, 5);
+    const { wood: geometry } = generateTree(def, 5);
     const vertexCount = geometry.positions.length / 3;
     expect(geometry.normals.length).toBe(geometry.positions.length);
     expect(geometry.uvs.length).toBe(vertexCount * 2);
@@ -30,7 +30,7 @@ describe('generateTree', () => {
 
   it('grows the trunk up from the origin to about its Definition length', () => {
     const tall = parseDefinition({ schemaVersion: 1, trunk: { length: 10, lengthVariation: 0.1 }, branches: [] });
-    const { geometry } = generateTree(tall, 3);
+    const { wood: geometry } = generateTree(tall, 3);
     let minY = Infinity;
     let maxY = -Infinity;
     for (let i = 1; i < geometry.positions.length; i += 3) {
@@ -147,6 +147,80 @@ describe('branching skeleton', () => {
           expect(child.points.length).toBe(level.sections + 1);
         }
       }
+    }
+  });
+});
+
+describe('leaves', () => {
+  const leafy = parseDefinition({
+    schemaVersion: 1,
+    branches: [{ count: 4 }, { count: 3 }],
+    leaves: { count: 6, size: 0.4, sizeVariation: 0.3, color: '#408020', colorVariation: 0.2 },
+  });
+  const srgb = [0x40 / 255, 0x80 / 255, 0x20 / 255];
+
+  it('puts the declared number of leaves on every outermost branch, each with a stable id', () => {
+    const { skeleton } = generateTree(leafy, 4);
+    const outermost = skeleton.branches.filter((b) => b.level === 2);
+    expect(outermost.length).toBeGreaterThan(0);
+    expect(skeleton.leaves).toHaveLength(outermost.length * 6);
+    for (const branch of outermost) {
+      const ids = skeleton.leaves.filter((l) => l.branch === branch.path).map((l) => l.id);
+      expect(ids).toEqual([0, 1, 2, 3, 4, 5].map((i) => `${branch.path}/${i}`));
+    }
+  });
+
+  it('grows leaves on the trunk when there are no branch levels, and none when count is 0', () => {
+    const trunkOnly = parseDefinition({ schemaVersion: 1, branches: [], leaves: { count: 3 } });
+    expect(generateTree(trunkOnly, 1).skeleton.leaves.map((l) => l.branch)).toEqual(['0', '0', '0']);
+    const bare = parseDefinition({ schemaVersion: 1, leaves: { count: 0 } });
+    const data = generateTree(bare, 1);
+    expect(data.skeleton.leaves).toEqual([]);
+    expect(data.leaves.indices.length).toBe(0);
+  });
+
+  it('keeps leaf size and colour within the ranges the Definition declares', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      for (const leaf of generateTree(leafy, seed).skeleton.leaves) {
+        expect(leaf.size).toBeGreaterThanOrEqual(0.4 * 0.7 - 1e-9);
+        expect(leaf.size).toBeLessThanOrEqual(0.4 * 1.3 + 1e-9);
+        leaf.color.forEach((c, k) => {
+          expect(c).toBeGreaterThanOrEqual(srgb[k]! * 0.8 - 1e-9);
+          expect(c).toBeLessThanOrEqual(Math.min(1, srgb[k]! * 1.2) + 1e-9);
+        });
+      }
+    }
+  });
+
+  it('varies leaf colours with the Seed', () => {
+    const colour = (seed: number) => generateTree(leafy, seed).skeleton.leaves[0]!.color;
+    expect(colour(1)).not.toEqual(colour(2));
+  });
+
+  it('builds a well-formed, vertex-coloured leaf mesh', () => {
+    const { leaves, skeleton } = generateTree(leafy, 2);
+    const vertexCount = leaves.positions.length / 3;
+    expect(vertexCount).toBeGreaterThanOrEqual(skeleton.leaves.length * 3);
+    expect(leaves.normals.length).toBe(leaves.positions.length);
+    expect(leaves.uvs.length).toBe(vertexCount * 2);
+    expect(leaves.colors!.length).toBe(vertexCount * 3);
+    for (const c of leaves.colors!) expect(c).toBeGreaterThanOrEqual(0);
+    for (const c of leaves.colors!) expect(c).toBeLessThanOrEqual(1);
+    for (const i of leaves.indices) expect(i).toBeLessThan(vertexCount);
+    expectFrontFacesAlongNormals(leaves);
+  });
+
+  it('attaches each leaf to its branch', () => {
+    const { skeleton } = generateTree(leafy, 6);
+    const byPath = new Map(skeleton.branches.map((b) => [b.path, b]));
+    for (const leaf of skeleton.leaves) {
+      const branch = byPath.get(leaf.branch)!;
+      const nearest = Math.min(
+        ...branch.points.map((p) =>
+          Math.hypot(p.position[0] - leaf.position[0], p.position[1] - leaf.position[1], p.position[2] - leaf.position[2]),
+        ),
+      );
+      expect(nearest).toBeLessThanOrEqual(pathLength(branch) / (branch.points.length - 1) + 1e-6);
     }
   });
 });

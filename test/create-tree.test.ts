@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Mesh, Object3D, type BufferGeometry } from 'three/webgpu';
+import { DoubleSide, Mesh, Object3D, type BufferGeometry } from 'three/webgpu';
 import { createTree, hashGeometry, TreeDefinitionError, UnsupportedRendererError, type Tree } from '../src/index';
 
 const definition = { schemaVersion: 1 } as const;
@@ -28,10 +28,19 @@ function sceneGeometryHash(tree: Tree): string {
 }
 
 describe('createTree', () => {
-  it('returns a three.js object with a trunk mesh', () => {
+  it('returns a three.js object with a wood mesh and a leaf mesh', () => {
     const tree = createTree(definition, { seed: 1 });
     expect(tree).toBeInstanceOf(Object3D);
-    expect(meshes(tree)).toHaveLength(1);
+    expect(meshes(tree)).toEqual([tree.wood, tree.leaves]);
+    expect(tree.data.skeleton.branches.length).toBeGreaterThan(1);
+    expect(tree.leaves.geometry.getAttribute('position').count).toBeGreaterThan(0);
+  });
+
+  it('draws leaves double-sided with their per-leaf vertex colours', () => {
+    const tree = createTree(definition, { seed: 1 });
+    expect(tree.leaves.material.side).toBe(DoubleSide);
+    expect(tree.leaves.material.vertexColors).toBe(true);
+    expect(tree.leaves.geometry.getAttribute('color').count).toBe(tree.leaves.geometry.getAttribute('position').count);
   });
 
   it('gives an identical geometry hash for the same Definition and Seed', () => {
@@ -75,7 +84,7 @@ describe('createTree', () => {
       );
     }
     tree.dispose();
-    expect(disposed.sort()).toEqual(['geometry', 'material']);
+    expect(disposed.sort()).toEqual(['geometry', 'geometry', 'material', 'material']);
   });
 
   it('throws a clear error pointing to WebGPURenderer when drawn by the classic WebGLRenderer', () => {

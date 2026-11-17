@@ -21,9 +21,10 @@ export {
   type TreeSkeleton,
   type SkeletonBranch,
   type SkeletonPoint,
+  type SkeletonLeaf,
   type GeometryBuffers,
   type Vec3,
 } from './generator';
 export { createRandom, hashString, hashCombine, type Random } from './random';
-export { createBarkMaterial } from './materials';
+export { createBarkMaterial, createLeafMaterial } from './materials';
 export { assertWebGPURenderer, UnsupportedRendererError } from './renderer';

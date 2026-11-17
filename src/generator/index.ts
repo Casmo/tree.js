@@ -1,11 +1,12 @@
 import type { TreeDefinition } from '../definition';
 import { createRandom, hashBytes } from '../random';
 import { buildBranches } from './branches';
+import { leafGeometry, placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
 import { buildTrunk } from './trunk';
 import type { GeometryBuffers, TreeData } from './types';
 
-export type { GeometryBuffers, SkeletonBranch, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
+export type { GeometryBuffers, SkeletonBranch, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
 
 /**
  * The Generator: a pure function from a (parsed) Tree Definition and a Seed to tree data.
@@ -19,23 +20,31 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
   const trunk = buildTrunk(definition, random.fork('trunk'));
   const branches = [trunk, ...buildBranches(definition, trunk, random.fork('branches'))];
   const sidesOf = (level: number) => (level === 0 ? definition.trunk.sides : definition.branches[level - 1]!.sides);
+  const leaves = placeLeaves(definition, branches, random.fork('leaves'));
   return {
     seed,
-    skeleton: { branches },
-    geometry: mergeBuffers(branches.map((b) => sweepBranch(b, sidesOf(b.level)))),
+    skeleton: { branches, leaves },
+    wood: mergeBuffers(branches.map((b) => sweepBranch(b, sidesOf(b.level)))),
+    leaves: leafGeometry(leaves),
   };
 }
 
 /** Stable 32-bit hash (hex) of the generated geometry buffers, for determinism checks. */
 export function hashGeometry(geometry: GeometryBuffers): string {
-  let h: number | undefined;
-  for (const array of [geometry.positions, geometry.normals, geometry.uvs, geometry.indices]) {
-    h = hashBytes(new Uint8Array(array.buffer, array.byteOffset, array.byteLength), h);
-  }
-  return h!.toString(16).padStart(8, '0');
+  return hex(hashBuffers(geometry));
 }
 
-/** Stable hash of a tree's generated geometry. */
+/** Stable hash of a tree's generated geometry (wood and leaves). */
 export function hashTreeData(data: TreeData): string {
-  return hashGeometry(data.geometry);
+  return hex(hashBuffers(data.leaves, hashBuffers(data.wood)));
 }
+
+function hashBuffers(geometry: GeometryBuffers, h?: number): number {
+  const arrays = [geometry.positions, geometry.normals, geometry.uvs, geometry.colors, geometry.indices];
+  for (const array of arrays) {
+    if (array) h = hashBytes(new Uint8Array(array.buffer, array.byteOffset, array.byteLength), h);
+  }
+  return h!;
+}
+
+const hex = (h: number) => h.toString(16).padStart(8, '0');

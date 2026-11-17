@@ -19,8 +19,32 @@ export interface SkeletonBranch {
   points: SkeletonPoint[];
 }
 
+/**
+ * One leaf. `id` is `<branch path>/<index>`, stable for a given Definition and Seed,
+ * so leaf Sculpts (painting) can address it.
+ */
+export interface SkeletonLeaf {
+  id: string;
+  /** Path of the branch the leaf grows on. */
+  branch: string;
+  /** Index of the leaf on its branch (0 nearest the branch base). */
+  index: number;
+  /** Attachment point on the branch centre line. */
+  position: Vec3;
+  /** Unit vector from the attachment point to the leaf tip. */
+  direction: Vec3;
+  /** Unit normal of the leaf card's front face. */
+  normal: Vec3;
+  /** Leaf length (base to tip). */
+  size: number;
+  /** Leaf colour, sRGB channels 0..1 (the geometry's `colors` hold the linear values). */
+  color: Vec3;
+}
+
 export interface TreeSkeleton {
+  /** Trunk first, then breadth first: all of level 1, all of level 2, ... */
   branches: SkeletonBranch[];
+  leaves: SkeletonLeaf[];
 }
 
 /**
@@ -31,6 +55,8 @@ export interface GeometryBuffers {
   positions: Float32Array;
   normals: Float32Array;
   uvs: Float32Array;
+  /** Optional per-vertex colours, linear RGB (leaves). */
+  colors?: Float32Array;
   indices: Uint32Array;
 }
 
@@ -38,6 +64,8 @@ export interface GeometryBuffers {
 export interface TreeData {
   seed: number;
   skeleton: TreeSkeleton;
-  /** Wood (trunk and branches) mesh. Leaves get their own buffers in ticket #4. */
-  geometry: GeometryBuffers;
+  /** Wood mesh: trunk and all branches. */
+  wood: GeometryBuffers;
+  /** Leaf cards, vertex coloured. Empty buffers for a bare tree. */
+  leaves: GeometryBuffers;
 }

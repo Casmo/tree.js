@@ -1,7 +1,7 @@
-import { BufferAttribute, BufferGeometry, Group, Mesh, type Material } from 'three/webgpu';
+import { BufferAttribute, BufferGeometry, Group, Mesh, type Material, type MeshStandardNodeMaterial } from 'three/webgpu';
 import type { TreeDefinition } from '../definition';
 import type { GeometryBuffers, TreeData } from '../generator';
-import { createBarkMaterial } from '../materials';
+import { createBarkMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
 
 function toBufferGeometry(buffers: GeometryBuffers): BufferGeometry {
@@ -9,10 +9,20 @@ function toBufferGeometry(buffers: GeometryBuffers): BufferGeometry {
   geometry.setAttribute('position', new BufferAttribute(buffers.positions, 3));
   geometry.setAttribute('normal', new BufferAttribute(buffers.normals, 3));
   geometry.setAttribute('uv', new BufferAttribute(buffers.uvs, 2));
+  if (buffers.colors) geometry.setAttribute('color', new BufferAttribute(buffers.colors, 3));
   geometry.setIndex(new BufferAttribute(buffers.indices, 1));
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
   return geometry;
+}
+
+function treeMesh<M extends Material>(name: string, geometry: BufferGeometry, material: M): Mesh<BufferGeometry, M> {
+  const mesh = new Mesh(geometry, material);
+  mesh.name = name;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.onBeforeRender = (renderer) => assertWebGPURenderer(renderer);
+  return mesh;
 }
 
 /**
@@ -27,6 +37,8 @@ export class Tree extends Group {
   readonly data: TreeData;
   /** Trunk and branches. */
   readonly wood: Mesh<BufferGeometry, Material>;
+  /** Leaf cards (empty geometry for a bare tree). */
+  readonly leaves: Mesh<BufferGeometry, MeshStandardNodeMaterial>;
 
   constructor(definition: TreeDefinition, data: TreeData) {
     super();
@@ -35,12 +47,9 @@ export class Tree extends Group {
     this.seed = data.seed;
     this.data = data;
 
-    this.wood = new Mesh(toBufferGeometry(data.geometry), createBarkMaterial(definition));
-    this.wood.name = 'wood';
-    this.wood.castShadow = true;
-    this.wood.receiveShadow = true;
-    this.wood.onBeforeRender = (renderer) => assertWebGPURenderer(renderer);
-    this.add(this.wood);
+    this.wood = treeMesh('wood', toBufferGeometry(data.wood), createBarkMaterial(definition));
+    this.leaves = treeMesh('leaves', toBufferGeometry(data.leaves), createLeafMaterial());
+    this.add(this.wood, this.leaves);
   }
 
   /** Frees the GPU resources (geometries and materials) of this tree and removes it from its parent. */
