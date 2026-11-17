@@ -1,11 +1,14 @@
+import { branchFrames, pathLength } from './frames';
 import type { GeometryBuffers, SkeletonBranch } from './types';
+import { add, normalize, scale } from './vec';
 
 /**
- * Sweeps a ring of `sides` vertices along a branch's points (rings in the XZ plane,
- * fine for near-vertical branches; ticket #4 adds proper frames) and caps the tip.
+ * Sweeps a ring of `sides` vertices along a branch's points, using parallel-transport
+ * frames so branches in any direction get even rings, and caps the tip.
  */
 export function sweepBranch(branch: SkeletonBranch, sides: number): GeometryBuffers {
   const pts = branch.points;
+  const frames = branchFrames(branch);
   const rings = pts.length;
   const ringSize = sides + 1; // duplicated seam vertex for UVs
   const vertexCount = rings * ringSize + 1; // + tip cap centre
@@ -14,21 +17,18 @@ export function sweepBranch(branch: SkeletonBranch, sides: number): GeometryBuff
   const uvs = new Float32Array(vertexCount * 2);
   const indices: number[] = [];
 
-  const first = pts[0]!;
-  const last = pts[rings - 1]!;
-  const height = Math.max(last.position[1] - first.position[1], 1e-6);
-  const slope = (first.radius - last.radius) / height;
-  const nLen = Math.hypot(1, slope);
+  // Radius change per unit length tilts the normals of a tapered branch towards its tip.
+  const slope = (pts[0]!.radius - pts[rings - 1]!.radius) / Math.max(pathLength(branch), 1e-6);
 
   let v = 0;
   for (let r = 0; r < rings; r++) {
     const { position, radius } = pts[r]!;
+    const { tangent, normal, binormal } = frames[r]!;
     for (let s = 0; s <= sides; s++) {
       const angle = ((s % sides) / sides) * Math.PI * 2;
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
-      positions.set([position[0] + cos * radius, position[1], position[2] + sin * radius], v * 3);
-      normals.set([cos / nLen, slope / nLen, sin / nLen], v * 3);
+      const radial = add(scale(normal, Math.cos(angle)), scale(binormal, Math.sin(angle)));
+      positions.set(add(position, scale(radial, radius)), v * 3);
+      normals.set(normalize(add(radial, scale(tangent, slope))), v * 3);
       uvs.set([s / sides, r / (rings - 1)], v * 2);
       v++;
     }
@@ -39,16 +39,39 @@ export function sweepBranch(branch: SkeletonBranch, sides: number): GeometryBuff
       const b = a + 1;
       const c = a + ringSize;
       const d = c + 1;
-      indices.push(a, c, b, b, c, d);
+      indices.push(a, b, c, b, d, c);
     }
   }
   // Tip cap: fan around a centre vertex.
   const tip = v;
-  positions.set(last.position, tip * 3);
-  normals.set([0, 1, 0], tip * 3);
+  positions.set(pts[rings - 1]!.position, tip * 3);
+  normals.set(frames[rings - 1]!.tangent, tip * 3);
   uvs.set([0.5, 1], tip * 2);
   const lastRing = (rings - 1) * ringSize;
-  for (let s = 0; s < sides; s++) indices.push(lastRing + s, tip, lastRing + s + 1);
+  for (let s = 0; s < sides; s++) indices.push(lastRing + s, lastRing + s + 1, tip);
 
   return { positions, normals, uvs, indices: Uint32Array.from(indices) };
+}
+
+/** Concatenates geometry buffers into one (indices are offset). */
+export function mergeBuffers(parts: GeometryBuffers[]): GeometryBuffers {
+  const vertexCount = parts.reduce((n, p) => n + p.positions.length / 3, 0);
+  const indexCount = parts.reduce((n, p) => n + p.indices.length, 0);
+  const out: GeometryBuffers = {
+    positions: new Float32Array(vertexCount * 3),
+    normals: new Float32Array(vertexCount * 3),
+    uvs: new Float32Array(vertexCount * 2),
+    indices: new Uint32Array(indexCount),
+  };
+  let v = 0;
+  let i = 0;
+  for (const part of parts) {
+    out.positions.set(part.positions, v * 3);
+    out.normals.set(part.normals, v * 3);
+    out.uvs.set(part.uvs, v * 2);
+    for (let k = 0; k < part.indices.length; k++) out.indices[i + k] = part.indices[k]! + v;
+    v += part.positions.length / 3;
+    i += part.indices.length;
+  }
+  return out;
 }

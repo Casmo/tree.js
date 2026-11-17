@@ -1,6 +1,7 @@
 import type { TreeDefinition } from '../definition';
 import { createRandom, hashBytes } from '../random';
-import { sweepBranch } from './mesh';
+import { buildBranches } from './branches';
+import { mergeBuffers, sweepBranch } from './mesh';
 import { buildTrunk } from './trunk';
 import type { GeometryBuffers, TreeData } from './types';
 
@@ -16,10 +17,12 @@ export type { GeometryBuffers, SkeletonBranch, SkeletonPoint, TreeData, TreeSkel
 export function generateTree(definition: TreeDefinition, seed: number): TreeData {
   const random = createRandom(seed);
   const trunk = buildTrunk(definition, random.fork('trunk'));
+  const branches = [trunk, ...buildBranches(definition, trunk, random.fork('branches'))];
+  const sidesOf = (level: number) => (level === 0 ? definition.trunk.sides : definition.branches[level - 1]!.sides);
   return {
     seed,
-    skeleton: { branches: [trunk] },
-    geometry: sweepBranch(trunk, definition.trunk.sides),
+    skeleton: { branches },
+    geometry: mergeBuffers(branches.map((b) => sweepBranch(b, sidesOf(b.level)))),
   };
 }
 
