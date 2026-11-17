@@ -1,3 +1,4 @@
+import type { PartSeason } from '../season/profile';
 import type { GrowthWindow, TreeAttributes, Vec3 } from './types';
 import { NO_SWAY, type PartSway } from './wind';
 
@@ -8,8 +9,8 @@ export interface PartInfo {
   random: number;
   origin: Vec3;
   growth: GrowthWindow;
-  /** `aSeason` (vec3): Season timing shift, coverage rank, blossom rank (see src/season). */
-  season: Vec3;
+  /** Season timing, written as `aSeason` (vec3: shift, coverage rank, blossom rank). */
+  season: PartSeason;
   /** Wind weights of the part (branch sway, leaf flutter); trunk sway is filled in from heights. */
   sway?: PartSway;
 }
@@ -37,7 +38,7 @@ export function writePart(attributes: TreeAttributes, v: number, part: PartInfo,
   attributes.aRandom.array[v] = part.random;
   attributes.aOrigin.array.set(part.origin, v * 3);
   attributes.aGrowth.array.set([part.growth.start, part.growth.end, radius], v * 3);
-  attributes.aSeason.array.set(part.season, v * 3);
+  attributes.aSeason.array.set([part.season.shift, part.season.coverageRank, part.season.blossomRank], v * 3);
   const sway = part.sway ?? NO_SWAY;
   attributes.aWind.array[v * 3 + 1] = Math.min(sway.base + sway.gain * along, 1);
   attributes.aWind.array[v * 3 + 2] = sway.flutter ? along : 0;

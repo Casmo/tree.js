@@ -84,6 +84,24 @@ export function evaluateSeason(profile: SeasonProfileDefinition, season: number,
 }
 
 /**
+ * One part's Season timing: the `aSeason` vertex attribute (vec3: x, y, z) with names.
+ * Wood has the tree's shift and zero ranks.
+ */
+export interface PartSeason {
+  /** Timing shift (Season units) from the Seed: tree shift + per-leaf jitter, within ± `variation.season`. */
+  shift: number;
+  /** 0..1: the leaf shows while leaf coverage > this. */
+  coverageRank: number;
+  /** 0..1: the leaf is a blossom while blossom > this. */
+  blossomRank: number;
+}
+
+/** The {@link PartSeason} of vertex `vertex` in `aSeason` attribute data (3 floats per vertex). */
+export function partSeasonAt(aSeason: ArrayLike<number>, vertex: number): PartSeason {
+  return { shift: aSeason[vertex * 3]!, coverageRank: aSeason[vertex * 3 + 1]!, blossomRank: aSeason[vertex * 3 + 2]! };
+}
+
+/**
  * A Seed's Season timing shift for the whole tree: within ± half of `variation.season`.
  * Per-leaf jitter ({@link leafSeasonAttribute}) takes the other half, so a leaf stays within the range.
  */
@@ -91,28 +109,23 @@ export function seasonShift(seed: number, variation: Pick<VariationDefinition, '
   return (seedRandom(seed, 'season') * 2 - 1) * (variation.season / 2);
 }
 
-/**
- * The `aSeason` vertex attribute (vec3) of one leaf:
- * x = timing shift (tree shift + leaf jitter, within ± `variation.season`),
- * y = coverage rank (0..1; the leaf shows while leaf coverage > y),
- * z = blossom rank (0..1; the leaf is a blossom while blossom > z).
- */
+/** The Season timing (`aSeason` attribute) of one leaf; see {@link PartSeason}. */
 export function leafSeasonAttribute(
   seed: number,
   variation: Pick<VariationDefinition, 'season'>,
   leafId: string,
-): [shift: number, coverageRank: number, blossomRank: number] {
+): PartSeason {
   const jitter = (seedRandom(seed, `${leafId}#season`) * 2 - 1) * (variation.season / 2);
-  return [
-    seasonShift(seed, variation) + jitter,
-    seedRandom(seed, `${leafId}#coverage`),
-    seedRandom(seed, `${leafId}#blossom`),
-  ];
+  return {
+    shift: seasonShift(seed, variation) + jitter,
+    coverageRank: seedRandom(seed, `${leafId}#coverage`),
+    blossomRank: seedRandom(seed, `${leafId}#blossom`),
+  };
 }
 
 /** `aSeason` for wood vertices: the tree's timing shift, no ranks. */
-export function woodSeasonAttribute(seed: number, variation: Pick<VariationDefinition, 'season'>): [number, number, number] {
-  return [seasonShift(seed, variation), 0, 0];
+export function woodSeasonAttribute(seed: number, variation: Pick<VariationDefinition, 'season'>): PartSeason {
+  return { shift: seasonShift(seed, variation), coverageRank: 0, blossomRank: 0 };
 }
 
 /** One leaf at one Season. */
@@ -126,18 +139,14 @@ export interface LeafSeasonState {
 }
 
 /**
- * Evaluates one leaf from its `aSeason` attribute: the exact CPU twin of the leaf shader
- * (see `createSeasonNodes`). Use it to bake a tree at a Season.
+ * Evaluates one leaf from its Season timing (`aSeason` attribute, see {@link partSeasonAt}): the
+ * exact CPU twin of the leaf shader (see `createSeasonNodes`). Use it to bake a tree at a Season.
  */
-export function leafSeason(
-  profile: SeasonProfileDefinition,
-  season: number,
-  aSeason: readonly [number, number, number] | ArrayLike<number>,
-): LeafSeasonState {
-  const state = evaluateSeason(profile, season, aSeason[0]!);
-  const blossom = state.blossom > aSeason[2]!;
+export function leafSeason(profile: SeasonProfileDefinition, season: number, part: PartSeason): LeafSeasonState {
+  const state = evaluateSeason(profile, season, part.shift);
+  const blossom = state.blossom > part.blossomRank;
   return {
-    visible: blossom || state.leafCoverage > aSeason[1]!,
+    visible: blossom || state.leafCoverage > part.coverageRank,
     blossom,
     color: blossom ? state.blossomColor : state.leafColor,
   };

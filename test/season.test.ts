@@ -5,6 +5,7 @@ import {
   generateTree,
   leafSeason,
   parseDefinition,
+  partSeasonAt,
   sampleTrack,
   SEASON_PROFILES,
   srgbToLinear,
@@ -101,13 +102,13 @@ describe('per-leaf Season attributes (aSeason)', () => {
   it('holds a timing shift within the Definition range and two 0..1 ranks per leaf', () => {
     const shifts: number[] = [];
     for (let v = 0; v < aSeason.array.length / 3; v++) {
-      const [shift, coverageRank, blossomRank] = aSeason.array.subarray(v * 3, v * 3 + 3);
-      expect(Math.abs(shift!)).toBeLessThanOrEqual(0.1 + 1e-6);
+      const { shift, coverageRank, blossomRank } = partSeasonAt(aSeason.array, v);
+      expect(Math.abs(shift)).toBeLessThanOrEqual(0.1 + 1e-6);
       expect(coverageRank).toBeGreaterThanOrEqual(0);
       expect(coverageRank).toBeLessThan(1);
       expect(blossomRank).toBeGreaterThanOrEqual(0);
       expect(blossomRank).toBeLessThan(1);
-      shifts.push(shift!);
+      shifts.push(shift);
     }
     expect(new Set(shifts).size).toBeGreaterThan(1); // leaves do not all turn on the same day
   });
@@ -115,6 +116,10 @@ describe('per-leaf Season attributes (aSeason)', () => {
   it('has no timing shift when the Definition allows none', () => {
     const still = generateTree(parseDefinition({ schemaVersion: 2, variation: { season: 0 } }), 7);
     expect(Array.from(still.leaves.attributes.aSeason!.array).filter((_, i) => i % 3 === 0).every((x) => x === 0)).toBe(true);
+  });
+
+  it('reads as named fields: x = shift, y = coverage rank, z = blossom rank', () => {
+    expect(partSeasonAt([9, 9, 9, 0.1, 0.2, 0.3], 1)).toEqual({ shift: 0.1, coverageRank: 0.2, blossomRank: 0.3 });
   });
 
   it('is the same for every vertex of one leaf', () => {
@@ -135,7 +140,7 @@ describe('per-leaf Season attributes (aSeason)', () => {
 });
 
 describe('leafSeason', () => {
-  const ranks = (shift: number, coverageRank: number, blossomRank: number) => [shift, coverageRank, blossomRank] as const;
+  const ranks = (shift: number, coverageRank: number, blossomRank: number) => ({ shift, coverageRank, blossomRank });
 
   it('shows a leaf while the coverage is above its rank', () => {
     expect(leafSeason(profile, 0, ranks(0, 0.99, 0.5)).visible).toBe(true); // coverage 1

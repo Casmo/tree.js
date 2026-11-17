@@ -14,7 +14,7 @@ import type { GeometryBuffers } from '../generator';
 import { clampGrowth, growPositions } from '../growth';
 import { BARK_REPEAT } from '../materials/maps';
 import { isFlatShading } from '../materials/shading';
-import { leafSeason, wrapSeason } from '../season';
+import { leafSeason, partSeasonAt, wrapSeason } from '../season';
 import type { Tree } from '../tree';
 
 /**
@@ -120,7 +120,7 @@ function bakeLeaves(definition: TreeDefinition, leaves: GeometryBuffers, growth:
   const shown = new Uint8Array(count);
   const colors = new Float32Array(count * 3);
   for (let v = 0; v < count; v++) {
-    const state = leafSeason(definition.season, season, aSeason.subarray(v * 3, v * 3 + 3));
+    const state = leafSeason(definition.season, season, partSeasonAt(aSeason, v));
     shown[v] = state.visible ? 1 : 0;
     for (let c = 0; c < 3; c++) colors[v * 3 + c] = state.color[c]! * (leaves.colors?.[v * 3 + c] ?? 1);
   }

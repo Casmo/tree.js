@@ -7,6 +7,7 @@ import {
   generateTree,
   hashTreeData,
   leafSeason,
+  partSeasonAt,
   parseDefinition,
   type TreeDefinition,
 } from '../../src/index';
@@ -21,7 +22,7 @@ function blossomShare(definition: TreeDefinition, season: number): number {
   const vertices = aSeason.length / 3;
   let blossoms = 0;
   for (let v = 0; v < vertices; v++) {
-    if (leafSeason(definition.season, season, aSeason.subarray(v * 3, v * 3 + 3)).blossom) blossoms++;
+    if (leafSeason(definition.season, season, partSeasonAt(aSeason, v)).blossom) blossoms++;
   }
   return blossoms / vertices;
 }

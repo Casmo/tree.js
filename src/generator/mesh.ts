@@ -1,7 +1,8 @@
+import type { PartSeason } from '../season/profile';
 import { cos, sin } from '../math';
 import { createAttributes, writePart, type PartInfo } from './attributes';
 import { branchFrames, pathLength } from './frames';
-import type { GeometryBuffers, GrowthWindow, SkeletonBranch, Vec3 } from './types';
+import type { GeometryBuffers, GrowthWindow, SkeletonBranch } from './types';
 import type { PartSway } from './wind';
 import { add, normalize, scale } from './vec';
 
@@ -13,7 +14,7 @@ export function sweepBranch(
   branch: SkeletonBranch,
   sides: number,
   random: number,
-  season: Vec3 = [0, 0, 0],
+  season: PartSeason = { shift: 0, coverageRank: 0, blossomRank: 0 },
   growth: GrowthWindow = { start: 0, end: 0 },
   sway?: PartSway,
 ): GeometryBuffers {
