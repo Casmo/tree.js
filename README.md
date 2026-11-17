@@ -404,7 +404,8 @@ await tree.ready;
 ## Tree Editor
 
 The Tree Editor is a web app for designing Tree Definitions: start from a Style, change every parameter with
-a live preview (Seed, Growth, Season, Wind), undo/redo, and export the Definition as JSON for
+a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branches and leaf areas of one Seed
+(move, delete, paint leaves), undo/redo, and export the Definition as JSON for
 `createTree(definition)` (or a Baked Tree as `.glb`). It is published on GitHub Pages
 ([casmo.github.io/tree.js](https://casmo.github.io/tree.js/)); run it locally with `npm run dev:editor`.
 
