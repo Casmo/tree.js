@@ -253,8 +253,8 @@ function needles() {
   // A twig up the middle, needles in pairs angled up and out, shorter towards the tip.
   const rand = mulberry32(41);
   const segments = [];
-  for (let k = 0; k < 36; k++) {
-    const v0 = 0.04 + 0.024 * k;
+  for (let k = 0; k < 44; k++) {
+    const v0 = 0.03 + 0.02 * k;
     for (const side of [1, -1]) {
       const angle = side * (0.8 + 0.25 * (rand() - 0.5));
       const length = Math.min(0.2, (1.1 * diamond(v0 + 0.08)) / Math.sin(Math.abs(angle))) * (0.8 + 0.2 * rand());
@@ -266,7 +266,7 @@ function needles() {
     if (twig.d < 0.006 * (1 - 0.7 * twig.t)) return TWIG;
     for (const n of segments) {
       const { d, t } = segment(x, v, 0, n.av, n.bu, n.bv);
-      if (d < 0.0035 * (1 - 0.6 * t)) {
+      if (d < 0.005 * (1 - 0.5 * t)) {
         const s = n.shade * (0.88 + 0.12 * t);
         return [s * 0.92, s, s * 0.85];
       }

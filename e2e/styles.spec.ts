@@ -6,7 +6,7 @@ async function waitForExample(page: Page) {
 }
 
 // Reference screenshots for every built-in Style x Form, on both backends of WebGPURenderer.
-const styles = ['low-poly'];
+const styles = ['low-poly', 'realistic'];
 const forms = ['broadleaf', 'conifer'];
 const backends = [
   { name: 'webgpu', query: '' },
