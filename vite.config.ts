@@ -4,7 +4,15 @@ import { defineConfig } from 'vitest/config';
 // Library build: ESM only, three stays external (peer dependency).
 // Type declarations are emitted separately by `tsc -p tsconfig.build.json`.
 // The dev server (`npm run dev`) serves the examples from the repo root.
+// The Tree Editor (editor/) imports the library by its package name, like any app would;
+// in this repo those names resolve to the sources (see also `paths` in tsconfig.json).
+export const packageAliases = [
+  { find: /^@casmo\/tree\.js\/styles\/([\w-]+)$/, replacement: resolve(import.meta.dirname, 'src/styles/$1/index.ts') },
+  { find: /^@casmo\/tree\.js$/, replacement: resolve(import.meta.dirname, 'src/index.ts') },
+];
+
 export default defineConfig({
+  resolve: { alias: packageAliases },
   build: {
     target: 'es2022',
     sourcemap: true,
@@ -22,7 +30,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'test/**/*.test.ts', 'editor/**/*.test.ts'],
     environment: 'node',
   },
 });

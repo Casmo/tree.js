@@ -12,7 +12,11 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@casmo/tree.js": ["./src/index.ts"],
+      "@casmo/tree.js/styles/*": ["./src/styles/*/index.ts"]
+    }
   },
-  "include": ["src", "test", "e2e", "examples", "*.ts"]
+  "include": ["src", "test", "e2e", "examples", "editor", "*.ts"]
 }
