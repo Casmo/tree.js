@@ -6,7 +6,8 @@ import { NoColorSpace, RepeatWrapping, SRGBColorSpace, Texture, TextureLoader } 
  * `src/textures/` in dev and tests. Set by `define` in vite.config.ts.
  */
 declare const __TREE_TEXTURES_DIR__: string;
-const TEXTURES_DIR: string = __TREE_TEXTURES_DIR__;
+// Unbundled (e.g. Playwright specs importing the sources in Node) there is no define: the source layout.
+const TEXTURES_DIR: string = typeof __TREE_TEXTURES_DIR__ === 'string' ? __TREE_TEXTURES_DIR__ : '../../assets/textures/';
 // Not written as `new URL('<literal>', import.meta.url)` on purpose: app bundlers (Vite, webpack)
 // rewrite that pattern as an asset import, but this is a directory the app may host elsewhere.
 const MODULE_URL: string = import.meta.url;

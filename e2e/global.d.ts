@@ -12,3 +12,14 @@ declare global {
     };
   }
 }
+declare global {
+  interface Window {
+    forestExample: {
+      status: 'loading' | 'rendered' | 'error';
+      backend?: string;
+      error?: string;
+      trees?: number;
+      drawCalls?: number;
+    };
+  }
+}
