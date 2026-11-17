@@ -7,3 +7,4 @@ export {
   thickness,
   treeScale,
 } from './evaluate';
+export { growthPosition } from './tsl';
