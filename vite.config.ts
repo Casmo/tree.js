@@ -8,6 +8,7 @@ import { defineConfig } from 'vitest/config';
 // in this repo those names resolve to the sources (see also `paths` in tsconfig.json).
 export const packageAliases = [
   { find: /^@casmo\/tree\.js\/styles\/([\w-]+)$/, replacement: resolve(import.meta.dirname, 'src/styles/$1/index.ts') },
+  { find: /^@casmo\/tree\.js\/effects$/, replacement: resolve(import.meta.dirname, 'src/effects/index.ts') },
   { find: /^@casmo\/tree\.js$/, replacement: resolve(import.meta.dirname, 'src/index.ts') },
 ];
 

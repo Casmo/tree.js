@@ -1,5 +1,6 @@
 // The sidebar, top to bottom. Later panels (effects, sculpt, glTF) are added here.
 import { branchesPanel } from './branches-panel';
+import { effectsPanel } from './effects-panel';
 import { exportPanel } from './export-panel';
 import { leavesPanel, materialsPanel, treePanel, trunkPanel, variationPanel } from './parameter-panels';
 import { previewPanel } from './preview-panel';
@@ -13,6 +14,7 @@ export type { Panel, PanelContext } from './types';
 export const PANELS: Panel[] = [
   startPanel,
   previewPanel,
+  effectsPanel,
   treePanel,
   trunkPanel,
   branchesPanel,

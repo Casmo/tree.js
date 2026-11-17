@@ -3,6 +3,7 @@
 // Query parameters: ?start=<style>/<form> (default: the autosaved work, else the first Style), ?seed=,
 // ?growth=, ?season=, ?backend=webgl (WebGPURenderer's WebGL2 fallback).
 import { loadAutosave, startAutosave } from './autosave';
+import type { EffectsPreview } from './effects-preview';
 import { createHistory, type EditorHistory } from './history';
 import { bindHistoryShortcuts, historyButtons } from './history-controls';
 import { PANELS, type PanelContext } from './panels';
@@ -20,6 +21,8 @@ declare global {
       store?: EditorStore;
       history?: EditorHistory;
       preview?: Preview;
+      /** Tree Effects shown in the preview. */
+      effects?: EffectsPreview;
     };
   }
 }

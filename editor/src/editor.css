@@ -39,3 +39,4 @@ button.remove { margin: 0; padding: 0 6px; font-size: 11px; }
 .control.color { grid-template-columns: 7.5em 3em 1fr; }
 .control.color output { text-align: left; }
 .history { display: flex; padding: 0 12px 4px; }
+.toggle { display: flex; align-items: center; gap: 4px; margin: 2px 0; }
