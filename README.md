@@ -44,3 +44,31 @@ function Trees() {
 - A new `seed`, `definition` (compared by value), `style`/`form` or `wind` regenerates the tree. Trees are disposed of on unmount.
 - `style` also takes a Style name (`<Tree style="low-poly" />`), which suspends like `useTreeStyle`. The `ref` is the tree.js `Tree` object.
 - Outside React, `loadStyle('low-poly')` (core entry) loads a built-in Style the same way.
+
+## Tree Effects
+
+`@casmo/tree.js/effects` has opt-in post-processing (TSL nodes for three.js `RenderPipeline`) that only
+changes the pixels of trees: an **outline**, a **leaf glow** and **colour grading**. Trees look fine
+without them. Every tree.js material is found automatically (a per-object tree mask in an MRT output), so
+no tree has to be registered.
+
+```ts
+import { createTreeEffects } from '@casmo/tree.js/effects';
+
+const effects = createTreeEffects(renderer, scene, camera, { effects: 'stylized' }); // the Style's suggested combination
+renderer.setAnimationLoop(() => effects.render()); // instead of renderer.render(scene, camera)
+effects.set({ outline: { color: '#203018', thickness: 2 }, grade: { saturation: 1.1 } }); // or null = none
+```
+
+In your own pipeline, the effects are nodes that compose with your other effects:
+
+```ts
+import { mrt, output, pass } from 'three/tsl';
+import { applyTreeEffects, TREE_EFFECT_PRESETS, TREE_MASK, treeMaskMRT } from '@casmo/tree.js/effects';
+
+const scenePass = pass(scene, camera);
+scenePass.setMRT(mrt({ output }).merge(treeMaskMRT(/* selection for the outline, default: all trees */)));
+const input = { color: scenePass.getTextureNode('output'), mask: scenePass.getTextureNode(TREE_MASK) };
+const trees = applyTreeEffects(input, TREE_EFFECT_PRESETS['low-poly']); // or treeOutline / leafGlow / treeColorGrade
+pipeline.outputNode = myVignette(trees);
+```

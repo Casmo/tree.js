@@ -46,3 +46,4 @@ ul.sculpts li { display: flex; justify-content: space-between; align-items: cent
 #seed-warning { max-width: 22em; border: 1px solid #c4ccbb; border-radius: 6px; }
 #seed-warning h2 { font-size: 14px; margin: 0 0 6px; }
 #seed-warning form { display: flex; justify-content: flex-end; gap: 6px; }
+.toggle { display: flex; align-items: center; gap: 4px; margin: 2px 0; }

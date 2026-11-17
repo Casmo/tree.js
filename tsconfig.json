@@ -16,7 +16,8 @@
     "noEmit": true,
     "paths": {
       "@casmo/tree.js": ["./src/index.ts"],
-      "@casmo/tree.js/styles/*": ["./src/styles/*/index.ts"]
+      "@casmo/tree.js/styles/*": ["./src/styles/*/index.ts"],
+      "@casmo/tree.js/effects": ["./src/effects/index.ts"]
     }
   },
   "include": ["src", "test", "e2e", "examples", "editor", "*.ts"]
