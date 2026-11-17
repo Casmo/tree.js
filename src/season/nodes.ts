@@ -1,4 +1,4 @@
-import { Color, type NodeMaterial, type UniformNode } from 'three/webgpu';
+import { Color, type Node as FloatNode, type NodeMaterial, type UniformNode } from 'three/webgpu';
 import { attribute, float, fract, mix, select, uniform, varying, vec4 } from 'three/tsl';
 import type { Keyframe, SeasonProfileDefinition } from '../definition';
 import { KEYFRAME_EPSILON } from './profile';
@@ -26,10 +26,10 @@ function keyframeNode<V>(s: Node, track: readonly Keyframe<V>[], toUniform: (v: 
   return out;
 }
 
-/** The Season nodes of one tree's leaves. */
-export interface SeasonNodes {
-  /** Season 0..1 (first day of spring .. last day of winter). Write `.value`; nothing recompiles. */
-  season: SeasonUniform;
+/** The Season nodes of one tree's leaves; `S` is the Season input node (a uniform by default). */
+export interface SeasonNodes<S extends FloatNode<'float'> = SeasonUniform> {
+  /** Season 0..1 (first day of spring .. last day of winter). For a uniform: write `.value`; nothing recompiles. */
+  season: S;
   /** Leaf colour (vec3, linear) at this leaf's shifted Season, or the blossom colour for a blossom. */
   color: Node;
   /** True while the leaf is shown (coverage above its rank, or a blossom). For `maskNode`. */
@@ -40,11 +40,13 @@ export interface SeasonNodes {
  * Builds the TSL nodes that evaluate a Season Profile per leaf, from the `aSeason` vertex
  * attribute (Seed timing shift, coverage rank, blossom rank). The TSL twin of `leafSeason`.
  * Evaluated in the vertex stage (constant per leaf) and passed on as varyings.
+ *
+ * `season` is the Season input: a new uniform by default, or any float node (a Forest passes its
+ * per-instance Season attribute).
  */
-export function createSeasonNodes(
-  profile: SeasonProfileDefinition,
-  season: SeasonUniform = uniform(0),
-): SeasonNodes {
+export function createSeasonNodes(profile: SeasonProfileDefinition): SeasonNodes;
+export function createSeasonNodes<S extends FloatNode<'float'>>(profile: SeasonProfileDefinition, season: S): SeasonNodes<S>;
+export function createSeasonNodes(profile: SeasonProfileDefinition, season: FloatNode<'float'> = uniform(0)): SeasonNodes<FloatNode<'float'>> {
   const aSeason = attribute('aSeason', 'vec3');
   const shifted = season.add(aSeason.x);
   const s = select(shifted.greaterThan(1).or(shifted.lessThan(0)), fract(shifted), shifted);
@@ -68,7 +70,7 @@ export function createSeasonNodes(
  * material's existing `colorNode`, such as a leaf card texture with alpha) and `maskNode`, which
  * also cuts fallen leaves out of the shadow pass.
  */
-export function applySeasonToLeafMaterial(material: NodeMaterial, nodes: SeasonNodes): void {
+export function applySeasonToLeafMaterial(material: NodeMaterial, nodes: Pick<SeasonNodes, 'color' | 'visible'>): void {
   material.colorNode = material.colorNode ? vec4(nodes.color, 1).mul(material.colorNode as Node) : nodes.color;
   material.maskNode = nodes.visible;
 }

@@ -18,7 +18,7 @@ import type { TreeDefinition } from '../definition';
 import { generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
-import { applySeasonToLeafMaterial, createSeasonNodes, type SeasonUniform } from '../season';
+import { applySeasonToLeafMaterial, createSeasonNodes } from '../season';
 import { checkedSeason } from '../season/check';
 import { clampGrowth } from '../growth';
 import { textureReady, type TextureOptions } from '../textures';
@@ -200,7 +200,7 @@ export class ForestVariant {
     this.barkMaterial.positionNode = position;
     this.leafMaterial = createLeafMaterial(definition, textures);
     this.leafMaterial.positionNode = position;
-    applySeasonToLeafMaterial(this.leafMaterial, createSeasonNodes(definition.season, instanceState().season as unknown as SeasonUniform));
+    applySeasonToLeafMaterial(this.leafMaterial, createSeasonNodes(definition.season, instanceState().season));
 
     this.woodSource = interleavedGeometry(this.data.wood, height * WIND_BOUNDS);
     this.leafSource = interleavedGeometry(this.data.leaves, height * WIND_BOUNDS);
