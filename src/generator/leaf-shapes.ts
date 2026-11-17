@@ -1,4 +1,5 @@
-import type { LeafShape } from '../definition';
+import type { LeafShape, VariationDefinition } from '../definition';
+import { leafSeasonAttribute } from '../season/profile';
 import { createAttributes, partRandom, writePart } from './attributes';
 import type { GeometryBuffers, SkeletonLeaf, Vec3 } from './types';
 import { add, cross, dot, normalize, scale, sub } from './vec';
@@ -79,6 +80,7 @@ export function solidLeafGeometry(
   shape: Exclude<LeafShape, 'card'>,
   level: number,
   seed: number,
+  variation: Pick<VariationDefinition, 'season'> = { season: 0 },
 ): GeometryBuffers {
   const template = TEMPLATES[shape];
   const n = template.positions.length;
@@ -92,7 +94,13 @@ export function solidLeafGeometry(
     const side = cross(leaf.normal, leaf.direction); // (side, normal, direction) is right-handed, so winding is kept
     const toWorld = ([x, y, z]: Vec3): Vec3 =>
       add(add(scale(side, x), scale(leaf.normal, y)), scale(leaf.direction, z));
-    const part = { level, attach: leaf.attach, random: partRandom(seed, leaf.id), origin: leaf.position };
+    const part = {
+      level,
+      attach: leaf.attach,
+      random: partRandom(seed, leaf.id),
+      origin: leaf.position,
+      season: leafSeasonAttribute(seed, variation, leaf.id),
+    };
     for (let c = 0; c < n; c++) {
       const v = l * n + c;
       const local = template.positions[c]!;

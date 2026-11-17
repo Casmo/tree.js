@@ -18,7 +18,7 @@ for (const style of styles) {
     for (const backend of backends) {
       test(`${style} ${form} renders on ${backend.name}`, async ({ page }) => {
         await page.goto(`/examples/vanilla/?style=${style}&form=${form}&seed=1${backend.query}`);
-        expect(await waitForExample(page)).toEqual({ status: 'rendered', backend: backend.name });
+        expect(await waitForExample(page)).toMatchObject({ status: 'rendered', backend: backend.name });
         await expect(page.locator('canvas')).toHaveScreenshot(`${style}-${form}-${backend.name}.png`, {
           mask: [page.locator('#status')],
         });

@@ -1,8 +1,16 @@
-import { BufferAttribute, BufferGeometry, Group, Mesh, type Material, type MeshStandardNodeMaterial } from 'three/webgpu';
+import {
+  BufferAttribute,
+  BufferGeometry,
+  Group,
+  Mesh,
+  type Material,
+  type MeshStandardNodeMaterial,
+} from 'three/webgpu';
 import type { TreeDefinition } from '../definition';
 import type { GeometryBuffers, TreeData } from '../generator';
 import { createBarkMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
+import { applySeasonToLeafMaterial, createSeasonNodes, wrapSeason, type SeasonUniform } from '../season';
 
 function toBufferGeometry(buffers: GeometryBuffers): BufferGeometry {
   const geometry = new BufferGeometry();
@@ -30,7 +38,7 @@ function treeMesh<M extends Material>(name: string, geometry: BufferGeometry, ma
 
 /**
  * A generated tree as a three.js object. Add it to a scene rendered by `WebGPURenderer`.
- * Growth/Season setters (uniform updates only) arrive in tickets #6/#7.
+ * `season` is a uniform update only (no regeneration, no recompile).
  */
 export class Tree extends Group {
   readonly isTree = true;
@@ -42,8 +50,10 @@ export class Tree extends Group {
   readonly wood: Mesh<BufferGeometry, Material>;
   /** Leaf cards (empty geometry for a bare tree). */
   readonly leaves: Mesh<BufferGeometry, MeshStandardNodeMaterial>;
+  /** The Season uniform the leaf material reads (shared nodes may reference it). */
+  readonly seasonUniform: SeasonUniform;
 
-  constructor(definition: TreeDefinition, data: TreeData) {
+  constructor(definition: TreeDefinition, data: TreeData, options: { season?: number } = {}) {
     super();
     this.name = 'Tree';
     this.definition = definition;
@@ -53,6 +63,25 @@ export class Tree extends Group {
     this.wood = treeMesh('wood', toBufferGeometry(data.wood), createBarkMaterial(definition));
     this.leaves = treeMesh('leaves', toBufferGeometry(data.leaves), createLeafMaterial(definition));
     this.add(this.wood, this.leaves);
+
+    const season = createSeasonNodes(definition.season);
+    applySeasonToLeafMaterial(this.leaves.material, season);
+    this.seasonUniform = season.season;
+    this.season = options.season ?? 0;
+  }
+
+  /**
+   * Season: 0 (first day of spring) .. 1 (last day of winter); sets leaf colour, leaf coverage
+   * and blossom from the Definition's Season Profile. Values outside 0..1 wrap around the year.
+   * Only updates a uniform, so it is cheap to animate.
+   */
+  get season(): number {
+    return this.seasonUniform.value;
+  }
+
+  set season(value: number) {
+    if (!Number.isFinite(value)) throw new RangeError(`Tree.season must be a finite number, got ${value}`);
+    this.seasonUniform.value = wrapSeason(value);
   }
 
   /** Frees the GPU resources (geometries and materials) of this tree and removes it from its parent. */

@@ -1,11 +1,12 @@
 // @casmo/tree.js/styles/low-poly: faceted geometry, flat vertex colours, no image files.
-// Pure data (no library code), so it stays a tiny chunk that is only fetched when imported.
+// Pure data (no library code beyond shared constants), so it stays a tiny chunk fetched only when imported.
 import { CURRENT_SCHEMA_VERSION, type TreeDefinition } from '../../definition/types';
+import { SEASON_PROFILES } from '../../season/profiles';
 import type { TreeStyle } from '../types';
 
 /**
  * Low-poly broadleaf: a short, stout trunk and a few branches, crowned by faceted foliage
- * clumps. Deciduous: fresh green in spring, autumn oranges, bare in winter.
+ * clumps. Deciduous Season Profile: fresh green in spring, autumn colours, bare in winter.
  */
 export const broadleaf: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -22,25 +23,7 @@ export const broadleaf: TreeDefinition = {
     bark: { color: '#7a5233', roughness: 1, map: null, normalMap: null },
     leaf: { roughness: 1, map: null, alphaTest: 0.5 },
   },
-  season: {
-    leafColor: [
-      { t: 0, value: '#a5d65a' },
-      { t: 0.25, value: '#5fa83a' },
-      { t: 0.5, value: '#5fa83a' },
-      { t: 0.62, value: '#f2a531' },
-      { t: 0.72, value: '#d4552b' },
-    ],
-    leafCoverage: [
-      { t: 0, value: 0.3 },
-      { t: 0.1, value: 1 },
-      { t: 0.62, value: 1 },
-      { t: 0.75, value: 0 },
-      { t: 0.97, value: 0 },
-      { t: 1, value: 0.3 },
-    ],
-    blossom: [{ t: 0, value: 0 }],
-    blossomColor: '#f7c6d9',
-  },
+  season: SEASON_PROFILES.deciduous,
   wind: { trunk: 0.15, branches: 0.4, leaves: 0.5, frequency: 1 },
   variation: { color: 0.12, growth: 0.1, season: 0.05 },
   sculpts: [],
@@ -48,7 +31,7 @@ export const broadleaf: TreeDefinition = {
 
 /**
  * Low-poly conifer: a straight trunk with drooping whorls that shrink towards the top
- * (the conifer Form), covered in faceted needle tufts. Evergreen: it only darkens a little in winter.
+ * (the conifer Form), covered in faceted needle tufts. Evergreen Season Profile: it only darkens a little in winter.
  */
 export const conifer: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -64,17 +47,7 @@ export const conifer: TreeDefinition = {
     bark: { color: '#5c4030', roughness: 1, map: null, normalMap: null },
     leaf: { roughness: 1, map: null, alphaTest: 0.5 },
   },
-  season: {
-    leafColor: [
-      { t: 0, value: '#3f8a4a' },
-      { t: 0.5, value: '#2f7340' },
-      { t: 0.8, value: '#285e3c' },
-      { t: 1, value: '#3a8046' },
-    ],
-    leafCoverage: [{ t: 0, value: 1 }],
-    blossom: [{ t: 0, value: 0 }],
-    blossomColor: '#f7c6d9',
-  },
+  season: SEASON_PROFILES.evergreen,
   wind: { trunk: 0.1, branches: 0.3, leaves: 0.3, frequency: 0.8 },
   variation: { color: 0.08, growth: 0.1, season: 0.05 },
   sculpts: [],

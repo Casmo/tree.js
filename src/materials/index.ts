@@ -23,9 +23,9 @@ export function createBarkMaterial(definition: TreeDefinition): MeshStandardNode
 }
 
 /**
- * Leaf material: a TSL node material lit from both sides. Its colour is the Season Profile's
- * leaf colour at Season 0, multiplied by the per-leaf vertex colours the Generator writes
- * (the Seed's tint). Ticket #7 replaces the fixed colour with keyframes evaluated in TSL.
+ * Leaf material: a TSL node material lit from both sides. `.color` is the Season Profile's
+ * leaf colour at Season 0 (what exporters see); `Tree` adds the Season nodes
+ * (`applySeasonToLeafMaterial`), whose colour is multiplied by the per-leaf vertex colours (the Seed's tint).
  */
 export function createLeafMaterial(definition: TreeDefinition): MeshStandardNodeMaterial {
   const material = createShadedMaterial(definition.materials.shading);
