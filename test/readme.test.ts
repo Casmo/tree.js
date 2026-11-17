@@ -92,4 +92,10 @@ describe('README', () => {
       expect(headings.some((h) => h.includes(topic)), `a heading about "${topic}"`).toBe(true);
     }
   });
+
+  it('shows the same import map as the tested CDN example', () => {
+    const importMap = (html: string) => JSON.parse(/<script type="importmap">([\s\S]*?)<\/script>/.exec(html)![1]!);
+    const example = readFileSync(resolve(root, 'examples/cdn/index.html'), 'utf8');
+    expect(importMap(readme)).toEqual(importMap(example));
+  });
 });
