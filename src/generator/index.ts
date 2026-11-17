@@ -5,6 +5,7 @@ import { buildBranches } from './branches';
 import { leafGeometry, placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
 import { buildTrunk } from './trunk';
+import { branchSway, writeTrunkSway } from './wind';
 import type { GeometryBuffers, TreeData } from './types';
 
 export type { GeometryBuffers, TreeAttributes, VertexAttribute, SkeletonBranch, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
@@ -22,12 +23,13 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
   const branches = [trunk, ...buildBranches(definition, trunk, random.fork('branches'))];
   const sidesOf = (level: number) => (level === 0 ? definition.trunk.sides : definition.branches[level - 1]!.sides);
   const leaves = placeLeaves(definition, branches, random.fork('leaves'));
-  return {
-    seed,
-    skeleton: { branches, leaves },
-    wood: mergeBuffers(branches.map((b) => sweepBranch(b, sidesOf(b.level), partRandom(seed, b.path)))),
-    leaves: leafGeometry(leaves, definition.branches.length + 1, seed),
-  };
+  const sway = branchSway(branches, definition.branches.length);
+  const wood = mergeBuffers(branches.map((b) => sweepBranch(b, sidesOf(b.level), partRandom(seed, b.path), sway.get(b.path))));
+  const leafBuffers = leafGeometry(leaves, definition.branches.length + 1, seed, sway);
+  const trunkHeight = trunk.points[trunk.points.length - 1]!.position[1];
+  writeTrunkSway(wood, trunkHeight);
+  writeTrunkSway(leafBuffers, trunkHeight);
+  return { seed, skeleton: { branches, leaves }, wood, leaves: leafBuffers };
 }
 
 /** Stable 32-bit hash (hex) of the generated geometry buffers, for determinism checks. */

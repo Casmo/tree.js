@@ -3,6 +3,7 @@ import type { Random } from '../random';
 import { createAttributes, partRandom, writePart } from './attributes';
 import { branchFrames, sampleBranch } from './frames';
 import type { GeometryBuffers, SkeletonBranch, SkeletonLeaf, Vec3 } from './types';
+import { leafSway, NO_SWAY, type PartSway } from './wind';
 import { add, cross, dot, normalize, perpendicular, scale } from './vec';
 
 const DEG = Math.PI / 180;
@@ -53,7 +54,12 @@ export function placeLeaves(definition: TreeDefinition, branches: SkeletonBranch
 }
 
 /** One diamond-shaped card per leaf (4 vertices, 2 triangles); vertex colours carry the leaf's tint. */
-export function leafGeometry(leaves: SkeletonLeaf[], level: number, seed: number): GeometryBuffers {
+export function leafGeometry(
+  leaves: SkeletonLeaf[],
+  level: number,
+  seed: number,
+  branchSway: ReadonlyMap<string, PartSway> = new Map(),
+): GeometryBuffers {
   const positions = new Float32Array(leaves.length * 4 * 3);
   const normals = new Float32Array(leaves.length * 4 * 3);
   const uvs = new Float32Array(leaves.length * 4 * 2);
@@ -71,7 +77,13 @@ export function leafGeometry(leaves: SkeletonLeaf[], level: number, seed: number
       add(mid, scale(side, -halfWidth)),
     ];
     const cornerUvs = [0.5, 0, 1, 0.4, 0.5, 1, 0, 0.4];
-    const part = { level, attach: leaf.attach, random: partRandom(seed, leaf.id), origin: leaf.position };
+    const part = {
+      level,
+      attach: leaf.attach,
+      random: partRandom(seed, leaf.id),
+      origin: leaf.position,
+      sway: leafSway(branchSway.get(leaf.branch) ?? NO_SWAY, leaf.attach),
+    };
     for (let c = 0; c < 4; c++) {
       const v = l * 4 + c;
       positions.set(corners[c]!, v * 3);
