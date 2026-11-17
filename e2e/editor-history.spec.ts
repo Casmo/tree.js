@@ -20,7 +20,7 @@ test('undo/redo every edit with the keyboard shortcuts and the buttons', async (
 
   await page.getByLabel('Trunk length').fill('4.2');
   await page.getByLabel('Trunk length').press('Enter');
-  await page.getByLabel('Growth').fill('0.4');
+  await page.getByLabel('Growth', { exact: true }).fill('0.4');
   await page.getByLabel('Style / Form').selectOption('low-poly/conifer');
   await expect.poll(async () => (await state(page)).source).toBe('low-poly/conifer');
 
@@ -31,7 +31,7 @@ test('undo/redo every edit with the keyboard shortcuts and the buttons', async (
   await expect(page.getByLabel('Style / Form')).toHaveValue('low-poly/broadleaf');
   await page.keyboard.press('Control+z');
   expect((await state(page)).growth).toBe(1);
-  await expect(page.getByLabel('Growth')).toHaveValue('1');
+  await expect(page.getByLabel('Growth', { exact: true })).toHaveValue('1');
 
   // Ctrl+Z inside a number field (after committing it) undoes the edit too, and the field follows.
   await page.getByLabel('Trunk length').focus();
@@ -59,8 +59,8 @@ test('after a reload the last state is restored', async ({ page }) => {
   await page.getByLabel('Trunk length').press('Enter');
   await page.getByLabel('Name').fill('My oak');
   await page.getByLabel('Name').press('Enter');
-  await page.getByLabel('Seed').fill('7');
-  await page.getByLabel('Season').fill('0.8');
+  await page.getByLabel('Seed', { exact: true }).fill('7');
+  await page.getByLabel('Season', { exact: true }).fill('0.8');
   const before = await state(page);
   expect(before).toMatchObject({ seed: 7, season: 0.8, definition: { name: 'My oak', trunk: { length: 4.2 } } });
 
@@ -70,7 +70,7 @@ test('after a reload the last state is restored', async ({ page }) => {
   expect(after.state).toEqual(before);
   await expect(page.getByLabel('Trunk length')).toHaveValue('4.2');
   await expect(page.getByLabel('Name')).toHaveValue('My oak');
-  await expect(page.getByLabel('Seed')).toHaveValue('7');
+  await expect(page.getByLabel('Seed', { exact: true })).toHaveValue('7');
 
   // An explicit starting point in the URL begins anew.
   await page.goto('/editor/?start=low-poly/conifer');
