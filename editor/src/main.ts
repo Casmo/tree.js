@@ -1,7 +1,10 @@
 // Tree Editor app: wires the store, the preview and the sidebar panels together.
 // Built only on the library's public API (`@casmo/tree.js` and its Style subpaths).
-// Query parameters: ?start=<style>/<form> (default: the first Style), ?seed=, ?growth=, ?season=,
-// ?backend=webgl (WebGPURenderer's WebGL2 fallback).
+// Query parameters: ?start=<style>/<form> (default: the autosaved work, else the first Style), ?seed=,
+// ?growth=, ?season=, ?backend=webgl (WebGPURenderer's WebGL2 fallback).
+import { loadAutosave, startAutosave } from './autosave';
+import { createHistory, type EditorHistory } from './history';
+import { bindHistoryShortcuts, historyButtons } from './history-controls';
 import { PANELS, type PanelContext } from './panels';
 import { Preview, type PreviewStatus } from './preview';
 import { DEFAULT_START, loadStart } from './starts';
@@ -15,6 +18,7 @@ declare global {
       backend?: string;
       error?: string;
       store?: EditorStore;
+      history?: EditorHistory;
       preview?: Preview;
     };
   }
@@ -35,14 +39,24 @@ function optionalNumber(name: string): number | undefined {
 }
 
 async function main(): Promise<void> {
-  const start = params.get('start') ?? DEFAULT_START;
+  // An explicit ?start= begins anew; otherwise continue the autosaved work (if any).
+  const start = params.get('start');
+  const saved = start === null ? loadAutosave(localStorage) : null;
+  const base = saved ?? { definition: await loadStart(start ?? DEFAULT_START), source: start ?? DEFAULT_START };
   const store = createEditorStore({
-    definition: await loadStart(start),
-    source: start,
-    seed: optionalNumber('seed'),
-    growth: optionalNumber('growth'),
-    season: optionalNumber('season'),
+    ...base,
+    seed: optionalNumber('seed') ?? base.seed,
+    growth: optionalNumber('growth') ?? base.growth,
+    season: optionalNumber('season') ?? base.season,
   });
+  startAutosave(store, localStorage);
+  // The URL's starting point is now in the autosave: drop it so a reload continues the work.
+  const kept = new URLSearchParams(location.search);
+  for (const name of ['start', 'seed', 'growth', 'season']) kept.delete(name);
+  window.history.replaceState(null, '', `${location.pathname}${kept.size ? `?${kept}` : ''}${location.hash}`);
+  const history = createHistory(store);
+  bindHistoryShortcuts(window, history);
+  document.querySelector('#sidebar header')!.after(historyButtons(history));
 
   const preview = new Preview(document.getElementById('preview')!, {
     forceWebGL: params.get('backend') === 'webgl',
@@ -56,7 +70,7 @@ async function main(): Promise<void> {
     },
   });
   const backend = await preview.init();
-  window.treeEditor = { ...window.treeEditor, backend, store, preview };
+  window.treeEditor = { ...window.treeEditor, backend, store, history, preview };
 
   const context: PanelContext = { store, preview, report: (message) => report(message) };
   const panels = document.getElementById('panels')!;
