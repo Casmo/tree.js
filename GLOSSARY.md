@@ -24,6 +24,10 @@ _Avoid_: Preset, tree type
 The broad group a Species belongs to, broadleaf or conifer, used to sort Species; it does not change how a tree grows.
 _Avoid_: Tree type
 
+**Leaf Type**:
+The kind of leaf a Species has, such as broad, lobed, palmate, compound, needle or scale; each Style decides how to draw it.
+_Avoid_: Leaf shape, foliage style
+
 **Stem**:
 One of the trunks a tree grows from the ground; most trees have a single Stem, a juniper or an olive may have several.
 _Avoid_: Trunk copy, multi-trunk
