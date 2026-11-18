@@ -1,0 +1,9 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`createRandom > is stable across releases (golden values for seed 12345) 1`] = `
+[
+  0.3885545649100095,
+  0.7413683235645294,
+  0.9923558970913291,
+]
+`;

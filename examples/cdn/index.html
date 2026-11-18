@@ -1,0 +1,103 @@
+<!doctype html>
+<!--
+  tree.js without a bundler: plain ES modules from a CDN, wired up with an import map.
+  Copy this file anywhere and open it over http(s) (a local static server is enough).
+  The library's own imports (three/webgpu, three/tsl, three/addons/...) resolve through the same map,
+  and its Styles and textures load relative to the library's URL.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>tree.js - import map (CDN) example</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe3f0; font: 13px sans-serif; color: #234; }
+      canvas { display: block; }
+      #controls { position: fixed; left: 8px; top: 8px; display: grid; grid-template-columns: auto 160px; gap: 4px 8px;
+        padding: 8px; background: #ffffffb0; border-radius: 4px; }
+      #status { position: fixed; left: 8px; bottom: 8px; }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.webgpu.js",
+          "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.webgpu.js",
+          "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.tsl.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/",
+          "@casmo/tree.js": "https://cdn.jsdelivr.net/npm/@casmo/tree.js/dist/index.js",
+          "@casmo/tree.js/": "https://cdn.jsdelivr.net/npm/@casmo/tree.js/dist/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="controls">
+      <label for="growth">Growth</label><input id="growth" type="range" min="0" max="1" step="0.01" value="1" />
+      <label for="season">Season</label><input id="season" type="range" min="0" max="1" step="0.01" value="0.37" />
+      <label for="wind">Wind</label><input id="wind" type="range" min="0" max="1" step="0.01" value="0.3" />
+    </div>
+    <div id="status">Loading...</div>
+    <script type="module">
+      import * as THREE from 'three/webgpu';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      import { createTree, loadStyle, sceneWind } from '@casmo/tree.js';
+
+      const status = document.getElementById('status');
+      try {
+        // Trees use TSL node materials: render them with WebGPURenderer (it falls back to WebGL2 by itself).
+        const renderer = new THREE.WebGPURenderer({ antialias: true });
+        renderer.setPixelRatio(devicePixelRatio);
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+        await renderer.init();
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color('#cfe3f0');
+        const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
+        camera.position.set(9, 4, 9);
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 2.5, 0);
+        controls.update();
+
+        scene.add(new THREE.HemisphereLight('#ffffff', '#6a7a4a', 1.5));
+        const sun = new THREE.DirectionalLight('#ffffff', 2.5);
+        sun.position.set(5, 8, 3);
+        sun.castShadow = true;
+        scene.add(sun);
+        const ground = new THREE.Mesh(new THREE.CircleGeometry(7, 48).rotateX(-Math.PI / 2), new THREE.MeshStandardNodeMaterial({ color: '#7da05a' }));
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // A built-in Style is a separate small module, downloaded on demand.
+        const lowPoly = await loadStyle('low-poly');
+        const broadleaf = createTree(lowPoly.broadleaf, { seed: 3, season: 0.37 });
+        const conifer = createTree(lowPoly.conifer, { seed: 8, season: 0.37 });
+        broadleaf.position.x = -2.2;
+        conifer.position.x = 2.2;
+        scene.add(broadleaf, conifer);
+        sceneWind.set({ direction: [1, 0, -0.4], strength: 0.3 }); // the scene-wide Wind every tree sways with
+
+        // Growth, Season and Wind only update uniforms: no regeneration while you drag.
+        const trees = [broadleaf, conifer];
+        const slider = (id, apply) => document.getElementById(id).addEventListener('input', (e) => apply(Number(e.target.value)));
+        slider('growth', (value) => trees.forEach((tree) => (tree.growth = value)));
+        slider('season', (value) => trees.forEach((tree) => (tree.season = value)));
+        slider('wind', (value) => (sceneWind.strength = value));
+
+        addEventListener('resize', () => {
+          camera.aspect = innerWidth / innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(innerWidth, innerHeight);
+        });
+        renderer.setAnimationLoop(() => renderer.render(scene, camera));
+        status.textContent = '';
+        document.body.dataset.status = 'rendered';
+      } catch (error) {
+        status.textContent = error.message;
+        document.body.dataset.status = 'error';
+        throw error;
+      }
+    </script>
+  </body>
+</html>
