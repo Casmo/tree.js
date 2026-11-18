@@ -56,3 +56,11 @@ for (const [style, form] of [
     await expect(page.locator('canvas')).toHaveScreenshot(`forest-${style}-${form}-webgpu.png`, mask(page));
   });
 }
+
+test('a Forest of a fruiting Definition shows Fruit on every instance (a third mesh per Variant)', async ({ page }) => {
+  const { result, errors } = await render(page, 'trees=100&variants=4&fruit=round');
+  expect(errors).toEqual([]);
+  // 4 Variants x (wood + leaves + fruit), plus the ground and the background.
+  expect(result).toMatchObject({ status: 'rendered', backend: 'webgpu', trees: 100, fruitInstances: 100, drawCalls: 4 * 3 + 2 });
+  await expect(page.locator('canvas')).toHaveScreenshot('forest-fruit-webgpu.png', mask(page));
+});
