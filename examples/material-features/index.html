@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>tree.js - Material Features example</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe3f0; }
+      canvas { display: block; }
+      .side { position: fixed; top: 8px; width: 50%; text-align: center; font: 600 14px sans-serif; color: #234; }
+      #off { left: 0; }
+      #on { right: 0; }
+      #status { position: fixed; left: 8px; bottom: 8px; font: 12px sans-serif; color: #234; }
+    </style>
+  </head>
+  <body>
+    <div class="side" id="off">Material Features off</div>
+    <div class="side" id="on">SUGGESTED_MATERIAL_FEATURES</div>
+    <div id="status"></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

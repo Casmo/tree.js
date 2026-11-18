@@ -16,8 +16,11 @@
 //   ?windTime=<s>  pin the Wind clock (deterministic screenshots)
 //   ?shadows=1  enable shadow mapping (sun casts, ground receives)
 //   ?backlight=1  put the sun low behind the tree, facing the camera (to see Leaf Translucency)
-//   ?translucency=<strength>,<edge>,<ambient>  turn on Leaf Translucency (a Material Feature, off by default)
-//   ?occlusion=<0..1>  Structural Occlusion at that strength (a Material Feature, off by default)
+//   Material Features (off by default; applied with withMaterialFeatures):
+//   ?features=suggested  the ?style's SUGGESTED_MATERIAL_FEATURES (low-poly without a ?style)
+//   ?crownNormals=<0..1>  Crown Normals at that amount (overrides the suggestion)
+//   ?translucency=<strength>,<edge>,<ambient>  Leaf Translucency (overrides the suggestion)
+//   ?occlusion=<0..1>  Structural Occlusion at that strength (overrides the suggestion)
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
 import {
@@ -28,7 +31,11 @@ import {
   sceneWind,
   SEASON_PROFILES,
   setTextureOptions,
+  SUGGESTED_MATERIAL_FEATURES,
+  withMaterialFeatures,
   type FruitType,
+  type MaterialFeatures,
+  type StyleName,
   type TreeDefinition,
   type TreeDefinitionInput,
   type TreeStyle,
@@ -134,19 +141,6 @@ function withFruit(definition: TreeDefinitionInput | TreeDefinition): TreeDefini
   });
 }
 
-/** `?occlusion=<0..1>`: Structural Occlusion (a Material Feature) at that strength. */
-function withOcclusion(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
-  const strength = params.get('occlusion');
-  if (strength === null) return definition;
-  return extendDefinition(definition, { materials: { occlusion: { strength: Number(strength) } } });
-}
-
-/** `?crownNormals=<0..1>`: the Crown Normals Material Feature (off when absent). */
-function withCrownNormals(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
-  const amount = params.get('crownNormals');
-  return amount === null ? definition : extendDefinition(definition, { materials: { leaf: { crownNormals: Number(amount) } } });
-}
-
 const form = params.get('form') === 'conifer' ? 'conifer' : 'broadleaf';
 
 async function loadDefinition(): Promise<TreeDefinitionInput | TreeDefinition> {
@@ -193,18 +187,29 @@ function withCustomTextures(definition: TreeDefinitionInput | TreeDefinition): T
   });
 }
 
-/** `?translucency=<strength>,<edge>,<ambient>`: Leaf Translucency (a Material Feature) on top of the Definition. */
-function withTranslucency(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
-  const value = params.get('translucency');
-  if (!value) return definition;
-  const [strength, edge, ambient] = value.split(',').map(Number);
-  return extendDefinition(definition, { materials: { leaf: { translucency: { strength: strength!, edge: edge!, ambient: ambient! } } } });
+/**
+ * Material Features from the query: the Style's suggestion (`?features=suggested`), with any single
+ * feature given in the query on top. Without any of these the Definition is left as it is (all off).
+ */
+function withFeatures(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
+  const style = (params.get('style') ?? 'low-poly') as StyleName;
+  const features: MaterialFeatures = params.get('features') === 'suggested' ? { ...SUGGESTED_MATERIAL_FEATURES[style] } : {};
+  const crownNormals = params.get('crownNormals');
+  if (crownNormals !== null) features.crownNormals = Number(crownNormals);
+  const translucency = params.get('translucency');
+  if (translucency) {
+    const [strength, edge, ambient] = translucency.split(',').map(Number);
+    features.translucency = { strength: strength!, edge: edge!, ambient: ambient! };
+  }
+  const occlusion = params.get('occlusion');
+  if (occlusion !== null) features.occlusion = { strength: Number(occlusion) };
+  return Object.keys(features).length === 0 ? definition : withMaterialFeatures(definition, features);
 }
 
 async function main(): Promise<void> {
   const textureBase = params.get('textureBase');
   if (textureBase) setTextureOptions({ basePath: textureBase });
-  const tree = createTree(withTranslucency(withOcclusion(withCrownNormals(withFruit(withCustomTextures(await loadDefinition()))))), { seed, growth, season });
+  const tree = createTree(withFeatures(withFruit(withCustomTextures(await loadDefinition()))), { seed, growth, season });
   await tree.ready; // textures (realistic Style, custom maps) are loaded before the first frame
   scene.add(tree);
   if (params.get('style') || params.get('species')) frame(tree);
