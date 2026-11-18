@@ -31,7 +31,7 @@ window.treeEditor = { status: 'loading' };
 const params = new URLSearchParams(location.search);
 const statusEl = document.getElementById('status')!;
 
-function report(message: string | null, isError = message !== null && !message.startsWith('Imported')): void {
+function report(message: string | null, isError = message !== null && !/^(Imported|Copied)/.test(message)): void {
   statusEl.textContent = message ?? '';
   statusEl.classList.toggle('error', isError);
 }
