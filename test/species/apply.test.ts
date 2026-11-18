@@ -100,14 +100,39 @@ describe('Style.apply: each Style draws the Leaf Type and Bark Type its own way'
     expect(stylized.apply(testOak).materials.shading).toBe('toon');
   });
 
-  it('realistic: textured cards (needles texture for needle / scale) and textured bark for every Bark Type', () => {
-    expect(realistic.apply(withLeaves('lobed')).leaves.shape).toBe('card');
-    expect(realistic.apply(withLeaves('lobed')).materials.leaf.map).toBe('realistic/leaf.png');
-    expect(realistic.apply(withLeaves('scale')).materials.leaf.map).toBe('realistic/needles.png');
+  it('realistic: an alpha-cut card texture per Leaf Type and a colour + normal pair per Bark Type', () => {
+    const leafMaps = {
+      broad: 'realistic/leaf.png',
+      lobed: 'realistic/leaf-lobed.png',
+      palmate: 'realistic/leaf-palmate.png',
+      compound: 'realistic/leaf-compound.png',
+      needle: 'realistic/needles.png',
+      scale: 'realistic/scale.png',
+    };
+    for (const type of LEAF_TYPES) {
+      const d = realistic.apply(withLeaves(type));
+      expect(d.leaves.shape).toBe('card');
+      expect(d.materials.leaf.map, type).toBe(leafMaps[type]);
+    }
+    const barkMaps = {
+      furrowed: ['realistic/bark.png', 'realistic/bark-normal.png'],
+      smooth: ['realistic/bark-smooth.png', 'realistic/bark-smooth-normal.png'],
+      papery: ['realistic/bark-papery.png', 'realistic/bark-papery-normal.png'],
+      fibrous: ['realistic/bark-fibrous.png', 'realistic/bark-fibrous-normal.png'],
+      plated: ['realistic/bark-plated.png', 'realistic/bark-plated-normal.png'],
+    };
     for (const type of BARK_TYPES) {
       const bark = realistic.apply({ ...testOak, bark: { type, color: '#806040' } }).materials.bark;
-      expect(bark).toMatchObject({ type, color: '#806040', map: 'realistic/bark.png', normalMap: 'realistic/bark-normal.png' });
+      const [map, normalMap] = barkMaps[type];
+      expect(bark).toMatchObject({ type, color: '#806040', map, normalMap });
     }
+  });
+
+  it('realistic: re-styling a Definition picks the texture for its (new) Leaf and Bark Type', () => {
+    const oak = realistic.apply(testOak);
+    const birch = realistic.apply(extendDefinition(oak, { leaves: { type: 'broad' }, materials: { bark: { type: 'papery' } } }));
+    expect(birch.materials.leaf.map).toBe('realistic/leaf.png');
+    expect(birch.materials.bark).toMatchObject({ map: 'realistic/bark-papery.png', normalMap: 'realistic/bark-papery-normal.png' });
   });
 
   it('every Style uses the Species bark colour and more foliage for a denser Species', () => {

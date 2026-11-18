@@ -146,7 +146,7 @@ export function Forest({
 
   useLayoutEffect(() => {
     for (const variant of forest.variants) {
-      for (const mesh of [variant.wood, variant.leaves]) {
+      for (const mesh of variant.meshes) {
         mesh.castShadow = castShadow;
         mesh.receiveShadow = receiveShadow;
       }

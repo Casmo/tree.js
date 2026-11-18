@@ -7,9 +7,9 @@ import { CURRENT_SCHEMA_VERSION, type TreeDefinition } from '../../definition/ty
 import { SEASON_PROFILES } from '../../season/profiles';
 import { applyStyle } from '../apply';
 import type { TreeStyle } from '../types';
-import { TEXTURES } from './textures';
+import { BARK_TEXTURES, LEAF_TEXTURES, TEXTURES } from './textures';
 
-export { TEXTURES };
+export { BARK_TEXTURES, LEAF_TEXTURES, TEXTURES };
 
 /**
  * Realistic broadleaf: a tall, slightly leaning trunk with three branching levels and many

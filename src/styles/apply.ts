@@ -14,7 +14,7 @@ import {
   type TreeDefinitionInput,
 } from '../definition/types';
 import type { SpeciesBarkDefinition, SpeciesDefinition, SpeciesFoliageDefinition } from '../species/types';
-import { TEXTURES } from './realistic/textures';
+import { BARK_TEXTURES, LEAF_TEXTURES } from './realistic/textures';
 
 /** Polygon detail of one tree part. */
 interface Detail {
@@ -74,12 +74,12 @@ const LOOKS = {
     shading: 'standard',
     trunk: { sides: 12, sections: 10 },
     branches: [{ sides: 8, sections: 6 }, { sides: 5, sections: 4 }, { sides: 3, sections: 2 }],
-    // Every Bark Type uses the furrowed pair until the per-Bark-Type textures land.
-    bark: () => ({ roughness: 0.95, map: TEXTURES.bark, normalMap: TEXTURES.barkNormal }),
+    // A texture per Bark Type and per Leaf Type (scripts/generate-textures.mjs).
+    bark: (type) => ({ roughness: 0.95, ...BARK_TEXTURES[type] }),
     leaf: (type) =>
       isFine(type)
-        ? { shape: 'card', perDensity: 16, sizeScale: 2.3, material: { roughness: 0.7, map: TEXTURES.needles, alphaTest: 0.4 } }
-        : { shape: 'card', perDensity: 12, sizeScale: 2, material: { roughness: 0.65, map: TEXTURES.leaf, alphaTest: 0.4 } },
+        ? { shape: 'card', perDensity: 16, sizeScale: 2.3, material: { roughness: 0.7, map: LEAF_TEXTURES[type], alphaTest: 0.4 } }
+        : { shape: 'card', perDensity: 12, sizeScale: 2, material: { roughness: 0.65, map: LEAF_TEXTURES[type], alphaTest: 0.4 } },
   },
 } satisfies Record<string, StyleLook>;
 

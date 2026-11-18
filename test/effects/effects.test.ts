@@ -13,11 +13,14 @@ describe('Tree Effects', () => {
     }
   });
 
-  it('tells tree materials (bark, leaves) from the rest of the scene', () => {
+  it('tells tree materials (bark, leaves, fruit) from the rest of the scene', () => {
     const tree = createTree({ schemaVersion: 2, leaves: { count: 2 } }, { seed: 1 });
     expect(treePartOf(tree.wood.material)).toBe('bark');
     expect(treePartOf(tree.leaves.material)).toBe('leaves');
     expect(treePartOf(tree.leaves.material.clone())).toBe('leaves');
+    const fruiting = createTree({ schemaVersion: 3, fruit: { type: 'pear' } }, { seed: 1 });
+    expect(treePartOf(fruiting.fruit.material)).toBe('fruit');
+    expect(treePartOf(fruiting.fruit.material.clone())).toBe('fruit');
     expect(treePartOf(new MeshStandardNodeMaterial())).toBeNull();
     expect(treePartOf(null)).toBeNull();
   });
