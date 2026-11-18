@@ -551,6 +551,41 @@ renderer.setAnimationLoop(() => pipeline.render());
 To add the tree mask to a scene pass you already have, merge `treeMaskMRT()` into its MRT and read the
 mask with `scenePass.getTextureNode(TREE_MASK)`.
 
+### Tree ID
+
+To tell trees apart on screen (GPU picking, your own per-tree effects), add the opt-in **Tree ID**
+channel: an extra MRT target in which every tree writes its own number. Each Tree has one ID for all
+its parts (wood, leaves, Fruit), and each tree of a Forest has its own. Nothing else changes: the tree
+mask, its format and the `treeEffectsPass` default stay as they are.
+
+```ts
+import { mrt, output, pass } from 'three/tsl';
+import { readTreeId, TREE_ID, treeFromId, treeIdMRT, treeIdTexture, treeMaskMRT } from '@casmo/tree.js/effects';
+
+const scenePass = pass(scene, camera);
+scenePass.setMRT(mrt({ output }).merge(treeMaskMRT()).merge(treeIdMRT()));
+treeIdTexture(scenePass); // makes the target one 32-bit unsigned integer per pixel
+const ids = scenePass.getTextureNode(TREE_ID); // read it with exact texel loads (ids.load(...)), never filtered
+
+renderer.domElement.addEventListener('click', async (event) => {
+  const id = await readTreeId(renderer, scenePass, event.offsetX, event.offsetY); // CSS pixels
+  const tree = treeFromId(id); // the Tree or ForestTree, or undefined (0 = no tree)
+});
+```
+
+- **Encoding:** `r32uint`, 0 = not a tree. A Forest Variant reserves a block of IDs the size of its
+  capacity, and its trees write block start + instance index.
+- **Limits:** IDs are handed out by one registry for the whole page, the first time a tree is drawn
+  with the channel (or asked for with `treeIdOf(tree)`), and are never reused: about 4.29 billion per
+  session. The registry keeps no tree alive. The ID ignores the outline's `selection`.
+- **Frame-relative:** a Forest tree's ID follows its instance slot. Removing a tree (the last tree
+  moves into its slot) or a Variant growing past its capacity can change the IDs of other trees. So
+  resolve an ID with `treeFromId` in the frame it was read, and ask `treeIdOf(tree)` for a tree's
+  current ID; a removed tree resolves to `undefined`.
+- `readTreeId` reads the pixel under a point of the canvas from the last render of the pass (it
+  handles the target's index, the y flip and the device pixel ratio). It works on WebGPU and on the
+  WebGL2 fallback.
+
 ## React Three Fiber
 
 ![Two low-poly trees rendered with React Three Fiber](docs/images/react.png)

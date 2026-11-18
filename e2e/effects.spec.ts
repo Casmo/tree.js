@@ -134,3 +134,22 @@ async function onlyIn(page: Page, a: Buffer, b: Buffer): Promise<Buffer> {
   );
   return Buffer.from(base64, 'base64');
 }
+
+for (const backend of backends) {
+  test(`the Tree ID channel gives every Tree and Forest tree its own ID, read back under a point (${backend.name})`, async ({ page }) => {
+    await shot(page, `style=low-poly&view=treeId${backend.query}`);
+    const reads = await page.evaluate(() => window.effectsExample.readTreeIds!());
+    expect(reads.map((r) => r.name)).toEqual(['tree', 'second', 'f0', 'f1']);
+    for (const read of reads) {
+      expect(read.id, `${read.name}: its own ID under its trunk`).toBe(read.expected);
+      expect(read.resolved, `${read.name}: the ID resolves to it`).toBe(read.name);
+    }
+    expect(new Set(reads.map((r) => r.id)).size).toBe(reads.length);
+    if (backend.name === 'webgl2') await expect(page.locator('canvas')).toHaveScreenshot('low-poly-tree-id-webgl2.png');
+    // A tree that is no longer drawn leaves no ID behind (the integer target is cleared every frame).
+    await page.evaluate(() => window.effectsExample.hideTree!());
+    const after = await page.evaluate(() => window.effectsExample.readTreeIds!());
+    expect(after[0]!.id, "nothing is drawn under the hidden tree's trunk").toBe(0);
+    expect(after.slice(1)).toEqual(reads.slice(1));
+  });
+}
