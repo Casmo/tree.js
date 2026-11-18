@@ -12,6 +12,7 @@
 //   ?style=<name>&form=conifer  a built-in Style's Definition instead of the example's own
 //   ?species=<id>  that Species (loadSpecies, e.g. oak) in the ?style (default low-poly), with its Root Flare and Roots
 //   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (a third instanced mesh per Variant)
+//   ?occlusion=<0..1>  Structural Occlusion at that strength (a Material Feature, off by default)
 import * as THREE from 'three/webgpu';
 import {
   createForest,
@@ -109,8 +110,15 @@ function withFruit(definition: TreeDefinitionInput | TreeDefinition): TreeDefini
   });
 }
 
+/** `?occlusion=<0..1>`: Structural Occlusion (a Material Feature) at that strength. */
+function withOcclusion(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
+  const strength = params.get('occlusion');
+  if (strength === null) return definition;
+  return extendDefinition(definition, { materials: { occlusion: { strength: Number(strength) } } });
+}
+
 async function main(): Promise<void> {
-  const forest = createForest(withFruit(await loadDefinition()), placements, {
+  const forest = createForest(withOcclusion(withFruit(await loadDefinition())), placements, {
     variants: number('variants', 4),
     seed: number('seed', 1),
     growth: number('growth', 1),

@@ -15,6 +15,7 @@
 //   ?wind=<strength>  scene-wide Wind strength (default 0 = calm); animates unless windTime is given
 //   ?windTime=<s>  pin the Wind clock (deterministic screenshots)
 //   ?shadows=1  enable shadow mapping (sun casts, ground receives)
+//   ?occlusion=<0..1>  Structural Occlusion at that strength (a Material Feature, off by default)
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
 import {
@@ -130,6 +131,13 @@ function withFruit(definition: TreeDefinitionInput | TreeDefinition): TreeDefini
   });
 }
 
+/** `?occlusion=<0..1>`: Structural Occlusion (a Material Feature) at that strength. */
+function withOcclusion(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
+  const strength = params.get('occlusion');
+  if (strength === null) return definition;
+  return extendDefinition(definition, { materials: { occlusion: { strength: Number(strength) } } });
+}
+
 const form = params.get('form') === 'conifer' ? 'conifer' : 'broadleaf';
 
 async function loadDefinition(): Promise<TreeDefinitionInput | TreeDefinition> {
@@ -179,7 +187,7 @@ function withCustomTextures(definition: TreeDefinitionInput | TreeDefinition): T
 async function main(): Promise<void> {
   const textureBase = params.get('textureBase');
   if (textureBase) setTextureOptions({ basePath: textureBase });
-  const tree = createTree(withFruit(withCustomTextures(await loadDefinition())), { seed, growth, season });
+  const tree = createTree(withOcclusion(withFruit(withCustomTextures(await loadDefinition()))), { seed, growth, season });
   await tree.ready; // textures (realistic Style, custom maps) are loaded before the first frame
   scene.add(tree);
   if (params.get('style') || params.get('species')) frame(tree);
