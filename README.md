@@ -1,5 +1,7 @@
 # tree.js
 
+![A stylized forest of broadleaf trees and conifers going through a year: blossom, summer, autumn, winter](docs/images/hero.gif)
+
 Procedural trees for [three.js](https://threejs.org): one Tree Definition and a Seed grow a unique tree, in a
 low-poly, stylized or realistic Style. Trees grow (Growth), change through the year (Season) and sway in the
 Wind, all on the GPU through TSL node materials, so animating them never regenerates geometry. Place
@@ -40,6 +42,8 @@ npm install @casmo/tree.js three
 
 ## Quick start
 
+![The low-poly broadleaf of the quick start (seed 42, Season 0.4)](docs/images/quick-start.png)
+
 ```ts
 import * as THREE from 'three/webgpu';
 import { createTree } from '@casmo/tree.js';
@@ -71,6 +75,10 @@ shadows). `tree.dispose()` frees its geometries and materials and removes it fro
 
 ## WebGPURenderer is required
 
+![The same two trees drawn by WebGPURenderer on WebGPU (left) and on its WebGL2 fallback (right)](docs/images/renderer.png)
+
+*The same scene on WebGPU (left) and on WebGPURenderer's WebGL2 fallback (right).*
+
 Tree materials are TSL node materials, so trees must be drawn by `WebGPURenderer` from `three/webgpu`
 (not the classic `WebGLRenderer`). WebGPURenderer uses WebGPU where the browser has it and falls back to
 WebGL2 by itself, so you keep WebGL2 support; pass `forceWebGL: true` to try the fallback. Call
@@ -90,6 +98,10 @@ try {
 The rest of your scene can keep any materials; only the trees need the node renderer.
 
 ## Styles
+
+![Low-poly, stylized and realistic Styles, a broadleaf and a conifer each](docs/images/styles.png)
+
+*`low-poly`, `stylized` and `realistic`: a broadleaf and a conifer each.*
 
 A Style is a ready-made look with one Tree Definition per Form (`broadleaf`, `conifer`):
 
@@ -119,6 +131,10 @@ scene.add(oak, pine, birch, tallPine);
 ```
 
 ## Tree Definitions and Seeds
+
+![Five birches grown from the same Tree Definition with Seeds 1 to 5](docs/images/seeds.png)
+
+*The birch Definition below with Seeds 1 to 5.*
 
 A Tree Definition is plain JSON (what the Tree Editor exports): trunk, branch levels, leaves, materials,
 the Season Profile, the Wind response, Seed variation ranges and Sculpts. Every field is documented in
@@ -158,6 +174,8 @@ belong to one Seed: they only change the tree of that Seed.
 
 ## Growth and Season
 
+![A tree grows from a sapling, then goes through a year: blossom, summer, autumn colours, bare in winter](docs/images/growth-season.gif)
+
 **Growth** goes from 0 (sapling) to 1 (fully grown); branches sprout after their parent and leaves come
 last. **Season** goes from 0 (first day of spring) to 1 (last day of winter) and sets leaf colour, leaf
 coverage and blossom from the Definition's Season Profile (values outside 0..1 wrap around the year).
@@ -183,6 +201,8 @@ Profiles; write your own as keyframes in the Definition's `season` (`leafColor`,
 
 ## Wind
 
+![Three trees swaying in a strong wind](docs/images/wind.gif)
+
 Wind has a scene-wide part (direction and strength) and a per-tree part (the Definition's `wind`
 response: how much the trunk, branches and leaves move). Every tree sways with the shared `sceneWind`
 unless you give it another `Wind`. All of it is uniforms, so changing the wind is free:
@@ -205,6 +225,10 @@ scene.add(swaying, sheltered);
 A swaying tree needs a render loop (`renderer.setAnimationLoop`).
 
 ## Forests
+
+![A 400-tree instanced Forest whose trees turn to autumn towards the right](docs/images/forest.png)
+
+*400 trees from 4 Variants, with a per-tree Season (autumn towards the right).*
 
 A Forest draws many trees of one Definition from a few Variants (Seeds), each instanced, so 1,000 trees
 cost two draw calls per Variant. Every tree still looks its own: its Variant, rotation, Growth delay,
@@ -239,6 +263,10 @@ if (hit) console.log(forest.treeAt(hit)?.key);
 
 ## Tree Effects
 
+![A stylized tree, a rock and a crate without (left) and with (right) the stylized Tree Effects: only the tree gets an outline and colour grading](docs/images/effects.png)
+
+*Without (left) and with (right) the `stylized` suggestion: only the tree changes, the rock and crate don't.*
+
 `@casmo/tree.js/effects` has opt-in post-processing (TSL nodes for three.js `RenderPipeline`) that only
 changes the pixels of trees: an **outline**, a **leaf glow** and **colour grading**. Trees look fine
 without them. Every tree.js material (Trees and Forests) is found automatically (a per-object tree mask in
@@ -272,6 +300,8 @@ To add the tree mask to a scene pass you already have, merge `treeMaskMRT()` int
 mask with `scenePass.getTextureNode(TREE_MASK)`.
 
 ## React Three Fiber
+
+![Two low-poly trees rendered with React Three Fiber](docs/images/react.png)
 
 `@casmo/tree.js/react` has `<Tree>`, `<Forest>`, `<Wind>` and `useTreeStyle`. Trees use TSL node
 materials, so give `<Canvas>` a `WebGPURenderer` (it falls back to WebGL2 by itself). R3F v9 takes an
@@ -336,6 +366,10 @@ createRoot(document.getElementById('root')!).render(<App />);
 
 ## Without a bundler: import map (CDN)
 
+![The import map example: dragging the Growth slider shrinks the trees to saplings and grows them back](docs/images/cdn.gif)
+
+*[`examples/cdn`](examples/cdn/index.html): Growth, Season and Wind sliders, no build step.*
+
 The package is plain ES modules, so it runs straight from a CDN with an
 [import map](https://developer.mozilla.org/docs/Web/HTML/Element/script/type/importmap). Map `three`'s
 entry points and the library (with a trailing-slash entry for its subpaths):
@@ -369,6 +403,10 @@ Styles and the realistic textures load relative to the library's URL, so they co
 
 ## Baked Trees (glTF export)
 
+![An autumn low-poly tree exported with exportBakedTree and loaded back with GLTFLoader, on a turntable](docs/images/baked.gif)
+
+*A `.glb` from `exportBakedTree(tree, { season: 0.6 })`, loaded back with three.js' `GLTFLoader`.*
+
 A Baked Tree is a static copy of one tree at a fixed Growth and Season (no Growth, Season or Wind left), with
 classic `MeshStandardMaterial`s, for other engines or tools:
 
@@ -385,6 +423,8 @@ disposeBakedTree(baked);
 ```
 
 ## Textures
+
+![The realistic Style up close: textured bark and leaf cards on a broadleaf, needle cards on a conifer](docs/images/textures.png)
 
 Definitions with textures (the realistic Style, or your own `materials.bark.map` / `materials.leaf.map`
 URLs) load them relative to the package's `dist/textures/` by default. To serve them yourself, copy that
@@ -404,6 +444,8 @@ await tree.ready;
 
 ## Tree Editor
 
+![The Tree Editor: a parameter sidebar next to a live preview of a stylized broadleaf](docs/images/editor.png)
+
 The Tree Editor is a web app for designing Tree Definitions: start from a Style, change every parameter with
 a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branches and leaf areas of one Seed
 (move, delete, paint leaves), undo/redo, and export the Definition as JSON for
@@ -412,13 +454,13 @@ a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branche
 
 ## Examples
 
-| Example | Run | What |
-| --- | --- | --- |
-| [`examples/vanilla`](examples/vanilla/main.ts) | `/examples/vanilla/` | one tree in plain three.js; `?style=low-poly&form=conifer&seed=2&growth=0.6&season=0.7&wind=0.5` |
-| [`examples/cdn`](examples/cdn/index.html) | `/examples/cdn/` | no bundler: a single HTML page with an import map |
-| [`examples/react`](examples/react/main.tsx) | `/examples/react/` | React Three Fiber: `<Tree>`, `<Wind>`, `useTreeStyle`; `?scene=forest` for `<Forest>` |
-| [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=` |
-| [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` |
+| Example | Run | What | |
+| --- | --- | --- | --- |
+| [`examples/vanilla`](examples/vanilla/main.ts) | `/examples/vanilla/` | one tree in plain three.js; `?style=low-poly&form=conifer&seed=2&growth=0.6&season=0.7&wind=0.5` | <img src="docs/images/example-vanilla.png" alt="examples/vanilla" width="160"> |
+| [`examples/cdn`](examples/cdn/index.html) | `/examples/cdn/` | no bundler: a single HTML page with an import map | <img src="docs/images/example-cdn.png" alt="examples/cdn" width="160"> |
+| [`examples/react`](examples/react/main.tsx) | `/examples/react/` | React Three Fiber: `<Tree>`, `<Wind>`, `useTreeStyle`; `?scene=forest` for `<Forest>` | <img src="docs/images/example-react.png" alt="examples/react" width="160"> |
+| [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
+| [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` | <img src="docs/images/example-effects.png" alt="examples/effects" width="160"> |
 
 ```sh
 npm install
@@ -435,6 +477,8 @@ sources too; the e2e test serves it unmodified, with the import map answered by 
 
 `npm test` (Vitest), `npm run typecheck`, `npm run lint`, `npm run build` (library -> `dist/`),
 `npm run test:e2e` (Playwright; run `npm run build` and `npm run build:examples` first, as CI does).
+The README's screenshots and GIFs (`docs/images/`) are rendered by `npm run readme-media`
+(Playwright + ffmpeg; run `npm run build` first; `npm run readme-media -- wind hero` redoes only those).
 Design decisions live in [`docs/adr`](docs/adr), the vocabulary in [`GLOSSARY.md`](GLOSSARY.md).
 
 ## License

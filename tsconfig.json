@@ -19,5 +19,5 @@
       "@casmo/tree.js/*": ["./src/*/index.ts"]
     }
   },
-  "include": ["src", "test", "e2e", "examples", "editor", "*.ts"]
+  "include": ["src", "test", "e2e", "examples", "editor", "scripts", "*.ts"]
 }
