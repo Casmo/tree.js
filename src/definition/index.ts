@@ -10,6 +10,8 @@ export type {
   BranchLevelDefinition,
   LeafShape,
   LeavesDefinition,
+  FruitType,
+  FruitDefinition,
   Shading,
   MaterialsDefinition,
   BarkMaterialDefinition,
@@ -23,7 +25,7 @@ export type {
   MoveSculpt,
   LeavesSculpt,
 } from './types';
-export { DEFAULT_DEFINITION, DEFAULT_BRANCH_LEVEL } from './defaults';
+export { DEFAULT_DEFINITION, DEFAULT_BRANCH_LEVEL, DEFAULT_FRUIT, DEFAULT_FRUIT_AMOUNT, DEFAULT_FRUIT_COLOR } from './defaults';
 export {
   parseDefinition,
   extendDefinition,

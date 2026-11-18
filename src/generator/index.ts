@@ -2,6 +2,7 @@ import type { TreeDefinition } from '../definition';
 import { createRandom, hashBytes, seedRandom } from '../random';
 import { woodSeasonAttribute } from '../season/profile';
 import { buildBranches } from './branches';
+import { fruitGeometry, fruitGrowth, placeFruit } from './fruit';
 import { growthTiming } from './growth';
 import { solidLeafGeometry } from './leaf-shapes';
 import { leafGeometry, placeLeaves } from './leaves';
@@ -12,7 +13,7 @@ import { branchSway, writeTrunkSway } from './wind';
 import type { GeometryBuffers, TreeData, TreeSkeleton } from './types';
 
 export { growthTiming } from './growth';
-export type { GrowthTiming, GrowthWindow, GeometryBuffers, TreeAttributes, VertexAttribute, SkeletonBranch, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
+export type { GrowthTiming, GrowthWindow, GeometryBuffers, TreeAttributes, VertexAttribute, SkeletonBranch, SkeletonFruit, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
 
 /**
  * The Generator: a pure function from a (parsed) Tree Definition and a Seed to tree data.
@@ -28,7 +29,12 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
   const branches = sculptBranches([trunk, ...buildBranches(definition, trunk, random.fork('branches'))], sculpts);
   const sidesOf = (level: number) => (level === 0 ? definition.trunk.sides : definition.branches[level - 1]!.sides);
   const leaves = sculptLeaves(placeLeaves(definition, branches, random.fork('leaves')), sculpts, seed);
-  const growth = growthTiming(definition, seed, branches, leaves);
+  const fruit = placeFruit(definition, branches, random.fork('fruit'));
+  const partGrowth = growthTiming(definition, seed, branches, leaves);
+  const growth = {
+    ...partGrowth,
+    fruit: fruitGrowth(seed, fruit, new Map(branches.map((b, i) => [b.path, partGrowth.branches[i]!]))),
+  };
   const sway = branchSway(branches, definition.branches.length);
   const wood = mergeBuffers(
     branches.map((b, i) =>
@@ -46,10 +52,20 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
     definition.leaves.shape === 'card'
       ? leafGeometry(leaves, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway)
       : solidLeafGeometry(leaves, definition.leaves.shape, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway);
-  const skeleton = { branches, leaves };
+  const fruitBuffers = fruitGeometry(
+    fruit,
+    definition.fruit?.type ?? 'round',
+    definition.branches.length + 2,
+    seed,
+    definition.variation,
+    growth.fruit,
+    sway,
+  );
+  const skeleton = { branches, leaves, fruit };
   writeTrunkSway(wood, trunkHeight(skeleton));
   writeTrunkSway(leafBuffers, trunkHeight(skeleton));
-  return { seed, skeleton, wood, leaves: leafBuffers, growth };
+  writeTrunkSway(fruitBuffers, trunkHeight(skeleton));
+  return { seed, skeleton, wood, leaves: leafBuffers, fruit: fruitBuffers, growth };
 }
 
 /**
@@ -66,9 +82,11 @@ export function hashGeometry(geometry: GeometryBuffers): string {
   return hex(hashBuffers(geometry));
 }
 
-/** Stable hash of a tree's generated geometry (wood and leaves). */
+/** Stable hash of a tree's generated geometry (wood, leaves and, if any, Fruit). */
 export function hashTreeData(data: TreeData): string {
-  return hex(hashBuffers(data.leaves, hashBuffers(data.wood)));
+  const h = hashBuffers(data.leaves, hashBuffers(data.wood));
+  // A tree without Fruit hashes as before Fruit existed.
+  return hex(data.fruit.positions.length > 0 ? hashBuffers(data.fruit, h) : h);
 }
 
 function hashBuffers(geometry: GeometryBuffers, h?: number): number {

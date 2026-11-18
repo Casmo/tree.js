@@ -113,6 +113,30 @@ export interface LeavesDefinition {
   angle: number;
 }
 
+/**
+ * Fruit Type: the kind of Fruit a tree bears. `round` (apple, cherry, plum), `pear`, `nut` (a
+ * spiky husk, e.g. chestnut), `cone` (conifer cones) or `berry` (small, e.g. juniper).
+ */
+export type FruitType = 'round' | 'pear' | 'nut' | 'cone' | 'berry';
+
+/**
+ * Fruit (ADR 0006): its own tree part, grown on the outermost twigs (the trunk if there are no
+ * branch levels) from its own random stream, drawn as small solid shapes in the `fruit` mesh.
+ * Absent = no Fruit. Season comes from the Season Profile's `fruit` and `fruitColor` tracks.
+ */
+export interface FruitDefinition {
+  /** Fruit Type (shape). */
+  type: FruitType;
+  /** Fruit per outermost twig (integer >= 0). */
+  count: number;
+  /** Fruit length (and about its diameter), metres (> 0). */
+  size: number;
+  /** Seed range: ± this fraction of `size` (0..1). */
+  sizeVariation: number;
+  /** How far the Fruit dangles below its twig (0 = sits on the twig pointing outward .. 1 = hangs straight down). */
+  hang: number;
+}
+
 /** Material shading model. Low-poly uses `flat`, stylized `toon`, realistic `standard`. */
 export type Shading = 'standard' | 'flat' | 'toon';
 
@@ -164,6 +188,13 @@ export interface SeasonProfileDefinition {
   blossom: Keyframe<number>[];
   /** Blossom colour. */
   blossomColor: HexColor;
+  /**
+   * Fruit amount keyframes (0 = none .. 1 = all Fruit at full size); each Fruit shows while the amount
+   * is above its own rank and swells with the amount. Absent = 1 all year. Only used with `fruit`.
+   */
+  fruit?: Keyframe<number>[];
+  /** Fruit colour keyframes (ripening). Absent = a red (`DEFAULT_FRUIT_COLOR`) all year. Only used with `fruit`. */
+  fruitColor?: Keyframe<HexColor>[];
 }
 
 /** Per-tree response to the scene-wide Wind. All 0 (stiff) .. 1 (very flexible). */
@@ -224,6 +255,8 @@ export interface TreeDefinition {
   /** Branching levels below the trunk (0..{@link MAX_BRANCH_LEVELS} entries). */
   branches: BranchLevelDefinition[];
   leaves: LeavesDefinition;
+  /** Fruit on the outermost twigs; absent = none. */
+  fruit?: FruitDefinition;
   materials: MaterialsDefinition;
   season: SeasonProfileDefinition;
   wind: WindResponseDefinition;

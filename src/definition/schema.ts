@@ -1,9 +1,11 @@
-import { DEFAULT_BRANCH_LEVEL, DEFAULT_DEFINITION } from './defaults';
+import { DEFAULT_BRANCH_LEVEL, DEFAULT_DEFINITION, DEFAULT_FRUIT } from './defaults';
 import {
   CURRENT_SCHEMA_VERSION,
   MAX_BRANCH_LEVELS,
   type BranchLevelDefinition,
   type DeleteSculpt,
+  type FruitDefinition,
+  type SeasonProfileDefinition,
   type Keyframe,
   type LeavesSculpt,
   type MoveSculpt,
@@ -63,6 +65,11 @@ const literal = <T>(expected: T) => leaf<T>(String(expected), (v) => v === expec
 /** An optional field: absent (undefined) stays absent, anything else must match `schema`. */
 function optional<T>(schema: Schema<T>): Schema<T | undefined> {
   return (value, fallback, path) => (value === undefined && fallback === undefined ? undefined : schema(value, fallback, path));
+}
+
+/** An optional block: absent stays absent; a given (possibly partial) block is filled from `defaults`. */
+function optionalBlock<T>(schema: Schema<T>, defaults: T): Schema<T | undefined> {
+  return (value, fallback, path) => (value === undefined && fallback === undefined ? undefined : schema(value, fallback ?? defaults, path));
 }
 
 /** Object with exactly these fields; unknown fields are rejected (catches typos). */
@@ -185,16 +192,28 @@ const treeDefinition = obj<TreeDefinition>({
     start: unit,
     angle: range(0, 180),
   }),
+  fruit: optionalBlock<FruitDefinition>(
+    obj({
+      type: oneOf('round', 'pear', 'nut', 'cone', 'berry'),
+      count: intAtLeast(0),
+      size: positive,
+      sizeVariation: unit,
+      hang: unit,
+    }),
+    DEFAULT_FRUIT,
+  ),
   materials: obj({
     shading: oneOf('standard', 'flat', 'toon'),
     bark: obj({ color: hexColor, roughness: unit, map: url, normalMap: url }),
     leaf: obj({ roughness: unit, map: url, alphaTest: unit }),
   }),
-  season: obj({
+  season: obj<SeasonProfileDefinition>({
     leafColor: track(hexColor),
     leafCoverage: track(unit),
     blossom: track(unit),
     blossomColor: hexColor,
+    fruit: optional(track(unit)),
+    fruitColor: optional(track(hexColor)),
   }),
   wind: obj({ trunk: unit, branches: unit, leaves: unit, frequency: positive }),
   variation: obj({ color: unit, growth: unit, season: unit }),
