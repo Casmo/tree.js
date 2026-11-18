@@ -4,6 +4,7 @@ import type {
   FruitDefinition,
   HexColor,
   LeafType,
+  RootsDefinition,
   SeasonProfileDefinition,
   TreeForm,
   TrunkDefinition,
@@ -13,11 +14,11 @@ import type {
 
 /**
  * A Species' trunk: the shape fields of {@link TrunkDefinition}, without the polygon detail
- * (`sides`, `sections`), which the Style chooses. Fields beyond the five required ones (e.g. Stems)
+ * (`sides`, `sections`, `flareSections`), which the Style chooses. Fields beyond the five required ones (e.g. Stems)
  * are optional and default like in a Tree Definition.
  */
 export type SpeciesTrunkDefinition = Pick<TrunkDefinition, 'length' | 'radius' | 'taper' | 'lengthVariation' | 'bend'> &
-  Partial<Omit<TrunkDefinition, 'sides' | 'sections'>>;
+  Partial<Omit<TrunkDefinition, 'sides' | 'sections' | 'flareSections'>>;
 
 /** A Species' branch level: {@link BranchLevelDefinition} (with its Crown Shape curves) without `sides` / `sections`. */
 export type SpeciesBranchLevelDefinition = Omit<BranchLevelDefinition, 'sides' | 'sections'>;
@@ -52,6 +53,9 @@ export interface SpeciesBarkDefinition {
  */
 export type SpeciesFruitDefinition = FruitDefinition;
 
+/** A Species' Roots (ADR 0007): {@link RootsDefinition} without the polygon detail (`sides`, `sections`), which the Style chooses. */
+export type SpeciesRootsDefinition = Omit<RootsDefinition, 'sides' | 'sections'>;
+
 /**
  * Species: a named kind of real tree, described once, Style-neutral (ADR 0005). Plain JSON.
  * A Style turns it into an ordinary, complete Tree Definition: `createTree(lowPoly.apply(oak), { seed })`.
@@ -71,6 +75,8 @@ export interface SpeciesDefinition {
   bark: SpeciesBarkDefinition;
   /** Optional Fruit. */
   fruit?: SpeciesFruitDefinition;
+  /** Optional Roots. */
+  roots?: SpeciesRootsDefinition;
   /** Season Profile (tracks beyond the four required ones are optional and default like in a Tree Definition). */
   season: Pick<SeasonProfileDefinition, 'leafColor' | 'leafCoverage' | 'blossom' | 'blossomColor'> & Partial<SeasonProfileDefinition>;
   wind: WindResponseDefinition;

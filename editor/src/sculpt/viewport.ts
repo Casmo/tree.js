@@ -93,7 +93,7 @@ export class SculptViewport {
     const [hit] = this.raycaster.intersectObjects([tree.wood, tree.leaves], false);
     if (!hit) return null;
     const point = tree.worldToLocal(hit.point.clone()).toArray() as Vec3;
-    const { branches, leaves } = tree.data.skeleton;
+    const { branches, leaves, roots } = tree.data.skeleton;
     let path: string | null;
     if (hit.object === tree.leaves && leaves.length > 0) {
       const near = new THREE.Vector3(...point);
@@ -101,7 +101,7 @@ export class SculptViewport {
       for (const leaf of leaves) if (near.distanceToSquared(new THREE.Vector3(...leaf.position)) < near.distanceToSquared(new THREE.Vector3(...best.position))) best = leaf;
       path = best.branch;
     } else {
-      path = nearestBranch(branches, point);
+      path = nearestBranch(branches, point, roots);
     }
     return path === null ? null : { path, point, world: hit.point.clone() };
   }

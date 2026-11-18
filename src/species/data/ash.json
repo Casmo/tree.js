@@ -7,7 +7,8 @@
     "radius": 0.36,
     "taper": 0.32,
     "lengthVariation": 0.1,
-    "bend": 0.1
+    "bend": 0.1,
+    "flare": 0.4
   },
   "branches": [
     {
@@ -88,6 +89,14 @@
   "bark": {
     "type": "furrowed",
     "color": "#a19d93"
+  },
+  "roots": {
+    "count": 5,
+    "length": 0.2,
+    "lengthVariation": 0.3,
+    "radius": 0.3,
+    "angle": 14,
+    "bend": 0.3
   },
   "season": {
     "leafColor": [

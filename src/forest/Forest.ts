@@ -202,7 +202,7 @@ export class ForestVariant {
     this.windResponse = new WindResponse(definition.wind, { height, phase: 0 });
 
     const position = forestPosition(wind, this.windResponse);
-    this.barkMaterial = createBarkMaterial(definition, textures);
+    this.barkMaterial = createBarkMaterial(definition, textures, instanceState().growth);
     this.barkMaterial.positionNode = position;
     this.leafMaterial = createLeafMaterial(definition, textures);
     this.leafMaterial.positionNode = position;

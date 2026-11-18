@@ -1,4 +1,4 @@
-import { DEFAULT_BRANCH_LEVEL, DEFAULT_DEFINITION, DEFAULT_FRUIT } from './defaults';
+import { DEFAULT_BRANCH_LEVEL, DEFAULT_DEFINITION, DEFAULT_FRUIT, DEFAULT_GROUND_TINT, DEFAULT_ROOTS } from './defaults';
 import {
   BARK_TYPES,
   FRUIT_TYPES,
@@ -9,6 +9,8 @@ import {
   type BranchLevelDefinition,
   type DeleteSculpt,
   type FruitDefinition,
+  type GroundTintDefinition,
+  type RootsDefinition,
   type SeasonProfileDefinition,
   type Keyframe,
   type LeavesDefinition,
@@ -60,8 +62,10 @@ const nonNegative = leaf<number>('a number >= 0', (v) => isNum(v) && v >= 0);
 const positive = leaf<number>('a number > 0', (v) => isNum(v) && v > 0);
 const finite = leaf<number>('a finite number', isNum);
 const intAtLeast = (min: number) => leaf<number>(`an integer >= ${min}`, (v) => Number.isInteger(v) && (v as number) >= min);
-/** Faces around a Fruit (its polygon detail). */
-const fruitSides = leaf<number>('an integer from 3 to 16', (v) => Number.isInteger(v) && (v as number) >= 3 && (v as number) <= 16);
+const intRange = (min: number, max: number) =>
+  leaf<number>(`an integer from ${min} to ${max}`, (v) => Number.isInteger(v) && (v as number) >= min && (v as number) <= max);
+/** Faces around a Fruit or a Root (its polygon detail). */
+const partSides = intRange(3, 16);
 const hexColor = leaf<string>('a colour like "#6b4a2b"', (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v));
 const text = leaf<string>('a string', (v) => typeof v === 'string');
 const url = leaf<string | null>('a URL string or null', (v) => v === null || (typeof v === 'string' && v.length > 0));
@@ -194,6 +198,8 @@ const treeDefinition = obj<TreeDefinition>({
     stems: optional(intAtLeast(1)),
     spread: optional(range(0, 90)),
     gravity: optional(range(-1, 1)),
+    flare: optional(unit),
+    flareSections: optional(intAtLeast(1)),
   }),
   branches: arr(branchLevel, { max: MAX_BRANCH_LEVELS, itemFallback: DEFAULT_BRANCH_LEVEL }),
   leaves: obj<LeavesDefinition>({
@@ -212,13 +218,36 @@ const treeDefinition = obj<TreeDefinition>({
       size: positive,
       sizeVariation: unit,
       hang: unit,
-      sides: optional(fruitSides),
+      sides: optional(partSides),
     }),
     DEFAULT_FRUIT,
   ),
+  roots: optionalBlock<RootsDefinition>(
+    obj<RootsDefinition>({
+      count: intRange(0, 12),
+      length: unit,
+      lengthVariation: unit,
+      radius: unit,
+      angle: range(0, 60),
+      bend: unit,
+      sides: optional(partSides),
+      sections: optional(intAtLeast(1)),
+    }),
+    DEFAULT_ROOTS,
+  ),
   materials: obj({
     shading: oneOf('standard', 'flat', 'toon'),
-    bark: obj<BarkMaterialDefinition>({ type: optional(oneOf(...BARK_TYPES)), color: hexColor, roughness: unit, map: url, normalMap: url }),
+    bark: obj<BarkMaterialDefinition>({
+      type: optional(oneOf(...BARK_TYPES)),
+      color: hexColor,
+      roughness: unit,
+      map: url,
+      normalMap: url,
+      groundTint: optionalBlock<GroundTintDefinition>(
+        obj<GroundTintDefinition>({ color: hexColor, height: positive, strength: unit }),
+        DEFAULT_GROUND_TINT,
+      ),
+    }),
     leaf: obj({ roughness: unit, map: url, alphaTest: unit }),
   }),
   season: obj<SeasonProfileDefinition>({

@@ -24,6 +24,14 @@ export interface SkeletonBranch {
 }
 
 /**
+ * One Root (ADR 0007). It has the shape of a `SkeletonBranch`, but it is not a branch: `path` is
+ * `<stem path>/r<i>` (e.g. "0/r0") and `parent` is its Stem's path. `level` and `attach` are only
+ * placeholders for Roots (always 0) so the wood mesh can sweep a Root like the trunk; they do not mean a
+ * branching level or a place on the Stem. `direction` is the way the Root leaves the Root Flare (out and down).
+ */
+export type SkeletonRoot = SkeletonBranch;
+
+/**
  * One leaf. `id` is `<branch path>/<index>`, stable for a given Definition and Seed,
  * so leaf Sculpts (painting) can address it.
  */
@@ -80,6 +88,12 @@ export interface TreeSkeleton {
   leaves: SkeletonLeaf[];
   /** Fruit on the outermost twigs (empty without a `fruit` block). */
   fruit: SkeletonFruit[];
+  /**
+   * Roots (ADR 0007), Stem by Stem (empty without a `roots` block), with paths `<stem path>/r<i>`
+   * (e.g. "0/r0", "0/r1") and their Stem's path as `parent` (see `SkeletonRoot`).
+   * Not in `branches`, where parentless entries are the Stems.
+   */
+  roots: SkeletonRoot[];
 }
 
 /** A custom per-vertex attribute: `itemSize` floats per vertex. */
@@ -148,13 +162,15 @@ export interface GrowthTiming {
   leaves: GrowthWindow[];
   /** Fruit grows only at the end of Growth (from about 0.9), on a fully grown twig. */
   fruit: GrowthWindow[];
+  /** Roots grow like the trunk: present from Growth 0 ({ start: 0, end: 0 }), scaled with the whole tree. */
+  roots: GrowthWindow[];
 }
 
 /** Everything the Generator produces for one Definition + Seed. Pure data, Node-safe. */
 export interface TreeData {
   seed: number;
   skeleton: TreeSkeleton;
-  /** Wood mesh: trunk and all branches. */
+  /** Wood mesh: trunk and all branches, then the Roots. */
   wood: GeometryBuffers;
   /** Leaf cards, vertex coloured. Empty buffers for a bare tree. */
   leaves: GeometryBuffers;

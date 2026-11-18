@@ -10,6 +10,7 @@
 //   ?wind=<strength>&windTime=<s>  scene-wide Wind; windTime pins the clock
 //   ?cut=<n>  remove every n-th tree after planting (the others must not change)
 //   ?style=<name>&form=conifer  a built-in Style's Definition instead of the example's own
+//   ?species=<id>  that Species (loadSpecies, e.g. oak) in the ?style (default low-poly), with its Root Flare and Roots
 //   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (a third instanced mesh per Variant)
 import * as THREE from 'three/webgpu';
 import {
@@ -25,6 +26,7 @@ import {
   type TreeDefinition,
   type TreeDefinitionInput,
 } from '@casmo/tree.js';
+import { loadSpecies, type SpeciesName } from '@casmo/tree.js/species';
 
 declare global {
   interface Window {
@@ -37,6 +39,8 @@ declare global {
       drawCalls?: number;
       /** Fruit instances drawn over all Variants (0 without Fruit). */
       fruitInstances?: number;
+      /** Roots in the Variant with the fewest (0 without a `roots` block). */
+      roots?: number;
     };
   }
 }
@@ -84,9 +88,12 @@ for (let i = 0; i < count; i++) {
 }
 
 async function loadDefinition(): Promise<TreeDefinitionInput | TreeDefinition> {
-  const style = params.get('style');
+  const species = params.get('species');
+  const style = params.get('style') ?? (species ? 'low-poly' : null);
   if (!style) return definition;
-  return (await loadStyle(style as StyleName))[params.get('form') === 'conifer' ? 'conifer' : 'broadleaf'];
+  const loaded = await loadStyle(style as StyleName);
+  if (species) return loaded.apply(await loadSpecies(species as SpeciesName));
+  return loaded[params.get('form') === 'conifer' ? 'conifer' : 'broadleaf'];
 }
 
 /** `?fruit=<type>`: Fruit on the outermost twigs, ripe (red) in late summer. */
@@ -139,7 +146,8 @@ async function main(): Promise<void> {
   const drawCalls = renderer.info.render.drawCalls;
   statusEl.textContent = `WebGPURenderer (${backend}) - ${forest.size} trees, ${forest.variants.length} Variants, ${drawCalls} draw calls`;
   const fruitInstances = forest.variants.reduce((sum, v) => sum + (v.fruit?.count ?? 0), 0);
-  window.forestExample = { status: 'rendered', backend, trees: forest.size, drawCalls, fruitInstances };
+  const roots = Math.min(...forest.variants.map((v) => v.data.skeleton.roots.length));
+  window.forestExample = { status: 'rendered', backend, trees: forest.size, drawCalls, fruitInstances, roots };
   if (sceneWind.strength > 0 && windTime === null) renderer.setAnimationLoop(() => renderer.render(scene, camera));
 }
 

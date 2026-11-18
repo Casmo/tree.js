@@ -22,6 +22,7 @@ import { createTreeEffects, SUGGESTED_TREE_EFFECTS } from '@casmo/tree.js/effect
 import lowPoly from '@casmo/tree.js/styles/low-poly';
 import stylized from '@casmo/tree.js/styles/stylized';
 import realistic from '@casmo/tree.js/styles/realistic';
+import { framingBox } from '../../examples/framing';
 
 declare global {
   interface Window {
@@ -64,15 +65,15 @@ function lineUp(trees: THREE.Object3D[], gap: number, height?: number): THREE.Bo
   const all = new THREE.Box3();
   for (const tree of trees) {
     if (height) {
-      const h = new THREE.Box3().setFromObject(tree).getSize(new THREE.Vector3()).y;
+      const h = framingBox(tree).getSize(new THREE.Vector3()).y;
       tree.scale.setScalar(height / h);
     }
     tree.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(tree);
+    const box = framingBox(tree);
     tree.position.x += x - box.min.x;
     x += box.max.x - box.min.x + gap;
     tree.updateMatrixWorld(true);
-    all.union(new THREE.Box3().setFromObject(tree));
+    all.union(framingBox(tree));
   }
   const shift = -(all.min.x + all.max.x) / 2;
   for (const tree of trees) tree.position.x += shift;
@@ -139,7 +140,7 @@ const SHOTS: Record<string, (stage: Stage) => Promise<Shot>> = {
     const tree = createTree(lowPoly.broadleaf, { seed: 42, growth: 1, season: 0.4 });
     scene.add(tree);
     ground({ scene } as Stage, 8);
-    frame(camera, new THREE.Box3().setFromObject(tree), 1.3);
+    frame(camera, framingBox(tree), 1.3);
     return { frames: 1 };
   },
 
@@ -193,7 +194,7 @@ const SHOTS: Record<string, (stage: Stage) => Promise<Shot>> = {
     const tree = createTree(stylized.broadleaf, { seed: 5, growth: 1, season: 0.37 });
     scene.add(tree);
     ground({ scene } as Stage, 10);
-    frame(camera, new THREE.Box3().setFromObject(tree), 1.25);
+    frame(camera, framingBox(tree), 1.25);
     const grow = 36;
     const year = 60;
     return {
@@ -251,7 +252,7 @@ const SHOTS: Record<string, (stage: Stage) => Promise<Shot>> = {
     const tree = createTree(stylized.broadleaf, { seed: 1, season: 0.37 });
     scene.add(tree);
     ground({ scene } as Stage, 30);
-    const box = new THREE.Box3().setFromObject(tree);
+    const box = framingBox(tree);
     const size = box.getSize(new THREE.Vector3());
     const centre = box.getCenter(new THREE.Vector3());
     frame(camera, box, 1.6);
@@ -284,7 +285,7 @@ const SHOTS: Record<string, (stage: Stage) => Promise<Shot>> = {
     turntable.add(gltf.scene);
     scene.add(turntable);
     ground({ scene } as Stage, 8);
-    const box = new THREE.Box3().setFromObject(gltf.scene);
+    const box = framingBox(gltf.scene);
     const size = box.getSize(new THREE.Vector3()).length();
     frame(camera, new THREE.Box3().setFromCenterAndSize(box.getCenter(new THREE.Vector3()), new THREE.Vector3(size, box.max.y - box.min.y, size * 0.5)), 1.1);
     const frames = 60;

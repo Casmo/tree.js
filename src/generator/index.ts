@@ -7,13 +7,14 @@ import { growthTiming } from './growth';
 import { solidLeafGeometry } from './leaf-shapes';
 import { leafGeometry, placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
+import { growRoots, rootSides } from './roots';
 import { sculptBranches, sculptLeaves, sculptsFor } from './sculpt';
-import { buildStems } from './trunk';
+import { buildStems, FLARE_SECTIONS } from './trunk';
 import { branchSway, writeTrunkSway } from './wind';
 import type { GeometryBuffers, TreeData, TreeSkeleton } from './types';
 
 export { growthTiming } from './growth';
-export type { GrowthTiming, GrowthWindow, GeometryBuffers, TreeAttributes, VertexAttribute, SkeletonBranch, SkeletonFruit, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
+export type { GrowthTiming, GrowthWindow, GeometryBuffers, TreeAttributes, VertexAttribute, SkeletonBranch, SkeletonFruit, SkeletonRoot, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
 
 /**
  * The Generator: a pure function from a (parsed) Tree Definition and a Seed to tree data.
@@ -30,24 +31,38 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
   const sidesOf = (level: number) => (level === 0 ? definition.trunk.sides : definition.branches[level - 1]!.sides);
   const leaves = sculptLeaves(placeLeaves(definition, branches, random.fork('leaves')), sculpts, seed);
   const fruit = placeFruit(definition, branches, random.fork('fruit'));
+  // Roots grow from the Stems the Sculpt pass left, as it left them (ADR 0007).
+  const roots = growRoots(
+    definition,
+    branches.filter((b) => b.parent === null),
+    random,
+  );
   const partGrowth = growthTiming(definition, seed, branches, leaves);
   const growth = {
     ...partGrowth,
     fruit: fruitGrowth(seed, fruit, new Map(branches.map((b, i) => [b.path, partGrowth.branches[i]!]))),
+    // Like the trunk: there from Growth 0, scaled with the whole tree.
+    roots: roots.map(() => ({ start: 0, end: 0 })),
   };
+  const stemSweep = { flare: definition.trunk.flare ?? 0, sections: definition.trunk.flareSections ?? FLARE_SECTIONS };
   const sway = branchSway(branches, definition.branches.length);
-  const wood = mergeBuffers(
-    branches.map((b, i) =>
+  const woodSeason = woodSeasonAttribute(seed, definition.variation);
+  // Roots come after every branch, so the rest of the wood buffer is the same with or without them.
+  // They get no branch sway and no flutter.
+  const wood = mergeBuffers([
+    ...branches.map((b, i) =>
       sweepBranch(
         b,
         sidesOf(b.level),
         seedRandom(seed, b.path),
-        woodSeasonAttribute(seed, definition.variation),
+        woodSeason,
         growth.branches[i],
         sway.get(b.path),
+        b.parent === null ? stemSweep : undefined,
       ),
     ),
-  );
+    ...roots.map((root, i) => sweepBranch(root, rootSides(definition), seedRandom(seed, root.path), woodSeason, growth.roots[i])),
+  ]);
   const leafBuffers =
     definition.leaves.shape === 'card'
       ? leafGeometry(leaves, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway)
@@ -61,7 +76,7 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
     growth.fruit,
     sway,
   );
-  const skeleton = { branches, leaves, fruit };
+  const skeleton = { branches, leaves, fruit, roots };
   writeTrunkSway(wood, trunkHeight(skeleton));
   writeTrunkSway(leafBuffers, trunkHeight(skeleton));
   writeTrunkSway(fruitBuffers, trunkHeight(skeleton));

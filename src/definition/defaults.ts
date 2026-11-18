@@ -2,8 +2,10 @@ import {
   CURRENT_SCHEMA_VERSION,
   type BranchLevelDefinition,
   type FruitDefinition,
+  type GroundTintDefinition,
   type HexColor,
   type Keyframe,
+  type RootsDefinition,
   type TreeDefinition,
 } from './types';
 
@@ -32,6 +34,23 @@ export const DEFAULT_FRUIT: FruitDefinition = {
   size: 0.12,
   sizeVariation: 0.2,
   hang: 0.7,
+};
+
+/** Defaults for the fields of a `roots` block (a Definition has no Roots unless it has the block). */
+export const DEFAULT_ROOTS: RootsDefinition = {
+  count: 5,
+  length: 0.25,
+  lengthVariation: 0.3,
+  radius: 0.35,
+  angle: 12,
+  bend: 0.3,
+};
+
+/** Defaults for the fields of a `materials.bark.groundTint` block (no Ground Tint unless it has the block). */
+export const DEFAULT_GROUND_TINT: GroundTintDefinition = {
+  color: '#3f4a2a',
+  height: 0.5,
+  strength: 0.6,
 };
 
 /** Fruit amount when the Season Profile has no `fruit` track: all Fruit at full size all year. */

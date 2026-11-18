@@ -22,6 +22,10 @@ describe('low-poly Style (dynamic import of the /styles/low-poly subpath)', () =
       expect(parseDefinition(definition)).toEqual(definition);
     });
 
+    it(`${form}: puts 2 extra rings in a Root Flare, like the Style draws a Species`, () => {
+      expect(definition.trunk.flareSections).toBe(2);
+    });
+
     it(`${form}: needs no textures and uses flat (faceted) shading`, () => {
       const { bark, leaf, shading } = definition.materials;
       expect([bark.map, bark.normalMap, leaf.map]).toEqual([null, null, null]);

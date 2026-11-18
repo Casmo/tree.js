@@ -60,6 +60,8 @@ export const PARAMETER_GROUPS: FieldGroup[] = [
       optionalNum('trunk.stems', 'Stems', 1, 8, 1, 1),
       optionalNum('trunk.spread', 'Stem spread', 0, 90, 1, 0),
       optionalNum('trunk.gravity', 'Trunk gravity', -1, 1, 0.01, 0),
+      optionalNum('trunk.flare', 'Root Flare', 0, 1, 0.01, 0),
+      optionalNum('trunk.flareSections', 'Root Flare sections', 1, 8, 1, 3),
     ],
   },
   {
@@ -120,6 +122,29 @@ export const FRUIT_FIELDS: Field[] = [
   fraction('fruit.sizeVariation', 'Size variation'),
   fraction('fruit.hang', 'Hang'),
   optionalNum('fruit.sides', 'Fruit sides', 3, 16, 1, 8),
+];
+
+/**
+ * The fields of the optional `roots` block (shown while the Definition has Roots). Their polygon
+ * detail (`roots.sides`, `roots.sections`) is left to the Style.
+ */
+export const ROOTS_FIELDS: Field[] = [
+  num('roots.count', 'Roots per Stem', 0, 12, 1),
+  fraction('roots.length', 'Root length'),
+  fraction('roots.lengthVariation', 'Root length variation'),
+  fraction('roots.radius', 'Root radius'),
+  num('roots.angle', 'Dive angle', 0, 60, 1),
+  fraction('roots.bend', 'Root bend'),
+];
+
+/**
+ * The fields of the optional Ground Tint block `materials.bark.groundTint` (shown in the Materials
+ * panel while the Ground Tint toggle is on).
+ */
+export const GROUND_TINT_FIELDS: Field[] = [
+  { kind: 'color', path: 'materials.bark.groundTint.color', label: 'Ground Tint colour' },
+  num('materials.bark.groundTint.height', 'Ground Tint height', 0.05, 5, 0.05),
+  fraction('materials.bark.groundTint.strength', 'Ground Tint strength'),
 ];
 
 /** The fields of one branching level; paths relative to `branches.<i>`. */

@@ -56,6 +56,16 @@ describe('the Species gallery page', () => {
     }
   });
 
+  it('tags the strong-Roots Species (oaks, chestnut, mahogany, teak, redwood, sequoia) with "Roots", and no other', () => {
+    const strong = ['chestnut', 'mahogany', 'oak', 'red-oak', 'redwood', 'sequoia', 'teak', 'white-oak'];
+    for (const id of SPECIES_NAMES) {
+      const name = speciesOf(id).name;
+      const traits = section(gallery, name).split('\n').find((line) => line.startsWith(`\`${camelCase(id)}\` · `)) ?? '';
+      expect(traits, id).not.toBe('');
+      expect(traits.split(' · ').includes('Roots'), `${id}: ${traits}`).toBe(strong.includes(id));
+    }
+  });
+
   it('keeps every gallery image small (compressed, modest resolution)', () => {
     for (const file of targets(gallery).filter((t) => t.startsWith('images/'))) {
       expect(statSync(resolve(dirname(galleryFile), file)).size, file).toBeLessThan(60_000);

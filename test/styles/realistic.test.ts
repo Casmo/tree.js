@@ -21,6 +21,10 @@ describe('realistic Style (dynamic import of the /styles/realistic subpath)', ()
       expect(parseDefinition(definition)).toEqual(definition);
     });
 
+    it(`${form}: puts 3 extra rings in a Root Flare, like the Style draws a Species`, () => {
+      expect(definition.trunk.flareSections).toBe(3);
+    });
+
     it(`${form}: uses smooth shading, textured bark and alpha-cut leaf cards shipped with the package`, () => {
       const { bark, leaf, shading } = definition.materials;
       expect(shading).toBe('standard');

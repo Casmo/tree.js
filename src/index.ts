@@ -13,6 +13,7 @@ export {
   type SkeletonPoint,
   type SkeletonLeaf,
   type SkeletonFruit,
+  type SkeletonRoot,
   type GeometryBuffers,
   type TreeAttributes,
   type VertexAttribute,
@@ -41,6 +42,7 @@ export type {
   SpeciesFoliageDefinition,
   SpeciesBarkDefinition,
   SpeciesFruitDefinition,
+  SpeciesRootsDefinition,
 } from './species/types';
 export { loadStyle, STYLE_NAMES, styleLabel, styleOfShading, type StyleName } from './styles/registry';
 export {

@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { validateBytes } from 'gltf-validator';
-import { Box3, Mesh, MeshStandardMaterial, NodeMaterial, type BufferGeometry } from 'three/webgpu';
+import { Box3, Mesh, MeshStandardMaterial, NodeMaterial, Vector3, type BufferGeometry } from 'three/webgpu';
+import { oak } from '../src/species';
 import { bakeTree, createTree, exportBakedTree, extendDefinition, hexToLinear } from '../src/index';
 import lowPoly from '../src/styles/low-poly';
 import stylized from '../src/styles/stylized';
@@ -129,6 +130,34 @@ describe('bakeTree: Growth and Season', () => {
       expect([color.getX(v), color.getY(v), color.getZ(v)].map((c) => +c.toFixed(5))).toEqual(summer.map((c) => +c.toFixed(5)));
     }
     tree.dispose();
+  });
+});
+
+describe('bakeTree: Roots', () => {
+  const vertices = (mesh: Mesh) => mesh.geometry.getAttribute('position').count;
+
+  it("bakes a Species' Roots into the wood: extra vertices that reach every Root tip below the ground", () => {
+    const definition = lowPoly.apply(oak);
+    expect(definition.roots?.count).toBeGreaterThan(0);
+    const rooted = createTree(definition, { seed: 2 });
+    const bare = createTree({ ...definition, roots: undefined }, { seed: 2 });
+    const wood = bakeTree(rooted).getObjectByName('wood') as Mesh;
+    const bareWood = bakeTree(bare).getObjectByName('wood') as Mesh;
+
+    expect(vertices(wood)).toBeGreaterThan(vertices(bareWood));
+    const box = new Box3().setFromBufferAttribute(wood.geometry.getAttribute('position') as never);
+    const bareBox = new Box3().setFromBufferAttribute(bareWood.geometry.getAttribute('position') as never);
+    // The Roots run out past the Root Flare and end below the ground, deeper than the sunk trunk base.
+    expect(box.min.y).toBeLessThan(bareBox.min.y);
+    const tips = rooted.data.skeleton.roots.map((root) => root.points.at(-1)!.position);
+    expect(tips.length).toBe(definition.roots!.count);
+    for (const [x, y, z] of tips) {
+      expect(y).toBeLessThan(0);
+      expect(box.clone().expandByScalar(1e-4).containsPoint(new Vector3(x, y, z))).toBe(true); // float32 positions
+      expect(bareBox.containsPoint(new Vector3(x, y, z))).toBe(false);
+    }
+    rooted.dispose();
+    bare.dispose();
   });
 });
 

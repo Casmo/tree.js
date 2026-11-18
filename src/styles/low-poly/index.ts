@@ -13,7 +13,7 @@ import type { TreeStyle } from '../types';
 export const broadleaf: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: 'Low-poly broadleaf',
-  trunk: { length: 3, radius: 0.22, taper: 0.5, sides: 5, sections: 3, lengthVariation: 0.15, bend: 0.12 },
+  trunk: { length: 3, radius: 0.22, taper: 0.5, sides: 5, sections: 3, lengthVariation: 0.15, bend: 0.12, flareSections: 2 },
   branches: [
     { count: 5, start: 0.5, end: 0.92, angle: 42, angleVariation: 0.2, spiral: 137.5, length: 0.5, lengthVariation: 0.2, radius: 0.55, taper: 0.45, sides: 4, sections: 2, bend: 0.12, gravity: 0.15 },
     { count: 3, start: 0.35, end: 1, angle: 38, angleVariation: 0.25, spiral: 120, length: 0.55, lengthVariation: 0.25, radius: 0.6, taper: 0.4, sides: 3, sections: 1, bend: 0.1, gravity: 0.1 },
@@ -37,7 +37,7 @@ export const broadleaf: TreeDefinition = {
 export const conifer: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: 'Low-poly conifer',
-  trunk: { length: 5, radius: 0.2, taper: 0.15, sides: 5, sections: 4, lengthVariation: 0.15, bend: 0.03 },
+  trunk: { length: 5, radius: 0.2, taper: 0.15, sides: 5, sections: 4, lengthVariation: 0.15, bend: 0.03, flareSections: 2 },
   branches: [
     { count: 24, start: 0.18, end: 0.97, angle: 95, angleVariation: 0.08, spiral: 137.5, length: 0.42, lengthVariation: 0.15, radius: 0.4, taper: 0.3, sides: 3, sections: 2, bend: 0.05, gravity: -0.08,
       // Crown Shape: a cone, full length at the lowest whorl, a tenth of it at the top.

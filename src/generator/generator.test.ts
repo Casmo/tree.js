@@ -28,7 +28,7 @@ describe('generateTree', () => {
     expectFrontFacesAlongNormals(geometry);
   });
 
-  it('grows the trunk up from the origin to about its Definition length', () => {
+  it('grows the trunk up from the origin (its base ring sunk a tenth of its radius) to about its Definition length', () => {
     const tall = parseDefinition({ schemaVersion: 2, trunk: { length: 10, lengthVariation: 0.1 }, branches: [] });
     const { wood: geometry } = generateTree(tall, 3);
     let minY = Infinity;
@@ -37,7 +37,7 @@ describe('generateTree', () => {
       minY = Math.min(minY, geometry.positions[i]!);
       maxY = Math.max(maxY, geometry.positions[i]!);
     }
-    expect(minY).toBeCloseTo(0, 5);
+    expect(minY).toBeCloseTo(-0.1 * tall.trunk.radius, 5);
     expect(maxY).toBeGreaterThan(10 * 0.85);
     expect(maxY).toBeLessThan(10 * 1.15);
   });

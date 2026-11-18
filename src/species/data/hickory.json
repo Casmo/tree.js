@@ -7,7 +7,8 @@
     "radius": 0.36,
     "taper": 0.32,
     "lengthVariation": 0.1,
-    "bend": 0.1
+    "bend": 0.1,
+    "flare": 0.4
   },
   "branches": [
     {
@@ -75,6 +76,14 @@
     "size": 0.1,
     "sizeVariation": 0.2,
     "hang": 0.3
+  },
+  "roots": {
+    "count": 5,
+    "length": 0.2,
+    "lengthVariation": 0.3,
+    "radius": 0.3,
+    "angle": 14,
+    "bend": 0.3
   },
   "season": {
     "leafColor": [

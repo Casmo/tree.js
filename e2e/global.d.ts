@@ -24,6 +24,8 @@ declare global {
       drawCalls?: number;
       /** Fruit instances drawn over all Variants (0 without Fruit). */
       fruitInstances?: number;
+      /** Roots in the Variant with the fewest (0 without a `roots` block). */
+      roots?: number;
     };
   }
 }

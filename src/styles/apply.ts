@@ -32,15 +32,22 @@ interface LeafLook {
   material: LeafMaterialDefinition;
 }
 
+/** The trunk's detail, plus the extra rings in its Root Flare (`trunk.flareSections`). */
+interface TrunkDetail extends Detail {
+  flareSections: number;
+}
+
 /** Everything a Style decides about a tree: its look (its shading is in names.ts). */
 interface StyleLook {
-  trunk: Detail;
+  trunk: TrunkDetail;
   /** Detail per branch level; deeper levels reuse the last entry. */
   branches: Detail[];
   bark(type: BarkType): Omit<BarkMaterialDefinition, 'type' | 'color'>;
   leaf(type: LeafType): LeafLook;
   /** Faces around each Fruit (`fruit.sides`): few flat facets in low-poly, smooth in the others. */
   fruitSides: number;
+  /** Detail of each Root (`roots.sides`, `roots.sections`). */
+  roots: Detail;
 }
 
 const isNeedleLike = (type: LeafType) => type === 'needle' || type === 'scale';
@@ -54,20 +61,22 @@ const untexturedBark = () => ({ roughness: 1, map: null, normalMap: null });
 // have to fill the crown. Deeper branch levels get little detail (twigs are thin and many).
 const LOOKS = {
   'low-poly': {
-    trunk: { sides: 5, sections: 4 },
+    trunk: { sides: 5, sections: 4, flareSections: 2 },
     branches: [{ sides: 4, sections: 2 }, { sides: 3, sections: 1 }],
     bark: untexturedBark,
     fruitSides: 4,
+    roots: { sides: 3, sections: 2 },
     leaf: (type) =>
       isNeedleLike(type)
         ? { shape: 'needle', perDensity: 14, sizeScale: 1.86, material: untexturedLeaf }
         : { shape: 'clump', perDensity: 4, sizeScale: 2.86, material: untexturedLeaf },
   },
   stylized: {
-    trunk: { sides: 10, sections: 8 },
+    trunk: { sides: 10, sections: 8, flareSections: 3 },
     branches: [{ sides: 6, sections: 3 }, { sides: 4, sections: 1 }, { sides: 3, sections: 1 }],
     bark: untexturedBark,
     fruitSides: 6,
+    roots: { sides: 6, sections: 4 },
     // All puffs; smaller and denser for needle / scale foliage.
     leaf: (type) =>
       isNeedleLike(type)
@@ -75,11 +84,12 @@ const LOOKS = {
         : { shape: 'puff', perDensity: 4, sizeScale: 3.14, material: untexturedLeaf },
   },
   realistic: {
-    trunk: { sides: 12, sections: 10 },
+    trunk: { sides: 12, sections: 10, flareSections: 3 },
     branches: [{ sides: 8, sections: 6 }, { sides: 5, sections: 4 }, { sides: 3, sections: 2 }],
     // A texture per Bark Type and per Leaf Type (scripts/generate-textures.mjs).
     bark: (type) => ({ roughness: 0.95, ...BARK_TEXTURES[type] }),
     fruitSides: 9,
+    roots: { sides: 8, sections: 6 },
     leaf: (type) =>
       isNeedleLike(type)
         ? { shape: 'card', perDensity: 120, sizeScale: 1.7, material: { roughness: 0.7, map: LEAF_TEXTURES[type], alphaTest: 0.4 } }
@@ -90,16 +100,22 @@ const LOOKS = {
 /** What `Style.apply` accepts: a Species, or a Tree Definition to re-style. */
 export type StyleSource = SpeciesDefinition | TreeDefinition | TreeDefinitionInput;
 
+/** `{ [key]: value }` for an optional block that is present, `{}` when it is absent (to spread). */
+function present<K extends string, V>(key: K, value: V | undefined): { [P in K]?: V } {
+  return value === undefined ? {} : ({ [key]: value } as { [P in K]?: V });
+}
+
 /** The Style-neutral content of a source: every non-look field, plus foliage and bark. */
 interface Neutral {
-  /** Definition fields that pass through (shape, Season, Wind, Sculpts, Fruit, ...). */
+  /** Definition fields that pass through (shape, Season, Wind, Sculpts, Fruit, Roots, ...). */
   base: Record<string, unknown> & { trunk: object; branches: object[] };
   foliage: SpeciesFoliageDefinition;
-  bark: SpeciesBarkDefinition;
+  /** A Definition's Ground Tint passes through too: it is not part of a Style's look. */
+  bark: SpeciesBarkDefinition & Pick<BarkMaterialDefinition, 'groundTint'>;
 }
 
 function fromSpecies(species: SpeciesDefinition): Neutral {
-  const { id, name, trunk, branches, season, wind, variation, fruit, foliage, bark } = species;
+  const { id, name, trunk, branches, season, wind, variation, fruit, roots, foliage, bark } = species;
   return {
     base: {
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -111,7 +127,8 @@ function fromSpecies(species: SpeciesDefinition): Neutral {
       wind,
       variation,
       sculpts: [],
-      ...(fruit ? { fruit } : {}),
+      ...present('fruit', fruit),
+      ...present('roots', roots),
     },
     foliage,
     bark,
@@ -134,7 +151,11 @@ function fromDefinition(input: TreeDefinition | TreeDefinitionInput): Neutral {
       start: leaves.start,
       angle: leaves.angle,
     },
-    bark: { type: materials.bark.type ?? 'furrowed', color: materials.bark.color },
+    bark: {
+      type: materials.bark.type ?? 'furrowed',
+      color: materials.bark.color,
+      ...present('groundTint', materials.bark.groundTint),
+    },
   };
 }
 
@@ -142,9 +163,11 @@ function draw(name: StyleName, { base, foliage, bark }: Neutral): TreeDefinition
   const look: StyleLook = LOOKS[name];
   const leaf = look.leaf(foliage.type);
   const fruit = base.fruit as TreeDefinition['fruit'];
+  const roots = base.roots as TreeDefinition['roots'];
   return parseDefinition({
     ...base,
-    ...(fruit ? { fruit: { ...fruit, sides: look.fruitSides } } : {}),
+    ...present('fruit', fruit && { ...fruit, sides: look.fruitSides }),
+    ...present('roots', roots && { ...roots, ...look.roots }),
     trunk: { ...base.trunk, ...look.trunk },
     branches: base.branches.map((level, i) => ({ ...level, ...look.branches[Math.min(i, look.branches.length - 1)] })),
     leaves: {
@@ -158,7 +181,7 @@ function draw(name: StyleName, { base, foliage, bark }: Neutral): TreeDefinition
     },
     materials: {
       shading: styleShading(name),
-      bark: { type: bark.type, color: bark.color, ...look.bark(bark.type) },
+      bark: { type: bark.type, color: bark.color, ...look.bark(bark.type), ...present('groundTint', bark.groundTint) },
       leaf: { ...leaf.material },
     },
   });

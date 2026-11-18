@@ -64,3 +64,11 @@ test('a Forest of a fruiting Definition shows Fruit on every instance (a third m
   expect(result).toMatchObject({ status: 'rendered', backend: 'webgpu', trees: 100, fruitInstances: 100, drawCalls: 4 * 3 + 2 });
   await expect(page.locator('canvas')).toHaveScreenshot('forest-fruit-webgpu.png', mask(page));
 });
+
+test('a Forest of a Species shows its Root Flare and Roots on every Variant', async ({ page }) => {
+  const { result, errors } = await render(page, 'trees=36&species=oak&style=low-poly&season=0.2');
+  expect(errors).toEqual([]);
+  // Oak (strong tier): 7 Roots per Stem; 4 Variants x (wood + leaves + Fruit), plus the ground and the background.
+  expect(result).toMatchObject({ status: 'rendered', backend: 'webgpu', trees: 36, roots: 7, drawCalls: 4 * 3 + 2 });
+  await expect(page.locator('canvas')).toHaveScreenshot('forest-species-oak-webgpu.png', mask(page));
+});

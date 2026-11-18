@@ -9,7 +9,8 @@
     "lengthVariation": 0.12,
     "bend": 0.06,
     "stems": 2,
-    "spread": 8
+    "spread": 8,
+    "flare": 0.15
   },
   "branches": [
     {
@@ -87,6 +88,14 @@
     "size": 0.13,
     "sizeVariation": 0.2,
     "hang": 0
+  },
+  "roots": {
+    "count": 3,
+    "length": 0.1,
+    "lengthVariation": 0.3,
+    "radius": 0.22,
+    "angle": 20,
+    "bend": 0.25
   },
   "season": {
     "leafColor": [

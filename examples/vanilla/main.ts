@@ -31,6 +31,7 @@ import {
   type TreeStyle,
 } from '@casmo/tree.js';
 import { loadSpecies, type SpeciesName } from '@casmo/tree.js/species';
+import { framingBox } from '../framing';
 
 // Built-in Styles are separate chunks, fetched only when asked for.
 const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
@@ -153,7 +154,7 @@ async function loadDefinition(): Promise<TreeDefinitionInput | TreeDefinition> {
 
 /** Points the camera at the whole tree (Style trees differ in size). */
 function frame(object: THREE.Object3D): void {
-  const box = new THREE.Box3().setFromObject(object);
+  const box = framingBox(object); // underground Roots don't shift the view
   const size = box.getSize(new THREE.Vector3());
   const centre = box.getCenter(new THREE.Vector3());
   const distance = (Math.max(size.y, size.x, size.z) / 2 / Math.tan((camera.fov * Math.PI) / 360)) * 1.25;

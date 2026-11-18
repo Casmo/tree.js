@@ -19,7 +19,7 @@ export { BARK_TEXTURES, LEAF_TEXTURES, TEXTURES };
 export const broadleaf: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: 'Realistic broadleaf',
-  trunk: { length: 5, radius: 0.28, taper: 0.35, sides: 12, sections: 10, lengthVariation: 0.15, bend: 0.1 },
+  trunk: { length: 5, radius: 0.28, taper: 0.35, sides: 12, sections: 10, lengthVariation: 0.15, bend: 0.1, flareSections: 3 },
   branches: [
     { count: 8, start: 0.4, end: 0.95, angle: 48, angleVariation: 0.2, spiral: 137.5, length: 0.5, lengthVariation: 0.2, radius: 0.5, taper: 0.5, sides: 8, sections: 6, bend: 0.15, gravity: 0.05 },
     { count: 5, start: 0.25, end: 1, angle: 40, angleVariation: 0.25, spiral: 120, length: 0.5, lengthVariation: 0.25, radius: 0.55, taper: 0.5, sides: 5, sections: 4, bend: 0.15, gravity: 0.1 },
@@ -44,7 +44,7 @@ export const broadleaf: TreeDefinition = {
 export const conifer: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: 'Realistic conifer',
-  trunk: { length: 7, radius: 0.24, taper: 0.08, sides: 10, sections: 10, lengthVariation: 0.12, bend: 0.03 },
+  trunk: { length: 7, radius: 0.24, taper: 0.08, sides: 10, sections: 10, lengthVariation: 0.12, bend: 0.03, flareSections: 3 },
   branches: [
     { count: 34, start: 0.12, end: 0.97, angle: 88, angleVariation: 0.1, spiral: 137.5, length: 0.38, lengthVariation: 0.15, radius: 0.22, taper: 0.25, sides: 5, sections: 4, bend: 0.08, gravity: 0.12,
       // Crown Shape: a cone, full length at the lowest whorl, a tenth of it at the top.

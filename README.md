@@ -226,6 +226,67 @@ trunks (each with the whole branch structure) in a small ring, leaning out about
 Seed varies each lean). `trunk.gravity` (−1..1) bends only the leader, the top third of each Stem: −1 makes
 it nod like a hemlock's. Absent, a tree has one upright Stem without gravity.
 
+A **Root Flare** widens each Stem towards the ground: `trunk.flare` (0..1) eases the bottom ~12% of the
+Stem's length out to (1 + 0.8 × `flare`) × the trunk radius at the base, so the trunk grows into the soil
+instead of standing on it like a post. It is geometry only: branches, leaves, Fruit, Growth, Wind and Sculpts
+stay exactly where they were. The optional `flareSections` (integer ≥ 1) is how many extra rings the flare
+gets, set by `Style.apply` (2 in low-poly, 3 in the others; absent = 3). Absent `flare` means none. Every
+trunk's base ring sits a tenth of its radius below the ground (also without flare), so no seam shows on
+uneven terrain:
+
+```ts
+import { createTree, extendDefinition, type TreeDefinitionInput } from '@casmo/tree.js';
+
+const oak: TreeDefinitionInput = { schemaVersion: 3, trunk: { length: 5, radius: 0.35, flare: 0.8 } };
+const flared = createTree(oak, { seed: 3 });
+const slender = extendDefinition(oak, { trunk: { flare: 0.15 } }); // a hint of a flare, same crown
+```
+
+**Roots** are an optional `roots` block: a few Roots grow from the Root Flare of every Stem, run outward
+and down, taper to a point and vanish below the ground. `count` is Roots per Stem (0..12), `length` a
+fraction of the Stem's length (`lengthVariation` is the Seed's ± range), `radius` a fraction of the trunk's
+base radius, `angle` how steeply they dive (degrees below horizontal, 0..60) and `bend` how much they wander
+sideways. A partial block is filled from `DEFAULT_ROOTS` (5 Roots, length 0.25, radius 0.35, angle 12°);
+absent means none. A single Stem's Roots spread all round it; with several Stems each Stem's Roots cover
+only the half-circle facing away from the others. Roots follow the Sculpts of their Stem: a deleted Stem has
+none, a turned Stem keeps them on the ground at its base, a scaled one scales them with its length, and
+another Stem's Roots never change. The optional `sides` and `sections` are their polygon detail, set by `Style.apply`
+(realistic 8 / 6, stylized 6 / 4, low-poly 3 / 2). Roots are part of the wood mesh, grow with the trunk from
+Growth 0, never sway in the Wind and cannot be Sculpted; adding or removing them leaves the branches,
+leaves and Fruit exactly as they were. The tree data lists them in `skeleton.roots` (`SkeletonRoot` entries
+with paths `0/r0`, `0/r1`, ... and their Stem as `parent`) with their Growth windows in `growth.roots`:
+
+```ts
+import { createTree, DEFAULT_ROOTS, type SkeletonRoot } from '@casmo/tree.js';
+
+const rooted = createTree({ schemaVersion: 3, trunk: { flare: 0.6 }, roots: { count: 7, angle: 10 } }, { seed: 3 });
+const roots: SkeletonRoot[] = rooted.data.skeleton.roots; // 7 Roots: '0/r0' .. '0/r6', parent '0'
+const tips = roots.map((root) => root.points.at(-1)!.position); // all below the ground (y < 0)
+const windows = rooted.data.growth.roots; // { start: 0, end: 0 }: there from Growth 0, like the trunk
+const defaults = DEFAULT_ROOTS; // { count: 5, length: 0.25, lengthVariation: 0.3, radius: 0.35, angle: 12, bend: 0.3 }
+```
+
+A **Ground Tint** darkens the bark or turns it mossy near the soil: the optional
+`materials.bark.groundTint = { color, height, strength }`. At and below the ground the bark colour blends
+towards `color` by `strength` (0..1); the blend fades smoothly to nothing `height` metres (> 0) up the Stem.
+It works in every shading model (standard, flat, toon), is measured on the grown tree (a sapling's tint
+reaches as high, in metres, as a grown tree's) and is baked into the wood's vertex colours of a Baked Tree.
+A partial block is filled from `DEFAULT_GROUND_TINT` (height 0.5 m); absent means none, and no Species sets
+one. It is not part of a Style's look, so `Style.apply` on a Definition keeps it:
+
+```ts
+import { createTree, DEFAULT_GROUND_TINT, extendDefinition } from '@casmo/tree.js';
+import realistic from '@casmo/tree.js/styles/realistic';
+import { oak } from '@casmo/tree.js/species';
+
+const mossy = extendDefinition(realistic.apply(oak), {
+  materials: { bark: { groundTint: { color: '#4d6a26', height: 0.8, strength: 0.7 } } },
+});
+const tree = createTree(mossy, { seed: 3 });
+const wet = extendDefinition(mossy, { materials: { bark: { groundTint: { color: '#1e1610' } } } }); // dark wet bark
+const defaults = DEFAULT_GROUND_TINT; // { color: '#3f4a2a', height: 0.5, strength: 0.6 }
+```
+
 **Fruit** is an optional `fruit` block: `type` (`'round'`, `'pear'`, `'nut'`, `'cone'` or `'berry'`),
 `count` per outermost twig, `size`, `sizeVariation` and `hang` (0 = sits on the twig .. 1 = hangs
 straight down). A fractional `count` is a chance per twig: `0.3` puts one Fruit on about 30% of the

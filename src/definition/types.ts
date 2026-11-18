@@ -58,6 +58,17 @@ export interface TrunkDefinition {
    * drooping tip), + pulls a leaning Stem back up. The lower trunk is never bent. Absent = 0 (none).
    */
   gravity?: number;
+  /**
+   * Root Flare (0..1): how much each Stem widens towards the ground over the bottom of its length.
+   * 1 makes the base ring 1.8 × the trunk radius. Geometry only (ADR 0007): branches, leaves, Fruit,
+   * Growth, Wind and Sculpts never move. Absent = 0 (none).
+   */
+  flare?: number;
+  /**
+   * Number of extra sections the trunk sweep puts in the Root Flare (integer >= 1), set by the Style
+   * like `sides` and `sections`: 2 in low-poly, 3 in the others. Unused without flare. Absent = 3.
+   */
+  flareSections?: number;
 }
 
 /**
@@ -181,6 +192,31 @@ export interface FruitDefinition {
   sides?: number;
 }
 
+/**
+ * Roots (ADR 0007): their own tree part, grown after the Sculpt pass from the Root Flare of every
+ * remaining Stem, each from its own random stream, and drawn in the wood mesh after the branches.
+ * They run outward and down, taper to a point below the ground, grow with the trunk and never sway.
+ * They are not Sculptable. Absent = no Roots.
+ */
+export interface RootsDefinition {
+  /** Roots per Stem (integer 0..12). */
+  count: number;
+  /** Root length as a fraction of its Stem's length (after Seed variation and Sculpts), 0..1. */
+  length: number;
+  /** Seed range: ± this fraction of `length` (0..1). */
+  lengthVariation: number;
+  /** Base radius as a fraction of the trunk's base radius (0..1). */
+  radius: number;
+  /** How steeply a Root dives, degrees below horizontal (0..60). Every Root still ends below the ground. */
+  angle: number;
+  /** Seed range: sideways wander per section (0..1). */
+  bend: number;
+  /** Polygon detail, set by the Style: sides around each Root (integer 3..16). Absent = derived from `trunk.sides`. */
+  sides?: number;
+  /** Polygon detail, set by the Style: sections along each Root (integer >= 1). Absent = 4. */
+  sections?: number;
+}
+
 /** Material shading model. Low-poly uses `flat`, stylized `toon`, realistic `standard`. */
 export type Shading = 'standard' | 'flat' | 'toon';
 
@@ -195,6 +231,21 @@ export interface BarkMaterialDefinition {
   map: string | null;
   /** Normal map URL, or null for none. */
   normalMap: string | null;
+  /** Ground Tint: a darker or mossy bark colour near the ground. Optional; absent = none. */
+  groundTint?: GroundTintDefinition;
+}
+
+/**
+ * Ground Tint: at and below the ground (tree-space height <= 0, measured on the grown tree) the
+ * bark colour blends towards `color` by `strength`; the blend fades smoothly to nothing at `height`.
+ */
+export interface GroundTintDefinition {
+  /** The colour the bark blends towards near the ground. */
+  color: HexColor;
+  /** Metres above the ground where the tint has faded out (> 0). */
+  height: number;
+  /** How far the bark blends towards `color` at the ground (0..1). */
+  strength: number;
 }
 
 export interface LeafMaterialDefinition {
@@ -305,6 +356,8 @@ export interface TreeDefinition {
   leaves: LeavesDefinition;
   /** Fruit on the outermost twigs; absent = none. */
   fruit?: FruitDefinition;
+  /** Roots on every Stem; absent = none. */
+  roots?: RootsDefinition;
   materials: MaterialsDefinition;
   season: SeasonProfileDefinition;
   wind: WindResponseDefinition;

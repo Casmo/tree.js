@@ -12,9 +12,10 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import type { TreeDefinition } from '../definition';
 import type { GeometryBuffers } from '../generator';
 import { clampGrowth, growPositions } from '../growth';
+import { groundTintAmount } from '../materials/ground-tint';
 import { BARK_REPEAT } from '../materials/maps';
 import { isFlatShading } from '../materials/shading';
-import { fruitSeason, leafSeason, partSeasonAt, wrapSeason } from '../season';
+import { fruitSeason, hexToLinear, leafSeason, partSeasonAt, wrapSeason } from '../season';
 import type { Tree } from '../tree';
 
 /**
@@ -94,23 +95,28 @@ function area2(p: Float32Array, a: number, b: number, c: number): number {
   return x * x + y * y + z * z;
 }
 
-/** Wood: grown positions; the bark's base-to-tip darkening (smooth shading) as vertex colours. */
+/**
+ * Wood: grown positions; the bark's base-to-tip darkening (smooth shading) as vertex colours.
+ * With a Ground Tint the vertex colours carry the whole bark colour (the material is white), tinted
+ * near the ground on the grown positions, like the bark colorNode.
+ */
 function bakeWood(definition: TreeDefinition, wood: GeometryBuffers, growth: number): BufferGeometry | null {
   const flat = isFlatShading(definition.materials.shading);
+  const { color, groundTint } = definition.materials.bark;
+  const positions = growPositions(wood, growth);
   let colors: Float32Array | null = null;
-  if (!flat) {
-    // Same as the bark colorNode: mix(base * 0.75, base, sqrt(clamp(uv.y))).
+  if (!flat || groundTint) {
+    // Same as the bark colorNode: mix(base * 0.75, base, sqrt(clamp(uv.y))), then the Ground Tint.
     colors = new Float32Array(wood.positions.length);
+    const bark = groundTint ? hexToLinear(color) : [1, 1, 1];
+    const tint = groundTint ? hexToLinear(groundTint.color) : [1, 1, 1];
     for (let v = 0; v < colors.length / 3; v++) {
-      const shade = 0.75 + 0.25 * Math.sqrt(Math.min(Math.max(wood.uvs[v * 2 + 1]!, 0), 1));
-      colors.fill(shade, v * 3, v * 3 + 3);
+      const shade = flat ? 1 : 0.75 + 0.25 * Math.sqrt(Math.min(Math.max(wood.uvs[v * 2 + 1]!, 0), 1));
+      const amount = groundTint ? groundTintAmount(groundTint, positions[v * 3 + 1]!) : 0;
+      for (let c = 0; c < 3; c++) colors[v * 3 + c] = bark[c]! * shade * (1 - amount) + tint[c]! * amount;
     }
   }
-  return compact(
-    { positions: growPositions(wood, growth), normals: wood.normals, uvs: wood.uvs, colors, visible: () => true },
-    wood.indices,
-    flat,
-  );
+  return compact({ positions, normals: wood.normals, uvs: wood.uvs, colors, visible: () => true }, wood.indices, flat);
 }
 
 /** Leaves: grown positions; fallen leaves dropped; Season (or blossom) colour × the Seed's tint as vertex colours. */
@@ -195,7 +201,7 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
   if (woodGeometry) {
     const material = new MeshStandardMaterial({
       name: 'bark',
-      color: new Color(bark.color),
+      color: new Color(bark.groundTint ? 0xffffff : bark.color),
       roughness: bark.roughness,
       metalness: 0,
       vertexColors: woodGeometry.hasAttribute('color'),

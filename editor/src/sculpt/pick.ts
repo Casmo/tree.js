@@ -28,14 +28,24 @@ function distanceToBranch(branch: SkeletonBranch, point: Vec3): { distance: numb
   return best;
 }
 
-/** The path of the branch whose bark is nearest to `point` (e.g. a raycast hit on the wood), or null. */
-export function nearestBranch(branches: readonly SkeletonBranch[], point: Vec3): string | null {
+/** How far `point` is from the bark of `branch`. */
+function barkGap(branch: SkeletonBranch, point: Vec3): number {
+  const { distance, radius } = distanceToBranch(branch, point);
+  return Math.abs(distance - radius);
+}
+
+/**
+ * The path of the branch whose bark is nearest to `point` (e.g. a raycast hit on the wood), or null.
+ * Roots cannot be Sculpted (ADR 0007): when the bark of one of `roots` is nearer than any branch's,
+ * nothing is picked, so a click on a Root never selects (and moves or deletes) its whole Stem.
+ */
+export function nearestBranch(branches: readonly SkeletonBranch[], point: Vec3, roots: readonly SkeletonBranch[] = []): string | null {
   let best: { path: string; gap: number } | null = null;
   for (const branch of branches) {
-    const { distance, radius } = distanceToBranch(branch, point);
-    const gap = Math.abs(distance - radius);
+    const gap = barkGap(branch, point);
     if (!best || gap < best.gap) best = { path: branch.path, gap };
   }
+  if (best && roots.some((root) => barkGap(root, point) < best.gap)) return null;
   return best?.path ?? null;
 }
 
