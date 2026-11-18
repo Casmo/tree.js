@@ -173,6 +173,7 @@ const birch = createTree(lowPoly.apply(await loadSpecies(name)), { season: 0.6 }
 scene.add(tallFir, orchard, birch);
 ```
 
+`SPECIES_BY_NAME` maps every id to its Species (for a picker that lists them all; it bundles all 28).
 Without a bundler, every Species is also a plain JSON file: `@casmo/tree.js/species/<id>.json` (for example
 `https://cdn.jsdelivr.net/npm/@casmo/tree.js/dist/species/douglas-fir.json`). In React:
 `<Tree species={oak} style={lowPoly} seed={7} />`. Try them all in [`examples/species`](examples/species/main.ts).

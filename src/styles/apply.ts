@@ -76,7 +76,7 @@ const LOOKS = {
   },
   realistic: {
     trunk: { sides: 12, sections: 10 },
-    branches: [{ sides: 7, sections: 5 }, { sides: 4, sections: 3 }, { sides: 3, sections: 2 }],
+    branches: [{ sides: 8, sections: 6 }, { sides: 5, sections: 4 }, { sides: 3, sections: 2 }],
     // A texture per Bark Type and per Leaf Type (scripts/generate-textures.mjs).
     bark: (type) => ({ roughness: 0.95, ...BARK_TEXTURES[type] }),
     fruitSides: 9,
