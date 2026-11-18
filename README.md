@@ -476,6 +476,10 @@ feature that is off throws (switching one on or off needs a new Tree or Forest).
 with the values as tuned.
 
 ```ts
+import { createTree, SUGGESTED_MATERIAL_FEATURES, withMaterialFeatures } from '@casmo/tree.js';
+import stylized from '@casmo/tree.js/styles/stylized';
+
+const tree = createTree(withMaterialFeatures(stylized.broadleaf, SUGGESTED_MATERIAL_FEATURES.stylized));
 tree.crownNormals = 0.8;                         // number | null (null = off)
 tree.translucency = { strength: 0.6 };           // any of strength, edge, ambient; the others are kept
 tree.occlusionStrength = 0.5;                    // number | null
