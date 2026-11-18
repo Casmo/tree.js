@@ -23,7 +23,7 @@ const BAND_END = 0.2;
  * plus plain diffuse ambient/hemisphere light. No specular or environment reflections. Built
  * in TSL from the light direction only, so it needs no gradient texture (no image files).
  *
- * With a Leaf Translucency term (leaf material only, `applyLeafTranslucency`), back-lit leaves also glow:
+ * With a Leaf Translucency term (leaf material only, `applyLeafTranslucency`), leaves with light behind them also glow:
  * the same shared term the physical leaf model adds.
  */
 export class SoftToonLightingModel extends LightingModel {

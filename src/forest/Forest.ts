@@ -208,7 +208,7 @@ export class ForestVariant {
     this.barkMaterial.positionNode = position;
     this.leafMaterial = createLeafMaterial(definition, textures);
     this.leafMaterial.positionNode = position;
-    // The Crown Volume is in tree space; the bent normal turns with the instance (uniform scale: rotation only).
+    // The Crown Volume is in tree space; the crown normal turns with the instance (uniform scale: rotation only).
     applyCrownNormals(this.leafMaterial, definition.materials.leaf.crownNormals, this.data.crown, instanceState().growth, (n) => instanceRotate(n));
     const { translucency } = definition.materials.leaf;
     if (translucency) applyLeafTranslucency(this.leafMaterial, translucency, this.data.crown, instanceState().growth);

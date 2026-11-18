@@ -9,7 +9,7 @@ import type { StyleName } from './names';
  * them by default; pass one to {@link withMaterialFeatures} to opt a Definition in.
  *
  * Tuned against the e2e screenshots (e2e/material-features.spec.ts). Structural Occlusion only darkens
- * ambient light, so it is set high; translucency stays low enough that a back-lit crown keeps its shape.
+ * ambient light, so it is set high; translucency stays low enough that a crown against the sun keeps its shape.
  */
 export const SUGGESTED_MATERIAL_FEATURES: Record<StyleName, MaterialFeatures> = {
   // Facets stay visible (half-way crown normals); no translucency, which would soften the flat look.

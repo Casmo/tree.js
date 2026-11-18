@@ -9,7 +9,7 @@ import { crownNodes } from './crown';
 type Node = any;
 
 /**
- * How narrow the back-light lobe is: `back = saturate(dot(V, -L))^BACK_POWER`. Higher = only when
+ * How narrow the Leaf Translucency lobe (light from behind the leaf) is: `back = saturate(dot(V, -L))^BACK_POWER`. Higher = only when
  * looking almost straight into the light through the leaf.
  */
 const BACK_POWER = 3;

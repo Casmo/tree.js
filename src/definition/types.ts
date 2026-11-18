@@ -269,7 +269,7 @@ export interface LeafMaterialDefinition {
  * own (Season) colour, more at the thin edge of the crown. All plain numbers, 0..1.
  */
 export interface TranslucencyDefinition {
-  /** How strongly back-lit leaves glow under each direct light (0..1). */
+  /** How strongly leaves with a direct light behind them glow (0..1). */
   strength: number;
   /** Extra glow at the thin edge of the Crown Volume (0 = the same everywhere .. 1 = only at the edge). */
   edge: number;

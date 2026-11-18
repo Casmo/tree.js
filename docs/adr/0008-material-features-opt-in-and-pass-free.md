@@ -10,4 +10,4 @@ tree.js is embedded in games that bring their own renderer setup, lights, post-p
 
 ## Consequences
 
-Per-vertex data a feature needs (the `aOcclusion` attribute) is only generated when that feature is set. The Crown Volume is always computed, but it is stored next to the geometry (`TreeData.crown`), not in it. A lighting model is only replaced when Leaf Translucency is set. Baked Trees carry the results in standard glTF channels (bent normals in `NORMAL`, `_OCCLUSION`, `KHR_materials_diffuse_transmission`), with the raw settings in `extras`, so other engines can use them.
+Per-vertex data a feature needs (the `aOcclusion` attribute) is only generated when that feature is set. The Crown Volume is always computed, but it is stored next to the geometry (`TreeData.crown`), not in it. A lighting model is only replaced when Leaf Translucency is set. Baked Trees carry the results in standard glTF channels (Crown Normals blended into `NORMAL`, `_OCCLUSION`, `KHR_materials_diffuse_transmission`), with the raw settings in `extras`, so other engines can use them.

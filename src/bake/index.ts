@@ -25,7 +25,7 @@ import type { Tree } from '../tree';
  * Growth and Season are evaluated on the CPU with the same models the shaders run (`growPositions`,
  * `leafSeason`, `fruitSeason`); Wind is left out (a Baked Tree stands still).
  *
- * Material Features (ADR 0008) are baked into standard glTF channels: Crown Normals into the normals,
+ * Material Features (ADR 0008) are baked into standard glTF channels: Crown Normals blended into the normals,
  * Structural Occlusion as a `_occlusion` attribute (glTF `_OCCLUSION`; optionally also in the vertex
  * colours), Leaf Translucency as `KHR_materials_diffuse_transmission` (written by `exportBakedTree`),
  * and the raw settings with the Crown Volume in `userData.treejs` of the leaf and bark materials (glTF
@@ -56,11 +56,11 @@ interface BakedBuffers {
   occlusion: Float32Array | null;
   /** Per vertex: whether it is shown at all. */
   visible: (v: number) => boolean;
-  /** Crown Normals: the normals are bent towards these Crown Volume normals (per vertex) by `amount`. */
-  bend?: CrownBend;
+  /** Crown Normals: the normals are blended towards these Crown Volume normals (per vertex) by `amount`. */
+  crownNormals?: BakedCrownNormals;
 }
 
-interface CrownBend {
+interface BakedCrownNormals {
   normals: Float32Array;
   amount: number;
   /** Per vertex: its card is turned to face the crown's outside (winding reversed, `normals` already flipped). */
@@ -80,7 +80,7 @@ function compact(buffers: BakedBuffers, indices: Uint32Array, flat: boolean): Bu
     const [a, b, c] = [indices[t]!, indices[t + 1]!, indices[t + 2]!];
     if (!buffers.visible(a) || !buffers.visible(b) || !buffers.visible(c)) continue;
     if (area2(positions, a, b, c) < MIN_AREA2) continue;
-    for (const v of buffers.bend?.flipped[a] ? [a, c, b] : [a, b, c]) {
+    for (const v of buffers.crownNormals?.flipped[a] ? [a, c, b] : [a, b, c]) {
       if (remap[v] === -1) remap[v] = count++;
       kept.push(remap[v]!);
     }
@@ -100,16 +100,16 @@ function compact(buffers: BakedBuffers, indices: Uint32Array, flat: boolean): Bu
   geometry.setAttribute('uv', new BufferAttribute(pick(buffers.uvs, 2), 2));
   if (buffers.colors) geometry.setAttribute('color', new BufferAttribute(pick(buffers.colors, 3), 3));
   if (buffers.occlusion) geometry.setAttribute(OCCLUSION, new BufferAttribute(pick(buffers.occlusion, 1), 1));
-  if (buffers.bend) geometry.setAttribute(CROWN_NORMAL, new BufferAttribute(pick(buffers.bend.normals, 3), 3));
+  if (buffers.crownNormals) geometry.setAttribute(CROWN_NORMAL, new BufferAttribute(pick(buffers.crownNormals.normals, 3), 3));
   geometry.setIndex(new BufferAttribute(Uint32Array.from(kept), 1));
   if (flat) {
     // glTF has no flat-shading switch: split the vertices and give each face its own normal.
     geometry = geometry.toNonIndexed();
     geometry.computeVertexNormals();
   }
-  if (buffers.bend) {
-    // After the split, so under flat shading the facet normals are bent and the facets stay visible below 1.
-    bendNormals(geometry, buffers.bend.amount);
+  if (buffers.crownNormals) {
+    // After the split, so under flat shading the facet normals are blended and the facets stay visible below 1.
+    blendNormals(geometry, buffers.crownNormals.amount);
     geometry.deleteAttribute(CROWN_NORMAL);
   }
   geometry.computeBoundingBox();
@@ -119,11 +119,11 @@ function compact(buffers: BakedBuffers, indices: Uint32Array, flat: boolean): Bu
 
 /** The geometry attribute GLTFExporter writes as the `_OCCLUSION` vertex attribute. */
 const OCCLUSION = '_occlusion';
-/** Scratch attribute: the Crown Volume normal per vertex, removed once the normals are bent. */
+/** Scratch attribute: the Crown Volume normal per vertex, removed once the normals are blended. */
 const CROWN_NORMAL = 'crownNormal';
 
 /** `normalize(mix(normal, crown normal, amount))`, as the leaf material's normalNode; the crown's where they cancel out. */
-function bendNormals(geometry: BufferGeometry, amount: number): void {
+function blendNormals(geometry: BufferGeometry, amount: number): void {
   const normal = geometry.getAttribute('normal');
   const crown = geometry.getAttribute(CROWN_NORMAL);
   for (let v = 0; v < normal.count; v++) {
@@ -194,16 +194,16 @@ function bakeLeaves(
   const ao = occlusion.of(leaves);
   const positions = growPositions(leaves, growth);
   const amount = definition.materials.leaf.crownNormals;
-  const bend = amount ? crownBend(leaves, positions, growth, crown, amount, definition.leaves.shape === 'card') : undefined;
+  const crownNormals = amount ? bakedCrownNormals(leaves, positions, growth, crown, amount, definition.leaves.shape === 'card') : undefined;
   return compact(
     {
       positions,
-      normals: bend ? orient(leaves.normals, bend.flipped) : leaves.normals,
+      normals: crownNormals ? orient(leaves.normals, crownNormals.flipped) : leaves.normals,
       uvs: leaves.uvs,
       colors: ao && occlusion.inColors ? darken(colors, ao) : colors,
       occlusion: ao,
       visible: (v) => shown[v] === 1,
-      bend,
+      crownNormals,
     },
     leaves.indices,
     isFlatShading(definition.materials.shading),
@@ -215,18 +215,18 @@ function bakeLeaves(
  * the Growth scale, as in the material), and which leaf cards to turn around. A card (`leaves.shape`
  * 'card') is flat and double-sided with one normal for both sides: turning it (normal and winding
  * together) changes nothing else, but makes its front face the crown's outside, so in engines that flip
- * the normal of back faces the bent normal of every card points out. Decided per card at its attachment
+ * the normal of back faces the blended normal of every card points out. Decided per card at its attachment
  * point (`aOrigin`, shared by its vertices). Solid leaf shapes are closed: their front faces are already
  * their outside, and they keep their winding.
  */
-function crownBend(
+function bakedCrownNormals(
   leaves: GeometryBuffers,
   grown: Float32Array,
   growth: number,
   crown: CrownVolume,
   amount: number,
   cards: boolean,
-): CrownBend {
+): BakedCrownNormals {
   const count = grown.length / 3;
   const scale = treeScale(growth);
   const origin = leaves.attributes.aOrigin!.array;

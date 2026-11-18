@@ -255,7 +255,7 @@ describe('Baked Tree: Material Features', () => {
   };
 
   for (const [name, definition] of [['standard', realistic.broadleaf], ['flat', extendDefinition(lowPoly.broadleaf, { leaves: { shape: 'card' } })]] as const) {
-    it(`writes the bent normals into NORMAL with Crown Normals (${name} shading)`, () => {
+    it(`writes the crown normals (blended) into NORMAL with Crown Normals (${name} shading)`, () => {
       const plain = createTree(definition, { seed: 4 });
       const half = createTree(features(definition, { crownNormals: 0.5 }), { seed: 4 });
       const full = createTree(features(definition, { crownNormals: 1 }), { seed: 4 });
@@ -285,9 +285,9 @@ describe('Baked Tree: Material Features', () => {
     const definition = stylized.apply(await loadSpecies('oak')); // puffs
     const plain = bakeTree(createTree(definition, { seed: 1 })).getObjectByName('leaves') as Mesh;
     const full = createTree(features(definition, { crownNormals: 1 }), { seed: 1 });
-    const bent = bakeTree(full).getObjectByName('leaves') as Mesh;
-    expect(Array.from(bent.geometry.index!.array)).toEqual(Array.from(plain.geometry.index!.array));
-    expect(crownAlignment(full, bent)).toBeGreaterThan(0.999);
+    const blended = bakeTree(full).getObjectByName('leaves') as Mesh;
+    expect(Array.from(blended.geometry.index!.array)).toEqual(Array.from(plain.geometry.index!.array));
+    expect(crownAlignment(full, blended)).toBeGreaterThan(0.999);
     full.dispose();
   });
 });
