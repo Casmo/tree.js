@@ -55,6 +55,7 @@ export {
   exportBakedTree,
   type BakeOptions,
   type ExportBakedTreeOptions,
+  type MaterialFeatureExtras,
 } from './bake';
 export {
   createForest,
