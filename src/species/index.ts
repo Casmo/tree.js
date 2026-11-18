@@ -12,8 +12,8 @@ export * from './catalog';
 export type { SpeciesName };
 export type * from './types';
 
-/** Ids of all Species in the collection (kebab-case), sorted. */
-export const SPECIES_NAMES = Object.keys(SPECIES_LOADERS) as SpeciesName[];
+/** Ids of all Species in the collection (kebab-case), sorted. Pure, so an app importing one Species drops the loaders. */
+export const SPECIES_NAMES = /* @__PURE__ */ Object.keys(SPECIES_LOADERS) as SpeciesName[];
 
 /** Downloads a Species (dynamic import) and resolves to it. Rejects for an unknown id. */
 export async function loadSpecies(id: SpeciesName): Promise<SpeciesDefinition> {
