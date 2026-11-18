@@ -19,6 +19,8 @@
 //   ?pipeline=custom  build the pipeline by hand (treeEffectsPass + applyTreeEffects) with an extra
 //                     user effect (vignette) on top, to show the effects compose with other effects
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
+//   ?depth=reversed|log  render with a reversed or a logarithmic depth buffer (the depth-reading
+//                        effects, betweenTrees and Inner Lines, must look the same)
 //   ?from=tweaked  start with other colours and numbers for the same effects and switch to the
 //                  chosen ones with `effects.set()` (no new graph), to show `set()` updates the look
 import * as THREE from 'three/webgpu';
@@ -60,6 +62,8 @@ declare global {
       readTreeIds?: () => Promise<{ name: string; id: number; expected: number | undefined; resolved: string | null }[]>;
       /** `?view=treeId`: hides the main tree and the ground (sky behind its trunk) and renders once more. */
       hideTree?: () => void;
+      /** `?view=treeId`: hides every object (a frame in which nothing is drawn) and renders once more. */
+      hideAll?: () => void;
     };
   }
 }
@@ -179,7 +183,13 @@ async function main(): Promise<void> {
     for (const { tree: t } of named.values()) treeIdOf(t);
   }
 
-  const renderer = new THREE.WebGPURenderer({ antialias: false, forceWebGL: params.get('backend') === 'webgl' });
+  const depthBuffer = params.get('depth');
+  const renderer = new THREE.WebGPURenderer({
+    antialias: false,
+    forceWebGL: params.get('backend') === 'webgl',
+    reversedDepthBuffer: depthBuffer === 'reversed',
+    logarithmicDepthBuffer: depthBuffer === 'log',
+  });
   renderer.setPixelRatio(1);
   renderer.setSize(innerWidth, innerHeight);
   document.body.appendChild(renderer.domElement);
@@ -224,6 +234,10 @@ async function main(): Promise<void> {
     };
     window.effectsExample.hideTree = () => {
       tree.visible = ground.visible = false;
+      render();
+    };
+    window.effectsExample.hideAll = () => {
+      for (const object of scene.children) object.visible = false;
       render();
     };
   } else if (params.get('view') === 'mask' || params.get('pipeline') === 'custom') {

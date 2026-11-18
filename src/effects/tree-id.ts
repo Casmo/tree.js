@@ -120,19 +120,85 @@ function drawnId(object: Object3D | null): number {
   return 0;
 }
 
+/** The parts of three's WebGL2 fallback backend (`renderer.backend`) the Tree ID relies on; not public API. */
+interface WebGLBackendInternals {
+  isWebGLBackend?: boolean;
+  gl?: WebGL2RenderingContext;
+  has(object: object): boolean;
+  get(object: object): { textureGPU?: WebGLTexture; glInternalFormat?: number };
+}
+
+/** The WebGL2 context when `renderer` runs on three's WebGL2 fallback, `undefined` on WebGPU. */
+function webglOf(renderer: Renderer): { backend: WebGLBackendInternals; gl: WebGL2RenderingContext } | undefined {
+  const backend = renderer.backend as unknown as WebGLBackendInternals;
+  return backend.isWebGLBackend === true && backend.gl ? { backend, gl: backend.gl } : undefined;
+}
+
+/** Per Tree ID texture: a framebuffer with just that texture attached, to clear it on its own. */
+const clearTargets = new WeakMap<Texture, { framebuffer: WebGLFramebuffer; attached: WebGLTexture | null }>();
+
 /**
- * three's WebGL2 fallback clears every MRT attachment with `clearBufferfv`, which is invalid for an
- * integer target: the Tree IDs of the last frame would stay where nothing is drawn now. So, on WebGL,
- * the first draw of each render clears the Tree ID attachment to 0 itself (after three's clear, before
- * anything is drawn). WebGPU clears it correctly.
+ * WebGL2 only (a no-op on WebGPU, which clears integer targets correctly): clears the Tree ID
+ * texture to 0. three's WebGL2 fallback clears every colour attachment of a render target with
+ * `clearBufferfv`, which is invalid for an integer target: the GL ignores it (logging one
+ * `GL_INVALID_OPERATION` warning per frame in the console, from three's own clear, that we cannot
+ * avoid without three changing its clear) and the IDs of the last frame would stay wherever nothing
+ * is drawn now. So this clears the texture with `clearBufferuiv` through a framebuffer of its own,
+ * restoring the GL bindings and state it touches, before the scene pass renders (see
+ * {@link treeIdTexture}).
+ *
+ * Depends on three internals: `renderer.backend.gl` (the WebGL2 context) and
+ * `renderer.backend.get(texture)` (`textureGPU`, `glInternalFormat`). A texture three has not
+ * allocated yet is skipped: new GL storage starts at 0.
  */
-function clearForWebGL(renderer: Renderer): void {
-  const backend = renderer.backend as unknown as { isWebGLBackend?: boolean; gl?: WebGL2RenderingContext };
-  const gl = backend.isWebGLBackend ? backend.gl : undefined;
-  const textures = renderer.getRenderTarget()?.textures;
-  if (!gl || !textures) return;
-  const index = textures.findIndex((t) => t.name === TREE_ID && t.format === RedIntegerFormat);
-  if (index >= 0) gl.clearBufferuiv(gl.COLOR, index, [0, 0, 0, 0]);
+function clearTreeIdTextureOnWebGL(renderer: Renderer, texture: Texture): void {
+  const webgl = webglOf(renderer);
+  if (!webgl || !webgl.backend.has(texture)) return;
+  const { gl } = webgl;
+  const { textureGPU, glInternalFormat } = webgl.backend.get(texture);
+  if (!textureGPU || glInternalFormat !== gl.R32UI) return;
+
+  let target = clearTargets.get(texture);
+  if (!target) {
+    const framebuffer = gl.createFramebuffer();
+    target = { framebuffer, attached: null };
+    clearTargets.set(texture, target);
+    texture.addEventListener('dispose', () => {
+      gl.deleteFramebuffer(framebuffer);
+      clearTargets.delete(texture);
+    });
+  }
+  const previous = gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+  const scissor = gl.isEnabled(gl.SCISSOR_TEST);
+  const mask = gl.getParameter(gl.COLOR_WRITEMASK) as [boolean, boolean, boolean, boolean];
+  gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, target.framebuffer);
+  // three makes a new GL texture when the target is resized: attach the current one.
+  if (target.attached !== textureGPU) {
+    gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureGPU, 0);
+    target.attached = textureGPU;
+  }
+  if (scissor) gl.disable(gl.SCISSOR_TEST);
+  gl.colorMask(true, true, true, true);
+  gl.clearBufferuiv(gl.COLOR, 0, [0, 0, 0, 0]);
+  gl.colorMask(...mask);
+  if (scissor) gl.enable(gl.SCISSOR_TEST);
+  gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, previous);
+}
+
+const clearing = new WeakSet<PassNode>();
+
+/**
+ * Makes the scene pass clear its Tree ID texture (on WebGL2, see {@link clearTreeIdTextureOnWebGL})
+ * right before it renders, every frame, also when nothing is drawn.
+ */
+function clearTreeIdsBeforeEachRender(scenePass: PassNode, texture: Texture): void {
+  if (clearing.has(scenePass)) return;
+  clearing.add(scenePass);
+  const render = scenePass.updateBefore.bind(scenePass);
+  scenePass.updateBefore = (frame) => {
+    if (frame.renderer) clearTreeIdTextureOnWebGL(frame.renderer, texture);
+    return render(frame);
+  };
 }
 
 /**
@@ -142,13 +208,8 @@ function clearForWebGL(renderer: Renderer): void {
  * changed. It ignores the outline's `selection`: every tree gets its ID.
  */
 function createTreeId(): Node<'uint'> {
-  let clearedRender = -1;
-  const base = uniform(0, 'uint').onObjectUpdate((frame, self) => {
-    if (frame.renderId !== clearedRender) {
-      clearedRender = frame.renderId;
-      if (frame.renderer) clearForWebGL(frame.renderer);
-    }
-    self.value = treePartOf(frame.material) === null ? 0 : drawnId(frame.object);
+  const base = uniform(0, 'uint').onObjectUpdate((frame, node) => {
+    node.value = treePartOf(frame.material) === null ? 0 : drawnId(frame.object);
     return undefined;
   });
   return select(base.equal(0), base, base.add(instanceIndex)) as Node<'uint'>;
@@ -156,10 +217,12 @@ function createTreeId(): Node<'uint'> {
 
 /**
  * The MRT output that renders each tree's Tree ID ({@link createTreeId}) next to the colour, opt-in
- * next to {@link treeMaskMRT}. Merge it into the MRT of your own scene pass and set its texture
- * format with {@link treeIdTexture}:
+ * next to {@link treeMaskMRT}. Merge it into the MRT of your own scene pass and always call
+ * {@link treeIdTexture} on that pass afterwards:
  * `scenePass.setMRT(mrt({ output }).merge(treeMaskMRT()).merge(treeIdMRT())); treeIdTexture(scenePass);`.
- * Read IDs back with {@link readTreeId}, or in a shader with exact texel loads (never filtered).
+ * Note that this turns MSAA off on that scene pass (an integer target cannot be multisampled, see
+ * {@link treeIdTexture}). Read IDs back with {@link readTreeId}, or in a shader with exact texel
+ * loads (never filtered).
  */
 export function treeIdMRT(): MRTNode {
   const node = mrt({ [TREE_ID]: createTreeId() });
@@ -170,8 +233,15 @@ export function treeIdMRT(): MRTNode {
 /**
  * Makes the Tree ID target of a scene pass ({@link treeIdMRT} merged into its MRT) one 32-bit
  * unsigned integer per pixel (`r32uint`, read without filtering) and returns its texture. Call it
- * once after `setMRT`, before the first render. An integer target cannot be multisampled, so the
- * pass then renders without MSAA (`samples: 0`), also with an `antialias: true` renderer.
+ * once after `setMRT`, before the first render.
+ *
+ * **MSAA is turned off on this scene pass**: an integer target cannot be multisampled, and all the
+ * targets of a pass share one sample count, so this sets `scenePass.options.samples = 0`, also with
+ * an `antialias: true` renderer (the colour then has aliased edges unless you add FXAA/SMAA after
+ * the pass). That is a hard constraint of WebGPU and WebGL2, not a choice of tree.js.
+ *
+ * On the WebGL2 fallback it also makes the pass clear the Tree ID target to 0 right before every
+ * render (three cannot clear integer targets there), so a pixel where nothing is drawn reads 0.
  */
 export function treeIdTexture(scenePass: PassNode): Texture {
   scenePass.options.samples = 0;
@@ -181,6 +251,7 @@ export function treeIdTexture(scenePass: PassNode): Texture {
   texture.minFilter = texture.magFilter = NearestFilter;
   texture.generateMipmaps = false;
   texture.colorSpace = NoColorSpace;
+  clearTreeIdsBeforeEachRender(scenePass, texture);
   return texture;
 }
 
@@ -200,7 +271,7 @@ export async function readTreeId(renderer: Renderer, scenePass: PassNode, x: num
   const py = Math.floor((y * target.height) / css.y);
   if (!(px >= 0 && py >= 0 && px < target.width && py < target.height)) return 0;
   // WebGL reads with the origin at the bottom left, WebGPU at the top left.
-  const webgl = (renderer.backend as { isWebGLBackend?: boolean }).isWebGLBackend === true;
-  const data = await renderer.readRenderTargetPixelsAsync(target, px, webgl ? target.height - 1 - py : py, 1, 1, index);
+  const flipY = webglOf(renderer) !== undefined;
+  const data = await renderer.readRenderTargetPixelsAsync(target, px, flipY ? target.height - 1 - py : py, 1, 1, index);
   return Number(data[0] ?? 0);
 }

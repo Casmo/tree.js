@@ -161,6 +161,10 @@ for (const backend of backends) {
     const after = await page.evaluate(() => window.effectsExample.readTreeIds!());
     expect(after[0]!.id, "nothing is drawn under the hidden tree's trunk").toBe(0);
     expect(after.slice(1)).toEqual(reads.slice(1));
+    // A frame in which nothing is drawn at all leaves no IDs behind either.
+    await page.evaluate(() => window.effectsExample.hideAll!());
+    const empty = await page.evaluate(() => window.effectsExample.readTreeIds!());
+    expect(empty.map((r) => r.id), 'no tree is drawn').toEqual([0, 0, 0, 0]);
   });
 }
 
@@ -183,6 +187,19 @@ test('outline.betweenTrees draws the outline between overlapping Trees and Fores
   expect(result.treeChanged, 'lines where the trees overlap').toBeGreaterThan(300);
   await expect(page.locator('canvas')).toHaveScreenshot('low-poly-between-trees-webgpu.png');
 });
+
+for (const depth of ['reversed', 'log']) {
+  test(`betweenTrees and Inner Lines look the same with a ${depth} depth buffer`, async ({ page }) => {
+    for (const query of ['style=low-poly&overlap=between&effects=outline', 'style=low-poly&effects=inner-lines']) {
+      const mask = await shot(page, `${query}&view=mask`);
+      const standard = await shot(page, query);
+      const image = await shot(page, `${query}&depth=${depth}`);
+      const result = await compare(page, standard, image, mask);
+      expect(result.treePixels, 'the trees are in view').toBeGreaterThan(2000);
+      expect(result.treeChanged, `${query}: the same lines`).toBeLessThan(20);
+    }
+  });
+}
 
 for (const style of styles) {
   test(`Inner Lines draw inside the tree from depth and normal edges, only on tree pixels (${style})`, async ({ page }) => {
