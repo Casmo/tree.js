@@ -5,7 +5,9 @@ import {
   type GroundTintDefinition,
   type HexColor,
   type Keyframe,
+  type OcclusionDefinition,
   type RootsDefinition,
+  type TranslucencyDefinition,
   type TreeDefinition,
 } from './types';
 
@@ -51,6 +53,18 @@ export const DEFAULT_GROUND_TINT: GroundTintDefinition = {
   color: '#3f4a2a',
   height: 0.5,
   strength: 0.6,
+};
+
+/** Defaults for the fields of a partial `materials.leaf.translucency` block (no Leaf Translucency unless it has the block). */
+export const DEFAULT_TRANSLUCENCY: TranslucencyDefinition = {
+  strength: 0.5,
+  edge: 0.5,
+  ambient: 0.3,
+};
+
+/** Defaults for the fields of a partial `materials.occlusion` block (no Structural Occlusion unless it has the block). */
+export const DEFAULT_OCCLUSION: OcclusionDefinition = {
+  strength: 0.7,
 };
 
 /** Fruit amount when the Season Profile has no `fruit` track: all Fruit at full size all year. */

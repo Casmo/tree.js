@@ -20,6 +20,9 @@ export type {
   BarkMaterialDefinition,
   GroundTintDefinition,
   LeafMaterialDefinition,
+  MaterialFeatures,
+  TranslucencyDefinition,
+  OcclusionDefinition,
   Keyframe,
   SeasonProfileDefinition,
   WindResponseDefinition,
@@ -30,7 +33,7 @@ export type {
   LeavesSculpt,
 } from './types';
 export { coneCurve } from './crown-shape';
-export { DEFAULT_DEFINITION, DEFAULT_BRANCH_LEVEL, DEFAULT_FRUIT, DEFAULT_GROUND_TINT, DEFAULT_ROOTS, DEFAULT_FRUIT_AMOUNT, DEFAULT_FRUIT_COLOR } from './defaults';
+export { DEFAULT_DEFINITION, DEFAULT_BRANCH_LEVEL, DEFAULT_FRUIT, DEFAULT_GROUND_TINT, DEFAULT_OCCLUSION, DEFAULT_ROOTS, DEFAULT_TRANSLUCENCY, DEFAULT_FRUIT_AMOUNT, DEFAULT_FRUIT_COLOR } from './defaults';
 export {
   parseDefinition,
   extendDefinition,
