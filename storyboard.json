@@ -1,0 +1,18 @@
+{ "title": "Material features in the Tree Editor", "kicker": "New · Tree Editor", "app": "tree-js",
+  "url": "http://localhost:5291/editor/?start=oak/stylized&seed=1",
+  "chapters": [
+    { "title": "Materials panel: the new Material features group", "steps": [
+      { "wait": 4000 }, { "scroll": "#material-features-suggested" }, { "wait": 1000 } ] },
+    { "title": "Toggle Crown Normals, Leaf Translucency, Structural Occlusion", "steps": [
+      { "click": "#material-feature-crownNormals", "zoom": true }, { "wait": 1200 },
+      { "click": "#material-feature-translucency", "zoom": true }, { "wait": 1200 },
+      { "click": "#material-feature-occlusion", "zoom": true }, { "wait": 1200 } ] },
+    { "title": "Tune the sliders", "steps": [
+      { "type": "0.3", "into": "[id=\"materials.leaf.crownNormals\"][type=number]", "zoom": true }, { "press": "Enter" }, { "wait": 1000 },
+      { "type": "1", "into": "[id=\"materials.leaf.translucency.strength\"][type=number]", "zoom": true }, { "press": "Enter" }, { "wait": 1000 },
+      { "type": "0", "into": "[id=\"materials.occlusion.strength\"][type=number]", "zoom": true }, { "press": "Enter" }, { "wait": 1000 } ] },
+    { "title": "Use suggested for stylized", "steps": [
+      { "click": "#material-features-suggested", "zoom": true }, { "wait": 2000 } ] },
+    { "title": "Off, then Undo brings the features back", "steps": [
+      { "click": "#material-features-off", "zoom": true }, { "wait": 2000 },
+      { "click": "role=button[name=Undo]", "zoom": true }, { "wait": 2000 } ] } ] }
