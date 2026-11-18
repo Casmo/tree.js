@@ -17,6 +17,7 @@ thousands at once as an instanced Forest, add opt-in Tree Effects, or design you
 - [Growth and Season](#growth-and-season)
 - [Wind](#wind)
 - [Forests](#forests)
+- [Material Features](#material-features)
 - [Tree Effects](#tree-effects)
 - [React Three Fiber](#react-three-fiber)
 - [Without a bundler: import map (CDN)](#without-a-bundler-import-map-cdn)
@@ -421,6 +422,81 @@ if (hit) console.log(forest.treeAt(hit)?.key);
 
 `forest.dispose()` frees everything. `forest.ready` resolves once its textures have loaded.
 
+## Material Features
+
+![The same stylized tree without (left) and with (right) the suggested Material Features: the crown is lit as one rounded shape, glows at its edge against the low sun and is darker inside](docs/images/material-features.png)
+
+*The same tree and lights, without (left) and with (right) `SUGGESTED_MATERIAL_FEATURES.stylized`.*
+
+Material Features make a crown read as one soft volume instead of a noise of leaf cards. There are
+three, each an optional field in the Definition's `materials` section:
+
+| Field | Range | What it does |
+| --- | --- | --- |
+| `materials.leaf.crownNormals` | 0..1 | **Crown Normals**: each leaf's normal is bent towards the [Crown Volume](#tree-definitions-and-seeds)'s, so the crown is lit as one rounded shape (0 = each leaf on its own .. 1 = fully). With flat shading the facets stay visible below 1. |
+| `materials.leaf.translucency` | `{ strength, edge, ambient }`, each 0..1 | **Leaf Translucency**: leaves glow in their own Season colour when you look towards a light through them. `strength` per direct light (shadowed leaves don't glow), `edge` = how much more the thin edge of the crown glows than its inside, `ambient` = the sky shining through, dimmed by occlusion. Leaves only, never bark or Fruit. |
+| `materials.occlusion` | `{ strength }`, 0..1 | **Structural Occlusion**: the inside of the crown and the trunk under it get less ambient light. Worked out once from the tree's shape (baked per vertex, the same for every Season), for wood, leaves and Fruit. Changing `strength` doesn't regenerate the tree. |
+
+**They are strictly opt-in and pass-free.** Absent means off, and no built-in Style or Species turns one
+on, so a game that sets nothing sees exactly the trees it saw before (same geometry, attributes and
+materials). Turning one on only changes the tree's own node materials: your renderer, scene, lights and
+post-processing are left alone, and there is no extra render pass, only some shader math per pixel. They
+work in every Style (flat, standard and toon shading), with Growth and Wind, and in Forests.
+
+Each Style has suggested values. Opt in with one line: `withMaterialFeatures(definition, features)`
+returns a new Definition whose Material Features are exactly `features` (a feature you leave out is off,
+`{}` turns them all off) and leaves its input unchanged:
+
+```ts
+import { createTree, SUGGESTED_MATERIAL_FEATURES, withMaterialFeatures } from '@casmo/tree.js';
+import { oak } from '@casmo/tree.js/species';
+import realistic from '@casmo/tree.js/styles/realistic';
+import stylized from '@casmo/tree.js/styles/stylized';
+
+const tree = createTree(withMaterialFeatures(stylized.broadleaf, SUGGESTED_MATERIAL_FEATURES.stylized), { seed: 3 });
+
+// Or your own values, e.g. only a little crown shading and occlusion:
+const subtle = withMaterialFeatures(realistic.apply(oak), { crownNormals: 0.4, occlusion: { strength: 0.5 } });
+const off = withMaterialFeatures(subtle, {}); // the plain Style tree again
+```
+
+| Style | `crownNormals` | `translucency` | `occlusion` |
+| --- | --- | --- | --- |
+| `low-poly` | 0.5 | (off: it would soften the flat look) | `{ strength: 0.8 }` |
+| `stylized` | 1 | `{ strength: 0.3, edge: 0.8, ambient: 0.2 }` | `{ strength: 0.9 }` |
+| `realistic` | 0.6 | `{ strength: 0.45, edge: 0.7, ambient: 0.25 }` | `{ strength: 0.9 }` |
+
+The fields are plain numbers, so they are saved in the Definition JSON (the Tree Editor exports them) and
+can be set with `extendDefinition` too (`{ materials: { leaf: { crownNormals: 1 } } }`). Validation
+rejects values outside 0..1.
+
+**With your SSAO/GTAO.** Structural Occlusion is the materials' built-in ambient occlusion (`aoNode`),
+so it darkens ambient and indirect light only (sunlit sides stay sunlit) and three.js multiplies it
+with screen-space AO the same way it does for any material. Your SSAO pass needs no changes; trees simply
+bring their own occlusion, including the inside of the crown, which screen-space AO can't see:
+
+```ts
+import * as THREE from 'three/webgpu';
+import { builtinAOContext, mrt, normalView, output, pass, screenUV } from 'three/tsl';
+import { ao } from 'three/addons/tsl/display/GTAONode.js';
+
+const prePass = pass(scene, camera);
+prePass.setMRT(mrt({ output, normal: normalView }));
+const gtao = ao(prePass.getTextureNode('depth'), prePass.getTextureNode('normal'), camera);
+
+const scenePass = pass(scene, camera);
+// GTAO and the trees' Structural Occlusion are multiplied together, for ambient light only.
+scenePass.contextNode = builtinAOContext(gtao.getTextureNode().sample(screenUV).r);
+
+const pipeline = new THREE.RenderPipeline(renderer);
+pipeline.outputNode = scenePass;
+renderer.setAnimationLoop(() => pipeline.render());
+```
+
+Material Features are a different thing from [Tree Effects](#tree-effects): those are post-processing
+(the "leaf glow" effect is a screen-space bloom, not Leaf Translucency). See them side by side per Style in
+[`examples/material-features`](examples/material-features/main.ts).
+
 ## Tree Effects
 
 ![A stylized tree, a rock and a crate without (left) and with (right) the stylized Tree Effects: only the tree gets an outline and colour grading](docs/images/effects.png)
@@ -657,6 +733,7 @@ a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branche
 | [`examples/react`](examples/react/main.tsx) | `/examples/react/` | React Three Fiber: `<Tree>`, `<Wind>`, `useTreeStyle`; `?scene=forest` for `<Forest>` | <img src="docs/images/example-react.png" alt="examples/react" width="160"> |
 | [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
 | [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` | <img src="docs/images/example-effects.png" alt="examples/effects" width="160"> |
+| [`examples/material-features`](examples/material-features/main.ts) | `/examples/material-features/` | the same tree with Material Features off and on (`SUGGESTED_MATERIAL_FEATURES`); `?style=realistic&species=oak` | <img src="docs/images/example-material-features.png" alt="examples/material-features" width="160"> |
 | [`examples/species`](examples/species/main.ts) | `/examples/species/` | a Species x Style picker over the whole collection; `?species=douglas-fir&style=realistic` | <img src="docs/images/example-species.png" alt="examples/species" width="160"> |
 
 ```sh

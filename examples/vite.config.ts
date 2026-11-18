@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import { packageAliases, textureDefine } from '../vite.config';
 
-export const BUNDLED_EXAMPLES = ['vanilla', 'react', 'forest', 'effects', 'species'];
+export const BUNDLED_EXAMPLES = ['vanilla', 'react', 'forest', 'effects', 'species', 'material-features'];
 
 export default defineConfig(({ command }) => ({
   root: import.meta.dirname,

@@ -48,6 +48,7 @@ export type {
   SpeciesRootsDefinition,
 } from './species/types';
 export { loadStyle, STYLE_NAMES, styleLabel, styleOfShading, type StyleName } from './styles/registry';
+export { SUGGESTED_MATERIAL_FEATURES, withMaterialFeatures } from './styles/material-features';
 export {
   bakeTree,
   disposeBakedTree,

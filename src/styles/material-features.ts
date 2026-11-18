@@ -1,0 +1,64 @@
+// Suggested Material Features per Style and the helper that opts a Definition in (ADR 0008).
+// Built-in Styles and Species never set Material Features: the app applies them explicitly.
+import { parseDefinition } from '../definition/parse';
+import type { MaterialFeatures, TreeDefinition, TreeDefinitionInput } from '../definition/types';
+import type { StyleName } from './names';
+
+/**
+ * Suggested Material Features for each built-in Style (like `SUGGESTED_TREE_EFFECTS`). Nothing uses
+ * them by default; pass one to {@link withMaterialFeatures} to opt a Definition in.
+ *
+ * Tuned against the e2e screenshots (e2e/material-features.spec.ts). Structural Occlusion only darkens
+ * ambient light, so it is set high; translucency stays low enough that a back-lit crown keeps its shape.
+ */
+export const SUGGESTED_MATERIAL_FEATURES: Record<StyleName, MaterialFeatures> = {
+  // Facets stay visible (half-way crown normals); no translucency, which would soften the flat look.
+  'low-poly': {
+    crownNormals: 0.5,
+    occlusion: { strength: 0.8 },
+  },
+  // The crown lit as one soft shape, with a glow mostly at its thin edge against the sun.
+  stylized: {
+    crownNormals: 1,
+    translucency: { strength: 0.3, edge: 0.8, ambient: 0.2 },
+    occlusion: { strength: 0.9 },
+  },
+  // Some per-card detail stays; a natural glow, strongest at the thin edge of the crown.
+  realistic: {
+    crownNormals: 0.6,
+    translucency: { strength: 0.45, edge: 0.7, ambient: 0.25 },
+    occlusion: { strength: 0.9 },
+  },
+};
+
+/**
+ * Returns a new Tree Definition whose Material Features are exactly `features`: each feature given is
+ * set, each feature left out is switched off (`{}` switches them all off). Everything else is kept. The
+ * input is not changed. Throws a TreeDefinitionError for an out-of-range value.
+ *
+ * ```ts
+ * const tree = createTree(withMaterialFeatures(stylized.broadleaf, SUGGESTED_MATERIAL_FEATURES.stylized));
+ * ```
+ */
+export function withMaterialFeatures(definition: TreeDefinition | TreeDefinitionInput, features: MaterialFeatures): TreeDefinition {
+  const parsed = parseDefinition(definition);
+  // parseDefinition returns fresh objects, so the copies can drop the old features.
+  const leaf = { ...parsed.materials.leaf };
+  delete leaf.crownNormals;
+  delete leaf.translucency;
+  const materials = { ...parsed.materials };
+  delete materials.occlusion;
+  const { crownNormals, translucency, occlusion } = features;
+  return parseDefinition({
+    ...parsed,
+    materials: {
+      ...materials,
+      leaf: {
+        ...leaf,
+        ...(crownNormals === undefined ? {} : { crownNormals }),
+        ...(translucency === undefined ? {} : { translucency: { ...translucency } }),
+      },
+      ...(occlusion === undefined ? {} : { occlusion: { ...occlusion } }),
+    },
+  });
+}

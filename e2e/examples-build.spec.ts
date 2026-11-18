@@ -13,6 +13,7 @@ const pages = [
   { name: 'Forest', path: 'forest/', hook: 'forestExample' },
   { name: 'Tree Effects', path: 'effects/?style=stylized&effects=style', hook: 'effectsExample' },
   { name: 'Species picker', path: 'species/?species=birch&style=realistic', hook: 'speciesExample' },
+  { name: 'Material Features', path: 'material-features/?style=realistic', hook: 'featuresExample' },
   { name: 'vanilla three.js with the realistic Style (textures)', path: 'vanilla/?style=realistic', hook: 'treeExample' },
 ];
 
