@@ -43,6 +43,21 @@ export interface TrunkDefinition {
   lengthVariation: number;
   /** Seed range: maximum sideways drift per section, as a fraction of the section length (0..1). */
   bend: number;
+  /**
+   * Number of Stems growing from the ground (integer >= 1). Each Stem is a full trunk with these
+   * parameters and the full branch structure; Stem paths are "0", "1", "2", ... Absent = 1 (a single trunk).
+   */
+  stems?: number;
+  /**
+   * How far each Stem leans out from vertical, degrees (0..90). The Seed varies it per Stem
+   * (± 30 %) and turns the ring of Stems. Absent = 0 (upright).
+   */
+  spread?: number;
+  /**
+   * Pull on the leader, the upper third of each Stem (−1..1): − makes it nod over (a hemlock's
+   * drooping tip), + pulls a leaning Stem back up. The lower trunk is never bent. Absent = 0 (none).
+   */
+  gravity?: number;
 }
 
 /**
@@ -191,7 +206,7 @@ export interface VariationDefinition {
 interface SculptBase {
   /** The Seed the Sculpt was made on; every other Seed ignores it (ADR 0003). */
   seed: number;
-  /** Branch path, e.g. "0" (trunk) or "0.3.1". */
+  /** Branch path, e.g. "0" (trunk / first Stem), "1" (second Stem) or "0.3.1". */
   path: string;
 }
 /** Removes a branch and everything growing from it. */

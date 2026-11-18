@@ -86,6 +86,21 @@ describe('bakeTree: Growth and Season', () => {
     tree.dispose();
   });
 
+  it('bakes every Stem of a multi-Stem tree, at full size and as a young tree', () => {
+    const tree = createTree(extendDefinition(lowPoly.broadleaf, { trunk: { stems: 3, spread: 25 } }), { seed: 2 });
+    const wide = (geometry: BufferGeometry) => {
+      const box = new Box3().setFromBufferAttribute(geometry.getAttribute('position') as never);
+      return Math.min(box.max.x - box.min.x, box.max.z - box.min.z);
+    };
+    const full = bakeTree(tree, { growth: 1 }).getObjectByName('wood') as Mesh;
+    const sapling = bakeTree(tree, { growth: 0 }).getObjectByName('wood') as Mesh;
+    tree.wood.geometry.computeBoundingBox();
+    expect(size(full.geometry)).toBeCloseTo(tree.wood.geometry.boundingBox!.max.y, 5);
+    // Even a sapling is all its Stems (only the branches wait to sprout): wider than one thin trunk.
+    expect(wide(sapling.geometry)).toBeGreaterThan(size(sapling.geometry) * 0.2);
+    tree.dispose();
+  });
+
   it('defaults to the tree\'s own Growth and Season', () => {
     const tree = createTree(lowPoly.broadleaf, { seed: 2, growth: 0.3 });
     const wood = bakeTree(tree).getObjectByName('wood') as Mesh;

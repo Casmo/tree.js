@@ -173,7 +173,7 @@ describe('Definition validation names the bad field', () => {
     ['wind frequency', { schemaVersion: 2, wind: { frequency: 0 } }, 'wind.frequency'],
     ['variation range', { schemaVersion: 2, variation: { season: 1.5 } }, 'variation.season'],
     ['sculpt action', { schemaVersion: 2, sculpts: [{ seed: 1, path: '0', action: 'paint' }] }, 'sculpts[0].action'],
-    ['sculpt path', { schemaVersion: 2, sculpts: [{ seed: 1, path: '1.2', action: 'delete' }] }, 'sculpts[0].path'],
+    ['sculpt path', { schemaVersion: 2, sculpts: [{ seed: 1, path: '0.x', action: 'delete' }] }, 'sculpts[0].path'],
     ['sculpt missing seed', { schemaVersion: 2, sculpts: [{ path: '0', action: 'delete' }] }, 'sculpts[0].seed'],
     [
       'move sculpt rotation',
