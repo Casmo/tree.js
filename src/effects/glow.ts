@@ -1,6 +1,7 @@
 import { Color, type ColorRepresentation, type Node } from 'three/webgpu';
-import { color as tslColor, luminance, smoothstep, vec4 } from 'three/tsl';
+import { luminance, smoothstep, uniform, vec4 } from 'three/tsl';
 import { gaussianBlur } from 'three/addons/tsl/display/GaussianBlurNode.js';
+import type { LiveTreeEffect } from './live';
 import type { TreeEffectInput } from './mask';
 
 /** Leaf glow settings. */
@@ -15,15 +16,37 @@ export interface LeafGlowOptions {
   radius?: number;
 }
 
+/** The blur radius of leaf glow settings (part of a Tree Effects graph's shape). */
+export function glowRadius(options: LeafGlowOptions): number {
+  return options.radius ?? 6;
+}
+
 /**
  * Tree Effect: a soft glow of the leaves. The bright (sunlit) leaf pixels are blurred and added
  * back onto the tree pixels (leaves and the wood between them), never onto the rest of the scene.
  */
 export function leafGlow(input: TreeEffectInput, options: LeafGlowOptions = {}): Node<'vec4'> {
-  const { color = '#ffffff', intensity = 0.6, threshold = 0.15, radius = 6 } = options;
-  const bright = smoothstep(threshold, threshold * 2 + 0.05, luminance(input.color.rgb));
+  return liveLeafGlow(input, options).node;
+}
+
+/** {@link leafGlow} with its settings as uniforms; `radius` is fixed when built. */
+export function liveLeafGlow(input: TreeEffectInput, options: LeafGlowOptions = {}): LiveTreeEffect<LeafGlowOptions> {
+  const color = uniform(new Color());
+  const intensity = uniform(0);
+  const low = uniform(0);
+  const high = uniform(0);
+  const update = (o: LeafGlowOptions): void => {
+    const threshold = o.threshold ?? 0.15;
+    color.value.set(o.color ?? '#ffffff');
+    intensity.value = o.intensity ?? 0.6;
+    low.value = threshold;
+    high.value = threshold * 2 + 0.05;
+  };
+  update(options);
+
+  const bright = smoothstep(low, high, luminance(input.color.rgb));
   const leaves = vec4(input.color.rgb.mul(input.mask.g).mul(bright), 1);
-  const blurred = gaussianBlur(leaves, null, radius, { resolutionScale: 0.5 });
-  const glow = blurred.rgb.mul(tslColor(new Color(color))).mul(intensity).mul(input.mask.r);
-  return vec4(input.color.rgb.add(glow), input.color.a);
+  const blurred = gaussianBlur(leaves, null, glowRadius(options), { resolutionScale: 0.5 });
+  const glow = blurred.rgb.mul(color).mul(intensity).mul(input.mask.r);
+  return { node: vec4(input.color.rgb.add(glow), input.color.a), update };
 }
