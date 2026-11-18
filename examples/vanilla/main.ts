@@ -17,6 +17,7 @@
 //   ?shadows=1  enable shadow mapping (sun casts, ground receives)
 //   ?backlight=1  put the sun low behind the tree, facing the camera (to see Leaf Translucency)
 //   ?translucency=<strength>,<edge>,<ambient>  turn on Leaf Translucency (a Material Feature, off by default)
+//   ?occlusion=<0..1>  Structural Occlusion at that strength (a Material Feature, off by default)
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
 import {
@@ -133,6 +134,13 @@ function withFruit(definition: TreeDefinitionInput | TreeDefinition): TreeDefini
   });
 }
 
+/** `?occlusion=<0..1>`: Structural Occlusion (a Material Feature) at that strength. */
+function withOcclusion(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
+  const strength = params.get('occlusion');
+  if (strength === null) return definition;
+  return extendDefinition(definition, { materials: { occlusion: { strength: Number(strength) } } });
+}
+
 /** `?crownNormals=<0..1>`: the Crown Normals Material Feature (off when absent). */
 function withCrownNormals(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
   const amount = params.get('crownNormals');
@@ -196,7 +204,7 @@ function withTranslucency(definition: TreeDefinitionInput | TreeDefinition): Tre
 async function main(): Promise<void> {
   const textureBase = params.get('textureBase');
   if (textureBase) setTextureOptions({ basePath: textureBase });
-  const tree = createTree(withTranslucency(withCrownNormals(withFruit(withCustomTextures(await loadDefinition())))), { seed, growth, season });
+  const tree = createTree(withTranslucency(withOcclusion(withCrownNormals(withFruit(withCustomTextures(await loadDefinition()))))), { seed, growth, season });
   await tree.ready; // textures (realistic Style, custom maps) are loaded before the first frame
   scene.add(tree);
   if (params.get('style') || params.get('species')) frame(tree);

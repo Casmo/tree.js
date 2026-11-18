@@ -108,6 +108,10 @@ export interface VertexAttribute {
  * Per-vertex attributes every tree mesh carries; Growth, Season and Wind (tickets #6-#8)
  * are computed from these in TSL, and may add their own entries.
  * A "part" is a branch (wood mesh) or a leaf (leaves mesh).
+ *
+ * Only when the Definition sets `materials.occlusion` (Structural Occlusion) is there also `aOcclusion`
+ * (float, 0 = occluded .. 1 = open), baked on the fully grown tree with every leaf on from the depth in the
+ * Crown Volume and the leaf cover above; independent of Season and of the strength (the material mixes that in).
  */
 export interface TreeAttributes {
   [name: string]: VertexAttribute;

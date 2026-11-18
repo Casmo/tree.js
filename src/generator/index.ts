@@ -8,6 +8,7 @@ import { growthTiming } from './growth';
 import { solidLeafGeometry } from './leaf-shapes';
 import { leafGeometry, placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
+import { bakeOcclusion } from './occlusion';
 import { growRoots, rootSides } from './roots';
 import { sculptBranches, sculptLeaves, sculptsFor } from './sculpt';
 import { buildStems, FLARE_SECTIONS } from './trunk';
@@ -84,6 +85,8 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
   writeTrunkSway(fruitBuffers, trunkHeight(skeleton));
   // The Crown Volume sits next to the geometry, not in it: the buffers and their hash are unchanged.
   const crown = crownVolume(leafBuffers.positions, branches);
+  // Structural Occlusion (ADR 0008): only with `materials.occlusion`, so without it the buffers are as before.
+  if (definition.materials.occlusion) bakeOcclusion([wood, leafBuffers, fruitBuffers], leafBuffers, crown);
   return { seed, skeleton, wood, leaves: leafBuffers, fruit: fruitBuffers, growth, crown };
 }
 
