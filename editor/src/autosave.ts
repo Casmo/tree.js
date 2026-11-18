@@ -1,7 +1,9 @@
 // Autosave: the editor's current state is written to browser storage after every change and
 // restored on the next visit, so a refresh loses nothing. The saved Definition goes through
 // parseDefinition on load (older schema versions migrate; anything unreadable is ignored).
+// `source` keeps the Species and Style started from ("oak/realistic") or the imported file name.
 import { parseDefinition } from '@casmo/tree.js';
+import { parseStartId } from './starts';
 import type { EditorState, EditorStore, EditorStoreInit } from './store';
 
 export const AUTOSAVE_KEY = 'tree-editor:autosave';
@@ -40,7 +42,8 @@ export function loadAutosave(storage: Storage): EditorStoreInit | null {
       seed: number(state.seed),
       growth: number(state.growth),
       season: number(state.season),
-      source: typeof state.source === 'string' ? state.source : undefined,
+      // The Species + Style started from ("oak/realistic"; old "<style>/<form>" ids read as the new form).
+      source: typeof state.source === 'string' ? (parseStartId(state.source)?.id ?? state.source) : undefined,
     };
   } catch {
     return null;

@@ -11,9 +11,10 @@ const coverageValues = (d: TreeDefinition) => d.season.leafCoverage.map((k) => k
 
 describe('low-poly Style (dynamic import of the /styles/low-poly subpath)', () => {
   it('exports a broadleaf and a conifer Definition, also as one Style object', () => {
-    expect(lowPoly.broadleaf.form).toBe('broadleaf');
-    expect(lowPoly.conifer.form).toBe('conifer');
-    expect(lowPoly.default).toEqual({ name: 'low-poly', broadleaf: lowPoly.broadleaf, conifer: lowPoly.conifer });
+    expect(lowPoly.broadleaf.name).toMatch(/broadleaf/);
+    expect(lowPoly.conifer.name).toMatch(/conifer/);
+    expect(lowPoly.default).toMatchObject({ name: 'low-poly', broadleaf: lowPoly.broadleaf, conifer: lowPoly.conifer });
+    expect(lowPoly.default.apply).toBeTypeOf('function');
   });
 
   for (const [form, definition] of Object.entries(forms)) {

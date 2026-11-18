@@ -1,0 +1,161 @@
+{
+  "id": "redwood",
+  "name": "Redwood",
+  "form": "conifer",
+  "trunk": {
+    "length": 15,
+    "radius": 0.45,
+    "taper": 0.12,
+    "lengthVariation": 0.1,
+    "bend": 0.02
+  },
+  "branches": [
+    {
+      "angleVariation": 0.12,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.3,
+      "bend": 0.06,
+      "gravity": -0.2,
+      "lengthProfile": [
+        {
+          "t": 0.28,
+          "value": 1.0
+        },
+        {
+          "t": 0.75,
+          "value": 0.85
+        },
+        {
+          "t": 0.97,
+          "value": 0.3
+        },
+        {
+          "t": 1.0,
+          "value": 0.2
+        }
+      ],
+      "angleProfile": [
+        {
+          "t": 0.28,
+          "value": 1.05
+        },
+        {
+          "t": 0.8,
+          "value": 0.95
+        },
+        {
+          "t": 1.0,
+          "value": 0.5
+        }
+      ],
+      "count": 21,
+      "start": 0.28,
+      "end": 0.985,
+      "angle": 92,
+      "length": 0.13,
+      "radius": 0.25
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 180,
+      "lengthVariation": 0.15,
+      "taper": 0.3,
+      "bend": 0.08,
+      "gravity": -0.4,
+      "count": 3,
+      "start": 0.2,
+      "end": 1,
+      "angle": 50,
+      "length": 0.5,
+      "radius": 0.5
+    }
+  ],
+  "foliage": {
+    "type": "needle",
+    "density": 0.18,
+    "size": 0.95,
+    "sizeVariation": 0.2,
+    "start": 0,
+    "angle": 45
+  },
+  "bark": {
+    "type": "fibrous",
+    "color": "#b87a62"
+  },
+  "fruit": {
+    "type": "cone",
+    "count": 0.12,
+    "size": 0.12,
+    "sizeVariation": 0.2,
+    "hang": 0.6
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#4f7d3e"
+      },
+      {
+        "t": 0.25,
+        "value": "#365f33"
+      },
+      {
+        "t": 0.55,
+        "value": "#365f33"
+      },
+      {
+        "t": 0.75,
+        "value": "#2e522d"
+      },
+      {
+        "t": 0.92,
+        "value": "#2e522d"
+      },
+      {
+        "t": 1,
+        "value": "#4f7d3e"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 1
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#c9b46a",
+    "fruit": [
+      {
+        "t": 0,
+        "value": 1
+      }
+    ],
+    "fruitColor": [
+      {
+        "t": 0.15,
+        "value": "#7d9440"
+      },
+      {
+        "t": 0.55,
+        "value": "#7a4f30"
+      }
+    ]
+  },
+  "wind": {
+    "trunk": 0.05,
+    "branches": 0.25,
+    "leaves": 0.35,
+    "frequency": 0.7
+  },
+  "variation": {
+    "color": 0.08,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}

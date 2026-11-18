@@ -79,3 +79,38 @@ for (const backend of ['webgpu', 'webgl2'] as const) {
     await expect(canvas).toHaveScreenshot(`tree-wind-${backend}.png`, mask);
   });
 }
+
+test.describe('Fruit', () => {
+  test('a tree without Fruit has an empty fruit mesh', async ({ page }) => {
+    await page.goto('/examples/vanilla/?seed=1');
+    expect(await waitForExample(page)).toMatchObject({ status: 'rendered', fruitVertices: 0 });
+  });
+
+  test('renders Fruit in its own mesh and ripens it over Season (uniforms only)', async ({ page }) => {
+    const canvas = page.locator('canvas');
+    const mask = { mask: [page.locator('#status')] };
+    await page.goto('/examples/vanilla/?seed=1&fruit=round&season=0.3');
+    const result = await waitForExample(page);
+    expect(result.status).toBe('rendered');
+    expect(result.fruitVertices).toBeGreaterThan(0);
+    await expect(canvas).toHaveScreenshot('fruit-summer.png', mask);
+    const summer = await canvas.screenshot(mask);
+
+    await page.evaluate(() => window.treeExample.setSeason!(0.55));
+    await page.waitForFunction(() => window.treeExample.status === 'rendered');
+    const ripe = await canvas.screenshot(mask);
+    expect(ripe.equals(summer)).toBe(false);
+    await expect(canvas).toHaveScreenshot('fruit-ripe.png', mask);
+  });
+
+  test('Fruit has dropped in winter: the tree looks as without Fruit', async ({ page }) => {
+    const canvas = page.locator('canvas');
+    const mask = { mask: [page.locator('#status')] };
+    await page.goto('/examples/vanilla/?seed=1&season=0.87');
+    expect((await waitForExample(page)).status).toBe('rendered');
+    const plain = await canvas.screenshot(mask);
+    await page.goto('/examples/vanilla/?seed=1&fruit=round&season=0.87');
+    expect((await waitForExample(page)).status).toBe('rendered');
+    expect((await canvas.screenshot(mask)).equals(plain)).toBe(true);
+  });
+});

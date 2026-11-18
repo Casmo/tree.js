@@ -12,6 +12,7 @@ thousands at once as an instanced Forest, add opt-in Tree Effects, or design you
 - [Quick start](#quick-start)
 - [WebGPURenderer is required](#webgpurenderer-is-required)
 - [Styles](#styles)
+- [Species](#species)
 - [Tree Definitions and Seeds](#tree-definitions-and-seeds)
 - [Growth and Season](#growth-and-season)
 - [Wind](#wind)
@@ -37,6 +38,7 @@ npm install @casmo/tree.js three
 | --- | --- |
 | `@casmo/tree.js` | `createTree`, `createForest`, Definitions, Wind, Baked Tree export, `loadStyle`, ... |
 | `@casmo/tree.js/styles/low-poly` (`stylized`, `realistic`) | a built-in Style: one Tree Definition per Form (a few kB of data) |
+| `@casmo/tree.js/species` | the 28 Species (`oak`, `douglasFir`, ...), `loadSpecies`, `SPECIES_NAMES`; JSON files |
 | `@casmo/tree.js/effects` | Tree Effects (post-processing) |
 | `@casmo/tree.js/react` | `<Tree>`, `<Forest>`, `<Wind>`, `useTreeStyle` for React Three Fiber |
 
@@ -70,8 +72,8 @@ scene.add(tree);
 renderer.setAnimationLoop(() => renderer.render(scene, camera));
 ```
 
-A `Tree` is a three.js `Group` with two meshes, `tree.wood` and `tree.leaves` (both cast and receive
-shadows). `tree.dispose()` frees its geometries and materials and removes it from the scene.
+A `Tree` is a three.js `Group` with three meshes, `tree.wood`, `tree.leaves` and `tree.fruit` (empty
+without Fruit; all cast and receive shadows). `tree.dispose()` frees its geometries and materials and removes it from the scene.
 
 ## WebGPURenderer is required
 
@@ -130,6 +132,52 @@ const tallPine = createTree(extendDefinition(stylized.conifer, { trunk: { length
 scene.add(oak, pine, birch, tallPine);
 ```
 
+## Species
+
+[![All 28 Species, each in the low-poly, stylized and realistic Styles](docs/species/contact-sheet.jpg)](docs/species/README.md)
+
+*Every Species in `low-poly`, `stylized` and `realistic`; the [Species gallery](docs/species/README.md) has larger
+images (with Fruit or in autumn), a code example and the JSON of each.*
+
+28 real trees ship with the library, each described once by its shape (Stems, Crown Shape), Leaf Type, Bark
+Type, Fruit, colours and Season Profile, and drawn in any Style:
+
+```ts
+import { createTree, loadStyle } from '@casmo/tree.js';
+import { oak } from '@casmo/tree.js/species';
+scene.add(createTree((await loadStyle('realistic')).apply(oak), { seed: 42 }));
+```
+
+- **Broadleaf**: `almond`, `apple`, `ash`, `beech`, `birch`, `cherry`, `chestnut`, `elm`, `hickory`, `mahogany`, `maple`, `oak`, `olive`, `peach`, `pear`, `plum`, `redOak`, `teak`, `walnut`, `whiteOak`
+- **Conifer**: `cedar`, `douglasFir`, `hemlock`, `juniper`, `pine`, `redwood`, `sequoia`, `spruce`
+
+`style.apply(species, overrides?)` returns an ordinary, complete Tree Definition, so it works everywhere a
+Definition does (`createTree`, `createForest`, Baked Trees, the Tree Editor). Each Species is its own module:
+importing two doesn't bundle the other 26.
+
+```ts
+import { createForest, createTree } from '@casmo/tree.js';
+import { apple, douglasFir, loadSpecies, SPECIES_NAMES, type SpeciesName } from '@casmo/tree.js/species';
+import lowPoly from '@casmo/tree.js/styles/low-poly';
+import stylized from '@casmo/tree.js/styles/stylized';
+
+const tallFir = createTree(stylized.apply(douglasFir, { trunk: { length: 14 } }), { seed: 3 });
+const orchard = createForest(lowPoly.apply(apple), [
+  { id: 'a', position: [0, 0, 0] },
+  { id: 'b', position: [5, 0, 1] },
+]);
+
+// At runtime, e.g. from level data: a dynamic import per Species (rejects unknown ids).
+const name: SpeciesName = SPECIES_NAMES.includes('birch') ? 'birch' : 'oak';
+const birch = createTree(lowPoly.apply(await loadSpecies(name)), { season: 0.6 });
+scene.add(tallFir, orchard, birch);
+```
+
+`SPECIES_BY_NAME` maps every id to its Species (for a picker that lists them all; it bundles all 28).
+Without a bundler, every Species is also a plain JSON file: `@casmo/tree.js/species/<id>.json` (for example
+`https://cdn.jsdelivr.net/npm/@casmo/tree.js/dist/species/douglas-fir.json`). In React:
+`<Tree species={oak} style={lowPoly} seed={7} />`. Try them all in [`examples/species`](examples/species/main.ts).
+
 ## Tree Definitions and Seeds
 
 ![Five birches grown from the same Tree Definition with Seeds 1 to 5](docs/images/seeds.png)
@@ -146,8 +194,7 @@ always give exactly the same tree.
 import { createTree, fetchDefinition, parseDefinition, TreeDefinitionError, type TreeDefinitionInput } from '@casmo/tree.js';
 
 const birch: TreeDefinitionInput = {
-  schemaVersion: 2,
-  form: 'broadleaf',
+  schemaVersion: 3,
   trunk: { length: 6, radius: 0.15 },
   branches: [
     { count: 6, angle: 45 },
@@ -162,13 +209,46 @@ const fromEditor = await fetchDefinition('/trees/my-oak.json'); // a Tree Editor
 const tree = createTree(fromEditor, { seed: 7 });
 
 try {
-  parseDefinition('{"schemaVersion": 2, "trunk": {"length": -1}}');
+  parseDefinition('{"schemaVersion": 3, "trunk": {"length": -1}}');
 } catch (error) {
   if (error instanceof TreeDefinitionError) console.warn(error.field, error.message); // 'trunk.length'
 }
 ```
 
-Older Definitions (lower `schemaVersion`) are migrated when parsed. `extendDefinition(base, patch)`
+Each branch level can carry a **Crown Shape**: optional `lengthProfile` and `angleProfile` keyframe
+curves over where a branch sits on its parent (0 = base .. 1 = tip) that multiply the level's `length`
+and `angle` (linear between keyframes, flat = 1 when absent). A cone is
+`lengthProfile: [{ t: 0.2, value: 1 }, { t: 1, value: 0.1 }]` on the first level; a ball, column, vase
+or flat top are other curves.
+
+A tree can grow several **Stems** from the ground: `trunk: { stems: 3, spread: 20 }` stands three full
+trunks (each with the whole branch structure) in a small ring, leaning out about 20° from vertical (the
+Seed varies each lean). `trunk.gravity` (−1..1) bends only the leader, the top third of each Stem: −1 makes
+it nod like a hemlock's. Absent, a tree has one upright Stem without gravity.
+
+**Fruit** is an optional `fruit` block: `type` (`'round'`, `'pear'`, `'nut'`, `'cone'` or `'berry'`),
+`count` per outermost twig, `size`, `sizeVariation` and `hang` (0 = sits on the twig .. 1 = hangs
+straight down). A fractional `count` is a chance per twig: `0.3` puts one Fruit on about 30% of the
+twigs, `1.5` one on every twig and a second on about half (the Seed picks which). The optional `sides`
+(3..16) is its polygon detail, set by `Style.apply`: low-poly draws a few flat facets (5 or fewer sides
+also coarsen the profile), stylized and realistic smoother shapes; absent = each Fruit Type's own detail.
+It is drawn in its own mesh in the Definition's shading, only on a fully grown tree, and sways with its twig:
+
+```ts
+import { createTree } from '@casmo/tree.js';
+
+const apple = createTree({
+  schemaVersion: 3,
+  fruit: { type: 'round', count: 2, size: 0.1, hang: 0.8 },
+  season: {
+    fruit: [{ t: 0.1, value: 0 }, { t: 0.35, value: 1 }, { t: 0.6, value: 1 }, { t: 0.7, value: 0 }],
+    fruitColor: [{ t: 0.25, value: '#7cb342' }, { t: 0.5, value: '#c62828' }],
+  },
+});
+```
+
+Older Definitions (lower `schemaVersion`) are migrated when parsed (a v2 `form: 'conifer'` becomes the
+equivalent cone `lengthProfile`, so the tree stays identical). `extendDefinition(base, patch)`
 deep-merges a patch (arrays replace) and validates the result. Sculpts (hand edits made in the Tree Editor)
 belong to one Seed: they only change the tree of that Seed.
 
@@ -184,7 +264,7 @@ Both only write a uniform, so they are cheap to animate every frame:
 ```ts
 import { createTree, SEASON_PROFILES } from '@casmo/tree.js';
 
-const tree = createTree({ schemaVersion: 2, season: SEASON_PROFILES.deciduous }, { seed: 5, growth: 0, season: 0 });
+const tree = createTree({ schemaVersion: 3, season: SEASON_PROFILES.deciduous }, { seed: 5, growth: 0, season: 0 });
 scene.add(tree);
 
 renderer.setAnimationLoop((time) => {
@@ -197,7 +277,8 @@ renderer.setAnimationLoop((time) => {
 Each tree's Seed shifts its timing a little (`variation.growth`, `variation.season`), so trees of one
 Definition don't change in lockstep. `SEASON_PROFILES.deciduous` and `.evergreen` are ready-made Season
 Profiles; write your own as keyframes in the Definition's `season` (`leafColor`, `leafCoverage`,
-`blossom`, `blossomColor`).
+`blossom`, `blossomColor`, and for Fruit `fruit` (amount: each Fruit shows above its own rank and swells
+with the amount; 1 all year when absent) and `fruitColor` (ripening)).
 
 ## Wind
 
@@ -211,11 +292,11 @@ unless you give it another `Wind`. All of it is uniforms, so changing the wind i
 import { createTree, sceneWind, Wind } from '@casmo/tree.js';
 
 sceneWind.set({ direction: [1, 0, -0.4], strength: 0.6 }); // 0 = calm (default), 1 = strong
-const swaying = createTree({ schemaVersion: 2, wind: { trunk: 0.4, branches: 0.8, leaves: 1 } }, { seed: 1 });
+const swaying = createTree({ schemaVersion: 3, wind: { trunk: 0.4, branches: 0.8, leaves: 1 } }, { seed: 1 });
 
 // A separate wind, e.g. for a sheltered courtyard:
 const breeze = new Wind({ direction: [0, 0, 1], strength: 0.2 });
-const sheltered = createTree({ schemaVersion: 2 }, { seed: 2, wind: breeze });
+const sheltered = createTree({ schemaVersion: 3 }, { seed: 2, wind: breeze });
 
 swaying.windResponse.set({ leaves: 0.5 }); // change one tree's response live
 sceneWind.time = 1.5; // pin the wind clock (seconds), e.g. for screenshots; null = the renderer's clock
@@ -231,7 +312,8 @@ A swaying tree needs a render loop (`renderer.setAnimationLoop`).
 *400 trees from 4 Variants, with a per-tree Season (autumn towards the right).*
 
 A Forest draws many trees of one Definition from a few Variants (Seeds), each instanced, so 1,000 trees
-cost two draw calls per Variant. Every tree still looks its own: its Variant, rotation, Growth delay,
+cost two draw calls per Variant (three with Fruit: `variant.fruit` is a third instanced mesh, null without
+Fruit). Every tree still looks its own: its Variant, rotation, Growth delay,
 Season shift and wind phase come from a hash of the forest seed and the tree's id (or position), so adding
 or removing trees never changes the others.
 
@@ -269,7 +351,7 @@ if (hit) console.log(forest.treeAt(hit)?.key);
 
 `@casmo/tree.js/effects` has opt-in post-processing (TSL nodes for three.js `RenderPipeline`) that only
 changes the pixels of trees: an **outline**, a **leaf glow** and **colour grading**. Trees look fine
-without them. Every tree.js material (Trees and Forests) is found automatically (a per-object tree mask in
+without them. Every tree.js material (wood, leaves and Fruit, of Trees and Forests) is found automatically (a per-object tree mask in
 an MRT output), so no tree has to be registered.
 
 ```ts
@@ -320,7 +402,7 @@ function Trees() {
     <>
       <Tree style={lowPoly} form="broadleaf" seed={1} growth={0.8} season={0.4} />
       <Tree style="low-poly" form="conifer" seed={2} position={[3, 0, 0]} castShadow={false} />
-      <Tree definition={{ schemaVersion: 2, leaves: { count: 4 } }} seed={7} position={[-3, 0, 0]} />
+      <Tree definition={{ schemaVersion: 3, leaves: { count: 4 } }} seed={7} position={[-3, 0, 0]} />
       <Forest
         style={lowPoly}
         form="conifer"
@@ -408,12 +490,13 @@ Styles and the realistic textures load relative to the library's URL, so they co
 *A `.glb` from `exportBakedTree(tree, { season: 0.6 })`, loaded back with three.js' `GLTFLoader`.*
 
 A Baked Tree is a static copy of one tree at a fixed Growth and Season (no Growth, Season or Wind left), with
-classic `MeshStandardMaterial`s, for other engines or tools:
+classic `MeshStandardMaterial`s, for other engines or tools. It has meshes `wood`, `leaves` and, when Fruit
+shows at the baked Growth and Season, `fruit`:
 
 ```ts
 import { bakeTree, createTree, disposeBakedTree, exportBakedTree } from '@casmo/tree.js';
 
-const tree = createTree({ schemaVersion: 2 }, { seed: 4 });
+const tree = createTree({ schemaVersion: 3 }, { seed: 4 });
 const glb = await exportBakedTree(tree, { growth: 1, season: 0.6 }); // ArrayBuffer (.glb); binary: false = glTF JSON
 const url = URL.createObjectURL(new Blob([glb], { type: 'model/gltf-binary' }));
 
@@ -428,7 +511,11 @@ disposeBakedTree(baked);
 
 Definitions with textures (the realistic Style, or your own `materials.bark.map` / `materials.leaf.map`
 URLs) load them relative to the package's `dist/textures/` by default. To serve them yourself, copy that
-folder and point tree.js at it, app-wide or per tree:
+folder and point tree.js at it, app-wide or per tree. `realistic.apply` picks a leaf card per Leaf Type
+(`realistic/leaf.png`, `leaf-lobed.png`, `leaf-palmate.png`, `leaf-compound.png`, `needles.png`,
+`scale.png`) and a colour + normal pair per Bark Type (`realistic/bark.png` for furrowed, `bark-smooth.png`,
+`bark-papery.png`, `bark-fibrous.png`, `bark-plated.png`, each with its `-normal.png`); all are made by
+`scripts/generate-textures.mjs` (MIT, reproducible):
 
 ```ts
 import { createTree, setTextureOptions } from '@casmo/tree.js';
@@ -461,6 +548,7 @@ a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branche
 | [`examples/react`](examples/react/main.tsx) | `/examples/react/` | React Three Fiber: `<Tree>`, `<Wind>`, `useTreeStyle`; `?scene=forest` for `<Forest>` | <img src="docs/images/example-react.png" alt="examples/react" width="160"> |
 | [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
 | [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` | <img src="docs/images/example-effects.png" alt="examples/effects" width="160"> |
+| [`examples/species`](examples/species/main.ts) | `/examples/species/` | a Species x Style picker over the whole collection; `?species=douglas-fir&style=realistic` | <img src="docs/images/example-species.png" alt="examples/species" width="160"> |
 
 ```sh
 npm install
@@ -477,6 +565,8 @@ sources too; the e2e test serves it unmodified, with the import map answered by 
 
 `npm test` (Vitest), `npm run typecheck`, `npm run lint`, `npm run build` (library -> `dist/`),
 `npm run test:e2e` (Playwright; run `npm run build` and `npm run build:examples` first, as CI does).
+The Species gallery (`docs/species/`: images, contact sheet and page) is regenerated by `npm run gallery`
+(Playwright, the e2e renderer; `npm run gallery -- oak birch` redoes only those Species).
 The README's screenshots and GIFs (`docs/images/`) are rendered by `npm run readme-media`
 (Playwright + ffmpeg; run `npm run build` first; `npm run readme-media -- wind hero` redoes only those).
 Design decisions live in [`docs/adr`](docs/adr), the vocabulary in [`GLOSSARY.md`](GLOSSARY.md).

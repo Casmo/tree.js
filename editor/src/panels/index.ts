@@ -2,6 +2,7 @@
 import { branchesPanel } from './branches-panel';
 import { effectsPanel } from './effects-panel';
 import { exportPanel } from './export-panel';
+import { fruitPanel } from './fruit-panel';
 import { leavesPanel, materialsPanel, treePanel, trunkPanel, variationPanel } from './parameter-panels';
 import { previewPanel } from './preview-panel';
 import { sculptPanel } from './sculpt-panel';
@@ -21,6 +22,7 @@ export const PANELS: Panel[] = [
   trunkPanel,
   branchesPanel,
   leavesPanel,
+  fruitPanel,
   materialsPanel,
   seasonPanel,
   windPanel,

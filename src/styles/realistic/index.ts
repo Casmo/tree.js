@@ -1,19 +1,16 @@
 // @casmo/tree.js/styles/realistic: smooth PBR shading, textured bark and alpha-cut leaf cards.
-// Pure data (no library code beyond shared constants), so it stays a tiny chunk fetched only when imported.
+// Pure data plus `apply` (shared with the other Styles), fetched only when imported.
 // The textures are separate files (dist/textures/realistic/*.png, made by scripts/generate-textures.mjs),
 // referenced by relative URLs that resolve against the texture base path (`setTextureOptions`,
 // or `createTree(definition, { textures: { basePath } })`), so an app can host them on its own CDN.
+import { coneCurve } from '../../definition/crown-shape';
 import { CURRENT_SCHEMA_VERSION, type TreeDefinition } from '../../definition/types';
 import { SEASON_PROFILES } from '../../season/profiles';
+import { applyStyle } from '../apply';
 import type { TreeStyle } from '../types';
+import { BARK_TEXTURES, LEAF_TEXTURES, TEXTURES } from './textures';
 
-/** The realistic Style's texture files, as relative URLs (resolved against the texture base path). */
-export const TEXTURES = {
-  bark: 'realistic/bark.png',
-  barkNormal: 'realistic/bark-normal.png',
-  leaf: 'realistic/leaf.png',
-  needles: 'realistic/needles.png',
-} as const;
+export { BARK_TEXTURES, LEAF_TEXTURES, TEXTURES };
 
 /**
  * Realistic broadleaf: a tall, slightly leaning trunk with three branching levels and many
@@ -22,7 +19,6 @@ export const TEXTURES = {
 export const broadleaf: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: 'Realistic broadleaf',
-  form: 'broadleaf',
   trunk: { length: 5, radius: 0.28, taper: 0.35, sides: 12, sections: 10, lengthVariation: 0.15, bend: 0.1 },
   branches: [
     { count: 8, start: 0.4, end: 0.95, angle: 48, angleVariation: 0.2, spiral: 137.5, length: 0.5, lengthVariation: 0.2, radius: 0.5, taper: 0.5, sides: 8, sections: 6, bend: 0.15, gravity: 0.05 },
@@ -43,15 +39,16 @@ export const broadleaf: TreeDefinition = {
 
 /**
  * Realistic conifer: a straight trunk with dense, drooping whorls that shrink towards the top
- * (the conifer Form), covered in needle-spray cards. Evergreen Season Profile.
+ * (a cone Crown Shape), covered in needle-spray cards. Evergreen Season Profile.
  */
 export const conifer: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: 'Realistic conifer',
-  form: 'conifer',
   trunk: { length: 7, radius: 0.24, taper: 0.08, sides: 10, sections: 10, lengthVariation: 0.12, bend: 0.03 },
   branches: [
-    { count: 34, start: 0.12, end: 0.97, angle: 88, angleVariation: 0.1, spiral: 137.5, length: 0.38, lengthVariation: 0.15, radius: 0.22, taper: 0.25, sides: 5, sections: 4, bend: 0.08, gravity: 0.12 },
+    { count: 34, start: 0.12, end: 0.97, angle: 88, angleVariation: 0.1, spiral: 137.5, length: 0.38, lengthVariation: 0.15, radius: 0.22, taper: 0.25, sides: 5, sections: 4, bend: 0.08, gravity: 0.12,
+      // Crown Shape: a cone, full length at the lowest whorl, a tenth of it at the top.
+      lengthProfile: coneCurve(0.12) },
     { count: 6, start: 0.15, end: 1, angle: 55, angleVariation: 0.2, spiral: 180, length: 0.45, lengthVariation: 0.2, radius: 0.5, taper: 0.4, sides: 3, sections: 2, bend: 0.05, gravity: 0.1 },
   ],
   leaves: { count: 8, shape: 'card', size: 0.8, sizeVariation: 0.2, start: 0, angle: 35 },
@@ -67,5 +64,5 @@ export const conifer: TreeDefinition = {
 };
 
 /** The realistic Style. */
-const realistic: TreeStyle = { name: 'realistic', broadleaf, conifer };
+const realistic: TreeStyle = { name: 'realistic', broadleaf, conifer, apply: (source, overrides) => applyStyle('realistic', source, overrides) };
 export default realistic;

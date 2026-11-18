@@ -6,7 +6,10 @@
 //   ?growth=<0..1>  Growth (default 1, fully grown); only a uniform changes
 //   ?season=<0..1>  Season (default 0.37, summer)
 //   ?form=conifer  an evergreen conifer instead of the deciduous broadleaf
+//   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (sets in late spring, ripens green -> red, drops in autumn)
 //   ?style=low-poly|stylized|realistic  grow that built-in Style's Definition for the form (loaded with a dynamic import)
+//   ?species=<id>  grow that Species (loadSpecies, e.g. oak) in the ?style (default low-poly)
+//   ?leafType=<Leaf Type>&barkType=<Bark Type>  re-apply the Style with this Leaf / Bark Type (e.g. palmate, papery)
 //   ?textureBase=<url>  load relative texture URLs (the realistic Style's) from this base path / CDN
 //   ?barkMap=<url>&leafMap=<url>  use these textures instead of the Definition's (custom textures)
 //   ?wind=<strength>  scene-wide Wind strength (default 0 = calm); animates unless windTime is given
@@ -16,14 +19,18 @@ import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
 import {
   createTree,
+  type BarkType,
+  type LeafType,
   extendDefinition,
   sceneWind,
   SEASON_PROFILES,
   setTextureOptions,
+  type FruitType,
   type TreeDefinition,
   type TreeDefinitionInput,
   type TreeStyle,
 } from '@casmo/tree.js';
+import { loadSpecies, type SpeciesName } from '@casmo/tree.js/species';
 
 // Built-in Styles are separate chunks, fetched only when asked for.
 const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
@@ -40,6 +47,8 @@ declare global {
       error?: string;
       /** id of the leaf BufferGeometry, to check that Season does not regenerate. */
       leafGeometryId?: number;
+      /** Vertex count of the tree's fruit mesh (0 without Fruit). */
+      fruitVertices?: number;
       /** Sets `tree.season` and re-renders (status goes 'loading' -> 'rendered'). */
       setSeason?: (season: number) => void;
     };
@@ -94,24 +103,52 @@ const broadleaf: TreeDefinitionInput = {
 };
 // Conifer: a tall trunk with many short, near-horizontal branches and the evergreen Season Profile.
 const conifer: TreeDefinitionInput = {
-  schemaVersion: 2,
-  form: 'conifer',
+  schemaVersion: 3,
   trunk: { length: 6, radius: 0.18, taper: 0.9 },
   branches: [
-    { count: 22, start: 0.15, end: 0.95, angle: 80, length: 0.28, gravity: -0.3 },
+    {
+      count: 22, start: 0.15, end: 0.95, angle: 80, length: 0.28, gravity: -0.3,
+      // Crown Shape: a cone (full length at the lowest branches, a tenth at the top).
+      lengthProfile: [{ t: 0.15, value: 1 }, { t: 0.915, value: 0.1 }, { t: 1, value: 0.1 }],
+    },
     { count: 3, start: 0.2, angle: 45, length: 0.4, sides: 3, sections: 2 },
   ],
   leaves: { count: 8, size: 0.3 },
   season: SEASON_PROFILES.evergreen,
 };
+/** `?fruit=<type>`: Fruit on the outermost twigs, with Season tracks for setting, ripening and dropping. */
+function withFruit(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
+  const type = params.get('fruit') as FruitType | null;
+  if (!type) return definition;
+  return extendDefinition(definition, {
+    fruit: { type, count: 2, size: 0.22, hang: type === 'cone' ? 0.2 : 0.8 },
+    season: {
+      fruit: [{ t: 0.12, value: 0 }, { t: 0.32, value: 1 }, { t: 0.62, value: 1 }, { t: 0.7, value: 0 }],
+      fruitColor: [{ t: 0.25, value: '#7cb342' }, { t: 0.5, value: '#c62828' }],
+    },
+  });
+}
+
 const form = params.get('form') === 'conifer' ? 'conifer' : 'broadleaf';
 
 async function loadDefinition(): Promise<TreeDefinitionInput | TreeDefinition> {
-  const styleName = params.get('style');
+  const speciesName = params.get('species');
+  const styleName = params.get('style') ?? (speciesName ? 'low-poly' : null);
   if (!styleName) return form === 'conifer' ? conifer : broadleaf;
   const load = styles[styleName];
   if (!load) throw new Error(`Unknown style "${styleName}"`);
-  return (await load()).default[form];
+  const style = (await load()).default;
+  if (speciesName) return style.apply(await loadSpecies(speciesName as SpeciesName));
+  const leafType = params.get('leafType') as LeafType | null;
+  const barkType = params.get('barkType') as BarkType | null;
+  if (!leafType && !barkType) return style[form];
+  // The Style draws the Leaf / Bark Type its own way (for realistic: their textures).
+  return style.apply(
+    extendDefinition(style[form], {
+      ...(leafType ? { leaves: { type: leafType } } : {}),
+      ...(barkType ? { materials: { bark: { type: barkType } } } : {}),
+    }),
+  );
 }
 
 /** Points the camera at the whole tree (Style trees differ in size). */
@@ -141,10 +178,10 @@ function withCustomTextures(definition: TreeDefinitionInput | TreeDefinition): T
 async function main(): Promise<void> {
   const textureBase = params.get('textureBase');
   if (textureBase) setTextureOptions({ basePath: textureBase });
-  const tree = createTree(withCustomTextures(await loadDefinition()), { seed, growth, season });
+  const tree = createTree(withFruit(withCustomTextures(await loadDefinition())), { seed, growth, season });
   await tree.ready; // textures (realistic Style, custom maps) are loaded before the first frame
   scene.add(tree);
-  if (params.get('style')) frame(tree);
+  if (params.get('style') || params.get('species')) frame(tree);
 
   if (params.get('renderer') === 'classic') {
     // A classic-renderer app uses classic materials; only the tree brings TSL node materials.
@@ -179,7 +216,8 @@ async function main(): Promise<void> {
     tree.season = value; // a uniform update: no regeneration
     void renderer.renderAsync(scene, camera).then(() => (window.treeExample.status = 'rendered'));
   };
-  window.treeExample = { status: 'rendered', backend, leafGeometryId, setSeason };
+  const fruitVertices = tree.fruit.geometry.getAttribute('position').count;
+  window.treeExample = { status: 'rendered', backend, leafGeometryId, fruitVertices, setSeason };
   // A swaying tree needs a render loop; with a pinned Wind clock one frame is enough.
   if (windStrength > 0 && windTime === null) renderer.setAnimationLoop(() => renderer.render(scene, camera));
 }

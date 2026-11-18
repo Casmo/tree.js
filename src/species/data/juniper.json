@@ -1,0 +1,145 @@
+{
+  "id": "juniper",
+  "name": "Juniper",
+  "form": "conifer",
+  "trunk": {
+    "length": 3.4,
+    "radius": 0.15,
+    "taper": 0.4,
+    "lengthVariation": 0.15,
+    "bend": 0.25,
+    "stems": 3,
+    "spread": 22
+  },
+  "branches": [
+    {
+      "angleVariation": 0.2,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.4,
+      "bend": 0.2,
+      "gravity": 0.05,
+      "lengthProfile": [
+        {
+          "t": 0.2,
+          "value": 1.0
+        },
+        {
+          "t": 0.7,
+          "value": 0.85
+        },
+        {
+          "t": 1.0,
+          "value": 0.45
+        }
+      ],
+      "count": 6,
+      "start": 0.2,
+      "end": 0.95,
+      "angle": 48,
+      "length": 0.45,
+      "radius": 0.5
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.4,
+      "bend": 0.15,
+      "gravity": 0.1,
+      "count": 3,
+      "start": 0.25,
+      "end": 1,
+      "angle": 45,
+      "length": 0.5,
+      "radius": 0.5
+    }
+  ],
+  "foliage": {
+    "type": "scale",
+    "density": 0.18,
+    "size": 0.7,
+    "sizeVariation": 0.25,
+    "start": 0.1,
+    "angle": 45
+  },
+  "bark": {
+    "type": "fibrous",
+    "color": "#9a8a7a"
+  },
+  "fruit": {
+    "type": "berry",
+    "count": 0.35,
+    "size": 0.1,
+    "sizeVariation": 0.2,
+    "hang": 0.3
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#6a8f62"
+      },
+      {
+        "t": 0.25,
+        "value": "#4f7558"
+      },
+      {
+        "t": 0.55,
+        "value": "#4f7558"
+      },
+      {
+        "t": 0.75,
+        "value": "#4a654e"
+      },
+      {
+        "t": 0.92,
+        "value": "#4a654e"
+      },
+      {
+        "t": 1,
+        "value": "#6a8f62"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 1
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#c9b46a",
+    "fruit": [
+      {
+        "t": 0,
+        "value": 1
+      }
+    ],
+    "fruitColor": [
+      {
+        "t": 0.15,
+        "value": "#7f9a5a"
+      },
+      {
+        "t": 0.6,
+        "value": "#4f5f8f"
+      }
+    ]
+  },
+  "wind": {
+    "trunk": 0.05,
+    "branches": 0.3,
+    "leaves": 0.4,
+    "frequency": 0.9
+  },
+  "variation": {
+    "color": 0.08,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}

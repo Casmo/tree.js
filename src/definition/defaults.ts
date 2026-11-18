@@ -1,4 +1,11 @@
-import { CURRENT_SCHEMA_VERSION, type BranchLevelDefinition, type TreeDefinition } from './types';
+import {
+  CURRENT_SCHEMA_VERSION,
+  type BranchLevelDefinition,
+  type FruitDefinition,
+  type HexColor,
+  type Keyframe,
+  type TreeDefinition,
+} from './types';
 
 /** Defaults for one branching level; fills fields missing from a partial `branches[i]`. */
 export const DEFAULT_BRANCH_LEVEL: BranchLevelDefinition = {
@@ -18,6 +25,21 @@ export const DEFAULT_BRANCH_LEVEL: BranchLevelDefinition = {
   gravity: 0.1,
 };
 
+/** Defaults for the fields of a `fruit` block (a Definition has no Fruit unless it has the block). */
+export const DEFAULT_FRUIT: FruitDefinition = {
+  type: 'round',
+  count: 2,
+  size: 0.12,
+  sizeVariation: 0.2,
+  hang: 0.7,
+};
+
+/** Fruit amount when the Season Profile has no `fruit` track: all Fruit at full size all year. */
+export const DEFAULT_FRUIT_AMOUNT: Keyframe<number>[] = [{ t: 0, value: 1 }];
+
+/** Fruit colour when the Season Profile has no `fruitColor` track. */
+export const DEFAULT_FRUIT_COLOR: Keyframe<HexColor>[] = [{ t: 0, value: '#b8322a' }];
+
 /**
  * The documented defaults: a small broadleaf tree with two branching levels.
  * Anything a Definition leaves out is taken from here.
@@ -25,7 +47,6 @@ export const DEFAULT_BRANCH_LEVEL: BranchLevelDefinition = {
 export const DEFAULT_DEFINITION: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: '',
-  form: 'broadleaf',
   trunk: {
     length: 4,
     radius: 0.25,

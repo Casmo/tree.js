@@ -86,6 +86,21 @@ describe('bakeTree: Growth and Season', () => {
     tree.dispose();
   });
 
+  it('bakes every Stem of a multi-Stem tree, at full size and as a young tree', () => {
+    const tree = createTree(extendDefinition(lowPoly.broadleaf, { trunk: { stems: 3, spread: 25 } }), { seed: 2 });
+    const wide = (geometry: BufferGeometry) => {
+      const box = new Box3().setFromBufferAttribute(geometry.getAttribute('position') as never);
+      return Math.min(box.max.x - box.min.x, box.max.z - box.min.z);
+    };
+    const full = bakeTree(tree, { growth: 1 }).getObjectByName('wood') as Mesh;
+    const sapling = bakeTree(tree, { growth: 0 }).getObjectByName('wood') as Mesh;
+    tree.wood.geometry.computeBoundingBox();
+    expect(size(full.geometry)).toBeCloseTo(tree.wood.geometry.boundingBox!.max.y, 5);
+    // Even a sapling is all its Stems (only the branches wait to sprout): wider than one thin trunk.
+    expect(wide(sapling.geometry)).toBeGreaterThan(size(sapling.geometry) * 0.2);
+    tree.dispose();
+  });
+
   it('defaults to the tree\'s own Growth and Season', () => {
     const tree = createTree(lowPoly.broadleaf, { seed: 2, growth: 0.3 });
     const wood = bakeTree(tree).getObjectByName('wood') as Mesh;
@@ -113,6 +128,81 @@ describe('bakeTree: Growth and Season', () => {
     for (const v of [0, Math.floor(color.count / 2), color.count - 1]) {
       expect([color.getX(v), color.getY(v), color.getZ(v)].map((c) => +c.toFixed(5))).toEqual(summer.map((c) => +c.toFixed(5)));
     }
+    tree.dispose();
+  });
+});
+
+describe('bakeTree: Fruit', () => {
+  // Fruit sets at 0.2, is full size 0.4..0.6, gone from 0.7; green until 0.3, red from 0.6.
+  const definition = extendDefinition(lowPoly.broadleaf, {
+    fruit: { type: 'round', count: 2, size: 0.2 },
+    variation: { season: 0, color: 0 },
+    season: {
+      fruit: [
+        { t: 0.2, value: 0 },
+        { t: 0.4, value: 1 },
+        { t: 0.6, value: 1 },
+        { t: 0.7, value: 0 },
+      ],
+      fruitColor: [
+        { t: 0.3, value: '#00ff00' },
+        { t: 0.6, value: '#ff0000' },
+      ],
+    },
+  });
+  const extent = (mesh: Mesh) => new Box3().setFromObject(mesh);
+
+  it('exports a fruit mesh at the baked Growth and Season when the tree has Fruit', async () => {
+    const tree = createTree(definition, { seed: 2 });
+    const baked = bakeTree(tree, { season: 0.5 });
+    expect(baked.children.map((c) => c.name)).toEqual(['wood', 'leaves', 'fruit']);
+    const fruit = baked.getObjectByName('fruit') as Mesh;
+    expect(fruit.material).toBeInstanceOf(MeshStandardMaterial);
+    expect((fruit.material as MeshStandardMaterial).name).toBe('fruit');
+    expect(Object.keys(fruit.geometry.attributes).filter((n) => n.startsWith('a'))).toEqual([]);
+
+    const gltf = (await exportBakedTree(tree, { season: 0.5, binary: false })) as { nodes: { name: string }[]; materials: { name: string }[] };
+    expect(gltf.nodes.map((n) => n.name)).toContain('fruit');
+    expect(gltf.materials.map((m) => m.name).sort()).toEqual(['bark', 'fruit', 'leaves']);
+    const glb = await exportBakedTree(tree, { season: 0.5 });
+    expect((await validate(glb)).numErrors).toBe(0);
+    tree.dispose();
+  });
+
+  it('has no fruit mesh without Fruit, or out of the Fruit season', async () => {
+    const plain = createTree(lowPoly.broadleaf, { seed: 2 });
+    expect(bakeTree(plain, { season: 0.5 }).getObjectByName('fruit')).toBeUndefined();
+    const gltf = (await exportBakedTree(plain, { season: 0.5, binary: false })) as { nodes: { name: string }[] };
+    expect(gltf.nodes.map((n) => n.name)).not.toContain('fruit');
+    plain.dispose();
+
+    const tree = createTree(definition, { seed: 2 });
+    expect(bakeTree(tree, { season: 0.1 }).getObjectByName('fruit')).toBeUndefined(); // not set yet
+    expect(bakeTree(tree, { season: 0.8 }).getObjectByName('fruit')).toBeUndefined(); // dropped
+    tree.dispose();
+  });
+
+  it('colours Fruit with the Fruit colour track and swells it with the Fruit amount', () => {
+    const tree = createTree(definition, { seed: 2 });
+    const ripe = bakeTree(tree, { season: 0.6 }).getObjectByName('fruit') as Mesh;
+    const color = ripe.geometry.getAttribute('color');
+    for (const v of [0, color.count - 1]) {
+      expect([color.getX(v), color.getY(v), color.getZ(v)].map((c) => +c.toFixed(4))).toEqual([1, 0, 0]);
+    }
+    // At 0.3 the amount is 0.5: Fruit whose rank is below it shows at half size.
+    const young = bakeTree(tree, { season: 0.3 }).getObjectByName('fruit') as Mesh;
+    expect(young.geometry.getAttribute('position').count).toBeLessThan(ripe.geometry.getAttribute('position').count);
+    const full = bakeTree(tree, { season: 0.5 }).getObjectByName('fruit') as Mesh;
+    expect(full.geometry.getAttribute('position').count).toBe(ripe.geometry.getAttribute('position').count);
+    tree.dispose();
+  });
+
+  it('bakes Fruit at the baked Growth: a sapling has none, a grown tree all of them', () => {
+    const tree = createTree(definition, { seed: 2 });
+    expect(bakeTree(tree, { season: 0.5, growth: 0.2 }).getObjectByName('fruit')).toBeUndefined();
+    const grown = bakeTree(tree, { season: 0.5 }).getObjectByName('fruit') as Mesh;
+    tree.fruit.geometry.computeBoundingBox();
+    expect(extent(grown).max.y).toBeCloseTo(tree.fruit.geometry.boundingBox!.max.y, 4);
     tree.dispose();
   });
 });

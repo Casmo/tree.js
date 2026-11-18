@@ -85,3 +85,52 @@ test('Tree Effects compose with a hand-built pipeline and the user\'s own effect
   expect(result.treeChanged).toBeGreaterThan(300);
   await expect(page.locator('canvas')).toHaveScreenshot('stylized-custom-pipeline-webgpu.png');
 });
+
+test('the tree mask and the outline cover Fruit', async ({ page }) => {
+  const base = 'style=low-poly&fruit=round';
+  const plainMask = await shot(page, 'style=low-poly&view=mask');
+  const fruitMask = await shot(page, `${base}&view=mask`);
+  await expect(page.locator('canvas')).toHaveScreenshot('low-poly-fruit-mask-webgpu.png');
+  // Fruit hanging outside the canopy adds tree pixels to the mask.
+  const added = await compare(page, plainMask, fruitMask, fruitMask);
+  expect(added.treeChanged, 'Fruit pixels are tree pixels in the mask').toBeGreaterThan(200);
+
+  const none = await shot(page, `${base}&effects=none`);
+  const outlined = await shot(page, `${base}&effects=outline`);
+  const result = await compare(page, none, outlined, fruitMask);
+  expect(result, 'outline: only tree pixels (Fruit included) change').toMatchObject({ otherChanged: 0 });
+  // The outline runs along the Fruit too: pixels that are Fruit only (not in the plain tree's mask) change.
+  const onFruit = await compare(page, none, outlined, await onlyIn(page, fruitMask, plainMask));
+  expect(onFruit.treeChanged, 'outline on Fruit').toBeGreaterThan(50);
+  await expect(page.locator('canvas')).toHaveScreenshot('low-poly-fruit-outline-webgpu.png');
+});
+
+/** A mask image (PNG) of the pixels that are tree in `a` but not in `b`. */
+async function onlyIn(page: Page, a: Buffer, b: Buffer): Promise<Buffer> {
+  const base64 = await page.evaluate(
+    async ([pa, pb]) => {
+      const decode = async (base64: string) => {
+        const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${base64}`)).blob());
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+        const context = canvas.getContext('2d')!;
+        context.drawImage(bitmap, 0, 0);
+        return context.getImageData(0, 0, bitmap.width, bitmap.height);
+      };
+      const [ia, ib] = await Promise.all([decode(pa), decode(pb)]);
+      const out = new ImageData(ia.width, ia.height);
+      for (let i = 0; i < out.data.length; i += 4) {
+        out.data[i] = ia.data[i]! > 127 && ib.data[i]! <= 127 ? 255 : 0;
+        out.data[i + 3] = 255;
+      }
+      const canvas = new OffscreenCanvas(out.width, out.height);
+      canvas.getContext('2d')!.putImageData(out, 0, 0);
+      const blob = await canvas.convertToBlob({ type: 'image/png' });
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      let binary = '';
+      for (const byte of bytes) binary += String.fromCharCode(byte);
+      return btoa(binary);
+    },
+    [a.toString('base64'), b.toString('base64')] as const,
+  );
+  return Buffer.from(base64, 'base64');
+}

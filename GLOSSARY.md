@@ -13,12 +13,40 @@ A number that, combined with a Tree Definition, picks one specific individual tr
 _Avoid_: Random, variation id
 
 **Style**:
-A visual look shipped with the library, such as low-poly, stylized or realistic, provided as one ready-made Tree Definition per Form.
+A visual look shipped with the library, such as low-poly, stylized or realistic, that can be applied to any Species: it sets how the tree is drawn (shading, leaf shape, textures, level of detail), not what shape it grows.
 _Avoid_: Theme, type, kind
 
+**Species**:
+A named kind of real tree shipped with the library, such as Oak, Birch or Douglas Fir, described once by its shape, foliage, colours and Season Profile, and drawn in any Style.
+_Avoid_: Preset, tree type
+
 **Form**:
-The overall kind of tree a Tree Definition grows, such as broadleaf or conifer.
-_Avoid_: Species, tree type
+The broad group a Species belongs to, broadleaf or conifer, used to sort Species; it does not change how a tree grows.
+_Avoid_: Tree type
+
+**Leaf Type**:
+The kind of leaf a Species has, such as broad, lobed, palmate, compound, needle or scale; each Style decides how to draw it.
+_Avoid_: Leaf shape, foliage style
+
+**Bark Type**:
+The kind of bark surface a Species has, such as furrowed, smooth, papery, fibrous or plated; each Style decides how to draw it.
+_Avoid_: Bark texture, bark style
+
+**Fruit**:
+What a tree bears on its outermost twigs after blossom, such as apples, nuts or cones; it swells, ripens and drops across Season and only appears on a fully grown tree.
+_Avoid_: Produce, seeds
+
+**Fruit Type**:
+The kind of Fruit a Species bears: round, pear, nut, cone or berry; each Style decides how to draw it.
+_Avoid_: Fruit shape
+
+**Stem**:
+One of the trunks a tree grows from the ground; most trees have a single Stem, a juniper or an olive may have several.
+_Avoid_: Trunk copy, multi-trunk
+
+**Crown Shape**:
+The outline of a tree's branches, set by how branch length and branch angle change from the base to the tip of the parent they grow from, such as a cone, a ball, a column, a vase or a flat top.
+_Avoid_: Silhouette, profile
 
 **Growth**:
 How far a tree has grown, a value from 0 (sapling) to 1 (fully grown) that the app may change at any moment to animate it.

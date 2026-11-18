@@ -158,13 +158,14 @@ export function numberControl(context: PanelContext, options: NumberControlOptio
 export function definitionNumber(
   context: PanelContext,
   path: string,
-  options: Omit<NumberControlOptions, 'id' | 'get' | 'set'>,
+  options: Omit<NumberControlOptions, 'id' | 'get' | 'set'> & { absent?: number },
 ): HTMLElement {
+  const { absent, ...rest } = options;
   return numberControl(context, {
     kind: 'slider',
-    ...options,
+    ...rest,
     id: path,
-    get: (state) => getAt(state.definition, path) as number,
+    get: (state) => (getAt(state.definition, path) as number | undefined) ?? absent ?? Number.NaN,
     set: (store, value) => setDefinitionValue(store, path, value),
   });
 }
@@ -191,14 +192,26 @@ export function textControl(
   return row.row;
 }
 
-/** A drop-down for one Definition parameter. */
-export function definitionChoice(context: PanelContext, path: string, label: string, choices: readonly string[]): HTMLElement {
+/**
+ * A drop-down for one Definition parameter. An optional field (`absent` given, '') also offers
+ * "not set", which removes the field.
+ */
+export function definitionChoice(
+  context: PanelContext,
+  path: string,
+  label: string,
+  choices: readonly string[],
+  absent?: string,
+): HTMLElement {
   const select = document.createElement('select');
+  if (absent !== undefined) select.add(new Option('not set', absent));
   for (const choice of choices) select.add(new Option(choice, choice));
   const row = controlRow(context, path, label, select);
   row.row.classList.add('wide');
-  select.addEventListener('change', () => attempt(context, row, () => setDefinitionValue(context.store, path, select.value)));
-  follow(context, row.row, (state) => getAt(state.definition, path) as string, (value) => {
+  select.addEventListener('change', () =>
+    attempt(context, row, () => setDefinitionValue(context.store, path, absent !== undefined && select.value === absent ? undefined : select.value)),
+  );
+  follow(context, row.row, (state) => (getAt(state.definition, path) as string | undefined) ?? absent ?? '', (value) => {
     select.value = value;
     row.showError(null);
   });
@@ -241,9 +254,9 @@ export function definitionUrl(context: PanelContext, path: string, label: string
 export function fieldControl(context: PanelContext, field: Field, path = field.path): HTMLElement {
   switch (field.kind) {
     case 'number':
-      return definitionNumber(context, path, { label: field.label, min: field.min, max: field.max, step: field.step });
+      return definitionNumber(context, path, { label: field.label, min: field.min, max: field.max, step: field.step, absent: field.absent });
     case 'choice':
-      return definitionChoice(context, path, field.label, field.options);
+      return definitionChoice(context, path, field.label, field.options, field.absent);
     case 'color':
       return colorControl(context, {
         id: path,

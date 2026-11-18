@@ -1,0 +1,157 @@
+{
+  "id": "sequoia",
+  "name": "Sequoia",
+  "form": "conifer",
+  "trunk": {
+    "length": 10,
+    "radius": 0.9,
+    "taper": 0.15,
+    "lengthVariation": 0.1,
+    "bend": 0.02
+  },
+  "branches": [
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.3,
+      "bend": 0.1,
+      "gravity": 0.18,
+      "lengthProfile": [
+        {
+          "t": 0.38,
+          "value": 0.75
+        },
+        {
+          "t": 0.55,
+          "value": 1.0
+        },
+        {
+          "t": 0.85,
+          "value": 0.8
+        },
+        {
+          "t": 1.0,
+          "value": 0.45
+        }
+      ],
+      "angleProfile": [
+        {
+          "t": 0.38,
+          "value": 1.2
+        },
+        {
+          "t": 1.0,
+          "value": 0.55
+        }
+      ],
+      "count": 16,
+      "start": 0.38,
+      "end": 0.98,
+      "angle": 70,
+      "length": 0.26,
+      "radius": 0.2
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.3,
+      "bend": 0.1,
+      "gravity": 0.2,
+      "count": 4,
+      "start": 0.3,
+      "end": 1,
+      "angle": 40,
+      "length": 0.4,
+      "radius": 0.5
+    }
+  ],
+  "foliage": {
+    "type": "scale",
+    "density": 0.18,
+    "size": 1.0,
+    "sizeVariation": 0.2,
+    "start": 0.1,
+    "angle": 40
+  },
+  "bark": {
+    "type": "fibrous",
+    "color": "#d4955e"
+  },
+  "fruit": {
+    "type": "cone",
+    "count": 0.15,
+    "size": 0.15,
+    "sizeVariation": 0.2,
+    "hang": 0.4
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#6a9450"
+      },
+      {
+        "t": 0.25,
+        "value": "#4b7a42"
+      },
+      {
+        "t": 0.55,
+        "value": "#4b7a42"
+      },
+      {
+        "t": 0.75,
+        "value": "#3f6a3a"
+      },
+      {
+        "t": 0.92,
+        "value": "#3f6a3a"
+      },
+      {
+        "t": 1,
+        "value": "#6a9450"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 1
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#c9b46a",
+    "fruit": [
+      {
+        "t": 0,
+        "value": 1
+      }
+    ],
+    "fruitColor": [
+      {
+        "t": 0.15,
+        "value": "#7f9a45"
+      },
+      {
+        "t": 0.55,
+        "value": "#7a5232"
+      }
+    ]
+  },
+  "wind": {
+    "trunk": 0.04,
+    "branches": 0.25,
+    "leaves": 0.35,
+    "frequency": 0.7
+  },
+  "variation": {
+    "color": 0.08,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}

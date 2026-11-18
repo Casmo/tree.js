@@ -12,6 +12,7 @@ export {
   type SkeletonBranch,
   type SkeletonPoint,
   type SkeletonLeaf,
+  type SkeletonFruit,
   type GeometryBuffers,
   type TreeAttributes,
   type VertexAttribute,
@@ -32,7 +33,16 @@ export {
 export { assertWebGPURenderer, UnsupportedRendererError } from './renderer';
 export { Wind, sceneWind, WindResponse, type WindDirection, type WindOptions } from './wind';
 export type { TreeStyle } from './styles/types';
-export { loadStyle, STYLE_NAMES, type StyleName } from './styles/registry';
+export type { StyleSource } from './styles/apply';
+export type {
+  SpeciesDefinition,
+  SpeciesTrunkDefinition,
+  SpeciesBranchLevelDefinition,
+  SpeciesFoliageDefinition,
+  SpeciesBarkDefinition,
+  SpeciesFruitDefinition,
+} from './species/types';
+export { loadStyle, STYLE_NAMES, styleLabel, styleOfShading, type StyleName } from './styles/registry';
 export {
   bakeTree,
   disposeBakedTree,

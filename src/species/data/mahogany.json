@@ -1,0 +1,187 @@
+{
+  "id": "mahogany",
+  "name": "Mahogany",
+  "form": "broadleaf",
+  "trunk": {
+    "length": 8,
+    "radius": 0.46,
+    "taper": 0.34,
+    "lengthVariation": 0.1,
+    "bend": 0.06
+  },
+  "branches": [
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.42,
+      "bend": 0.1,
+      "gravity": 0.12,
+      "lengthProfile": [
+        {
+          "t": 0.66,
+          "value": 1.0
+        },
+        {
+          "t": 1.0,
+          "value": 0.55
+        }
+      ],
+      "angleProfile": [
+        {
+          "t": 0.66,
+          "value": 1.05
+        },
+        {
+          "t": 1.0,
+          "value": 0.6
+        }
+      ],
+      "count": 6,
+      "start": 0.66,
+      "end": 0.97,
+      "angle": 62,
+      "length": 0.5,
+      "radius": 0.62
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.12,
+      "gravity": 0.18,
+      "count": 3,
+      "start": 0.3,
+      "end": 1,
+      "angle": 48,
+      "length": 0.55,
+      "radius": 0.6
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.1,
+      "gravity": 0.15,
+      "count": 2,
+      "start": 0.4,
+      "end": 1,
+      "angle": 40,
+      "length": 0.5,
+      "radius": 0.6
+    }
+  ],
+  "foliage": {
+    "type": "compound",
+    "density": 0.5,
+    "size": 0.7,
+    "sizeVariation": 0.2,
+    "start": 0.15,
+    "angle": 50
+  },
+  "bark": {
+    "type": "plated",
+    "color": "#9a7462"
+  },
+  "fruit": {
+    "type": "pear",
+    "count": 0.3,
+    "size": 0.18,
+    "sizeVariation": 0.15,
+    "hang": 0
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#8a5a32"
+      },
+      {
+        "t": 0.12,
+        "value": "#2f5a26"
+      },
+      {
+        "t": 0.8,
+        "value": "#2f5a26"
+      },
+      {
+        "t": 0.88,
+        "value": "#5a6a2a"
+      },
+      {
+        "t": 1,
+        "value": "#8a5a32"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 0.85
+      },
+      {
+        "t": 0.1,
+        "value": 1
+      },
+      {
+        "t": 0.8,
+        "value": 1
+      },
+      {
+        "t": 0.92,
+        "value": 0.7
+      },
+      {
+        "t": 1,
+        "value": 0.85
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#e8e2b0",
+    "fruit": [
+      {
+        "t": 0.2,
+        "value": 0
+      },
+      {
+        "t": 0.35,
+        "value": 1
+      },
+      {
+        "t": 0.85,
+        "value": 1
+      },
+      {
+        "t": 0.95,
+        "value": 0
+      }
+    ],
+    "fruitColor": [
+      {
+        "t": 0.35,
+        "value": "#6a7a3a"
+      },
+      {
+        "t": 0.75,
+        "value": "#6a4a30"
+      }
+    ]
+  },
+  "wind": {
+    "trunk": 0.05,
+    "branches": 0.25,
+    "leaves": 0.5,
+    "frequency": 0.8
+  },
+  "variation": {
+    "color": 0.1,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}

@@ -27,6 +27,16 @@ describe('Definition paths', () => {
     expect(next.branches).toEqual([base.branches[0], { ...base.branches[1], count: 8 }]);
   });
 
+  it('removes an optional field or block when set to undefined', () => {
+    const withExtras = setAt(setAt(base, 'trunk.stems', 3), 'fruit', { type: 'nut' });
+    expect(withExtras.trunk.stems).toBe(3);
+    expect(withExtras.fruit?.type).toBe('nut');
+    const without = setAt(setAt(withExtras, 'trunk.stems', undefined), 'fruit', undefined);
+    expect(without).toEqual(base);
+    expect(without.trunk).not.toHaveProperty('stems');
+    expect(without).not.toHaveProperty('fruit');
+  });
+
   it('validates the result', () => {
     expect(() => setAt(base, 'trunk.length', -2)).toThrow(/trunk\.length/);
   });

@@ -34,10 +34,13 @@ function rotate(v: Node<'vec3'>, inverse = false): Node<'vec3'> {
  * `positionGeometry`, and only their displacement is turned into forest space with the
  * instance rotation and scale: M·(p + d) = M·p + R·s·d. The Wind direction goes the other way
  * (forest -> tree space) and each tree sways with its own phase.
+ *
+ * `base`: the tree-space position Growth starts from (default `positionGeometry`); Fruit passes
+ * its Season-scaled position here.
  */
-export function forestPosition(wind: WindSource, response: WindResponse): Node<'vec3'> {
+export function forestPosition(wind: WindSource, response: WindResponse, base: Node<'vec3'> = positionGeometry): Node<'vec3'> {
   const { scale, growth, windPhase } = instanceState();
-  const grown = growthPosition(growth, positionGeometry);
+  const grown = growthPosition(growth, base);
   const offset = windOffset(wind, response, { direction: rotate(objectWindDirection(wind), true), phase: windPhase });
   const displacement = grown.add(offset).sub(positionGeometry);
   return positionLocal.add(rotate(displacement).mul(scale));

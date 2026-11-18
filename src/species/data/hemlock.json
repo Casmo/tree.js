@@ -1,0 +1,162 @@
+{
+  "id": "hemlock",
+  "name": "Hemlock",
+  "form": "conifer",
+  "trunk": {
+    "length": 8,
+    "radius": 0.26,
+    "taper": 0.12,
+    "lengthVariation": 0.12,
+    "bend": 0.05,
+    "gravity": -0.45
+  },
+  "branches": [
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.3,
+      "bend": 0.1,
+      "gravity": -0.18,
+      "lengthProfile": [
+        {
+          "t": 0.08,
+          "value": 0.9
+        },
+        {
+          "t": 0.25,
+          "value": 1.0
+        },
+        {
+          "t": 0.93,
+          "value": 0.15
+        },
+        {
+          "t": 1.0,
+          "value": 0.1
+        }
+      ],
+      "angleProfile": [
+        {
+          "t": 0.08,
+          "value": 1.05
+        },
+        {
+          "t": 0.7,
+          "value": 0.95
+        },
+        {
+          "t": 1.0,
+          "value": 0.65
+        }
+      ],
+      "count": 20,
+      "start": 0.08,
+      "end": 0.93,
+      "angle": 86,
+      "length": 0.38,
+      "radius": 0.28
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 180,
+      "lengthVariation": 0.15,
+      "taper": 0.3,
+      "bend": 0.12,
+      "gravity": -0.4,
+      "count": 3,
+      "start": 0.25,
+      "end": 1,
+      "angle": 55,
+      "length": 0.45,
+      "radius": 0.5
+    }
+  ],
+  "foliage": {
+    "type": "needle",
+    "density": 0.18,
+    "size": 0.9,
+    "sizeVariation": 0.2,
+    "start": 0,
+    "angle": 30
+  },
+  "bark": {
+    "type": "furrowed",
+    "color": "#93796a"
+  },
+  "fruit": {
+    "type": "cone",
+    "count": 0.2,
+    "size": 0.1,
+    "sizeVariation": 0.2,
+    "hang": 0.9
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#6b9a4a"
+      },
+      {
+        "t": 0.25,
+        "value": "#55863e"
+      },
+      {
+        "t": 0.55,
+        "value": "#55863e"
+      },
+      {
+        "t": 0.75,
+        "value": "#3a6334"
+      },
+      {
+        "t": 0.92,
+        "value": "#3a6334"
+      },
+      {
+        "t": 1,
+        "value": "#6b9a4a"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 1
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#c9b46a",
+    "fruit": [
+      {
+        "t": 0,
+        "value": 1
+      }
+    ],
+    "fruitColor": [
+      {
+        "t": 0.15,
+        "value": "#8aa048"
+      },
+      {
+        "t": 0.55,
+        "value": "#7d5a36"
+      }
+    ]
+  },
+  "wind": {
+    "trunk": 0.1,
+    "branches": 0.4,
+    "leaves": 0.5,
+    "frequency": 0.8
+  },
+  "variation": {
+    "color": 0.08,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}

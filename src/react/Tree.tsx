@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useState, type Ref } from 'react';
 import type { ThreeElements } from '@react-three/fiber';
 import type { TreeDefinition, TreeDefinitionInput, TreeForm } from '../definition';
+import type { SpeciesDefinition } from '../species/types';
 import type { TreeStyle } from '../styles/types';
 import type { StyleName } from '../styles/registry';
 import { createTree, type Tree as TreeObject } from '../tree';
@@ -19,6 +20,8 @@ export interface TreeProps extends GroupProps {
   style?: TreeStyle | StyleName;
   /** Which of the Style's Forms to grow. Default 'broadleaf'. */
   form?: TreeForm;
+  /** A Species (e.g. `oak` from `@casmo/tree.js/species`) to grow in `style`: `style.apply(species)` instead of a Form. */
+  species?: SpeciesDefinition;
   /** Picks one individual tree within the Definition's ranges. Default 0. Changing it regenerates the tree. */
   seed?: number;
   /** Growth 0 (sapling) .. 1 (default). Only updates a uniform. */
@@ -40,13 +43,14 @@ const disposed = new WeakSet<TreeObject>();
 
 /**
  * A procedural tree. Growth, Season, Wind and shadow props only update the existing tree; a new
- * `seed`, `definition` (by value) or `style`/`form` regenerates it. The tree is disposed
+ * `seed`, `definition` (by value) or `style`/`form`/`species` regenerates it. The tree is disposed
  * of on unmount.
  */
 export function Tree({
   definition,
   style,
   form = 'broadleaf',
+  species,
   seed = 0,
   growth = 1,
   season = 0,
@@ -58,7 +62,7 @@ export function Tree({
 }: TreeProps) {
   // `use()` (behind useTreeStyle) may be called conditionally, so a style name suspends right here.
   const styleObject = definition === undefined && typeof style === 'string' ? useTreeStyle(style) : style;
-  const source = definition ?? (typeof styleObject === 'object' ? styleObject[form] : undefined);
+  const source = definition ?? (typeof styleObject === 'object' ? (species ? styleObject.apply(species) : styleObject[form]) : undefined);
   if (source === undefined) throw new Error('<Tree> needs a `definition` or a `style`.');
   // Compare Definitions by value, so an inline object literal does not regenerate on every render.
   const key = JSON.stringify(source);
@@ -92,7 +96,7 @@ export function Tree({
   }, [tree, season]);
 
   useLayoutEffect(() => {
-    for (const mesh of [tree.wood, tree.leaves]) {
+    for (const mesh of [tree.wood, tree.leaves, tree.fruit]) {
       mesh.castShadow = castShadow;
       mesh.receiveShadow = receiveShadow;
     }

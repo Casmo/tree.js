@@ -39,6 +39,7 @@ const JOBS = {
   'example-react': { url: '/examples/react/?scene=forest', width: 480, height: 300, ready: 'reactExample' },
   'example-forest': { url: '/examples/forest/?season=0.6', width: 480, height: 300, ready: 'forestExample' },
   'example-effects': { url: '/examples/effects/?style=stylized', width: 480, height: 300, ready: 'effectsExample' },
+  'example-species': { url: '/examples/species/?species=maple&style=stylized&season=0.62', width: 480, height: 300, ready: 'speciesExample' },
 };
 
 const TYPES = { '.js': 'text/javascript', '.html': 'text/html', '.png': 'image/png', '.json': 'application/json' };

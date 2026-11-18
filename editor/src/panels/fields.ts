@@ -1,11 +1,25 @@
 // What the parameter panels edit: one entry per Tree Definition field, with its label and the
 // slider range offered (the schema still validates every value; typed numbers may go beyond the
 // slider). Pure data, so a test can check that every Definition field has a control.
-import type { TreeDefinition } from '@casmo/tree.js';
+import {
+  BARK_TYPES,
+  DEFAULT_FRUIT_AMOUNT,
+  DEFAULT_FRUIT_COLOR,
+  FRUIT_TYPES,
+  LEAF_TYPES,
+  type BranchLevelDefinition,
+  type HexColor,
+  type Keyframe,
+  type TreeDefinition,
+} from '@casmo/tree.js';
 
+/**
+ * `absent` (optional Definition fields only): the value shown while the field is absent. A number
+ * field writes the field on the first edit; a choice field offers `absent` ('' = "not set"), which removes it.
+ */
 export type Field =
-  | { kind: 'number'; path: string; label: string; min: number; max: number; step: number }
-  | { kind: 'choice'; path: string; label: string; options: readonly string[] }
+  | { kind: 'number'; path: string; label: string; min: number; max: number; step: number; absent?: number }
+  | { kind: 'choice'; path: string; label: string; options: readonly string[]; absent?: string }
   | { kind: 'color'; path: string; label: string }
   /** A texture URL; empty = null (no texture). */
   | { kind: 'url'; path: string; label: string }
@@ -20,6 +34,9 @@ export interface FieldGroup {
 
 const num = (path: string, label: string, min: number, max: number, step: number): Field => ({ kind: 'number', path, label, min, max, step });
 const fraction = (path: string, label: string): Field => num(path, label, 0, 1, 0.01);
+const optionalNum = (path: string, label: string, min: number, max: number, step: number, absent: number): Field => ({
+  kind: 'number', path, label, min, max, step, absent,
+});
 
 export const PARAMETER_GROUPS: FieldGroup[] = [
   {
@@ -27,7 +44,6 @@ export const PARAMETER_GROUPS: FieldGroup[] = [
     title: 'Tree',
     fields: [
       { kind: 'text', path: 'name', label: 'Name' },
-      { kind: 'choice', path: 'form', label: 'Form', options: ['broadleaf', 'conifer'] },
     ],
   },
   {
@@ -41,12 +57,16 @@ export const PARAMETER_GROUPS: FieldGroup[] = [
       num('trunk.sections', 'Sections', 1, 32, 1),
       fraction('trunk.lengthVariation', 'Length variation'),
       fraction('trunk.bend', 'Bend'),
+      optionalNum('trunk.stems', 'Stems', 1, 8, 1, 1),
+      optionalNum('trunk.spread', 'Stem spread', 0, 90, 1, 0),
+      optionalNum('trunk.gravity', 'Trunk gravity', -1, 1, 0.01, 0),
     ],
   },
   {
     id: 'leaves',
     title: 'Leaves',
     fields: [
+      { kind: 'choice', path: 'leaves.type', label: 'Leaf Type', options: LEAF_TYPES, absent: '' },
       num('leaves.count', 'Leaves per twig', 0, 64, 1),
       { kind: 'choice', path: 'leaves.shape', label: 'Leaf shape', options: ['card', 'clump', 'needle', 'puff'] },
       num('leaves.size', 'Leaf size', 0.01, 5, 0.01),
@@ -60,6 +80,7 @@ export const PARAMETER_GROUPS: FieldGroup[] = [
     title: 'Materials',
     fields: [
       { kind: 'choice', path: 'materials.shading', label: 'Shading', options: ['standard', 'flat', 'toon'] },
+      { kind: 'choice', path: 'materials.bark.type', label: 'Bark Type', options: BARK_TYPES, absent: '' },
       { kind: 'color', path: 'materials.bark.color', label: 'Bark colour' },
       fraction('materials.bark.roughness', 'Bark roughness'),
       { kind: 'url', path: 'materials.bark.map', label: 'Bark texture' },
@@ -90,6 +111,17 @@ export const PARAMETER_GROUPS: FieldGroup[] = [
   },
 ];
 
+/** The fields of the optional `fruit` block (shown while the Definition has Fruit). */
+export const FRUIT_FIELDS: Field[] = [
+  { kind: 'choice', path: 'fruit.type', label: 'Fruit Type', options: FRUIT_TYPES },
+  // A fraction is a chance per twig (0.3 = Fruit on about 30% of the twigs).
+  num('fruit.count', 'Fruit per twig', 0, 8, 0.05),
+  num('fruit.size', 'Fruit size', 0.01, 0.5, 0.01),
+  fraction('fruit.sizeVariation', 'Size variation'),
+  fraction('fruit.hang', 'Hang'),
+  optionalNum('fruit.sides', 'Fruit sides', 3, 16, 1, 8),
+];
+
 /** The fields of one branching level; paths relative to `branches.<i>`. */
 export const BRANCH_LEVEL_FIELDS: Extract<Field, { kind: 'number' }>[] = [
   { kind: 'number', path: 'count', label: 'Count', min: 0, max: 32, step: 1 },
@@ -108,13 +140,42 @@ export const BRANCH_LEVEL_FIELDS: Extract<Field, { kind: 'number' }>[] = [
   { kind: 'number', path: 'gravity', label: 'Gravity', min: -1, max: 1, step: 0.01 },
 ];
 
+/** Crown Shape curve flat at 1 (what an absent curve means). */
+const FLAT_CURVE: Keyframe<number>[] = [{ t: 0, value: 1 }];
+
+/**
+ * The Crown Shape curves of one branching level (keyframe tracks over the attach position on the
+ * parent, 0 = base .. 1 = tip); `min`..`max` = the value slider's range (typed values may go higher).
+ */
+export const BRANCH_LEVEL_CURVES: {
+  key: keyof BranchLevelDefinition & ('lengthProfile' | 'angleProfile');
+  label: string;
+  min: number;
+  max: number;
+  absent: Keyframe<number>[];
+}[] = [
+  { key: 'lengthProfile', label: 'Length curve', min: 0, max: 2, absent: FLAT_CURVE },
+  { key: 'angleProfile', label: 'Angle curve', min: 0, max: 2, absent: FLAT_CURVE },
+];
+
 type SeasonTrackKey = Exclude<keyof TreeDefinition['season'], 'blossomColor'>;
 
-/** The Season Profile keyframe tracks; `kind` is the type of a keyframe's value. */
-export const SEASON_TRACKS: { key: SeasonTrackKey; label: string; kind: 'color' | 'fraction' }[] = [
+/**
+ * The Season Profile keyframe tracks; `kind` is the type of a keyframe's value. Optional tracks have
+ * `absent` (the track in force while it is absent; the first edit writes it) and `fruit` (only shown with Fruit).
+ */
+export const SEASON_TRACKS: {
+  key: SeasonTrackKey;
+  label: string;
+  kind: 'color' | 'fraction';
+  absent?: Keyframe<HexColor | number>[];
+  fruit?: true;
+}[] = [
   { key: 'leafColor', label: 'Leaf colour', kind: 'color' },
   { key: 'leafCoverage', label: 'Leaf coverage', kind: 'fraction' },
   { key: 'blossom', label: 'Blossom', kind: 'fraction' },
+  { key: 'fruit', label: 'Fruit amount', kind: 'fraction', absent: DEFAULT_FRUIT_AMOUNT, fruit: true },
+  { key: 'fruitColor', label: 'Fruit colour', kind: 'color', absent: DEFAULT_FRUIT_COLOR, fruit: true },
 ];
 
 /** Season fields that are not tracks. */

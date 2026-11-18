@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_DEFINITION, parseDefinition } from '@casmo/tree.js';
-import { BRANCH_LEVEL_FIELDS, PARAMETER_GROUPS, SEASON_FIELDS, SEASON_TRACKS, type Field } from './fields';
+import { BARK_TYPES, DEFAULT_DEFINITION, LEAF_TYPES, parseDefinition } from '@casmo/tree.js';
+import {
+  BRANCH_LEVEL_CURVES,
+  BRANCH_LEVEL_FIELDS,
+  FRUIT_FIELDS,
+  PARAMETER_GROUPS,
+  SEASON_FIELDS,
+  SEASON_TRACKS,
+  type Field,
+} from './fields';
 
 /** Every parameter of a Definition as a dotted path; branch levels as "branches.*.<key>", tracks whole. */
 function parameterPaths(node: unknown, prefix = ''): string[] {
@@ -14,30 +22,68 @@ function parameterPaths(node: unknown, prefix = ''): string[] {
   return [prefix];
 }
 
+/** A Definition with every optional field and block present (Stems, Crown Shape curves, Leaf/Bark Type, Fruit). */
+const FULL_DEFINITION = parseDefinition({
+  ...DEFAULT_DEFINITION,
+  species: 'test-oak',
+  trunk: { ...DEFAULT_DEFINITION.trunk, stems: 3, spread: 20, gravity: -0.2 },
+  branches: DEFAULT_DEFINITION.branches.map((level) => ({
+    ...level,
+    lengthProfile: [{ t: 0, value: 1 }],
+    angleProfile: [{ t: 0, value: 1 }],
+  })),
+  leaves: { ...DEFAULT_DEFINITION.leaves, type: 'lobed' },
+  materials: { ...DEFAULT_DEFINITION.materials, bark: { ...DEFAULT_DEFINITION.materials.bark, type: 'smooth' } },
+  fruit: { type: 'pear', sides: 6 },
+  season: { ...DEFAULT_DEFINITION.season, fruit: [{ t: 0, value: 1 }], fruitColor: [{ t: 0, value: '#ff0000' }] },
+});
+
+const allFields = (): Field[] => [...PARAMETER_GROUPS.flatMap((group) => group.fields), ...FRUIT_FIELDS];
+
 const editable = [
-  ...PARAMETER_GROUPS.flatMap((group) => group.fields.map((field) => field.path)),
+  ...allFields().map((field) => field.path),
   ...BRANCH_LEVEL_FIELDS.map((field) => `branches.*.${field.path}`),
+  ...BRANCH_LEVEL_CURVES.map((curve) => `branches.*.${curve.key}`),
   ...SEASON_FIELDS.map((field) => field.path),
   ...SEASON_TRACKS.map((track) => `season.${track.key}`),
 ];
 
 describe('parameter panels', () => {
-  it('offer a control for every Definition field (Sculpts are edited in the preview, #20)', () => {
-    const paths = parameterPaths(DEFAULT_DEFINITION).filter((path) => path !== 'schemaVersion' && path !== 'sculpts');
+  it('offer a control for every Definition field, optional ones included (Sculpts are edited in the preview, the Species label comes from the Start)', () => {
+    const paths = parameterPaths(FULL_DEFINITION).filter((path) => !['schemaVersion', 'sculpts', 'species'].includes(path));
     expect(paths).toContain('materials.bark.normalMap');
     expect(paths).toContain('branches.*.gravity');
+    expect(paths).toContain('branches.*.angleProfile');
+    expect(paths).toContain('trunk.stems');
+    expect(paths).toContain('fruit.hang');
+    expect(paths).toContain('season.fruitColor');
     expect([...editable].sort()).toEqual([...paths].sort());
+  });
+
+  it('show the value an optional field means while it is absent', () => {
+    const shown = Object.fromEntries(allFields().flatMap((field) => ('absent' in field ? [[field.path, field.absent]] : [])));
+    expect(shown).toEqual({
+      'trunk.stems': 1,
+      'trunk.spread': 0,
+      'trunk.gravity': 0,
+      'leaves.type': '',
+      'materials.bark.type': '',
+      'fruit.sides': 8,
+    });
+    expect(SEASON_TRACKS.find((track) => track.key === 'fruit')?.absent).toEqual([{ t: 0, value: 1 }]);
+    expect(SEASON_TRACKS.find((track) => track.key === 'fruitColor')?.absent).toEqual([{ t: 0, value: '#b8322a' }]);
+    expect(BRANCH_LEVEL_CURVES.map((curve) => curve.absent)).toEqual([[{ t: 0, value: 1 }], [{ t: 0, value: 1 }]]);
   });
 
   it('have slider ranges the schema accepts, around the default values', () => {
     const numbers = [
-      ...PARAMETER_GROUPS.flatMap((group) => group.fields),
+      ...allFields(),
       ...BRANCH_LEVEL_FIELDS.map((field) => ({ ...field, path: `branches.0.${field.path}` })),
     ].filter((field): field is Extract<Field, { kind: 'number' }> => field.kind === 'number');
     for (const field of numbers) {
       const [section, ...rest] = field.path.split('.');
       const set = (value: number) => {
-        const patch = structuredClone(DEFAULT_DEFINITION) as unknown as Record<string, unknown>;
+        const patch = structuredClone(FULL_DEFINITION) as unknown as Record<string, unknown>;
         let node = patch[section!] as Record<string, unknown>;
         for (const key of rest.slice(0, -1)) node = node[key] as Record<string, unknown>;
         node[rest.at(-1)!] = value;
@@ -50,11 +96,27 @@ describe('parameter panels', () => {
   });
 
   it('offer exactly the choices the schema accepts', () => {
-    const choices = PARAMETER_GROUPS.flatMap((group) => group.fields).filter((field) => field.kind === 'choice');
+    const choices = allFields().filter((field) => field.kind === 'choice');
     expect(Object.fromEntries(choices.map((field) => [field.path, field.options]))).toEqual({
-      form: ['broadleaf', 'conifer'],
       'leaves.shape': ['card', 'clump', 'needle', 'puff'],
+      'leaves.type': LEAF_TYPES,
       'materials.shading': ['standard', 'flat', 'toon'],
+      'materials.bark.type': BARK_TYPES,
+      'fruit.type': ['round', 'pear', 'nut', 'cone', 'berry'],
     });
+    const fruitType = (type: string) => () => parseDefinition({ ...DEFAULT_DEFINITION, fruit: { type } });
+    for (const type of ['round', 'pear', 'nut', 'cone', 'berry']) expect(fruitType(type)).not.toThrow();
+    expect(fruitType('apple')).toThrow(/fruit.type/);
+  });
+
+  it('let a Crown Shape curve go beyond 1 (longer or wider branches) but not below 0', () => {
+    for (const curve of BRANCH_LEVEL_CURVES) {
+      expect(curve.min).toBe(0);
+      expect(curve.max).toBeGreaterThan(1);
+      const level = (value: number) => () =>
+        parseDefinition({ ...DEFAULT_DEFINITION, branches: [{ ...DEFAULT_DEFINITION.branches[0]!, [curve.key]: [{ t: 0, value }] }] });
+      expect(level(curve.max)).not.toThrow();
+      expect(level(-0.1)).toThrow();
+    }
   });
 });

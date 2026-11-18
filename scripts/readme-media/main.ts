@@ -172,8 +172,7 @@ const SHOTS: Record<string, (stage: Stage) => Promise<Shot>> = {
   /** Tree Definitions and Seeds: the README's birch, five Seeds. */
   async seeds({ scene, camera }) {
     const birch: TreeDefinitionInput = {
-      schemaVersion: 2,
-      form: 'broadleaf',
+      schemaVersion: 3,
       trunk: { length: 6, radius: 0.15 },
       branches: [
         { count: 6, angle: 45 },

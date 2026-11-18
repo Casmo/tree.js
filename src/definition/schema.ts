@@ -1,14 +1,22 @@
-import { DEFAULT_BRANCH_LEVEL, DEFAULT_DEFINITION } from './defaults';
+import { DEFAULT_BRANCH_LEVEL, DEFAULT_DEFINITION, DEFAULT_FRUIT } from './defaults';
 import {
+  BARK_TYPES,
+  FRUIT_TYPES,
   CURRENT_SCHEMA_VERSION,
+  LEAF_TYPES,
   MAX_BRANCH_LEVELS,
+  type BarkMaterialDefinition,
   type BranchLevelDefinition,
   type DeleteSculpt,
+  type FruitDefinition,
+  type SeasonProfileDefinition,
   type Keyframe,
+  type LeavesDefinition,
   type LeavesSculpt,
   type MoveSculpt,
   type Sculpt,
   type TreeDefinition,
+  type TrunkDefinition,
 } from './types';
 
 /** Thrown for an invalid Tree Definition; `field` is the path of the bad field, e.g. `branches[1].angle`. */
@@ -48,9 +56,12 @@ function leaf<T>(expected: string, ok: (v: unknown) => boolean): Schema<T> {
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const range = (min: number, max: number) => leaf<number>(`a number from ${min} to ${max}`, (v) => isNum(v) && v >= min && v <= max);
 const unit = range(0, 1);
+const nonNegative = leaf<number>('a number >= 0', (v) => isNum(v) && v >= 0);
 const positive = leaf<number>('a number > 0', (v) => isNum(v) && v > 0);
 const finite = leaf<number>('a finite number', isNum);
 const intAtLeast = (min: number) => leaf<number>(`an integer >= ${min}`, (v) => Number.isInteger(v) && (v as number) >= min);
+/** Faces around a Fruit (its polygon detail). */
+const fruitSides = leaf<number>('an integer from 3 to 16', (v) => Number.isInteger(v) && (v as number) >= 3 && (v as number) <= 16);
 const hexColor = leaf<string>('a colour like "#6b4a2b"', (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v));
 const text = leaf<string>('a string', (v) => typeof v === 'string');
 const url = leaf<string | null>('a URL string or null', (v) => v === null || (typeof v === 'string' && v.length > 0));
@@ -58,6 +69,16 @@ const vec3 = leaf<[number, number, number]>('[x, y, z] numbers', (v) => Array.is
 const oneOf = <T extends string>(...values: T[]) =>
   leaf<T>(`one of ${values.map((x) => `"${x}"`).join(', ')}`, (v) => values.includes(v as T));
 const literal = <T>(expected: T) => leaf<T>(String(expected), (v) => v === expected);
+
+/** An optional field: absent (undefined) stays absent, anything else must match `schema`. */
+function optional<T>(schema: Schema<T>): Schema<T | undefined> {
+  return (value, fallback, path) => (value === undefined && fallback === undefined ? undefined : schema(value, fallback, path));
+}
+
+/** An optional block: absent stays absent; a given (possibly partial) block is filled from `defaults`. */
+function optionalBlock<T>(schema: Schema<T>, defaults: T): Schema<T | undefined> {
+  return (value, fallback, path) => (value === undefined && fallback === undefined ? undefined : schema(value, fallback ?? defaults, path));
+}
 
 /** Object with exactly these fields; unknown fields are rejected (catches typos). */
 function obj<T>(fields: { [K in keyof T]-?: Schema<T[K]> }): Schema<T> {
@@ -70,7 +91,9 @@ function obj<T>(fields: { [K in keyof T]-?: Schema<T[K]> }): Schema<T> {
     }
     const out: Record<string, unknown> = {};
     for (const key of Object.keys(fields) as (keyof T & string)[]) {
-      out[key] = fields[key](given[key], fallback?.[key], join(path, key));
+      const field = fields[key](given[key], fallback?.[key], join(path, key));
+      // Optional fields (see `optional`) that are absent stay absent.
+      if (field !== undefined) out[key] = field;
     }
     return out as T;
   };
@@ -142,11 +165,13 @@ const branchLevel = refine(
     sections: intAtLeast(1),
     bend: unit,
     gravity: range(-1, 1),
+    lengthProfile: optional(track(nonNegative)),
+    angleProfile: optional(track(nonNegative)),
   }),
   (b) => (b.end < b.start ? ['end', `must be >= start (${b.start}), got ${b.end}`] : null),
 );
 
-const branchPath = leaf<string>('a branch path like "0" or "0.3.1"', (v) => typeof v === 'string' && /^0(\.\d+)*$/.test(v));
+const branchPath = leaf<string>('a branch path like "0", "1" or "0.3.1"', (v) => typeof v === 'string' && /^\d+(\.\d+)*$/.test(v));
 const sculpt = tagged<Sculpt>('action', {
   delete: obj<DeleteSculpt>({ action: literal('delete'), seed: finite, path: branchPath }) as Schema<Sculpt>,
   move: obj<MoveSculpt>({ action: literal('move'), seed: finite, path: branchPath, rotation: vec3, scale: positive }) as Schema<Sculpt>,
@@ -157,8 +182,8 @@ const sculpt = tagged<Sculpt>('action', {
 const treeDefinition = obj<TreeDefinition>({
   schemaVersion: literal(CURRENT_SCHEMA_VERSION),
   name: text,
-  form: oneOf('broadleaf', 'conifer'),
-  trunk: obj({
+  species: optional(text),
+  trunk: obj<TrunkDefinition>({
     length: positive,
     radius: positive,
     taper: unit,
@@ -166,9 +191,13 @@ const treeDefinition = obj<TreeDefinition>({
     sections: intAtLeast(1),
     lengthVariation: unit,
     bend: unit,
+    stems: optional(intAtLeast(1)),
+    spread: optional(range(0, 90)),
+    gravity: optional(range(-1, 1)),
   }),
   branches: arr(branchLevel, { max: MAX_BRANCH_LEVELS, itemFallback: DEFAULT_BRANCH_LEVEL }),
-  leaves: obj({
+  leaves: obj<LeavesDefinition>({
+    type: optional(oneOf(...LEAF_TYPES)),
     count: intAtLeast(0),
     shape: oneOf('card', 'clump', 'needle', 'puff'),
     size: positive,
@@ -176,16 +205,29 @@ const treeDefinition = obj<TreeDefinition>({
     start: unit,
     angle: range(0, 180),
   }),
+  fruit: optionalBlock<FruitDefinition>(
+    obj<FruitDefinition>({
+      type: oneOf(...FRUIT_TYPES),
+      count: nonNegative,
+      size: positive,
+      sizeVariation: unit,
+      hang: unit,
+      sides: optional(fruitSides),
+    }),
+    DEFAULT_FRUIT,
+  ),
   materials: obj({
     shading: oneOf('standard', 'flat', 'toon'),
-    bark: obj({ color: hexColor, roughness: unit, map: url, normalMap: url }),
+    bark: obj<BarkMaterialDefinition>({ type: optional(oneOf(...BARK_TYPES)), color: hexColor, roughness: unit, map: url, normalMap: url }),
     leaf: obj({ roughness: unit, map: url, alphaTest: unit }),
   }),
-  season: obj({
+  season: obj<SeasonProfileDefinition>({
     leafColor: track(hexColor),
     leafCoverage: track(unit),
     blossom: track(unit),
     blossomColor: hexColor,
+    fruit: optional(track(unit)),
+    fruitColor: optional(track(hexColor)),
   }),
   wind: obj({ trunk: unit, branches: unit, leaves: unit, frequency: positive }),
   variation: obj({ color: unit, growth: unit, season: unit }),

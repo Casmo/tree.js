@@ -1,0 +1,162 @@
+{
+  "id": "maple",
+  "name": "Maple",
+  "form": "broadleaf",
+  "trunk": {
+    "length": 4.2,
+    "radius": 0.38,
+    "taper": 0.32,
+    "lengthVariation": 0.1,
+    "bend": 0.08
+  },
+  "branches": [
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.4,
+      "bend": 0.1,
+      "gravity": 0.1,
+      "lengthProfile": [
+        {
+          "t": 0.42,
+          "value": 0.85
+        },
+        {
+          "t": 0.6,
+          "value": 1.0
+        },
+        {
+          "t": 0.85,
+          "value": 0.8
+        },
+        {
+          "t": 1.0,
+          "value": 0.4
+        }
+      ],
+      "angleProfile": [
+        {
+          "t": 0.42,
+          "value": 1.3
+        },
+        {
+          "t": 1.0,
+          "value": 0.55
+        }
+      ],
+      "count": 9,
+      "start": 0.42,
+      "end": 0.96,
+      "angle": 48,
+      "length": 0.55,
+      "radius": 0.6
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.1,
+      "gravity": 0.2,
+      "count": 5,
+      "start": 0.25,
+      "end": 1,
+      "angle": 42,
+      "length": 0.55,
+      "radius": 0.6
+    }
+  ],
+  "foliage": {
+    "type": "palmate",
+    "density": 0.55,
+    "size": 0.55,
+    "sizeVariation": 0.2,
+    "start": 0.05,
+    "angle": 50
+  },
+  "bark": {
+    "type": "furrowed",
+    "color": "#958c80"
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#a5c45a"
+      },
+      {
+        "t": 0.2,
+        "value": "#3f6e2a"
+      },
+      {
+        "t": 0.52,
+        "value": "#3f6e2a"
+      },
+      {
+        "t": 0.6,
+        "value": "#e8641c"
+      },
+      {
+        "t": 0.7,
+        "value": "#d02a1c"
+      },
+      {
+        "t": 0.97,
+        "value": "#d02a1c"
+      },
+      {
+        "t": 1,
+        "value": "#a5c45a"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 0.3
+      },
+      {
+        "t": 0.1,
+        "value": 1
+      },
+      {
+        "t": 0.62,
+        "value": 1
+      },
+      {
+        "t": 0.78,
+        "value": 0
+      },
+      {
+        "t": 0.96,
+        "value": 0
+      },
+      {
+        "t": 1,
+        "value": 0.3
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0.3
+      },
+      {
+        "t": 0.06,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#c9b84a"
+  },
+  "wind": {
+    "trunk": 0.08,
+    "branches": 0.3,
+    "leaves": 0.7,
+    "frequency": 1
+  },
+  "variation": {
+    "color": 0.1,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}

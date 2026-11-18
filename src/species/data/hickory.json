@@ -1,0 +1,183 @@
+{
+  "id": "hickory",
+  "name": "Hickory",
+  "form": "broadleaf",
+  "trunk": {
+    "length": 7,
+    "radius": 0.36,
+    "taper": 0.32,
+    "lengthVariation": 0.1,
+    "bend": 0.1
+  },
+  "branches": [
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.4,
+      "bend": 0.12,
+      "gravity": 0.12,
+      "lengthProfile": [
+        {
+          "t": 0.42,
+          "value": 0.9
+        },
+        {
+          "t": 0.6,
+          "value": 1.0
+        },
+        {
+          "t": 0.85,
+          "value": 0.9
+        },
+        {
+          "t": 1.0,
+          "value": 0.6
+        }
+      ],
+      "count": 11,
+      "start": 0.42,
+      "end": 0.97,
+      "angle": 30,
+      "length": 0.3,
+      "radius": 0.6
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.12,
+      "gravity": 0.15,
+      "count": 4,
+      "start": 0.3,
+      "end": 1,
+      "angle": 38,
+      "length": 0.6,
+      "radius": 0.6
+    }
+  ],
+  "foliage": {
+    "type": "compound",
+    "density": 0.5,
+    "size": 0.55,
+    "sizeVariation": 0.25,
+    "start": 0.15,
+    "angle": 50
+  },
+  "bark": {
+    "type": "fibrous",
+    "color": "#958b7c"
+  },
+  "fruit": {
+    "type": "nut",
+    "count": 0.3,
+    "size": 0.1,
+    "sizeVariation": 0.2,
+    "hang": 0.3
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#a5c45a"
+      },
+      {
+        "t": 0.2,
+        "value": "#456f2c"
+      },
+      {
+        "t": 0.52,
+        "value": "#456f2c"
+      },
+      {
+        "t": 0.6,
+        "value": "#d8ae32"
+      },
+      {
+        "t": 0.7,
+        "value": "#b07e2a"
+      },
+      {
+        "t": 0.97,
+        "value": "#b07e2a"
+      },
+      {
+        "t": 1,
+        "value": "#a5c45a"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 0.3
+      },
+      {
+        "t": 0.1,
+        "value": 1
+      },
+      {
+        "t": 0.62,
+        "value": 1
+      },
+      {
+        "t": 0.78,
+        "value": 0
+      },
+      {
+        "t": 0.96,
+        "value": 0
+      },
+      {
+        "t": 1,
+        "value": 0.3
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#d8d48a",
+    "fruit": [
+      {
+        "t": 0.25,
+        "value": 0
+      },
+      {
+        "t": 0.4,
+        "value": 1
+      },
+      {
+        "t": 0.62,
+        "value": 1
+      },
+      {
+        "t": 0.7,
+        "value": 0
+      }
+    ],
+    "fruitColor": [
+      {
+        "t": 0.35,
+        "value": "#7d9a3a"
+      },
+      {
+        "t": 0.55,
+        "value": "#8a5a2b"
+      }
+    ]
+  },
+  "wind": {
+    "trunk": 0.08,
+    "branches": 0.3,
+    "leaves": 0.6,
+    "frequency": 0.9
+  },
+  "variation": {
+    "color": 0.1,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}

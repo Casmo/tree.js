@@ -1,0 +1,211 @@
+{
+  "id": "apple",
+  "name": "Apple",
+  "form": "broadleaf",
+  "trunk": {
+    "length": 2,
+    "radius": 0.26,
+    "taper": 0.45,
+    "lengthVariation": 0.12,
+    "bend": 0.28
+  },
+  "branches": [
+    {
+      "angleVariation": 0.25,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.25,
+      "gravity": 0.2,
+      "lengthProfile": [
+        {
+          "t": 0.55,
+          "value": 1.0
+        },
+        {
+          "t": 1.0,
+          "value": 0.7
+        }
+      ],
+      "angleProfile": [
+        {
+          "t": 0.55,
+          "value": 1.1
+        },
+        {
+          "t": 1.0,
+          "value": 0.65
+        }
+      ],
+      "count": 5,
+      "start": 0.55,
+      "end": 0.98,
+      "angle": 62,
+      "length": 1.45,
+      "radius": 0.62
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.25,
+      "gravity": 0.2,
+      "count": 3,
+      "start": 0.3,
+      "end": 1,
+      "angle": 48,
+      "length": 0.55,
+      "radius": 0.6
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.2,
+      "gravity": 0.1,
+      "count": 3,
+      "start": 0.35,
+      "end": 1,
+      "angle": 45,
+      "length": 0.5,
+      "radius": 0.6
+    }
+  ],
+  "foliage": {
+    "type": "broad",
+    "density": 0.45,
+    "size": 0.45,
+    "sizeVariation": 0.25,
+    "start": 0.05,
+    "angle": 50
+  },
+  "bark": {
+    "type": "furrowed",
+    "color": "#8c8070"
+  },
+  "fruit": {
+    "type": "round",
+    "count": 0.45,
+    "size": 0.34,
+    "sizeVariation": 0.15,
+    "hang": 0.95
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#a9c95e"
+      },
+      {
+        "t": 0.2,
+        "value": "#3d6a2c"
+      },
+      {
+        "t": 0.5800000000000001,
+        "value": "#3d6a2c"
+      },
+      {
+        "t": 0.64,
+        "value": "#a39a3a"
+      },
+      {
+        "t": 0.74,
+        "value": "#9a6a2e"
+      },
+      {
+        "t": 1,
+        "value": "#9a6a2e"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 0
+      },
+      {
+        "t": 0.04,
+        "value": 0
+      },
+      {
+        "t": 0.16,
+        "value": 1
+      },
+      {
+        "t": 0.64,
+        "value": 1
+      },
+      {
+        "t": 0.76,
+        "value": 0
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0
+      },
+      {
+        "t": 0.04,
+        "value": 0
+      },
+      {
+        "t": 0.09,
+        "value": 1
+      },
+      {
+        "t": 0.126,
+        "value": 0.9
+      },
+      {
+        "t": 0.18,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#f8dfe6",
+    "fruit": [
+      {
+        "t": 0.2,
+        "value": 0
+      },
+      {
+        "t": 0.36,
+        "value": 1
+      },
+      {
+        "t": 0.62,
+        "value": 1
+      },
+      {
+        "t": 0.7,
+        "value": 0
+      }
+    ],
+    "fruitColor": [
+      {
+        "t": 0.3,
+        "value": "#8db33a"
+      },
+      {
+        "t": 0.42,
+        "value": "#a7a83a"
+      },
+      {
+        "t": 0.55,
+        "value": "#c22f22"
+      }
+    ]
+  },
+  "wind": {
+    "trunk": 0.05,
+    "branches": 0.32,
+    "leaves": 0.65,
+    "frequency": 1
+  },
+  "variation": {
+    "color": 0.1,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}

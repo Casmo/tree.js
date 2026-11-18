@@ -1,0 +1,148 @@
+{
+  "id": "teak",
+  "name": "Teak",
+  "form": "broadleaf",
+  "trunk": {
+    "length": 7.5,
+    "radius": 0.4,
+    "taper": 0.36,
+    "lengthVariation": 0.1,
+    "bend": 0.08
+  },
+  "branches": [
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.42,
+      "bend": 0.12,
+      "gravity": 0.1,
+      "lengthProfile": [
+        {
+          "t": 0.62,
+          "value": 1.0
+        },
+        {
+          "t": 1.0,
+          "value": 0.55
+        }
+      ],
+      "count": 7,
+      "start": 0.62,
+      "end": 0.96,
+      "angle": 50,
+      "length": 0.4,
+      "radius": 0.6
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.12,
+      "gravity": 0.15,
+      "count": 4,
+      "start": 0.35,
+      "end": 1,
+      "angle": 45,
+      "length": 0.6,
+      "radius": 0.6
+    }
+  ],
+  "foliage": {
+    "type": "broad",
+    "density": 0.3,
+    "size": 1.25,
+    "sizeVariation": 0.25,
+    "start": 0.3,
+    "angle": 60
+  },
+  "bark": {
+    "type": "fibrous",
+    "color": "#a39886"
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#8fb04a"
+      },
+      {
+        "t": 0.15,
+        "value": "#4c7a2e"
+      },
+      {
+        "t": 0.6,
+        "value": "#4c7a2e"
+      },
+      {
+        "t": 0.7,
+        "value": "#8a6e3a"
+      },
+      {
+        "t": 0.85,
+        "value": "#7a5a32"
+      },
+      {
+        "t": 1,
+        "value": "#8fb04a"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 0.4
+      },
+      {
+        "t": 0.1,
+        "value": 1
+      },
+      {
+        "t": 0.7,
+        "value": 1
+      },
+      {
+        "t": 0.86,
+        "value": 0
+      },
+      {
+        "t": 0.95,
+        "value": 0
+      },
+      {
+        "t": 1,
+        "value": 0.4
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0.4,
+        "value": 0
+      },
+      {
+        "t": 0.46,
+        "value": 0.25
+      },
+      {
+        "t": 0.54,
+        "value": 0.25
+      },
+      {
+        "t": 0.6,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#f2efe2"
+  },
+  "wind": {
+    "trunk": 0.06,
+    "branches": 0.3,
+    "leaves": 0.8,
+    "frequency": 0.8
+  },
+  "variation": {
+    "color": 0.1,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}

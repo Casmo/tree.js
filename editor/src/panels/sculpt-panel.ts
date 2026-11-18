@@ -80,7 +80,7 @@ function brushControls(viewport: SculptViewport): HTMLElement {
 }
 
 function describe(sculpt: Sculpt): string {
-  const where = sculpt.path === '0' ? 'trunk' : `branch ${sculpt.path}`;
+  const where = sculpt.path === '0' ? 'trunk' : sculpt.path.includes('.') ? `branch ${sculpt.path}` : `stem ${sculpt.path}`;
   if (sculpt.action === 'delete') return `Delete ${where}`;
   if (sculpt.action === 'move') return `Move ${where}${sculpt.scale !== 1 ? ` (× ${sculpt.scale.toFixed(2)})` : ''}`;
   return `Leaves ${Math.round(sculpt.coverage * 100)}% on ${where}`;

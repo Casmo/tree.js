@@ -1,7 +1,7 @@
 import { Color, type Node as FloatNode, type NodeMaterial, type UniformNode } from 'three/webgpu';
-import { attribute, float, fract, mix, select, uniform, varying, vec4 } from 'three/tsl';
+import { attribute, float, fract, mix, positionLocal, select, uniform, varying, vec4 } from 'three/tsl';
 import type { Keyframe, SeasonProfileDefinition } from '../definition';
-import { KEYFRAME_EPSILON } from './profile';
+import { fruitTracks, KEYFRAME_EPSILON } from './profile';
 
 /** A float uniform (`.value` is the Season). */
 export type SeasonUniform = UniformNode<'float', number>;
@@ -48,8 +48,7 @@ export function createSeasonNodes(profile: SeasonProfileDefinition): SeasonNodes
 export function createSeasonNodes<S extends FloatNode<'float'>>(profile: SeasonProfileDefinition, season: S): SeasonNodes<S>;
 export function createSeasonNodes(profile: SeasonProfileDefinition, season: FloatNode<'float'> = uniform(0)): SeasonNodes<FloatNode<'float'>> {
   const aSeason = attribute('aSeason', 'vec3');
-  const shifted = season.add(aSeason.x);
-  const s = select(shifted.greaterThan(1).or(shifted.lessThan(0)), fract(shifted), shifted);
+  const s = shiftedSeason(season, aSeason);
 
   const leafColor = keyframeNode(s, profile.leafColor, (v) => uniform(new Color(v)));
   const coverage = keyframeNode(s, profile.leafCoverage, (v) => uniform(v));
@@ -62,6 +61,46 @@ export function createSeasonNodes(profile: SeasonProfileDefinition, season: Floa
     season,
     color: varying(select(isBlossom, blossomColor, leafColor)),
     visible: varying(select(shown, float(1), float(0))).greaterThan(0.5),
+  };
+}
+
+/** The part's own Season: the Season input plus the `aSeason.x` timing shift, wrapped around the year (as `wrapSeason`). */
+function shiftedSeason(season: Node, aSeason: Node): Node {
+  const shifted = season.add(aSeason.x);
+  return select(shifted.greaterThan(1).or(shifted.lessThan(0)), fract(shifted), shifted);
+}
+
+/** The Season nodes of one tree's Fruit. */
+export interface FruitSeasonNodes {
+  /** Fruit colour (vec3, linear) at this Fruit's shifted Season. */
+  color: Node;
+  /** Size of the Fruit (0 = not set or dropped .. 1 = full size). */
+  scale: Node;
+  /** The vertex position (default `positionLocal`) scaled about the Fruit's attachment point (`aOrigin`) by `scale`. */
+  position: Node;
+}
+
+/**
+ * Builds the TSL nodes that evaluate the Season Profile's Fruit tracks per Fruit, from the fruit
+ * mesh's `aSeason` (timing shift, Fruit rank). The TSL twin of `fruitSeason`: a Fruit shows while
+ * the Fruit amount is above its rank and swells with the amount. `season` is the Season input
+ * (share the leaves' uniform so one write drives both).
+ */
+export function createFruitSeasonNodes(
+  profile: SeasonProfileDefinition,
+  season: FloatNode<'float'>,
+  position: Node = positionLocal,
+): FruitSeasonNodes {
+  const aSeason = attribute('aSeason', 'vec3');
+  const origin = attribute('aOrigin', 'vec3');
+  const s = shiftedSeason(season, aSeason);
+  const tracks = fruitTracks(profile);
+  const amount = keyframeNode(s, tracks.fruit, (v) => uniform(v));
+  const scale = select(amount.greaterThan(aSeason.y), amount, float(0));
+  return {
+    color: varying(keyframeNode(s, tracks.fruitColor, (v) => uniform(new Color(v)))),
+    scale,
+    position: origin.add(position.sub(origin).mul(scale)),
   };
 }
 

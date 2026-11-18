@@ -35,4 +35,15 @@ describe('Style registry', () => {
     const subpaths = Object.keys(pkg.exports).filter((k) => k.startsWith('./styles/')).map((k) => k.slice('./styles/'.length));
     expect([...STYLE_NAMES].sort()).toEqual(subpaths.sort());
   });
+
+  it('names each Style and tells which Style a Definition was drawn in, from its shading', async () => {
+    const { loadStyle, STYLE_NAMES, styleLabel, styleOfShading } = await import('../../src/index');
+    expect(STYLE_NAMES.map(styleLabel)).toEqual(['Low-poly', 'Stylized', 'Realistic']);
+    for (const name of STYLE_NAMES) {
+      const style = await loadStyle(name);
+      expect(styleOfShading(style.broadleaf.materials.shading)).toBe(name);
+      expect(styleOfShading(style.conifer.materials.shading)).toBe(name);
+      expect(styleOfShading(style.apply(style.conifer).materials.shading)).toBe(name);
+    }
+  });
 });

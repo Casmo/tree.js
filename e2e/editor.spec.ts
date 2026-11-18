@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { validateBytes } from 'gltf-validator';
 import type { Mesh } from 'three/webgpu';
 import { bakeTree, createTree, CURRENT_SCHEMA_VERSION, parseDefinition } from '../src/index';
-import { STARTS } from '../editor/src/starts';
+import { STYLE_NAMES } from '../src/index';
 
 /** Waits until the preview has drawn the latest change, then returns the editor's state. */
 async function waitForEditor(page: Page) {
@@ -39,25 +39,81 @@ test('smoke: load, edit a parameter, export JSON that the library loads', async 
   const exported = JSON.parse(json);
   expect(exported.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
   const definition = parseDefinition(json);
-  expect(definition).toMatchObject({ name: 'My oak', form: 'broadleaf', trunk: { length: 4.2 } });
+  expect(definition).toMatchObject({ name: 'My oak', trunk: { length: 4.2 } });
   const tree = createTree(definition, { seed: 1 });
   expect(tree.wood.geometry.getAttribute('position').count).toBeGreaterThan(0);
   expect(tree.leaves.geometry.getAttribute('position').count).toBeGreaterThan(0);
   tree.dispose();
 });
 
-for (const start of STARTS) {
-  test(`starts from ${start.id}`, async ({ page }) => {
-    await page.goto('/editor/?seed=1');
-    await waitForEditor(page);
-    await page.getByLabel('Style / Form').selectOption(start.id);
-    await expect.poll(async () => (await waitForEditor(page)).state?.source).toBe(start.id);
-    const { status, state } = await waitForEditor(page);
-    expect(status).toBe('rendered');
-    expect(state?.definition.form).toBe(start.form);
-    await expect(page.locator('#preview canvas')).toHaveScreenshot(`start-${start.id.replace('/', '-')}.png`);
-  });
+// Old "<style>/<form>" links keep working: each Style's generic Definition per Form.
+for (const style of STYLE_NAMES) {
+  for (const form of ['broadleaf', 'conifer'] as const) {
+    test(`starts from ${style}/${form}`, async ({ page }) => {
+      await page.goto(`/editor/?start=${style}/${form}&seed=1`);
+      const { status, state } = await waitForEditor(page);
+      expect(status).toBe('rendered');
+      expect(state?.source).toBe(`${form}/${style}`);
+      expect(state?.definition.name.toLowerCase()).toContain(form);
+      await expect(page.getByLabel('Species', { exact: true })).toHaveValue(form);
+      await expect(page.getByLabel('Style', { exact: true })).toHaveValue(style);
+      await expect(page.locator('#preview canvas')).toHaveScreenshot(`start-${style}-${form}.png`);
+    });
+  }
 }
+
+test('pick a Species and a Style, switch Style keeping shape edits, undo; reload keeps the Species and Style', async ({ page }) => {
+  await page.goto('/editor/?seed=1');
+  await waitForEditor(page);
+  const species = page.getByLabel('Species', { exact: true });
+  const style = page.getByLabel('Style', { exact: true });
+  const groups = await species.locator('optgroup').evaluateAll((elements) => elements.map((element) => (element as HTMLOptGroupElement).label));
+  expect(groups.slice(0, 2)).toEqual(['Generic', 'Broadleaf']);
+  await expect(species.locator('optgroup[label="Generic"] option')).toHaveText(['Generic broadleaf', 'Generic conifer']);
+  await expect(species.locator('optgroup[label="Broadleaf"] option[value="oak"]')).toHaveText('Oak');
+
+  await style.selectOption('realistic');
+  await species.selectOption('oak');
+  await expect.poll(async () => (await waitForEditor(page)).state?.source).toBe('oak/realistic');
+  const picked = await waitForEditor(page);
+  expect(picked.status).toBe('rendered');
+  expect(picked.state?.definition).toMatchObject({ name: 'Oak', species: 'oak', materials: { shading: 'standard' }, leaves: { shape: 'card' } });
+
+  await page.getByLabel('Trunk length').fill('6.5');
+  await page.getByLabel('Trunk length').press('Enter');
+  await expect.poll(async () => (await waitForEditor(page)).state?.definition.trunk.length).toBe(6.5);
+  const edited = (await waitForEditor(page)).state!;
+
+  await style.selectOption('stylized');
+  await expect.poll(async () => (await waitForEditor(page)).state?.source).toBe('oak/stylized');
+  const switched = await waitForEditor(page);
+  expect(switched.status).toBe('rendered');
+  expect(switched.state?.definition).toMatchObject({ species: 'oak', trunk: { length: 6.5 }, materials: { shading: 'toon' }, leaves: { shape: 'puff' } });
+  await expect(species).toHaveValue('oak');
+  await expect(page.getByLabel('Trunk length')).toHaveValue('6.5');
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  expect((await waitForEditor(page)).state).toEqual(edited);
+  await expect(style).toHaveValue('realistic');
+  await page.getByRole('button', { name: 'Redo' }).click();
+  expect((await waitForEditor(page)).state?.source).toBe('oak/stylized');
+
+  await page.reload();
+  const reloaded = await waitForEditor(page);
+  expect(reloaded.status).toBe('rendered');
+  expect(reloaded.state).toEqual(switched.state);
+  await expect(species).toHaveValue('oak');
+  await expect(style).toHaveValue('stylized');
+});
+
+test('?start=<species>/<style> starts from a Species', async ({ page }) => {
+  await page.goto('/editor/?start=oak/realistic&seed=1');
+  const { status, state } = await waitForEditor(page);
+  expect(status).toBe('rendered');
+  expect(state?.definition).toMatchObject({ name: 'Oak', species: 'oak', materials: { shading: 'standard' } });
+  await expect(page.getByLabel('Species', { exact: true })).toHaveValue('oak');
+  await expect(page.getByLabel('Style', { exact: true })).toHaveValue('realistic');
+});
 
 test('imports a JSON Tree Definition (older schema versions migrate)', async ({ page }) => {
   await page.goto('/editor/?seed=1');
@@ -69,7 +125,7 @@ test('imports a JSON Tree Definition (older schema versions migrate)', async ({ 
   expect(status).toBe('rendered');
   expect(state?.definition).toMatchObject({ schemaVersion: CURRENT_SCHEMA_VERSION, trunk: { length: 3.5, radius: 0.3 } });
   await expect(page.getByLabel('Trunk length')).toHaveValue('3.5');
-  await expect(page.getByLabel('Style / Form')).toHaveValue('imported');
+  await expect(page.getByLabel('Species', { exact: true })).toHaveValue('imported');
 
   await page.locator('#import-json').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{"schemaVersion": 2, "trunk": {"length": -1}}') });
   await expect(page.locator('#status')).toContainText('trunk.length');
@@ -147,6 +203,35 @@ test('exports a textured (realistic) Baked Tree with its images embedded', async
   const bark = json.materials.find((m: { name: string }) => m.name === 'bark');
   expect(bark.normalTexture).toBeDefined();
   expect(bark.pbrMetallicRoughness.baseColorTexture).toBeDefined();
+});
+
+test('Copy code: read-only preview that follows edits, three.js and React tabs, copied to the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/editor/?start=low-poly/broadleaf&seed=3&growth=0.9&season=0.62');
+  await waitForEditor(page);
+  const preview = page.getByLabel('Code preview');
+  await expect(preview).not.toBeEditable();
+  await expect(preview).toHaveValue(/createTree\(definition, \{ seed: 3, growth: 0\.9, season: 0\.62 \}\)/);
+
+  await page.getByLabel('Trunk length').fill('4.2');
+  await page.getByLabel('Trunk length').press('Enter');
+  await page.getByLabel('Seed', { exact: true }).fill('8');
+  await waitForEditor(page);
+  await expect(preview).toHaveValue(/length: 4\.2,/);
+  await expect(preview).toHaveValue(/seed: 8,/);
+
+  await page.getByRole('tab', { name: 'React' }).click();
+  await expect(page.getByRole('tab', { name: 'React' })).toHaveAttribute('aria-selected', 'true');
+  await expect(preview).toHaveValue(/<Tree definition=\{definition\} seed=\{8\} growth=\{0\.9\} season=\{0\.62\} \/>/);
+
+  await page.getByRole('button', { name: 'Copy code' }).click();
+  await expect(page.locator('#status')).toContainText('Copied');
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toBe(await preview.inputValue());
+  expect(copied).toContain("import { Tree } from '@casmo/tree.js/react';");
+  const literal = /const definition = ([\s\S]*?) satisfies TreeDefinitionInput;/.exec(copied)![1]!;
+  const { state } = await waitForEditor(page);
+  expect(parseDefinition(new Function(`return (${literal});`)())).toEqual(state!.definition);
 });
 
 test('the editor also runs on the WebGL2 fallback', async ({ page }) => {
