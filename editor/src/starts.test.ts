@@ -1,20 +1,58 @@
 import { describe, expect, it } from 'vitest';
-import { loadStyle, parseDefinition, type StyleName } from '@casmo/tree.js';
-import { loadStart, STARTS } from './starts';
+import { loadStyle, parseDefinition, STYLE_NAMES } from '@casmo/tree.js';
+import { oak, SPECIES_NAMES } from '@casmo/tree.js/species';
+import { loadStart, parseStartId, SPECIES_GROUPS, STARTS, STYLE_CHOICES } from './starts';
 
 describe('starting points', () => {
-  it('offers every built-in Style in both Forms', () => {
-    expect(STARTS.map((start) => start.id)).toEqual(expect.arrayContaining(['low-poly/broadleaf', 'low-poly/conifer', 'stylized/broadleaf', 'stylized/conifer']));
+  it('offers every Species of the collection, grouped by Form, plus the generic Forms', () => {
+    const generic = SPECIES_GROUPS.find((group) => group.label === 'Generic');
+    expect(generic?.species.map(({ id, label }) => [id, label])).toEqual([
+      ['broadleaf', 'Generic broadleaf'],
+      ['conifer', 'Generic conifer'],
+    ]);
+    const species = SPECIES_GROUPS.filter((group) => group !== generic).flatMap((group) => group.species.map(({ id }) => id));
+    expect([...species].sort()).toEqual([...SPECIES_NAMES].sort());
+    const broadleaves = SPECIES_GROUPS.find((group) => group.label === 'Broadleaf');
+    expect(broadleaves?.species).toContainEqual({ id: 'oak', label: 'Oak' });
   });
 
-  it.each(STARTS.map((start) => [start.id, start] as const))('%s loads its Style\'s Definition for its Form', async (_id, start) => {
-    const definition = await loadStart(start.id);
+  it('offers every built-in Style', () => {
+    expect(STYLE_CHOICES.map((style) => style.id)).toEqual(STYLE_NAMES);
+  });
+
+  it('every Species × Style is a start, as "<species>/<style>"', () => {
+    expect(STARTS).toHaveLength((SPECIES_NAMES.length + 2) * STYLE_NAMES.length);
+    expect(STARTS.map((start) => start.id)).toEqual(expect.arrayContaining(['oak/realistic', 'broadleaf/low-poly', 'conifer/stylized']));
+  });
+
+  it('a Species start is the Style applied to the Species', async () => {
+    const definition = await loadStart('oak/realistic');
+    const realistic = await loadStyle('realistic');
+    expect(definition).toEqual(realistic.apply(oak));
+    expect(definition.species).toBe('oak');
     expect(parseDefinition(definition)).toEqual(definition);
-    const style = await loadStyle(start.style as StyleName);
-    expect(definition).toEqual(style[start.form]);
+  });
+
+  it.each(STYLE_NAMES.flatMap((style) => (['broadleaf', 'conifer'] as const).map((form) => [style, form] as const)))(
+    'generic %s %s is that Style\'s own Definition, by the new and the old id',
+    async (styleName, form) => {
+      const style = await loadStyle(styleName);
+      expect(await loadStart(`${form}/${styleName}`)).toEqual(style[form]);
+      expect(await loadStart(`${styleName}/${form}`)).toEqual(style[form]);
+    },
+  );
+
+  it('reads new and old ids as Species + Style', () => {
+    expect(parseStartId('oak/realistic')).toEqual({ id: 'oak/realistic', species: 'oak', style: 'realistic' });
+    expect(parseStartId('broadleaf/stylized')).toEqual({ id: 'broadleaf/stylized', species: 'broadleaf', style: 'stylized' });
+    expect(parseStartId('low-poly/conifer')).toEqual({ id: 'conifer/low-poly', species: 'conifer', style: 'low-poly' });
+    expect(parseStartId('my-tree.json')).toBeNull();
+    expect(parseStartId('nope/realistic')).toBeNull();
+    expect(parseStartId('oak/watercolour')).toBeNull();
   });
 
   it('rejects an unknown starting point', async () => {
     await expect(loadStart('nope/broadleaf')).rejects.toThrow(/nope\/broadleaf/);
+    await expect(loadStart('oak/watercolour')).rejects.toThrow(/oak\/watercolour/);
   });
 });

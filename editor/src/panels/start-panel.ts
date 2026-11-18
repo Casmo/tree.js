@@ -1,9 +1,23 @@
-// Start from a built-in Style/Form or import a JSON Tree Definition.
-import { loadStart, STARTS } from '../starts';
+// Start from a Species (or a generic Form) in a Style, or import a JSON Tree Definition.
+// Picking a Species starts anew; picking a Style re-styles the current Definition, keeping its shape.
+import type { StyleName } from '@casmo/tree.js';
+import { loadStart, parseStartId, SPECIES_GROUPS, STYLE_CHOICES } from '../starts';
+import { currentStyle, switchStyle } from '../style-switch';
 import { errorMessage } from './controls';
 import type { Panel } from './types';
 
 export const IMPORTED = 'imported';
+
+function picker(id: string, text: string, select: HTMLSelectElement): HTMLDivElement {
+  const label = document.createElement('label');
+  label.htmlFor = id;
+  label.textContent = text;
+  select.id = id;
+  const row = document.createElement('div');
+  row.className = 'control';
+  row.append(label, select);
+  return row;
+}
 
 export const startPanel: Panel = {
   id: 'start',
@@ -12,22 +26,33 @@ export const startPanel: Panel = {
     const { store } = context;
     const root = document.createElement('div');
 
-    const label = document.createElement('label');
-    label.htmlFor = 'start';
-    label.textContent = 'Style / Form';
-    const select = document.createElement('select');
-    select.id = 'start';
-    for (const start of STARTS) select.add(new Option(start.label, start.id));
+    const species = document.createElement('select');
+    for (const group of SPECIES_GROUPS) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = group.label;
+      for (const choice of group.species) optgroup.append(new Option(choice.label, choice.id));
+      species.append(optgroup);
+    }
     const imported = new Option('Imported JSON', IMPORTED);
     imported.disabled = true;
-    select.add(imported);
-    select.addEventListener('change', () => {
-      const id = select.value;
+    species.add(imported);
+
+    const style = document.createElement('select');
+    for (const choice of STYLE_CHOICES) style.add(new Option(choice.label, choice.id));
+
+    species.addEventListener('change', () => {
+      const id = `${species.value}/${style.value}`;
       loadStart(id).then(
         (definition) => {
           store.loadDefinition(definition, id);
           context.report(null);
         },
+        (error: unknown) => context.report(errorMessage(error)),
+      );
+    });
+    style.addEventListener('change', () => {
+      switchStyle(store, style.value as StyleName).then(
+        () => context.report(null),
         (error: unknown) => context.report(errorMessage(error)),
       );
     });
@@ -54,16 +79,13 @@ export const startPanel: Panel = {
     });
 
     const sync = (): void => {
-      const source = store.state.source;
-      select.value = STARTS.some((start) => start.id === source) ? source : IMPORTED;
+      species.value = parseStartId(store.state.source)?.species ?? IMPORTED;
+      style.value = currentStyle(store.state);
     };
     store.subscribe(sync);
     sync();
 
-    const row = document.createElement('div');
-    row.className = 'control';
-    row.append(label, select);
-    root.append(row, importButton, file);
+    root.append(picker('start-species', 'Species', species), picker('start-style', 'Style', style), importButton, file);
     return root;
   },
 };
