@@ -590,8 +590,13 @@ A Baked Tree carries its Material Features (Crown Normals, Leaf Translucency, St
 Material Feature set, the `.glb` is exactly what it was without them.
 
 ```ts
-const tree = createTree(definition, { seed: 4 }); // a Definition with Material Features set
-const glb = await exportBakedTree(tree, { occlusionInVertexColors: true }); // also bakeTree(tree, { ... })
+import { createTree, exportBakedTree, extendDefinition } from '@casmo/tree.js';
+
+const definition = extendDefinition({ schemaVersion: 3 }, {
+  materials: { leaf: { crownNormals: 1, translucency: { strength: 0.5, edge: 0.6, ambient: 0.3 } }, occlusion: { strength: 0.7 } },
+});
+const tree = createTree(definition, { seed: 4 });
+const glb = await exportBakedTree(tree, { occlusionInVertexColors: true }); // the option works for bakeTree too
 ```
 
 | glTF channel | What it holds | Unity | Godot 4 | Unreal | Blender |
