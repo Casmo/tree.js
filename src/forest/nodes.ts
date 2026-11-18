@@ -17,8 +17,8 @@ export function instanceState(): { scale: Node<'float'>; growth: Node<'float'>; 
   return { scale: state.x, growth: state.y, season: state.z, windPhase: state.w };
 }
 
-/** Rotates `v` by the instance quaternion (`inverse` = by its conjugate). */
-function rotate(v: Node<'vec3'>, inverse = false): Node<'vec3'> {
+/** Rotates `v` by the instance quaternion (`inverse` = by its conjugate): tree space to forest space. */
+export function instanceRotate(v: Node<'vec3'>, inverse = false): Node<'vec3'> {
   const q = attribute<'vec4'>('iRotation', 'vec4');
   const u = inverse ? q.xyz.negate() : q.xyz;
   const t = cross(u, v).mul(2);
@@ -41,7 +41,7 @@ function rotate(v: Node<'vec3'>, inverse = false): Node<'vec3'> {
 export function forestPosition(wind: WindSource, response: WindResponse, base: Node<'vec3'> = positionGeometry): Node<'vec3'> {
   const { scale, growth, windPhase } = instanceState();
   const grown = growthPosition(growth, base);
-  const offset = windOffset(wind, response, { direction: rotate(objectWindDirection(wind), true), phase: windPhase });
+  const offset = windOffset(wind, response, { direction: instanceRotate(objectWindDirection(wind), true), phase: windPhase });
   const displacement = grown.add(offset).sub(positionGeometry);
-  return positionLocal.add(rotate(displacement).mul(scale));
+  return positionLocal.add(instanceRotate(displacement).mul(scale));
 }
