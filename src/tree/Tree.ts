@@ -14,9 +14,9 @@ import { uniform } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
 import { trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { clampGrowth, growthPosition } from '../growth';
-import { createBarkMaterial, createLeafMaterial } from '../materials';
+import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
-import { applySeasonToLeafMaterial, createSeasonNodes, type SeasonUniform } from '../season';
+import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes, type SeasonUniform } from '../season';
 import { checkedSeason } from '../season/check';
 import { textureReady, type TextureOptions } from '../textures';
 import { seedRandom } from '../random';
@@ -98,9 +98,11 @@ export class Tree extends Group {
   readonly wood: Mesh<BufferGeometry, Material>;
   /** Leaf cards (empty geometry for a bare tree). */
   readonly leaves: Mesh<BufferGeometry, MeshStandardNodeMaterial>;
-  /** This tree's Growth uniform (read by the wood and leaf materials' `positionNode`). */
+  /** Fruit (empty geometry when the Definition has no Fruit). */
+  readonly fruit: Mesh<BufferGeometry, MeshStandardNodeMaterial>;
+  /** This tree's Growth uniform (read by the wood, leaf and Fruit materials' `positionNode`). */
   readonly growthUniform: UniformNode<'float', number>;
-  /** The Season uniform the leaf material reads (shared nodes may reference it). */
+  /** The Season uniform the leaf and Fruit materials read (shared nodes may reference it). */
   readonly seasonUniform: SeasonUniform;
   /** This tree's response to the Wind, from `definition.wind`; `windResponse.set(...)` changes it live. */
   readonly windResponse: WindResponse;
@@ -129,7 +131,9 @@ export class Tree extends Group {
     const textures = [bark.map, bark.normalMap, leaf.map].filter((t) => t !== null);
     this.ready = Promise.all(textures.map(textureReady)).then(() => undefined);
     this.ready.catch(() => {}); // only reported to whoever awaits it
-    this.add(this.wood, this.leaves);
+    const fruit = createFruitMaterial(definition);
+    this.fruit = treeMesh('fruit', toBufferGeometry(data.fruit), fruit);
+    this.add(this.wood, this.leaves, this.fruit);
 
     this.windBinding = new WindBinding(options.wind ?? sceneWind);
     this.windResponse = new WindResponse(definition.wind, {
@@ -143,6 +147,11 @@ export class Tree extends Group {
     const season = createSeasonNodes(definition.season);
     applySeasonToLeafMaterial(this.leaves.material, season);
     this.seasonUniform = season.season;
+    // Fruit: Season scales it about its attachment point, then Growth, then Wind (with its twig).
+    const fruitSeason = createFruitSeasonNodes(definition.season, this.seasonUniform);
+    fruit.colorNode = fruitSeason.color;
+    fruit.positionNode = growthPosition(this.growthUniform, fruitSeason.position);
+    applyWind(fruit, offset);
     this.season = options.season ?? 0;
   }
 
@@ -159,8 +168,8 @@ export class Tree extends Group {
   }
 
   /**
-   * Season: 0 (first day of spring) .. 1 (last day of winter); sets leaf colour, leaf coverage
-   * and blossom from the Definition's Season Profile. Values outside 0..1 wrap around the year.
+   * Season: 0 (first day of spring) .. 1 (last day of winter); sets leaf colour, leaf coverage,
+   * blossom and Fruit (amount, size, colour) from the Definition's Season Profile. Values outside 0..1 wrap around the year.
    * Only updates a uniform, so it is cheap to animate.
    */
   get season(): number {

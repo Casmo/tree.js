@@ -2,7 +2,7 @@ import { cos, sin } from '../math';
 import type { LeafShape, VariationDefinition } from '../definition';
 import { leafSeasonAttribute } from '../season/profile';
 import { seedRandom } from '../random';
-import { createAttributes, writePart } from './attributes';
+import { createAttributes, writePart, type PartInfo } from './attributes';
 import type { GeometryBuffers, GrowthWindow, SkeletonLeaf, Vec3 } from './types';
 import { leafSway, NO_SWAY, type PartSway } from './wind';
 import { add, cross, dot, normalize, scale, sub } from './vec';
@@ -12,7 +12,7 @@ import { add, cross, dot, normalize, scale, sub } from './vec';
  * x = across (side), y = the leaf normal, z = along the leaf direction (0 = attachment, 1 = tip).
  * `normals` are outward unit normals (smooth; a flat-shaded material makes them faceted).
  */
-interface SolidTemplate {
+export interface SolidTemplate {
   positions: Vec3[];
   normals: Vec3[];
   triangles: [number, number, number][];
@@ -21,7 +21,7 @@ interface SolidTemplate {
 const GOLDEN = (1 + Math.sqrt(5)) / 2;
 
 /** Low-poly foliage ball: an icosahedron of diameter 1, from the attachment point out along the leaf. */
-function clumpTemplate(): SolidTemplate {
+export function clumpTemplate(): SolidTemplate {
   const raw: Vec3[] = [
     [-1, GOLDEN, 0], [1, GOLDEN, 0], [-1, -GOLDEN, 0], [1, -GOLDEN, 0],
     [0, -1, GOLDEN], [0, 1, GOLDEN], [0, -1, -GOLDEN], [0, 1, -GOLDEN],
@@ -91,7 +91,7 @@ const TEMPLATES: Record<Exclude<LeafShape, 'card'>, SolidTemplate> = {
 };
 
 /** Fixes each triangle's winding so its front face points along its vertex normals (CCW = front). */
-function orient(template: SolidTemplate): SolidTemplate {
+export function orient(template: SolidTemplate): SolidTemplate {
   const { positions: p, normals: n } = template;
   const triangles = template.triangles.map(([a, b, c]): [number, number, number] => {
     const face = cross(sub(p[b]!, p[a]!), sub(p[c]!, p[a]!));
@@ -114,36 +114,60 @@ export function solidLeafGeometry(
   growth: GrowthWindow[] = [],
   branchSway: ReadonlyMap<string, PartSway> = new Map(),
 ): GeometryBuffers {
-  const template = TEMPLATES[shape];
+  return solidGeometry(TEMPLATES[shape], leaves, (leaf, l) => ({
+    level,
+    attach: leaf.attach,
+    random: seedRandom(seed, leaf.id),
+    origin: leaf.position,
+    season: leafSeasonAttribute(seed, variation, leaf.id),
+    growth: growth[l] ?? { start: 0, end: 0 },
+    sway: leafSway(branchSway.get(leaf.branch) ?? NO_SWAY, leaf.attach),
+  }));
+}
+
+/** One placed copy of a solid template: its base point, frame (direction, normal), size and tint. */
+export interface SolidPlacement {
+  position: Vec3;
+  /** Unit vector from the base point to the far end (template z). */
+  direction: Vec3;
+  /** Unit vector across it (template y), perpendicular to `direction`. */
+  normal: Vec3;
+  size: number;
+  /** Vertex colour (RGB multiplier). */
+  tint: Vec3;
+}
+
+/**
+ * One small closed mesh per placement: the template in the placement's frame
+ * (across, normal, direction), scaled by its size, every vertex carrying the placement's tint
+ * as its colour and its part attributes (`part`).
+ */
+export function solidGeometry<P extends SolidPlacement>(
+  template: SolidTemplate,
+  placements: readonly P[],
+  part: (placement: P, index: number) => PartInfo,
+): GeometryBuffers {
   const n = template.positions.length;
-  const positions = new Float32Array(leaves.length * n * 3);
-  const normals = new Float32Array(leaves.length * n * 3);
-  const uvs = new Float32Array(leaves.length * n * 2);
-  const colors = new Float32Array(leaves.length * n * 3);
-  const indices = new Uint32Array(leaves.length * template.triangles.length * 3);
-  const attributes = createAttributes(leaves.length * n);
-  leaves.forEach((leaf, l) => {
-    const side = cross(leaf.normal, leaf.direction); // (side, normal, direction) is right-handed, so winding is kept
+  const positions = new Float32Array(placements.length * n * 3);
+  const normals = new Float32Array(placements.length * n * 3);
+  const uvs = new Float32Array(placements.length * n * 2);
+  const colors = new Float32Array(placements.length * n * 3);
+  const indices = new Uint32Array(placements.length * template.triangles.length * 3);
+  const attributes = createAttributes(placements.length * n);
+  placements.forEach((placement, l) => {
+    const side = cross(placement.normal, placement.direction); // (side, normal, direction) is right-handed, so winding is kept
     const toWorld = ([x, y, z]: Vec3): Vec3 =>
-      add(add(scale(side, x), scale(leaf.normal, y)), scale(leaf.direction, z));
-    const part = {
-      level,
-      attach: leaf.attach,
-      random: seedRandom(seed, leaf.id),
-      origin: leaf.position,
-      season: leafSeasonAttribute(seed, variation, leaf.id),
-      growth: growth[l] ?? { start: 0, end: 0 },
-      sway: leafSway(branchSway.get(leaf.branch) ?? NO_SWAY, leaf.attach),
-    };
+      add(add(scale(side, x), scale(placement.normal, y)), scale(placement.direction, z));
+    const info = part(placement, l);
     for (let c = 0; c < n; c++) {
       const v = l * n + c;
       const local = template.positions[c]!;
-      positions.set(add(leaf.position, scale(toWorld(local), leaf.size)), v * 3);
+      positions.set(add(placement.position, scale(toWorld(local), placement.size)), v * 3);
       normals.set(normalize(toWorld(template.normals[c]!)), v * 3);
       const along = Math.min(Math.max(local[2], 0), 1);
       uvs.set([local[0] + 0.5, along], v * 2);
-      colors.set(leaf.tint, v * 3);
-      writePart(attributes, v, part, along);
+      colors.set(placement.tint, v * 3);
+      writePart(attributes, v, info, along);
     }
     template.triangles.forEach((triangle, t) => {
       indices.set(triangle.map((i) => l * n + i), (l * template.triangles.length + t) * 3);

@@ -1,4 +1,5 @@
 import type { HexColor, Keyframe, SeasonProfileDefinition, VariationDefinition } from '../definition';
+import { DEFAULT_FRUIT_AMOUNT, DEFAULT_FRUIT_COLOR } from '../definition/defaults';
 import { seedRandom } from '../random';
 import { pow } from '../math';
 
@@ -63,6 +64,15 @@ export interface SeasonState {
   /** 0 = none .. 1 = full bloom. */
   blossom: number;
   blossomColor: RGB;
+  /** Fruit amount: 0 = none .. 1 = all Fruit at full size (1 without a `fruit` track). */
+  fruit: number;
+  /** Fruit colour (the default red without a `fruitColor` track). */
+  fruitColor: RGB;
+}
+
+/** A Season Profile's Fruit tracks, with the defaults for absent ones. */
+export function fruitTracks(profile: SeasonProfileDefinition): { fruit: Keyframe<number>[]; fruitColor: Keyframe<HexColor>[] } {
+  return { fruit: profile.fruit ?? DEFAULT_FRUIT_AMOUNT, fruitColor: profile.fruitColor ?? DEFAULT_FRUIT_COLOR };
 }
 
 /**
@@ -80,6 +90,11 @@ export function evaluateSeason(profile: SeasonProfileDefinition, season: number,
     leafCoverage: sampleTrack(profile.leafCoverage, s),
     blossom: sampleTrack(profile.blossom, s),
     blossomColor: hexToLinear(profile.blossomColor),
+    fruit: sampleTrack(fruitTracks(profile).fruit, s),
+    fruitColor: sampleTrack(
+      fruitTracks(profile).fruitColor.map((k) => ({ t: k.t, value: hexToLinear(k.value) })),
+      s,
+    ),
   };
 }
 
@@ -123,6 +138,16 @@ export function leafSeasonAttribute(
   };
 }
 
+/** The Season timing (`aSeason` attribute) of one Fruit: like a leaf's, with the Fruit's rank as `coverageRank`. */
+export function fruitSeasonAttribute(
+  seed: number,
+  variation: Pick<VariationDefinition, 'season'>,
+  fruitId: string,
+): PartSeason {
+  const jitter = (seedRandom(seed, `fruit/${fruitId}#season`) * 2 - 1) * (variation.season / 2);
+  return { shift: seasonShift(seed, variation) + jitter, coverageRank: seedRandom(seed, `fruit/${fruitId}#rank`), blossomRank: 0 };
+}
+
 /** `aSeason` for wood vertices: the tree's timing shift, no ranks. */
 export function woodSeasonAttribute(seed: number, variation: Pick<VariationDefinition, 'season'>): PartSeason {
   return { shift: seasonShift(seed, variation), coverageRank: 0, blossomRank: 0 };
@@ -150,4 +175,25 @@ export function leafSeason(profile: SeasonProfileDefinition, season: number, par
     blossom,
     color: blossom ? state.blossomColor : state.leafColor,
   };
+}
+
+/** One Fruit at one Season. */
+export interface FruitSeasonState {
+  /** False when the Fruit has not set yet or has dropped (the Fruit amount is not above its rank). */
+  visible: boolean;
+  /** Size of the Fruit relative to full size (0 when not visible): it swells with the Fruit amount. */
+  scale: number;
+  /** Linear RGB before the Seed's per-Fruit tint (vertex colour) is multiplied in. */
+  color: RGB;
+}
+
+/**
+ * Evaluates one Fruit from its Season timing (`aSeason` of the fruit mesh: shift, the Fruit's
+ * rank as `coverageRank`): the exact CPU twin of the Fruit shader (see `createFruitSeasonNodes`).
+ * A Fruit shows while the Fruit amount is above its rank, scaled about its attachment point by the amount.
+ */
+export function fruitSeason(profile: SeasonProfileDefinition, season: number, part: PartSeason): FruitSeasonState {
+  const state = evaluateSeason(profile, season, part.shift);
+  const visible = state.fruit > part.coverageRank;
+  return { visible, scale: visible ? state.fruit : 0, color: state.fruitColor };
 }

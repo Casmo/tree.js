@@ -12,6 +12,7 @@ export {
   type SkeletonBranch,
   type SkeletonPoint,
   type SkeletonLeaf,
+  type SkeletonFruit,
   type GeometryBuffers,
   type TreeAttributes,
   type VertexAttribute,

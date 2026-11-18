@@ -1,6 +1,7 @@
 import type {
   BarkType,
   BranchLevelDefinition,
+  FruitDefinition,
   HexColor,
   LeafType,
   SeasonProfileDefinition,
@@ -49,18 +50,7 @@ export interface SpeciesBarkDefinition {
  * A Species' Fruit (ADR 0006), copied as is into the Tree Definition's `fruit` block;
  * the Style decides how it is drawn (its shading).
  */
-export interface SpeciesFruitDefinition {
-  /** Fruit Type. */
-  type: 'round' | 'pear' | 'nut' | 'cone' | 'berry';
-  /** Fruit per outermost twig. */
-  count: number;
-  /** Fruit size, metres. */
-  size: number;
-  /** Seed range: ± this fraction of `size` (0..1). */
-  sizeVariation: number;
-  /** How much the Fruit dangles below its twig (0 = sits on it .. 1 = hangs). */
-  hang: number;
-}
+export type SpeciesFruitDefinition = FruitDefinition;
 
 /**
  * Species: a named kind of real tree, described once, Style-neutral (ADR 0005). Plain JSON.
