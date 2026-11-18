@@ -6,6 +6,8 @@ describe('styleOfSource', () => {
   it('takes the Style of a built-in starting point', () => {
     expect(styleOfSource('stylized/conifer')).toBe('stylized');
     expect(styleOfSource('low-poly/broadleaf')).toBe('low-poly');
+    expect(styleOfSource('oak/realistic')).toBe('realistic');
+    expect(styleOfSource('conifer/stylized')).toBe('stylized');
   });
   it('is null for an imported file or an unknown Style', () => {
     expect(styleOfSource('my-oak.tree.json')).toBeNull();

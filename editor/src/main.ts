@@ -1,6 +1,7 @@
 // Tree Editor app: wires the store, the preview and the sidebar panels together.
 // Built only on the library's public API (`@casmo/tree.js` and its Style subpaths).
-// Query parameters: ?start=<style>/<form> (default: the autosaved work, else the first Style), ?seed=,
+// Query parameters: ?start=<species>/<style>, e.g. oak/realistic or conifer/low-poly (old <style>/<form>
+// ids still work) (default: the autosaved work, else the first Style), ?seed=,
 // ?growth=, ?season=, ?backend=webgl (WebGPURenderer's WebGL2 fallback).
 import { loadAutosave, startAutosave } from './autosave';
 import type { EffectsPreview } from './effects-preview';
@@ -8,7 +9,7 @@ import { createHistory, type EditorHistory } from './history';
 import { bindHistoryShortcuts, historyButtons } from './history-controls';
 import { PANELS, type PanelContext } from './panels';
 import { Preview, type PreviewStatus } from './preview';
-import { DEFAULT_START, loadStart } from './starts';
+import { DEFAULT_START, loadStart, parseStartId } from './starts';
 import { createEditorStore, type EditorStore } from './store';
 
 declare global {
@@ -45,7 +46,8 @@ async function main(): Promise<void> {
   // An explicit ?start= begins anew; otherwise continue the autosaved work (if any).
   const start = params.get('start');
   const saved = start === null ? loadAutosave(localStorage) : null;
-  const base = saved ?? { definition: await loadStart(start ?? DEFAULT_START), source: start ?? DEFAULT_START };
+  const startId = start ?? DEFAULT_START;
+  const base = saved ?? { definition: await loadStart(startId), source: parseStartId(startId)?.id ?? startId };
   const store = createEditorStore({
     ...base,
     seed: optionalNumber('seed') ?? base.seed,
