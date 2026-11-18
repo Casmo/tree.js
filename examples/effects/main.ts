@@ -4,6 +4,7 @@
 //   ?form=conifer  conifer instead of broadleaf
 //   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (Tree Effects treat it as tree pixels)
 //   ?effects=none|outline|glow|grade|style  one effect, the Style's suggested combination (default), or none
+//   ?effects=inner-lines  Inner Lines (from depth and normal edges, the normal channel turned on)
 //   ?view=mask  show the tree mask (red = tree, green = leaves) instead of the image
 //   ?view=treeId  add a second Tree and a small Forest, and show the Tree ID channel (one colour per
 //                 ID, black = 0); exposes `effectsExample.readTreeIds()` for the Playwright tests
@@ -77,6 +78,8 @@ function chosenEffects(): TreeEffectsSettings {
       return { glow: settings.glow ?? { intensity: 0.8 } };
     case 'grade':
       return { grade: settings.grade ?? { saturation: 1.3 } };
+    case 'inner-lines':
+      return { innerLines: settings.innerLines ?? {} };
     case 'style':
       return settings;
     default:

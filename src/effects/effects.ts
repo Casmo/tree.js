@@ -5,6 +5,7 @@ import { liveTreeColorGrade } from './grade';
 import type { LiveTreeEffect } from './live';
 import type { TreeEffectInput } from './mask';
 import { liveTreeOutline } from './outline';
+import { liveInnerLines } from './inner-lines';
 import { treeEffectsPass, type TreeEffectsChannels, type TreeEffectsPass } from './pass';
 import { SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from './suggested';
 import { readTreeId, treeFromId } from './tree-id';
@@ -14,18 +15,19 @@ import type { Tree } from '../tree';
 /**
  * Applies a combination of Tree Effects to `input` and returns the resulting colour node, for use in
  * your own post-processing pipeline (`pipeline.outputNode = applyTreeEffects(...)`, or feed it into
- * more effects). Order: colour grade, leaf glow, outline. Empty settings return `input.color`.
+ * more effects). Order: colour grade, leaf glow, inner lines, outline. Empty settings return `input.color`.
  */
 export function applyTreeEffects(input: TreeEffectInput, settings: TreeEffectsSettings): Node<'vec4'> {
   return liveTreeEffects(input, settings).node;
 }
 
 /**
- * The shape of a combination: what its graph is built from (the effects that are on and the glow
- * radius). Settings of the same shape only differ in uniforms.
+ * The shape of a combination: what its graph is built from (the effects that are on, the glow
+ * radius and the normal encoding of Inner Lines). Settings of the same shape only differ in uniforms.
  */
-function shapeOf(settings: TreeEffectsSettings): string {
-  return JSON.stringify([!!settings.grade, settings.glow ? glowRadius(settings.glow) : null, !!settings.outline]);
+function shapeOf(settings: TreeEffectsSettings, input: TreeEffectInput): string {
+  const innerLines = settings.innerLines ? (input.normalEncoding ?? 'color') : null;
+  return JSON.stringify([!!settings.grade, settings.glow ? glowRadius(settings.glow) : null, !!settings.outline, innerLines]);
 }
 
 /** {@link applyTreeEffects} with every colour and number as a uniform; `update()` needs the same shape. */
@@ -41,6 +43,11 @@ function liveTreeEffects(input: TreeEffectInput, settings: TreeEffectsSettings):
     const glow = liveLeafGlow({ color, mask: input.mask }, settings.glow);
     updates.push((s) => glow.update(s.glow!));
     color = glow.node;
+  }
+  if (settings.innerLines) {
+    const lines = liveInnerLines({ ...input, color }, settings.innerLines);
+    updates.push((s) => lines.update(s.innerLines!));
+    color = lines.node;
   }
   if (settings.outline) {
     const outline = liveTreeOutline({ color, mask: input.mask }, settings.outline);
@@ -80,8 +87,8 @@ export interface TreeEffectsOptions {
  * The extra channels the scene pass needs for `settings` (with the `treeId` option). Only this
  * set decides the scene pass's MRT: settings that need the same channels keep it.
  */
-function channelsFor(_settings: TreeEffectsSettings, options: TreeEffectsOptions): TreeEffectsChannels {
-  return { treeId: options.treeId === true };
+function channelsFor(settings: TreeEffectsSettings, options: TreeEffectsOptions): TreeEffectsChannels {
+  return { treeId: options.treeId === true, normal: !!settings.innerLines };
 }
 
 /** A key that is equal for equal sets of channels. */
@@ -145,7 +152,7 @@ export class TreeEffects {
       this.input = { channels: key, pass: treeEffectsPass(this.scene, this.camera, this.options.selection ?? null, channels) };
       this.graph = null;
     }
-    const shape = shapeOf(this.current);
+    const shape = shapeOf(this.current, this.scenePass);
     if (this.graph?.shape === shape) {
       this.graph.effects.update(this.current);
       return;

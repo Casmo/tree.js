@@ -1,4 +1,4 @@
-import { Vector4, type Material, type MRTNode, type Node, type Object3D, type TextureNode } from 'three/webgpu';
+import { Vector4, type Camera, type Material, type MRTNode, type Node, type Object3D, type TextureNode } from 'three/webgpu';
 import { mrt, uniform } from 'three/tsl';
 
 /** Name of the tree mask output in a pass's MRT (`scenePass.getTextureNode(TREE_MASK)`). */
@@ -61,4 +61,21 @@ export interface TreeEffectInput {
    * needed by effects that tell trees apart. Read it with exact texel loads, never filtered.
    */
   treeId?: TextureNode;
+  /**
+   * Scene depth texture, e.g. `scenePass.getTextureNode('depth')`; with `camera`, only needed by
+   * effects that read depth (Inner Lines).
+   */
+  depth?: TextureNode;
+  /** The camera the scene pass renders with (its near and far turn `depth` into view Z). */
+  camera?: Camera;
+  /**
+   * View-space normal texture, e.g. `scenePass.getTextureNode('normal')` (see `treeNormalMRT`, or
+   * your own normal MRT); only needed by Inner Lines. Encoded as `normalEncoding` says.
+   */
+  normal?: TextureNode;
+  /**
+   * How `normal` stores the view normal: `'color'` (default) = `directionToColor(normalView)`, as in
+   * an RGBA8 target; `'direction'` = the normal itself, as in a float target.
+   */
+  normalEncoding?: 'color' | 'direction';
 }

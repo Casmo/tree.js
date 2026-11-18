@@ -2,6 +2,7 @@
 export { TREE_MASK, createTreeMask, treeMaskMRT, treePartOf, type TreeEffectInput, type TreePart } from './mask';
 export { treeEffectsPass, type TreeEffectsChannels, type TreeEffectsPass } from './pass';
 export { treeOutline, type TreeOutlineOptions } from './outline';
+export { innerLines, TREE_NORMAL, treeNormalMRT, type InnerLinesOptions } from './inner-lines';
 export { leafGlow, type LeafGlowOptions } from './glow';
 export { treeColorGrade, type TreeColorGradeOptions } from './grade';
 export { TREE_ID, readTreeId, treeFromId, treeIdMRT, treeIdOf, treeIdTexture } from './tree-id';

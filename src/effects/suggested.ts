@@ -2,12 +2,14 @@ import type { StyleName } from '../styles/registry';
 import type { TreeColorGradeOptions } from './grade';
 import type { LeafGlowOptions } from './glow';
 import type { TreeOutlineOptions } from './outline';
+import type { InnerLinesOptions } from './inner-lines';
 
 /** A combination of Tree Effects; leave an effect out to skip it. `{}` = no effects. */
 export interface TreeEffectsSettings {
   grade?: TreeColorGradeOptions;
   glow?: LeafGlowOptions;
   outline?: TreeOutlineOptions;
+  innerLines?: InnerLinesOptions;
 }
 
 /** The suggested combination of Tree Effects for each built-in Style. */
