@@ -149,6 +149,35 @@ test('exports a textured (realistic) Baked Tree with its images embedded', async
   expect(bark.pbrMetallicRoughness.baseColorTexture).toBeDefined();
 });
 
+test('Copy code: read-only preview that follows edits, three.js and React tabs, copied to the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/editor/?start=low-poly/broadleaf&seed=3&growth=0.9&season=0.62');
+  await waitForEditor(page);
+  const preview = page.getByLabel('Code preview');
+  await expect(preview).not.toBeEditable();
+  await expect(preview).toHaveValue(/createTree\(definition, \{ seed: 3, growth: 0\.9, season: 0\.62 \}\)/);
+
+  await page.getByLabel('Trunk length').fill('4.2');
+  await page.getByLabel('Trunk length').press('Enter');
+  await page.getByLabel('Seed', { exact: true }).fill('8');
+  await waitForEditor(page);
+  await expect(preview).toHaveValue(/length: 4\.2,/);
+  await expect(preview).toHaveValue(/seed: 8,/);
+
+  await page.getByRole('tab', { name: 'React' }).click();
+  await expect(page.getByRole('tab', { name: 'React' })).toHaveAttribute('aria-selected', 'true');
+  await expect(preview).toHaveValue(/<Tree definition=\{definition\} seed=\{8\} growth=\{0\.9\} season=\{0\.62\} \/>/);
+
+  await page.getByRole('button', { name: 'Copy code' }).click();
+  await expect(page.locator('#status')).toContainText('Copied');
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toBe(await preview.inputValue());
+  expect(copied).toContain("import { Tree } from '@casmo/tree.js/react';");
+  const literal = /const definition = ([\s\S]*?) satisfies TreeDefinitionInput;/.exec(copied)![1]!;
+  const { state } = await waitForEditor(page);
+  expect(parseDefinition(new Function(`return (${literal});`)())).toEqual(state!.definition);
+});
+
 test('the editor also runs on the WebGL2 fallback', async ({ page }) => {
   await page.goto('/editor/?start=low-poly/conifer&seed=1&backend=webgl');
   expect(await waitForEditor(page)).toMatchObject({ status: 'rendered', backend: 'webgl2' });
