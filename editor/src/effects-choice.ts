@@ -1,8 +1,9 @@
 // Which Tree Effects the preview shows: a toggle per effect, with the settings of a Style's
 // suggested combination (SUGGESTED_TREE_EFFECTS). Pure logic; the panel and preview wiring live in
 // panels/effects-panel.ts and effects-preview.ts.
-import { STYLE_NAMES, type StyleName } from '@casmo/tree.js';
+import type { StyleName } from '@casmo/tree.js';
 import { SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from '@casmo/tree.js/effects';
+import { parseStartId } from './starts';
 
 /** The Tree Effects, in the order they are applied. */
 export const EFFECT_NAMES = ['grade', 'glow', 'outline'] as const;
@@ -19,10 +20,9 @@ export type EffectToggles = Record<EffectName, boolean>;
 
 export const NO_EFFECTS: EffectToggles = { grade: false, glow: false, outline: false };
 
-/** The Style of a starting point id ("<style>/<form>"), or null (imported JSON, unknown Style). */
+/** The Style of a starting point id ("oak/realistic", old "low-poly/conifer"), or null (imported JSON, unknown Style). */
 export function styleOfSource(source: string): StyleName | null {
-  const [style, form] = source.split('/');
-  return form !== undefined && (STYLE_NAMES as string[]).includes(style!) ? (style as StyleName) : null;
+  return parseStartId(source)?.style ?? null;
 }
 
 /** The toggles of a Style's suggested combination. */

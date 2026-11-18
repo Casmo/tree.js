@@ -56,8 +56,12 @@ test("applies the current Style's suggested combination with one action", async 
   await expect(page.getByLabel('Outline', { exact: true })).toBeChecked();
   await expect(page.locator('#preview canvas')).toHaveScreenshot('low-poly-suggested.png');
 
-  // A new starting point brings its Style's settings; its suggestion is one click away.
-  await page.getByLabel('Style / Form').selectOption('stylized/broadleaf');
+  // A new Style brings its settings; its suggestion is one click away.
+  await page.getByLabel('Species', { exact: true }).selectOption('conifer');
+  await page.getByLabel('Style', { exact: true }).selectOption('stylized');
+  await expect(page.getByLabel('Effects Style')).toHaveValue('stylized');
+  await page.getByLabel('Species', { exact: true }).selectOption('broadleaf');
+  await expect.poll(() => page.evaluate(() => window.treeEditor.store?.state.source)).toBe('broadleaf/stylized');
   await expect(page.getByLabel('Effects Style')).toHaveValue('stylized');
   await page.getByRole('button', { name: 'Apply stylized suggestion' }).click();
   await expect(page.getByLabel('Leaf glow', { exact: true })).toBeChecked();
