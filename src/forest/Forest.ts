@@ -18,6 +18,7 @@ import { positionGeometry } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
 import { generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
+import { applyLeafTranslucency } from '../materials/translucency';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes } from '../season';
 import { checkedSeason } from '../season/check';
@@ -206,6 +207,8 @@ export class ForestVariant {
     this.barkMaterial.positionNode = position;
     this.leafMaterial = createLeafMaterial(definition, textures);
     this.leafMaterial.positionNode = position;
+    const { translucency } = definition.materials.leaf;
+    if (translucency) applyLeafTranslucency(this.leafMaterial, translucency, this.data.crown, instanceState().growth);
     applySeasonToLeafMaterial(this.leafMaterial, createSeasonNodes(definition.season, instanceState().season));
 
     this.woodSource = interleavedGeometry(this.data.wood, height * WIND_BOUNDS);

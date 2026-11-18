@@ -15,6 +15,8 @@
 //   ?wind=<strength>  scene-wide Wind strength (default 0 = calm); animates unless windTime is given
 //   ?windTime=<s>  pin the Wind clock (deterministic screenshots)
 //   ?shadows=1  enable shadow mapping (sun casts, ground receives)
+//   ?backlight=1  put the sun low behind the tree, facing the camera (to see Leaf Translucency)
+//   ?translucency=<strength>,<edge>,<ambient>  turn on Leaf Translucency (a Material Feature, off by default)
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
 import {
@@ -65,6 +67,7 @@ const statusEl = document.getElementById('status')!;
 const windStrength = Number(params.get('wind') ?? 0);
 const windTime = params.get('windTime');
 const shadows = params.get('shadows') === '1';
+const backlight = params.get('backlight') === '1';
 sceneWind.set({ direction: [1, 0, -0.4], strength: windStrength });
 if (windTime !== null) sceneWind.time = Number(windTime);
 
@@ -76,12 +79,12 @@ camera.lookAt(0, 3, 0);
 
 scene.add(new THREE.HemisphereLight('#ffffff', '#6a7a4a', 1.5));
 const sun = new THREE.DirectionalLight('#ffffff', 2.5);
-sun.position.set(5, 8, 3);
+sun.position.set(...((backlight ? [-6, 3.5, -6] : [5, 8, 3]) as [number, number, number]));
 scene.add(sun);
 if (shadows) {
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
-  Object.assign(sun.shadow.camera, { left: -7, right: 7, top: 9, bottom: -3 });
+  Object.assign(sun.shadow.camera, backlight ? { left: -9, right: 9, top: 12, bottom: -4 } : { left: -7, right: 7, top: 9, bottom: -3 });
 }
 
 const ground = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(
@@ -176,10 +179,18 @@ function withCustomTextures(definition: TreeDefinitionInput | TreeDefinition): T
   });
 }
 
+/** `?translucency=<strength>,<edge>,<ambient>`: Leaf Translucency (a Material Feature) on top of the Definition. */
+function withTranslucency(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
+  const value = params.get('translucency');
+  if (!value) return definition;
+  const [strength, edge, ambient] = value.split(',').map(Number);
+  return extendDefinition(definition, { materials: { leaf: { translucency: { strength: strength!, edge: edge!, ambient: ambient! } } } });
+}
+
 async function main(): Promise<void> {
   const textureBase = params.get('textureBase');
   if (textureBase) setTextureOptions({ basePath: textureBase });
-  const tree = createTree(withFruit(withCustomTextures(await loadDefinition())), { seed, growth, season });
+  const tree = createTree(withTranslucency(withFruit(withCustomTextures(await loadDefinition()))), { seed, growth, season });
   await tree.ready; // textures (realistic Style, custom maps) are loaded before the first frame
   scene.add(tree);
   if (params.get('style') || params.get('species')) frame(tree);

@@ -1,0 +1,61 @@
+import {
+  PhysicalLightingModel,
+  type LightingModelDirectInput,
+  type MeshStandardNodeMaterial,
+  type NodeBuilder,
+} from 'three/webgpu';
+import type { TranslucencyDefinition } from '../definition';
+import type { CrownVolume } from '../generator';
+import { leafTranslucencyTerm, translucencyDirect, translucencyIndirect, type LeafTranslucencyTerm } from './leaf-translucency';
+import { SoftToonLightingModel, SoftToonNodeMaterial } from './toon';
+
+// TSL node types are loosely typed in @types/three; keep our own alias.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Node = any;
+
+/**
+ * three's physical lighting model plus Leaf Translucency (flat and standard leaf materials): everything
+ * the physical model does, and per light and for the indirect light the shared translucency term.
+ * Only the public `direct` / `indirect` entry points are extended.
+ */
+class TranslucentLightingModel extends PhysicalLightingModel {
+  readonly isLeafTranslucencyModel = true;
+
+  constructor(private readonly translucency: LeafTranslucencyTerm) {
+    super();
+  }
+
+  override direct(input: LightingModelDirectInput, builder: NodeBuilder): void {
+    super.direct(input, builder);
+    (input.reflectedLight.directDiffuse as Node).addAssign(translucencyDirect(this.translucency, input.lightDirection, input.lightColor));
+  }
+
+  override indirect(builder: NodeBuilder): void {
+    // The physical model's own AO step has run by now; the term multiplies in the AO itself.
+    super.indirect(builder);
+    (builder as Node).context.reflectedLight.indirectDiffuse.addAssign(translucencyIndirect(this.translucency, builder));
+  }
+}
+
+/**
+ * Gives a leaf material Leaf Translucency (`materials.leaf.translucency`, a Material Feature, ADR 0008):
+ * its lighting model becomes the translucent one (the physical model with the term for flat and standard
+ * shading, the soft toon model with the same term for toon). The material keeps its class and every node.
+ * Only call it when the feature is set: without it the leaf material keeps today's lighting model.
+ *
+ * `crown` is the tree's Crown Volume (`TreeData.crown`); `growth` the Growth node the material's
+ * `positionNode` grows with (a Tree's Growth uniform, or a Forest's per-instance Growth).
+ */
+export function applyLeafTranslucency(
+  material: MeshStandardNodeMaterial,
+  settings: TranslucencyDefinition,
+  crown: CrownVolume,
+  growth: Node,
+): void {
+  const term = leafTranslucencyTerm(settings, crown, growth);
+  const toon = material instanceof SoftToonNodeMaterial;
+  // The declared return type is the physical model; the renderer only uses the LightingModel interface.
+  material.setupLightingModel = () =>
+    (toon ? new SoftToonLightingModel(term) : new TranslucentLightingModel(term)) as unknown as PhysicalLightingModel;
+  material.needsUpdate = true;
+}

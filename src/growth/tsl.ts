@@ -4,8 +4,8 @@ import { MIN_WINDOW, SAPLING_SCALE, SAPLING_THICKNESS } from './evaluate';
 
 // The TSL twins of the helpers in `./evaluate.ts`, step for step.
 
-/** Size of the whole tree at Growth `g` (twin of `treeScale`). */
-const treeScale = (g: Node<'float'>): Node<'float'> => float(SAPLING_SCALE).add(float(1 - SAPLING_SCALE).mul(g));
+/** Size of the whole tree at Growth `g` (twin of `treeScale`): every grown position is scaled by it about the tree origin. */
+export const treeScale = (g: Node<'float'>): Node<'float'> => float(SAPLING_SCALE).add(float(1 - SAPLING_SCALE).mul(g));
 
 /** Branch thickness at Growth `g` (twin of `thickness`). */
 const thickness = (g: Node<'float'>): Node<'float'> => float(SAPLING_THICKNESS).add(float(1 - SAPLING_THICKNESS).mul(g));

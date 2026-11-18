@@ -15,6 +15,7 @@ import type { TreeDefinition } from '../definition';
 import { trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { clampGrowth, growthPosition } from '../growth';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
+import { applyLeafTranslucency } from '../materials/translucency';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes, type SeasonUniform } from '../season';
 import { checkedSeason } from '../season/check';
@@ -126,6 +127,8 @@ export class Tree extends Group {
     const leaf = createLeafMaterial(definition, options.textures);
     bark.positionNode = growthPosition(this.growthUniform);
     leaf.positionNode = growthPosition(this.growthUniform);
+    const { translucency } = definition.materials.leaf;
+    if (translucency) applyLeafTranslucency(leaf, translucency, data.crown, this.growthUniform);
     this.wood = treeMesh('wood', toBufferGeometry(data.wood), bark);
     this.leaves = treeMesh('leaves', toBufferGeometry(data.leaves), leaf);
     const textures = [bark.map, bark.normalMap, leaf.map].filter((t) => t !== null);
