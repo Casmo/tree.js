@@ -18,6 +18,7 @@ import {
   treeEffectsPass,
   type TreeEffectsSettings,
 } from '@casmo/tree.js/effects';
+import { framingBox } from '../framing';
 
 const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
   'low-poly': () => import('@casmo/tree.js/styles/low-poly'),
@@ -83,8 +84,7 @@ async function main(): Promise<void> {
   scene.add(ground, tree);
 
   // Frame the tree, then put non-tree objects in front of and next to it.
-  const box = new THREE.Box3().setFromObject(tree);
-  if (box.max.y > 0) box.min.y = Math.max(box.min.y, 0); // underground Roots don't shift the view
+  const box = framingBox(tree); // underground Roots don't shift the view
   const size = box.getSize(new THREE.Vector3());
   const centre = box.getCenter(new THREE.Vector3());
   const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 200);

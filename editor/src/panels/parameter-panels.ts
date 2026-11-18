@@ -1,7 +1,8 @@
 // Parameter panels generated from the field table: Tree (name), Trunk, Leaves, Materials,
 // Seed variation. Branching levels, the Season Profile and Wind have their own panels.
 import { DEFAULT_GROUND_TINT } from '@casmo/tree.js';
-import { errorMessage, fieldControl, setDefinitionValue } from './controls';
+import { followPresence, reportEdit } from './block-panel';
+import { fieldControl, setDefinitionValue } from './controls';
 import { GROUND_TINT_FIELDS, PARAMETER_GROUPS, type FieldGroup } from './fields';
 import type { Panel, PanelContext } from './types';
 
@@ -61,26 +62,19 @@ function groundTintControls(context: PanelContext): HTMLElement {
   label.append(input, ' Ground Tint');
   const fields = document.createElement('div');
   root.append(label, fields);
-  input.addEventListener('change', () => {
-    try {
-      setDefinitionValue(store, GROUND_TINT, input.checked ? { ...DEFAULT_GROUND_TINT } : undefined);
-      context.report(null);
-    } catch (error) {
-      context.report(errorMessage(error));
-    }
-  });
-
-  let shown: boolean | null = null;
-  const sync = (): void => {
-    const has = store.state.definition.materials.bark.groundTint !== undefined;
-    input.checked = has;
-    if (has === shown) return;
-    shown = has;
-    fields.replaceChildren(...(has ? GROUND_TINT_FIELDS.map((field) => fieldControl(context, field)) : []));
-  };
-  store.subscribe(sync);
-  sync();
+  input.addEventListener('change', () =>
+    reportEdit(context, () => setDefinitionValue(store, GROUND_TINT, input.checked ? { ...DEFAULT_GROUND_TINT } : undefined)),
+  );
+  followPresence(
+    context,
+    () => store.state.definition.materials.bark.groundTint !== undefined,
+    (present) => fields.replaceChildren(...(present ? GROUND_TINT_FIELDS.map((field) => fieldControl(context, field)) : [])),
+    (present) => {
+      input.checked = present;
+    },
+  );
   return root;
 }
+
 export const variationPanel = fieldGroupPanel(group('variation'));
 export { group as parameterGroup };

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_ROOTS, extendDefinition, type DefinitionPatch, parseDefinition, TreeDefinitionError } from '../definition';
+import { createRandom } from '../random';
 import { generateTree, hashGeometry, hashTreeData, type GeometryBuffers, type TreeData } from './index';
+import { growRoots } from './roots';
 
 const plain = parseDefinition({
   schemaVersion: 3,
@@ -270,5 +272,24 @@ describe('Roots with several Stems and Sculpts', () => {
       const data = generateTree(sculpt(sculpts), 7);
       for (const other of ['0', '2']) expect(rootsOf(data, other)).toEqual(rootsOf(plainTree, other));
     }
+  });
+});
+
+describe('Roots on a Stem that does not stand at y = 0', () => {
+  it('start at the same height above the Stem base as they do above the ground', () => {
+    const stems = stemsOf(generateTree(rooted, 7));
+    const lifted = stems.map((stem) => ({
+      ...stem,
+      points: stem.points.map((p) => ({ ...p, position: [p.position[0], p.position[1] + 2, p.position[2]] as typeof p.position })),
+    }));
+    const onGround = growRoots(rooted, stems, createRandom(7));
+    const raised = growRoots(rooted, lifted, createRandom(7));
+    expect(raised).toHaveLength(onGround.length);
+    raised.forEach((root, i) => {
+      const [x, y, z] = onGround[i]!.points[0]!.position;
+      expect(root.points[0]!.position[0]).toBeCloseTo(x, 9);
+      expect(root.points[0]!.position[1]).toBeCloseTo(y + 2, 9);
+      expect(root.points[0]!.position[2]).toBeCloseTo(z, 9);
+    });
   });
 });

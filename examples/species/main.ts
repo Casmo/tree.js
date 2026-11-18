@@ -10,6 +10,7 @@ import { createTree, loadStyle, STYLE_NAMES, type StyleName, type Tree } from '@
 // which Species it needs imports them by name (`import { oak } ...`) or uses loadSpecies(id).
 import * as collection from '@casmo/tree.js/species';
 import { SPECIES_NAMES, type SpeciesDefinition, type SpeciesName } from '@casmo/tree.js/species';
+import { framingBox } from '../framing';
 
 declare global {
   interface Window {
@@ -72,8 +73,7 @@ document.body.appendChild(renderer.domElement);
 
 /** Points the camera at the whole tree (Species differ a lot in size) and sizes the ground to it. */
 function frame(object: THREE.Object3D): void {
-  const box = new THREE.Box3().setFromObject(object);
-  if (box.max.y > 0) box.min.y = Math.max(box.min.y, 0); // underground Roots don't shift the view
+  const box = framingBox(object); // underground Roots don't shift the view
   const size = box.getSize(new THREE.Vector3());
   const centre = box.getCenter(new THREE.Vector3());
   const distance = (Math.max(size.y, size.x, size.z) / 2 / Math.tan((camera.fov * Math.PI) / 360)) * 1.3;

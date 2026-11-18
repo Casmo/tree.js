@@ -2,7 +2,7 @@ import { cos, hypot3, pow, sin } from '../math';
 import type { RootsDefinition, TreeDefinition } from '../definition';
 import type { Random } from '../random';
 import { pathLength } from './frames';
-import type { SkeletonBranch, Vec3 } from './types';
+import type { SkeletonBranch, SkeletonRoot, Vec3 } from './types';
 
 const DEG = Math.PI / 180;
 /** Sections along a Root while `roots.sections` is absent. */
@@ -59,7 +59,7 @@ function toward(arc: RootArc, azimuth: number): [number, number] {
  * from `random.fork('roots/<p>/<i>')` and the Stem's turn from `random.fork('roots/<p>')`, so Roots
  * never change the wood, leaves or Fruit, and one Stem's Sculpts never change another's Roots.
  */
-export function growRoots(definition: TreeDefinition, stems: SkeletonBranch[], random: Random): SkeletonBranch[] {
+export function growRoots(definition: TreeDefinition, stems: SkeletonBranch[], random: Random): SkeletonRoot[] {
   const roots = definition.roots;
   if (!roots) return [];
   return stems.flatMap((stem) => {
@@ -74,11 +74,11 @@ export function growRoots(definition: TreeDefinition, stems: SkeletonBranch[], r
 }
 
 /**
- * One Root: from just inside the Stem's Root Flare, slightly above the ground, it runs out towards
+ * One Root: from just inside the Stem's Root Flare, slightly above the Stem's base (the ground), it runs out towards
  * `azimuth` (in `arc`) and down at `angle`, turns sideways by up to `bend` per section, and tapers to a point.
  * If the dive alone would not take its tip below the ground, it curves down (more towards the tip) until it does.
  */
-function growRoot(path: string, stem: SkeletonBranch, roots: RootsDefinition, arc: RootArc, azimuth: number, r: Random): SkeletonBranch {
+function growRoot(path: string, stem: SkeletonBranch, roots: RootsDefinition, arc: RootArc, azimuth: number, r: Random): SkeletonRoot {
   const base = stem.points[0]!;
   const sections = roots.sections ?? ROOT_SECTIONS;
   const length = pathLength(stem) * roots.length * (1 + r.range(-roots.lengthVariation, roots.lengthVariation));
@@ -90,7 +90,7 @@ function growRoot(path: string, stem: SkeletonBranch, roots: RootsDefinition, ar
   let heading = azimuth;
   let position: Vec3 = [
     base.position[0] + outX * base.radius * ROOT_START_OUT,
-    radius * ROOT_START_UP,
+    base.position[1] + radius * ROOT_START_UP,
     base.position[2] + outZ * base.radius * ROOT_START_OUT,
   ];
   const positions: Vec3[] = [position];

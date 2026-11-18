@@ -132,8 +132,9 @@ function flaredRings(branch: SkeletonBranch, { flare, sections }: StemSweep): Ri
   const width = FLARE_WIDTH * flare;
   return points.map(({ position, radius, along, distance }, r) => {
     const u = Math.max(1 - distance / zone, 0); // 1 at the base, 0 from the top of the zone up
+    const multiplier = 1 + width * u * u;
     // d(radius × multiplier) / d(distance), negated: the trunk's taper plus the flare's own widening.
-    return { position, radius: radius * (1 + width * u * u), ...frames[r]!, along, slope: slope * (1 + width * u * u) + (radius * 2 * width * u) / zone };
+    return { position, radius: radius * multiplier, ...frames[r]!, along, slope: slope * multiplier + (radius * 2 * width * u) / zone };
   });
 }
 

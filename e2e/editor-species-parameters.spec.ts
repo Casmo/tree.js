@@ -66,7 +66,7 @@ test('Stems, Stem spread, trunk gravity, Leaf Type and Bark Type edit the Defini
   await expect(byId(page, 'materials.bark.type')).toHaveValue('');
 });
 
-test('the Flare slider widens the trunk into the ground, exports in the JSON and undoes', async ({ page }) => {
+test('the Root Flare slider widens the trunk into the ground, exports in the JSON and undoes', async ({ page }) => {
   await page.goto('/editor/?start=low-poly/broadleaf&seed=1');
   const initial = await waitForEditor(page);
   expect(initial.definition.trunk).not.toHaveProperty('flare');

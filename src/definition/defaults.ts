@@ -3,9 +3,9 @@ import {
   type BranchLevelDefinition,
   type FruitDefinition,
   type GroundTintDefinition,
-  type RootsDefinition,
   type HexColor,
   type Keyframe,
+  type RootsDefinition,
   type TreeDefinition,
 } from './types';
 

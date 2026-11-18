@@ -253,14 +253,14 @@ none, a turned Stem keeps them on the ground at its base, a scaled one scales th
 another Stem's Roots never change. The optional `sides` and `sections` are their polygon detail, set by `Style.apply`
 (realistic 8 / 6, stylized 6 / 4, low-poly 3 / 2). Roots are part of the wood mesh, grow with the trunk from
 Growth 0, never sway in the Wind and cannot be Sculpted; adding or removing them leaves the branches,
-leaves and Fruit exactly as they were. The tree data lists them in `skeleton.roots` (branch-like entries
+leaves and Fruit exactly as they were. The tree data lists them in `skeleton.roots` (`SkeletonRoot` entries
 with paths `0/r0`, `0/r1`, ... and their Stem as `parent`) with their Growth windows in `growth.roots`:
 
 ```ts
-import { createTree, DEFAULT_ROOTS, type SkeletonBranch } from '@casmo/tree.js';
+import { createTree, DEFAULT_ROOTS, type SkeletonRoot } from '@casmo/tree.js';
 
 const rooted = createTree({ schemaVersion: 3, trunk: { flare: 0.6 }, roots: { count: 7, angle: 10 } }, { seed: 3 });
-const roots: SkeletonBranch[] = rooted.data.skeleton.roots; // 7 Roots: '0/r0' .. '0/r6', parent '0'
+const roots: SkeletonRoot[] = rooted.data.skeleton.roots; // 7 Roots: '0/r0' .. '0/r6', parent '0'
 const tips = roots.map((root) => root.points.at(-1)!.position); // all below the ground (y < 0)
 const windows = rooted.data.growth.roots; // { start: 0, end: 0 }: there from Growth 0, like the trunk
 const defaults = DEFAULT_ROOTS; // { count: 5, length: 0.25, lengthVariation: 0.3, radius: 0.35, angle: 12, bend: 0.3 }

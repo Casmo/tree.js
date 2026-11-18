@@ -24,6 +24,14 @@ export interface SkeletonBranch {
 }
 
 /**
+ * One Root (ADR 0007). It has the shape of a `SkeletonBranch`, but it is not a branch: `path` is
+ * `<stem path>/r<i>` (e.g. "0/r0") and `parent` is its Stem's path. `level` and `attach` are only
+ * placeholders for Roots (always 0) so the wood mesh can sweep a Root like the trunk; they do not mean a
+ * branching level or a place on the Stem. `direction` is the way the Root leaves the Root Flare (out and down).
+ */
+export type SkeletonRoot = SkeletonBranch;
+
+/**
  * One leaf. `id` is `<branch path>/<index>`, stable for a given Definition and Seed,
  * so leaf Sculpts (painting) can address it.
  */
@@ -81,11 +89,11 @@ export interface TreeSkeleton {
   /** Fruit on the outermost twigs (empty without a `fruit` block). */
   fruit: SkeletonFruit[];
   /**
-   * Roots (ADR 0007), Stem by Stem (empty without a `roots` block): branch-like entries with paths
-   * `<stem path>/r<i>` (e.g. "0/r0", "0/r1"), `parent` = their Stem's path, level 0 and attach 0.
+   * Roots (ADR 0007), Stem by Stem (empty without a `roots` block), with paths `<stem path>/r<i>`
+   * (e.g. "0/r0", "0/r1") and their Stem's path as `parent` (see `SkeletonRoot`).
    * Not in `branches`, where parentless entries are the Stems.
    */
-  roots: SkeletonBranch[];
+  roots: SkeletonRoot[];
 }
 
 /** A custom per-vertex attribute: `itemSize` floats per vertex. */

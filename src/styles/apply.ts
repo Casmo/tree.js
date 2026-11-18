@@ -100,6 +100,11 @@ const LOOKS = {
 /** What `Style.apply` accepts: a Species, or a Tree Definition to re-style. */
 export type StyleSource = SpeciesDefinition | TreeDefinition | TreeDefinitionInput;
 
+/** `{ [key]: value }` for an optional block that is present, `{}` when it is absent (to spread). */
+function present<K extends string, V>(key: K, value: V | undefined): { [P in K]?: V } {
+  return value === undefined ? {} : ({ [key]: value } as { [P in K]?: V });
+}
+
 /** The Style-neutral content of a source: every non-look field, plus foliage and bark. */
 interface Neutral {
   /** Definition fields that pass through (shape, Season, Wind, Sculpts, Fruit, Roots, ...). */
@@ -122,8 +127,8 @@ function fromSpecies(species: SpeciesDefinition): Neutral {
       wind,
       variation,
       sculpts: [],
-      ...(fruit ? { fruit } : {}),
-      ...(roots ? { roots } : {}),
+      ...present('fruit', fruit),
+      ...present('roots', roots),
     },
     foliage,
     bark,
@@ -149,7 +154,7 @@ function fromDefinition(input: TreeDefinition | TreeDefinitionInput): Neutral {
     bark: {
       type: materials.bark.type ?? 'furrowed',
       color: materials.bark.color,
-      ...(materials.bark.groundTint ? { groundTint: materials.bark.groundTint } : {}),
+      ...present('groundTint', materials.bark.groundTint),
     },
   };
 }
@@ -161,8 +166,8 @@ function draw(name: StyleName, { base, foliage, bark }: Neutral): TreeDefinition
   const roots = base.roots as TreeDefinition['roots'];
   return parseDefinition({
     ...base,
-    ...(fruit ? { fruit: { ...fruit, sides: look.fruitSides } } : {}),
-    ...(roots ? { roots: { ...roots, ...look.roots } } : {}),
+    ...present('fruit', fruit && { ...fruit, sides: look.fruitSides }),
+    ...present('roots', roots && { ...roots, ...look.roots }),
     trunk: { ...base.trunk, ...look.trunk },
     branches: base.branches.map((level, i) => ({ ...level, ...look.branches[Math.min(i, look.branches.length - 1)] })),
     leaves: {
@@ -176,7 +181,7 @@ function draw(name: StyleName, { base, foliage, bark }: Neutral): TreeDefinition
     },
     materials: {
       shading: styleShading(name),
-      bark: { type: bark.type, color: bark.color, ...look.bark(bark.type), ...(bark.groundTint ? { groundTint: bark.groundTint } : {}) },
+      bark: { type: bark.type, color: bark.color, ...look.bark(bark.type), ...present('groundTint', bark.groundTint) },
       leaf: { ...leaf.material },
     },
   });

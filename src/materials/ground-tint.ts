@@ -1,10 +1,7 @@
 import { color, float, mix, positionGeometry, smoothstep, varying } from 'three/tsl';
+import type { Node } from 'three/webgpu';
 import type { GroundTintDefinition } from '../definition';
 import { growthPosition } from '../growth';
-
-// TSL node types are loosely typed in @types/three; keep our own alias.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Node = any;
 
 /**
  * Ground Tint (GLOSSARY): how far the bark blends towards `tint.color` at tree-space height `y`
@@ -19,7 +16,7 @@ export function groundTintAmount(tint: GroundTintDefinition, y: number): number 
  * The TSL twin of {@link groundTintAmount}, applied to a bark colour node: `mix(bark, tint, amount)`.
  * The height is the grown tree-space position (Growth `growth`, before Wind), from the vertex stage.
  */
-export function applyGroundTint(bark: Node, tint: GroundTintDefinition, growth: Node): Node {
+export function applyGroundTint(bark: Node<'vec3'> | Node<'color'>, tint: GroundTintDefinition, growth: Node<'float'>): Node<'vec3'> {
   const y = varying(growthPosition(growth, positionGeometry).y);
   const amount = float(1).sub(smoothstep(0, tint.height, y)).mul(tint.strength);
   return mix(bark, color(tint.color), amount);
