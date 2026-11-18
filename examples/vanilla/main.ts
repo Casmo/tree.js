@@ -8,6 +8,7 @@
 //   ?form=conifer  an evergreen conifer instead of the deciduous broadleaf
 //   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (sets in late spring, ripens green -> red, drops in autumn)
 //   ?style=low-poly|stylized|realistic  grow that built-in Style's Definition for the form (loaded with a dynamic import)
+//   ?species=<id>  grow that Species (loadSpecies, e.g. oak) in the ?style (default low-poly)
 //   ?leafType=<Leaf Type>&barkType=<Bark Type>  re-apply the Style with this Leaf / Bark Type (e.g. palmate, papery)
 //   ?textureBase=<url>  load relative texture URLs (the realistic Style's) from this base path / CDN
 //   ?barkMap=<url>&leafMap=<url>  use these textures instead of the Definition's (custom textures)
@@ -29,6 +30,7 @@ import {
   type TreeDefinitionInput,
   type TreeStyle,
 } from '@casmo/tree.js';
+import { loadSpecies, type SpeciesName } from '@casmo/tree.js/species';
 
 // Built-in Styles are separate chunks, fetched only when asked for.
 const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
@@ -130,11 +132,13 @@ function withFruit(definition: TreeDefinitionInput | TreeDefinition): TreeDefini
 const form = params.get('form') === 'conifer' ? 'conifer' : 'broadleaf';
 
 async function loadDefinition(): Promise<TreeDefinitionInput | TreeDefinition> {
-  const styleName = params.get('style');
+  const speciesName = params.get('species');
+  const styleName = params.get('style') ?? (speciesName ? 'low-poly' : null);
   if (!styleName) return form === 'conifer' ? conifer : broadleaf;
   const load = styles[styleName];
   if (!load) throw new Error(`Unknown style "${styleName}"`);
   const style = (await load()).default;
+  if (speciesName) return style.apply(await loadSpecies(speciesName as SpeciesName));
   const leafType = params.get('leafType') as LeafType | null;
   const barkType = params.get('barkType') as BarkType | null;
   if (!leafType && !barkType) return style[form];
@@ -177,7 +181,7 @@ async function main(): Promise<void> {
   const tree = createTree(withFruit(withCustomTextures(await loadDefinition())), { seed, growth, season });
   await tree.ready; // textures (realistic Style, custom maps) are loaded before the first frame
   scene.add(tree);
-  if (params.get('style')) frame(tree);
+  if (params.get('style') || params.get('species')) frame(tree);
 
   if (params.get('renderer') === 'classic') {
     // A classic-renderer app uses classic materials; only the tree brings TSL node materials.

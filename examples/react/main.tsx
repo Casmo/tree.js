@@ -2,6 +2,7 @@
 // with ?scene=forest a <Forest> whose trees are planted and cut by changing its placements.
 // Query parameters (used by the Playwright tests):
 //   ?scene=forest  a <Forest> of 49 trees instead of two <Tree>s (click a tree to cut it)
+//   ?scene=species  one Species tree: <Tree species={oak} style={lowPoly} seed={7} />
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?growth=<0..1>  Growth of the trees (default 1)
 //   ?season=<0..1>  Season (default 0.37, summer)
@@ -12,6 +13,7 @@ import { createRoot } from 'react-dom/client';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Forest, Tree, Wind, useTreeStyle, type ForestTreePlacement } from '@casmo/tree.js/react';
 import type { Forest as ForestObject } from '@casmo/tree.js';
+import { oak } from '@casmo/tree.js/species';
 
 declare global {
   interface Window {
@@ -32,7 +34,7 @@ window.reactExample = { status: 'loading' };
 const params = new URLSearchParams(location.search);
 const forceWebGL = params.get('backend') === 'webgl';
 const windTime = params.get('windTime');
-const scene = params.get('scene') === 'forest' ? 'forest' : 'trees';
+const scene = params.get('scene') === 'forest' ? 'forest' : params.get('scene') === 'species' ? 'species' : 'trees';
 
 function Trees({ growth }: { growth: number }) {
   const lowPoly = useTreeStyle('low-poly');
@@ -43,6 +45,12 @@ function Trees({ growth }: { growth: number }) {
       <Tree style={lowPoly} form="conifer" seed={2} growth={growth} season={season} position={[2.2, 0, 0]} />
     </>
   );
+}
+
+/** A Species in a Style: an English oak, drawn low-poly. */
+function SpeciesTree({ growth }: { growth: number }) {
+  const lowPoly = useTreeStyle('low-poly');
+  return <Tree species={oak} style={lowPoly} seed={7} growth={growth} season={Number(params.get('season') ?? 0.37)} scale={0.55} />;
 }
 
 /** A 7 x 7 grid; the middle row grows younger (per-tree Growth). */
@@ -137,7 +145,7 @@ function App() {
       </mesh>
       <Wind direction={[1, 0, -0.4]} strength={Number(params.get('wind') ?? 0)} time={windTime === null ? null : Number(windTime)} />
       <Suspense fallback={null}>
-        {scene === 'forest' ? <Woods growth={growth} /> : <Trees growth={growth} />}
+        {scene === 'forest' ? <Woods growth={growth} /> : scene === 'species' ? <SpeciesTree growth={growth} /> : <Trees growth={growth} />}
         <Ready />
       </Suspense>
     </Canvas>

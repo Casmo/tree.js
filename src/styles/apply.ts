@@ -47,7 +47,9 @@ const untexturedLeaf: LeafMaterialDefinition = { roughness: 1, map: null, alphaT
 const untexturedBark = () => ({ roughness: 1, map: null, normalMap: null });
 
 // Calibrated so a Species with density 0.5 and leaf-spray size 0.35 m comes out close to each
-// Style's own broadleaf / conifer Definitions.
+// Style's own broadleaf / conifer Definitions, except realistic broad-leaved cards: a Species has far
+// fewer twigs than the realistic broadleaf (the low-poly and stylized triangle budgets cap them at
+// about 20-40), so realistic draws twice as many (cheap) cards per twig to keep the crown full.
 const LOOKS = {
   'low-poly': {
     shading: 'flat',
@@ -79,7 +81,7 @@ const LOOKS = {
     leaf: (type) =>
       isFine(type)
         ? { shape: 'card', perDensity: 16, sizeScale: 2.3, material: { roughness: 0.7, map: LEAF_TEXTURES[type], alphaTest: 0.4 } }
-        : { shape: 'card', perDensity: 12, sizeScale: 2, material: { roughness: 0.65, map: LEAF_TEXTURES[type], alphaTest: 0.4 } },
+        : { shape: 'card', perDensity: 24, sizeScale: 2, material: { roughness: 0.65, map: LEAF_TEXTURES[type], alphaTest: 0.4 } },
   },
 } satisfies Record<string, StyleLook>;
 
