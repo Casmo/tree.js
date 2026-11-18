@@ -77,8 +77,16 @@ The sway of branches and leaves, set by a scene-wide direction and strength and 
 _Avoid_: Sway, animation
 
 **Tree Effect**:
-An opt-in post-processing effect that only alters the pixels of trees, such as an outline or leaf glow.
+An opt-in post-processing effect that only alters the pixels of trees, such as an outline or leaf glow; the one exception is the thin ring a Highlight draws just around its trees.
 _Avoid_: Post preset, filter
+
+**Inner Lines**:
+A Tree Effect that draws ink lines inside a tree where its surface folds or steps away from the viewer, such as around each leaf clump, on top of the outline around the tree.
+_Avoid_: Edge detection, Sobel lines, inner outline
+
+**Highlight**:
+A Tree Effect that marks the trees the app points out, such as the one under the cursor, by brightening and tinting them and drawing a ring just outside them, optionally pulsing.
+_Avoid_: Selection, hover, focus
 
 **Tree ID**:
 A number that tells which single tree (a Tree or one tree of a Forest) drew a pixel, 0 where no tree did; it is only valid for the frame it was drawn in, because a Forest may reorder its trees when one is added or removed.
