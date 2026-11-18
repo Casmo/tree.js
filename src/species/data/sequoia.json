@@ -1,0 +1,143 @@
+{
+  "id": "sequoia",
+  "name": "Sequoia",
+  "form": "conifer",
+  "trunk": {
+    "length": 10,
+    "radius": 0.85,
+    "taper": 0.15,
+    "lengthVariation": 0.1,
+    "bend": 0.02
+  },
+  "branches": [
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.2,
+      "taper": 0.3,
+      "bend": 0.15,
+      "gravity": -0.05,
+      "count": 16,
+      "start": 0.35,
+      "end": 0.97,
+      "angle": 75,
+      "length": 0.4,
+      "radius": 0.2,
+      "lengthProfile": [
+        {
+          "t": 0.35,
+          "value": 0.8
+        },
+        {
+          "t": 0.55,
+          "value": 1
+        },
+        {
+          "t": 0.85,
+          "value": 0.6
+        },
+        {
+          "t": 1,
+          "value": 0.3
+        }
+      ],
+      "angleProfile": [
+        {
+          "t": 0.35,
+          "value": 1.15
+        },
+        {
+          "t": 1,
+          "value": 0.6
+        }
+      ]
+    }
+  ],
+  "foliage": {
+    "type": "scale",
+    "density": 0.55,
+    "size": 0.65,
+    "sizeVariation": 0.2,
+    "start": 0.1,
+    "angle": 40
+  },
+  "bark": {
+    "type": "fibrous",
+    "color": "#d4955e"
+  },
+  "fruit": {
+    "type": "cone",
+    "count": 1,
+    "size": 0.14,
+    "sizeVariation": 0.2,
+    "hang": 0.4
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#6a9450"
+      },
+      {
+        "t": 0.25,
+        "value": "#4b7a42"
+      },
+      {
+        "t": 0.55,
+        "value": "#4b7a42"
+      },
+      {
+        "t": 0.75,
+        "value": "#3f6a3a"
+      },
+      {
+        "t": 0.92,
+        "value": "#3f6a3a"
+      },
+      {
+        "t": 1,
+        "value": "#6a9450"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 1
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#c9b46a",
+    "fruit": [
+      {
+        "t": 0,
+        "value": 1
+      }
+    ],
+    "fruitColor": [
+      {
+        "t": 0.15,
+        "value": "#7f9a45"
+      },
+      {
+        "t": 0.55,
+        "value": "#7a5232"
+      }
+    ]
+  },
+  "wind": {
+    "trunk": 0.04,
+    "branches": 0.25,
+    "leaves": 0.35,
+    "frequency": 0.7
+  },
+  "variation": {
+    "color": 0.08,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}

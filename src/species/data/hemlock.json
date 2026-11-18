@@ -1,0 +1,148 @@
+{
+  "id": "hemlock",
+  "name": "Hemlock",
+  "form": "conifer",
+  "trunk": {
+    "length": 7,
+    "radius": 0.24,
+    "taper": 0.12,
+    "lengthVariation": 0.12,
+    "bend": 0.05,
+    "gravity": -0.45
+  },
+  "branches": [
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.3,
+      "bend": 0.15,
+      "gravity": 0.35,
+      "count": 16,
+      "start": 0.1,
+      "end": 0.97,
+      "angle": 92,
+      "length": 0.45,
+      "radius": 0.28,
+      "lengthProfile": [
+        {
+          "t": 0.1,
+          "value": 1
+        },
+        {
+          "t": 0.6,
+          "value": 0.7
+        },
+        {
+          "t": 0.95,
+          "value": 0.15
+        },
+        {
+          "t": 1,
+          "value": 0.1
+        }
+      ],
+      "angleProfile": [
+        {
+          "t": 0.1,
+          "value": 1
+        },
+        {
+          "t": 0.7,
+          "value": 0.9
+        },
+        {
+          "t": 1,
+          "value": 0.5
+        }
+      ]
+    }
+  ],
+  "foliage": {
+    "type": "needle",
+    "density": 0.55,
+    "size": 0.5,
+    "sizeVariation": 0.2,
+    "start": 0,
+    "angle": 30
+  },
+  "bark": {
+    "type": "furrowed",
+    "color": "#93796a"
+  },
+  "fruit": {
+    "type": "cone",
+    "count": 1,
+    "size": 0.12,
+    "sizeVariation": 0.2,
+    "hang": 0.85
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#6b9a4a"
+      },
+      {
+        "t": 0.25,
+        "value": "#4a7a3e"
+      },
+      {
+        "t": 0.55,
+        "value": "#4a7a3e"
+      },
+      {
+        "t": 0.75,
+        "value": "#3a6334"
+      },
+      {
+        "t": 0.92,
+        "value": "#3a6334"
+      },
+      {
+        "t": 1,
+        "value": "#6b9a4a"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 1
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#c9b46a",
+    "fruit": [
+      {
+        "t": 0,
+        "value": 1
+      }
+    ],
+    "fruitColor": [
+      {
+        "t": 0.15,
+        "value": "#8aa048"
+      },
+      {
+        "t": 0.55,
+        "value": "#7d5a36"
+      }
+    ]
+  },
+  "wind": {
+    "trunk": 0.1,
+    "branches": 0.4,
+    "leaves": 0.5,
+    "frequency": 0.8
+  },
+  "variation": {
+    "color": 0.08,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}

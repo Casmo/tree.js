@@ -7,18 +7,26 @@ export type SpeciesName =
   | 'ash'
   | 'beech'
   | 'birch'
+  | 'cedar'
   | 'cherry'
   | 'chestnut'
+  | 'douglas-fir'
   | 'elm'
+  | 'hemlock'
   | 'hickory'
+  | 'juniper'
   | 'mahogany'
   | 'maple'
   | 'oak'
   | 'olive'
   | 'peach'
   | 'pear'
+  | 'pine'
   | 'plum'
   | 'red-oak'
+  | 'redwood'
+  | 'sequoia'
+  | 'spruce'
   | 'teak'
   | 'walnut'
   | 'white-oak';
@@ -30,18 +38,26 @@ export const SPECIES_LOADERS: Record<SpeciesName, () => Promise<{ default: unkno
   'ash': () => import('./data/ash.json'),
   'beech': () => import('./data/beech.json'),
   'birch': () => import('./data/birch.json'),
+  'cedar': () => import('./data/cedar.json'),
   'cherry': () => import('./data/cherry.json'),
   'chestnut': () => import('./data/chestnut.json'),
+  'douglas-fir': () => import('./data/douglas-fir.json'),
   'elm': () => import('./data/elm.json'),
+  'hemlock': () => import('./data/hemlock.json'),
   'hickory': () => import('./data/hickory.json'),
+  'juniper': () => import('./data/juniper.json'),
   'mahogany': () => import('./data/mahogany.json'),
   'maple': () => import('./data/maple.json'),
   'oak': () => import('./data/oak.json'),
   'olive': () => import('./data/olive.json'),
   'peach': () => import('./data/peach.json'),
   'pear': () => import('./data/pear.json'),
+  'pine': () => import('./data/pine.json'),
   'plum': () => import('./data/plum.json'),
   'red-oak': () => import('./data/red-oak.json'),
+  'redwood': () => import('./data/redwood.json'),
+  'sequoia': () => import('./data/sequoia.json'),
+  'spruce': () => import('./data/spruce.json'),
   'teak': () => import('./data/teak.json'),
   'walnut': () => import('./data/walnut.json'),
   'white-oak': () => import('./data/white-oak.json'),

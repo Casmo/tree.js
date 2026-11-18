@@ -6,18 +6,26 @@ import appleData from './data/apple.json';
 import ashData from './data/ash.json';
 import beechData from './data/beech.json';
 import birchData from './data/birch.json';
+import cedarData from './data/cedar.json';
 import cherryData from './data/cherry.json';
 import chestnutData from './data/chestnut.json';
+import douglasFirData from './data/douglas-fir.json';
 import elmData from './data/elm.json';
+import hemlockData from './data/hemlock.json';
 import hickoryData from './data/hickory.json';
+import juniperData from './data/juniper.json';
 import mahoganyData from './data/mahogany.json';
 import mapleData from './data/maple.json';
 import oakData from './data/oak.json';
 import oliveData from './data/olive.json';
 import peachData from './data/peach.json';
 import pearData from './data/pear.json';
+import pineData from './data/pine.json';
 import plumData from './data/plum.json';
 import redOakData from './data/red-oak.json';
+import redwoodData from './data/redwood.json';
+import sequoiaData from './data/sequoia.json';
+import spruceData from './data/spruce.json';
 import teakData from './data/teak.json';
 import walnutData from './data/walnut.json';
 import whiteOakData from './data/white-oak.json';
@@ -37,17 +45,29 @@ export const beech = beechData as SpeciesDefinition;
 /** Birch (broadleaf). */
 export const birch = birchData as SpeciesDefinition;
 
+/** Cedar (conifer). */
+export const cedar = cedarData as SpeciesDefinition;
+
 /** Cherry (broadleaf). */
 export const cherry = cherryData as SpeciesDefinition;
 
 /** Chestnut (broadleaf). */
 export const chestnut = chestnutData as SpeciesDefinition;
 
+/** Douglas Fir (conifer). */
+export const douglasFir = douglasFirData as SpeciesDefinition;
+
 /** Elm (broadleaf). */
 export const elm = elmData as SpeciesDefinition;
 
+/** Hemlock (conifer). */
+export const hemlock = hemlockData as SpeciesDefinition;
+
 /** Hickory (broadleaf). */
 export const hickory = hickoryData as SpeciesDefinition;
+
+/** Juniper (conifer). */
+export const juniper = juniperData as SpeciesDefinition;
 
 /** Mahogany (broadleaf). */
 export const mahogany = mahoganyData as SpeciesDefinition;
@@ -67,11 +87,23 @@ export const peach = peachData as SpeciesDefinition;
 /** Pear (broadleaf). */
 export const pear = pearData as SpeciesDefinition;
 
+/** Pine (conifer). */
+export const pine = pineData as SpeciesDefinition;
+
 /** Plum (broadleaf). */
 export const plum = plumData as SpeciesDefinition;
 
 /** Red Oak (broadleaf). */
 export const redOak = redOakData as SpeciesDefinition;
+
+/** Redwood (conifer). */
+export const redwood = redwoodData as SpeciesDefinition;
+
+/** Sequoia (conifer). */
+export const sequoia = sequoiaData as SpeciesDefinition;
+
+/** Spruce (conifer). */
+export const spruce = spruceData as SpeciesDefinition;
 
 /** Teak (broadleaf). */
 export const teak = teakData as SpeciesDefinition;
