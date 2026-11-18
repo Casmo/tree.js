@@ -107,3 +107,36 @@ for (const style of ['low-poly', 'stylized', 'realistic']) {
     await expect(page.locator('canvas')).toHaveScreenshot(`species-oak-${style}.png`, { mask: [page.locator('#status')] });
   });
 }
+
+test.describe('examples/species: a Species x Style picker', () => {
+  test('lists every Species (grouped by Form) and the three Styles, and starts with the one in the URL', async ({ page }) => {
+    await page.goto('/examples/species/?species=birch&style=stylized');
+    expect(await rendered(page, 'speciesExample')).toMatchObject({ status: 'rendered', species: 'birch', style: 'stylized' });
+    const species = page.getByLabel('Species');
+    await expect(species).toHaveValue('birch');
+    await expect(page.getByLabel('Style')).toHaveValue('stylized');
+    expect(await species.locator('option').evaluateAll((options) => options.map((o) => (o as HTMLOptionElement).value).sort())).toEqual(ids);
+    expect(await species.locator('optgroup').evaluateAll((groups) => groups.map((g) => (g as HTMLOptGroupElement).label))).toEqual([
+      'Broadleaf',
+      'Conifer',
+    ]);
+    expect(await page.getByLabel('Style').locator('option').allTextContents()).toEqual(['low-poly', 'stylized', 'realistic']);
+  });
+
+  test('picking a Species and a Style grows that tree in that Style', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto('/examples/species/');
+    expect(await rendered(page, 'speciesExample')).toMatchObject({ status: 'rendered', species: 'oak', style: 'low-poly', shading: 'flat' });
+
+    await page.getByLabel('Species').selectOption({ label: 'Douglas Fir' });
+    expect(await rendered(page, 'speciesExample')).toMatchObject({ status: 'rendered', species: 'douglas-fir', style: 'low-poly' });
+    await page.getByLabel('Style').selectOption('realistic');
+    const state = await rendered(page, 'speciesExample');
+    expect(state).toMatchObject({ status: 'rendered', species: 'douglas-fir', style: 'realistic', shading: 'standard', trees: 1 });
+    expect(new URL(page.url()).search).toBe('?species=douglas-fir&style=realistic');
+    await expect(page.locator('#status')).toContainText('Douglas Fir');
+    expect(errors).toEqual([]);
+    await expect(page.locator('canvas')).toHaveScreenshot('example-species-douglas-fir-realistic.png', { mask: [page.locator('#status'), page.locator('form')] });
+  });
+});

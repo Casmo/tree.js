@@ -12,6 +12,7 @@ const pages = [
   { name: 'React Three Fiber', path: 'react/', hook: 'reactExample' },
   { name: 'Forest', path: 'forest/', hook: 'forestExample' },
   { name: 'Tree Effects', path: 'effects/?style=stylized&effects=style', hook: 'effectsExample' },
+  { name: 'Species picker', path: 'species/?species=birch&style=realistic', hook: 'speciesExample' },
   { name: 'vanilla three.js with the realistic Style (textures)', path: 'vanilla/?style=realistic', hook: 'treeExample' },
 ];
 
