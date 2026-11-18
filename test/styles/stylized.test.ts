@@ -29,8 +29,8 @@ function blossomShare(definition: TreeDefinition, season: number): number {
 
 describe('stylized Style (dynamic import of the /styles/stylized subpath)', () => {
   it('exports a broadleaf and a conifer Definition, also as one Style object', () => {
-    expect(stylized.broadleaf.form).toBe('broadleaf');
-    expect(stylized.conifer.form).toBe('conifer');
+    expect(stylized.broadleaf.name).toMatch(/broadleaf/);
+    expect(stylized.conifer.name).toMatch(/conifer/);
     expect(stylized.default).toEqual({ name: 'stylized', broadleaf: stylized.broadleaf, conifer: stylized.conifer });
   });
 

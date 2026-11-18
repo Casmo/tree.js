@@ -12,7 +12,7 @@
  * Current Tree Definition schema version. Bump it, and add a migration in `migrations.ts`,
  * whenever the format changes or a generator change would alter existing trees (ADR 0003).
  */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 /** `#rrggbb` colour string. */
 export type HexColor = string;
@@ -20,7 +20,11 @@ export type HexColor = string;
 /** [x, y, z] */
 export type Vec3Tuple = [number, number, number];
 
-/** The overall kind of tree a Definition grows. */
+/**
+ * Form: a label that groups trees (a Style's `broadleaf` / `conifer` Definition). It never
+ * changes geometry and is not part of the Tree Definition; a crown's shape comes from its
+ * Crown Shape curves (ADR 0004).
+ */
 export type TreeForm = 'broadleaf' | 'conifer';
 
 /** Trunk parameters (branch level 0). */
@@ -74,6 +78,14 @@ export interface BranchLevelDefinition {
   bend: number;
   /** Upward (+) or downward (−) pull on the branch tip (−1..1). */
   gravity: number;
+  /**
+   * Crown Shape: multiplies `length` by the attach position on the parent (`t` 0 = base .. 1 = tip),
+   * values >= 0. Linear between keyframes, holding the first/last value outside them. Absent = flat (1).
+   * E.g. a cone: `[{ t: start, value: 1 }, { t: 1, value: 0.1 }]`.
+   */
+  lengthProfile?: Keyframe<number>[];
+  /** Crown Shape: multiplies `angle` by the attach position on the parent, like `lengthProfile` (values >= 0; the angle stays <= 180). */
+  angleProfile?: Keyframe<number>[];
 }
 
 /** Maximum number of branching levels below the trunk. */
@@ -130,7 +142,10 @@ export interface MaterialsDefinition {
   leaf: LeafMaterialDefinition;
 }
 
-/** One keyframe of a Season Profile track. `t` is the Season (0 = first day of spring .. 1 = last day of winter). */
+/**
+ * One keyframe of a track. In a Season Profile `t` is the Season (0 = first day of spring .. 1 = last
+ * day of winter); in a Crown Shape curve it is the attach position on the parent branch (0 = base .. 1 = tip).
+ */
 export interface Keyframe<V> {
   t: number;
   value: V;
@@ -205,8 +220,6 @@ export interface TreeDefinition {
   schemaVersion: typeof CURRENT_SCHEMA_VERSION;
   /** Optional human-readable name. */
   name: string;
-  /** 'conifer': the branches from the trunk shrink towards its tip (a cone); 'broadleaf': they don't. */
-  form: TreeForm;
   trunk: TrunkDefinition;
   /** Branching levels below the trunk (0..{@link MAX_BRANCH_LEVELS} entries). */
   branches: BranchLevelDefinition[];

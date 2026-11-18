@@ -48,6 +48,7 @@ function leaf<T>(expected: string, ok: (v: unknown) => boolean): Schema<T> {
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const range = (min: number, max: number) => leaf<number>(`a number from ${min} to ${max}`, (v) => isNum(v) && v >= min && v <= max);
 const unit = range(0, 1);
+const nonNegative = leaf<number>('a number >= 0', (v) => isNum(v) && v >= 0);
 const positive = leaf<number>('a number > 0', (v) => isNum(v) && v > 0);
 const finite = leaf<number>('a finite number', isNum);
 const intAtLeast = (min: number) => leaf<number>(`an integer >= ${min}`, (v) => Number.isInteger(v) && (v as number) >= min);
@@ -58,6 +59,11 @@ const vec3 = leaf<[number, number, number]>('[x, y, z] numbers', (v) => Array.is
 const oneOf = <T extends string>(...values: T[]) =>
   leaf<T>(`one of ${values.map((x) => `"${x}"`).join(', ')}`, (v) => values.includes(v as T));
 const literal = <T>(expected: T) => leaf<T>(String(expected), (v) => v === expected);
+
+/** An optional field: absent (undefined) stays absent, anything else must match `schema`. */
+function optional<T>(schema: Schema<T>): Schema<T | undefined> {
+  return (value, fallback, path) => (value === undefined && fallback === undefined ? undefined : schema(value, fallback, path));
+}
 
 /** Object with exactly these fields; unknown fields are rejected (catches typos). */
 function obj<T>(fields: { [K in keyof T]-?: Schema<T[K]> }): Schema<T> {
@@ -70,7 +76,9 @@ function obj<T>(fields: { [K in keyof T]-?: Schema<T[K]> }): Schema<T> {
     }
     const out: Record<string, unknown> = {};
     for (const key of Object.keys(fields) as (keyof T & string)[]) {
-      out[key] = fields[key](given[key], fallback?.[key], join(path, key));
+      const field = fields[key](given[key], fallback?.[key], join(path, key));
+      // Optional fields (see `optional`) that are absent stay absent.
+      if (field !== undefined) out[key] = field;
     }
     return out as T;
   };
@@ -142,6 +150,8 @@ const branchLevel = refine(
     sections: intAtLeast(1),
     bend: unit,
     gravity: range(-1, 1),
+    lengthProfile: optional(track(nonNegative)),
+    angleProfile: optional(track(nonNegative)),
   }),
   (b) => (b.end < b.start ? ['end', `must be >= start (${b.start}), got ${b.end}`] : null),
 );
@@ -157,7 +167,6 @@ const sculpt = tagged<Sculpt>('action', {
 const treeDefinition = obj<TreeDefinition>({
   schemaVersion: literal(CURRENT_SCHEMA_VERSION),
   name: text,
-  form: oneOf('broadleaf', 'conifer'),
   trunk: obj({
     length: positive,
     radius: positive,

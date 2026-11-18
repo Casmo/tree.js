@@ -1,4 +1,4 @@
-// Parameter panels generated from the field table: Tree (name, Form), Trunk, Leaves, Materials,
+// Parameter panels generated from the field table: Tree (name), Trunk, Leaves, Materials,
 // Seed variation. Branching levels, the Season Profile and Wind have their own panels.
 import { fieldControl } from './controls';
 import { PARAMETER_GROUPS, type FieldGroup } from './fields';

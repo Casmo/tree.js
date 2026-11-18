@@ -22,7 +22,6 @@ export const TEXTURES = {
 export const broadleaf: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: 'Realistic broadleaf',
-  form: 'broadleaf',
   trunk: { length: 5, radius: 0.28, taper: 0.35, sides: 12, sections: 10, lengthVariation: 0.15, bend: 0.1 },
   branches: [
     { count: 8, start: 0.4, end: 0.95, angle: 48, angleVariation: 0.2, spiral: 137.5, length: 0.5, lengthVariation: 0.2, radius: 0.5, taper: 0.5, sides: 8, sections: 6, bend: 0.15, gravity: 0.05 },
@@ -43,15 +42,16 @@ export const broadleaf: TreeDefinition = {
 
 /**
  * Realistic conifer: a straight trunk with dense, drooping whorls that shrink towards the top
- * (the conifer Form), covered in needle-spray cards. Evergreen Season Profile.
+ * (a cone Crown Shape), covered in needle-spray cards. Evergreen Season Profile.
  */
 export const conifer: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: 'Realistic conifer',
-  form: 'conifer',
   trunk: { length: 7, radius: 0.24, taper: 0.08, sides: 10, sections: 10, lengthVariation: 0.12, bend: 0.03 },
   branches: [
-    { count: 34, start: 0.12, end: 0.97, angle: 88, angleVariation: 0.1, spiral: 137.5, length: 0.38, lengthVariation: 0.15, radius: 0.22, taper: 0.25, sides: 5, sections: 4, bend: 0.08, gravity: 0.12 },
+    { count: 34, start: 0.12, end: 0.97, angle: 88, angleVariation: 0.1, spiral: 137.5, length: 0.38, lengthVariation: 0.15, radius: 0.22, taper: 0.25, sides: 5, sections: 4, bend: 0.08, gravity: 0.12,
+      // Crown Shape: a cone, full length at the lowest whorl, a tenth of it at the top.
+      lengthProfile: [{ t: 0.12, value: 1 }, { t: 0.912, value: 0.1 }, { t: 1, value: 0.1 }] },
     { count: 6, start: 0.15, end: 1, angle: 55, angleVariation: 0.2, spiral: 180, length: 0.45, lengthVariation: 0.2, radius: 0.5, taper: 0.4, sides: 3, sections: 2, bend: 0.05, gravity: 0.1 },
   ],
   leaves: { count: 8, shape: 'card', size: 0.8, sizeVariation: 0.2, start: 0, angle: 35 },

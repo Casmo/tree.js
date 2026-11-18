@@ -25,7 +25,6 @@ export const DEFAULT_BRANCH_LEVEL: BranchLevelDefinition = {
 export const DEFAULT_DEFINITION: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: '',
-  form: 'broadleaf',
   trunk: {
     length: 4,
     radius: 0.25,

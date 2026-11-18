@@ -52,7 +52,6 @@ describe('parameter panels', () => {
   it('offer exactly the choices the schema accepts', () => {
     const choices = PARAMETER_GROUPS.flatMap((group) => group.fields).filter((field) => field.kind === 'choice');
     expect(Object.fromEntries(choices.map((field) => [field.path, field.options]))).toEqual({
-      form: ['broadleaf', 'conifer'],
       'leaves.shape': ['card', 'clump', 'needle', 'puff'],
       'materials.shading': ['standard', 'flat', 'toon'],
     });

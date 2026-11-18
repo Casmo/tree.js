@@ -39,7 +39,7 @@ test('smoke: load, edit a parameter, export JSON that the library loads', async 
   const exported = JSON.parse(json);
   expect(exported.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
   const definition = parseDefinition(json);
-  expect(definition).toMatchObject({ name: 'My oak', form: 'broadleaf', trunk: { length: 4.2 } });
+  expect(definition).toMatchObject({ name: 'My oak', trunk: { length: 4.2 } });
   const tree = createTree(definition, { seed: 1 });
   expect(tree.wood.geometry.getAttribute('position').count).toBeGreaterThan(0);
   expect(tree.leaves.geometry.getAttribute('position').count).toBeGreaterThan(0);
@@ -54,7 +54,7 @@ for (const start of STARTS) {
     await expect.poll(async () => (await waitForEditor(page)).state?.source).toBe(start.id);
     const { status, state } = await waitForEditor(page);
     expect(status).toBe('rendered');
-    expect(state?.definition.form).toBe(start.form);
+    expect(state?.definition.name.toLowerCase()).toContain(start.form);
     await expect(page.locator('#preview canvas')).toHaveScreenshot(`start-${start.id.replace('/', '-')}.png`);
   });
 }

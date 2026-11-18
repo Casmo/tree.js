@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { generateTree } from '../src/generator';
 import {
   CURRENT_SCHEMA_VERSION,
+  hashTreeData,
   createTree,
   DEFAULT_BRANCH_LEVEL,
   DEFAULT_DEFINITION,
@@ -28,8 +30,8 @@ function fieldOf(fn: () => unknown): string {
 describe('Definition migration', () => {
   it('migrates a schemaVersion 1 file (bark colour moves to materials, no branches or leaves)', () => {
     const def = parseDefinition(fixture('definition-v1.json'));
-    expect(CURRENT_SCHEMA_VERSION).toBe(2);
-    expect(def.schemaVersion).toBe(2);
+    expect(CURRENT_SCHEMA_VERSION).toBe(3);
+    expect(def.schemaVersion).toBe(3);
     expect(def.trunk.length).toBe(5);
     expect(def.trunk.sides).toBe(7);
     expect(def.materials.bark.color).toBe('#55402a');
@@ -41,8 +43,55 @@ describe('Definition migration', () => {
   });
 
   it('createTree accepts a v1 file', () => {
-    expect(createTree(fixture('definition-v1.json') as TreeDefinitionInput, { seed: 3 }).definition.schemaVersion).toBe(2);
+    expect(createTree(fixture('definition-v1.json') as TreeDefinitionInput, { seed: 3 }).definition.schemaVersion).toBe(3);
   });
+
+  it('migrates a schemaVersion 2 broadleaf: `form` is dropped, nothing else changes', () => {
+    const v2 = fixture('definition-v2-broadleaf.json') as Record<string, unknown>;
+    const def = parseDefinition(v2);
+    expect(def.schemaVersion).toBe(3);
+    expect(def).not.toHaveProperty('form');
+    expect(def.name).toBe('My oak');
+    expect(def.branches.every((b) => b.lengthProfile === undefined && b.angleProfile === undefined)).toBe(true);
+  });
+
+  it('migrates a schemaVersion 2 conifer: its cone becomes a length curve on the first branch level', () => {
+    const def = parseDefinition(fixture('definition-v2-conifer.json'));
+    expect(def).not.toHaveProperty('form');
+    // start 0.27: full length at the lowest branches, shrinking to a tenth near the tip.
+    expect(def.branches[0]!.lengthProfile).toEqual([
+      { t: 0.27, value: 1 },
+      { t: expect.closeTo(0.927, 10) as number, value: 0.1 },
+      { t: 1, value: 0.1 },
+    ]);
+    expect(def.branches[0]!.angleProfile).toBeUndefined();
+    expect(def.branches[1]!.lengthProfile).toBeUndefined();
+    expect(def.sculpts).toEqual([{ seed: 7, path: '0.4', action: 'delete' }]);
+  });
+
+  it('a migrated v2 conifer without branches stays a valid, branchless tree', () => {
+    const def = parseDefinition({ schemaVersion: 2, form: 'conifer', branches: [] });
+    expect(def.branches).toEqual([]);
+  });
+
+  it('a migrated v2 conifer with default branch levels gets the cone from the default start', () => {
+    const def = parseDefinition({ schemaVersion: 2, form: 'conifer' });
+    expect(def.branches[0]!.lengthProfile![0]).toEqual({ t: DEFAULT_BRANCH_LEVEL.start, value: 1 });
+  });
+
+  // Golden hashes recorded with the v2 generator (special-cased `form: 'conifer'`) before the migration existed.
+  const before = {
+    broadleaf: { 1: 'ad9ff0e7', 7: '973752c7', 42: '03202463' },
+    conifer: { 1: 'ce9bf885', 7: '231adb22', 42: 'c1afa72e' },
+  } as const;
+  for (const [form, hashes] of Object.entries(before)) {
+    it(`a migrated v2 ${form} grows exactly the same tree as before (geometry hash)`, () => {
+      const def = parseDefinition(fixture(`definition-v2-${form}.json`));
+      for (const [seed, hash] of Object.entries(hashes)) {
+        expect(hashTreeData(generateTree(def, Number(seed)))).toBe(hash);
+      }
+    });
+  }
 
   it('rejects a schemaVersion newer than this library supports', () => {
     expect(fieldOf(() => parseDefinition({ schemaVersion: 99 }))).toBe('schemaVersion');
@@ -92,7 +141,20 @@ describe('Definition validation names the bad field', () => {
     ['unknown field (typo)', { schemaVersion: 2, trunk: { lenght: 3 } }, 'trunk.lenght'],
     ['unknown section', { schemaVersion: 2, roots: {} }, 'roots'],
     ['section not an object', { schemaVersion: 2, leaves: 3 }, 'leaves'],
-    ['unknown form', { schemaVersion: 2, form: 'palm' }, 'form'],
+    ['unknown form (v2)', { schemaVersion: 2, form: 'palm' }, 'form'],
+    ['form is no longer a v3 field', { schemaVersion: 3, form: 'conifer' }, 'form'],
+    ['empty length curve', { schemaVersion: 3, branches: [{ lengthProfile: [] }] }, 'branches[0].lengthProfile'],
+    [
+      'length curve keyframe value',
+      { schemaVersion: 3, branches: [{}, { lengthProfile: [{ t: 0, value: -1 }] }] },
+      'branches[1].lengthProfile[0].value',
+    ],
+    [
+      'unsorted angle curve',
+      { schemaVersion: 3, branches: [{ angleProfile: [{ t: 0.8, value: 1 }, { t: 0.2, value: 2 }] }] },
+      'branches[0].angleProfile[1].t',
+    ],
+    ['angle curve keyframe t', { schemaVersion: 3, branches: [{ angleProfile: [{ t: 1.5, value: 1 }] }] }, 'branches[0].angleProfile[0].t'],
     ['branch angle out of range', { schemaVersion: 2, branches: [{}, { angle: 200 }] }, 'branches[1].angle'],
     ['branch end before start', { schemaVersion: 2, branches: [{ start: 0.8, end: 0.2 }] }, 'branches[0].end'],
     ['too many branch levels', { schemaVersion: 2, branches: [{}, {}, {}, {}, {}] }, 'branches'],
@@ -161,7 +223,7 @@ describe('loading Definitions from JSON', () => {
   it('fetchDefinition loads, migrates and validates a JSON file by URL', async () => {
     const v1 = readFileSync(new URL('./fixtures/definition-v1.json', import.meta.url), 'utf8');
     const def = await fetchDefinition(`data:application/json,${encodeURIComponent(v1)}`);
-    expect(def.schemaVersion).toBe(2);
+    expect(def.schemaVersion).toBe(3);
     expect(def.materials.bark.color).toBe('#55402a');
     await expect(fetchDefinition('data:application/json,{"schemaVersion":2,"form":"x"}')).rejects.toThrow(/form/);
   });
@@ -171,7 +233,7 @@ describe('extendDefinition', () => {
   it('changes a few parameters of a base Definition and keeps the rest', () => {
     const base = parseDefinition({ schemaVersion: 2, form: 'conifer', trunk: { length: 9 } });
     const def = extendDefinition(base, { trunk: { radius: 0.5 }, materials: { bark: { color: '#112233' } } });
-    expect(def.form).toBe('conifer');
+    expect(def.branches[0]!.lengthProfile).toEqual(base.branches[0]!.lengthProfile);
     expect(def.trunk).toMatchObject({ length: 9, radius: 0.5 });
     expect(def.materials.bark).toMatchObject({ color: '#112233', roughness: 0.9 });
     expect(base.trunk.radius).toBe(0.25);

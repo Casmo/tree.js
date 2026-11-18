@@ -94,11 +94,14 @@ const broadleaf: TreeDefinitionInput = {
 };
 // Conifer: a tall trunk with many short, near-horizontal branches and the evergreen Season Profile.
 const conifer: TreeDefinitionInput = {
-  schemaVersion: 2,
-  form: 'conifer',
+  schemaVersion: 3,
   trunk: { length: 6, radius: 0.18, taper: 0.9 },
   branches: [
-    { count: 22, start: 0.15, end: 0.95, angle: 80, length: 0.28, gravity: -0.3 },
+    {
+      count: 22, start: 0.15, end: 0.95, angle: 80, length: 0.28, gravity: -0.3,
+      // Crown Shape: a cone (full length at the lowest branches, a tenth at the top).
+      lengthProfile: [{ t: 0.15, value: 1 }, { t: 0.915, value: 0.1 }, { t: 1, value: 0.1 }],
+    },
     { count: 3, start: 0.2, angle: 45, length: 0.4, sides: 3, sections: 2 },
   ],
   leaves: { count: 8, size: 0.3 },

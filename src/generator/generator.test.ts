@@ -378,23 +378,73 @@ describe('leaf shapes', () => {
   });
 });
 
-describe('Forms', () => {
-  const crown = { branches: [{ count: 12, start: 0.2, end: 0.95, lengthVariation: 0, angleVariation: 0, bend: 0 }] };
-  const lengths = (form: 'broadleaf' | 'conifer') =>
-    generateTree(parseDefinition({ schemaVersion: 2, form, trunk: { bend: 0 }, ...crown }), 4)
-      .skeleton.branches.filter((b) => b.level === 1)
-      .map((b) => ({ attach: b.attach, length: pathLength(b) }));
+describe('Crown Shape curves', () => {
+  const level = { count: 12, start: 0.1, end: 0.95, angle: 60, lengthVariation: 0, angleVariation: 0, bend: 0 };
+  const grow = (branch: Record<string, unknown> = {}, seed = 4) =>
+    generateTree(parseDefinition({ schemaVersion: 3, trunk: { bend: 0 }, branches: [{ ...level, ...branch }] }), seed);
+  const firstLevel = (data: ReturnType<typeof generateTree>) => data.skeleton.branches.filter((b) => b.level === 1);
+  const DEG = 180 / Math.PI;
+  /** Angle between a branch and the (straight, vertical) trunk, degrees. */
+  const angleOf = (b: SkeletonBranch) => Math.acos(b.direction[1]) * DEG;
 
-  it('a conifer grows a cone: branches from the trunk get shorter towards the top', () => {
-    const branches = lengths('conifer');
-    for (let i = 1; i < branches.length; i++) expect(branches[i]!.length).toBeLessThan(branches[i - 1]!.length);
-    expect(branches.at(-1)!.length).toBeLessThan(branches[0]!.length * 0.3);
-    // The lowest branch keeps (about) the declared length.
-    expect(branches[0]!.length).toBeGreaterThan(lengths('broadleaf')[0]!.length * 0.9);
+  it('branch length by attach position follows the length curve (linear between keyframes)', () => {
+    const flat = firstLevel(grow());
+    // A ball: short at the base and the tip, full length in the middle.
+    const shaped = firstLevel(grow({ lengthProfile: [{ t: 0, value: 0.4 }, { t: 0.5, value: 1 }, { t: 1, value: 0.4 }] }));
+    expect(shaped.map((b) => b.attach)).toEqual(flat.map((b) => b.attach));
+    shaped.forEach((b, i) => {
+      const expected = 1 - 1.2 * Math.abs(b.attach - 0.5);
+      expect(pathLength(b) / pathLength(flat[i]!)).toBeCloseTo(expected, 5);
+    });
   });
 
-  it('a broadleaf keeps the declared branch length all the way up', () => {
-    const branches = lengths('broadleaf');
-    expect(branches.at(-1)!.length).toBeCloseTo(branches[0]!.length, 5);
+  it('the length curve holds its first and last value outside its keyframes', () => {
+    const flat = firstLevel(grow());
+    const shaped = firstLevel(grow({ lengthProfile: [{ t: 0.5, value: 0.3 }, { t: 0.7, value: 1 }] }));
+    shaped.forEach((b, i) => {
+      const ratio = pathLength(b) / pathLength(flat[i]!);
+      if (b.attach <= 0.5) expect(ratio).toBeCloseTo(0.3, 5);
+      if (b.attach >= 0.7) expect(ratio).toBeCloseTo(1, 5);
+    });
+    expect(shaped.some((b) => b.attach < 0.5) && shaped.some((b) => b.attach > 0.7)).toBe(true);
+  });
+
+  it('the angle curve changes child angles by attach position', () => {
+    const flat = firstLevel(grow());
+    for (const b of flat) expect(angleOf(b)).toBeCloseTo(60, 4);
+    // Drooping at the base (1.5 x 60 = 90 degrees), pointing up at the tip (0.5 x 60 = 30 degrees).
+    const shaped = firstLevel(grow({ angleProfile: [{ t: 0, value: 1.5 }, { t: 1, value: 0.5 }] }));
+    for (const b of shaped) expect(angleOf(b)).toBeCloseTo(60 * (1.5 - b.attach), 4);
+  });
+
+  it('the angle never exceeds 180 degrees', () => {
+    const shaped = firstLevel(grow({ angle: 120, angleProfile: [{ t: 0, value: 3 }] }));
+    for (const b of shaped) expect(angleOf(b)).toBeCloseTo(180, 3);
+  });
+
+  it('flat curves (multiplier 1) grow exactly the tree without curves', () => {
+    const flat = [{ t: 0, value: 1 }];
+    for (const seed of [1, 4, 42]) {
+      expect(hashTreeData(grow({ lengthProfile: flat, angleProfile: flat }, seed))).toBe(hashTreeData(grow({}, seed)));
+    }
+  });
+
+  it('curves on a deeper level shape that level only', () => {
+    const base = { schemaVersion: 3, trunk: { bend: 0 }, branches: [level, { count: 3, lengthVariation: 0 }] };
+    const plain = generateTree(parseDefinition(base), 2).skeleton.branches;
+    const shaped = generateTree(
+      parseDefinition({ ...base, branches: [level, { count: 3, lengthVariation: 0, lengthProfile: [{ t: 0, value: 0.5 }] }] }),
+      2,
+    ).skeleton.branches;
+    plain.forEach((b, i) => {
+      const ratio = pathLength(shaped[i]!) / pathLength(b);
+      expect(ratio).toBeCloseTo(b.level === 2 ? 0.5 : 1, 5);
+    });
+  });
+
+  it('a cone length curve (what a v2 conifer migrates to) shrinks trunk branches towards the top', () => {
+    const cone = firstLevel(grow({ start: 0.2, lengthProfile: [{ t: 0.2, value: 1 }, { t: 0.92, value: 0.1 }, { t: 1, value: 0.1 }] }));
+    for (let i = 1; i < cone.length; i++) expect(pathLength(cone[i]!)).toBeLessThan(pathLength(cone[i - 1]!));
+    expect(pathLength(cone.at(-1)!)).toBeLessThan(pathLength(cone[0]!) * 0.3);
   });
 });

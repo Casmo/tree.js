@@ -53,7 +53,6 @@ const evergreen: SeasonProfileDefinition = {
 export const broadleaf: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: 'Stylized broadleaf',
-  form: 'broadleaf',
   trunk: { length: 3.2, radius: 0.24, taper: 0.55, sides: 10, sections: 8, lengthVariation: 0.15, bend: 0.25 },
   branches: [
     { count: 6, start: 0.45, end: 0.9, angle: 48, angleVariation: 0.2, spiral: 137.5, length: 0.5, lengthVariation: 0.2, radius: 0.55, taper: 0.5, sides: 8, sections: 5, bend: 0.25, gravity: 0.05 },
@@ -73,16 +72,17 @@ export const broadleaf: TreeDefinition = {
 
 /**
  * Stylized conifer: a straight trunk with soft, upturned whorls that shrink towards the top
- * (the conifer Form), each carrying a few rounded clumps, so the tree reads as a stack of puffs.
+ * (a cone Crown Shape), each carrying a few rounded clumps, so the tree reads as a stack of puffs.
  * Evergreen: it only darkens a little in winter.
  */
 export const conifer: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: 'Stylized conifer',
-  form: 'conifer',
   trunk: { length: 5, radius: 0.2, taper: 0.2, sides: 8, sections: 6, lengthVariation: 0.15, bend: 0.05 },
   branches: [
-    { count: 18, start: 0.15, end: 0.97, angle: 85, angleVariation: 0.1, spiral: 137.5, length: 0.5, lengthVariation: 0.1, radius: 0.4, taper: 0.35, sides: 5, sections: 3, bend: 0.1, gravity: 0.05 },
+    { count: 18, start: 0.15, end: 0.97, angle: 85, angleVariation: 0.1, spiral: 137.5, length: 0.5, lengthVariation: 0.1, radius: 0.4, taper: 0.35, sides: 5, sections: 3, bend: 0.1, gravity: 0.05,
+      // Crown Shape: a cone, full length at the lowest whorl, a tenth of it at the top.
+      lengthProfile: [{ t: 0.15, value: 1 }, { t: 0.915, value: 0.1 }, { t: 1, value: 0.1 }] },
   ],
   leaves: { count: 4, shape: 'puff', size: 0.6, sizeVariation: 0.2, start: 0.1, angle: 20 },
   materials: {

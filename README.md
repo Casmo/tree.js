@@ -146,8 +146,7 @@ always give exactly the same tree.
 import { createTree, fetchDefinition, parseDefinition, TreeDefinitionError, type TreeDefinitionInput } from '@casmo/tree.js';
 
 const birch: TreeDefinitionInput = {
-  schemaVersion: 2,
-  form: 'broadleaf',
+  schemaVersion: 3,
   trunk: { length: 6, radius: 0.15 },
   branches: [
     { count: 6, angle: 45 },
@@ -162,13 +161,20 @@ const fromEditor = await fetchDefinition('/trees/my-oak.json'); // a Tree Editor
 const tree = createTree(fromEditor, { seed: 7 });
 
 try {
-  parseDefinition('{"schemaVersion": 2, "trunk": {"length": -1}}');
+  parseDefinition('{"schemaVersion": 3, "trunk": {"length": -1}}');
 } catch (error) {
   if (error instanceof TreeDefinitionError) console.warn(error.field, error.message); // 'trunk.length'
 }
 ```
 
-Older Definitions (lower `schemaVersion`) are migrated when parsed. `extendDefinition(base, patch)`
+Each branch level can carry a **Crown Shape**: optional `lengthProfile` and `angleProfile` keyframe
+curves over where a branch sits on its parent (0 = base .. 1 = tip) that multiply the level's `length`
+and `angle` (linear between keyframes, flat = 1 when absent). A cone is
+`lengthProfile: [{ t: 0.2, value: 1 }, { t: 1, value: 0.1 }]` on the first level; a ball, column, vase
+or flat top are other curves.
+
+Older Definitions (lower `schemaVersion`) are migrated when parsed (a v2 `form: 'conifer'` becomes the
+equivalent cone `lengthProfile`, so the tree stays identical). `extendDefinition(base, patch)`
 deep-merges a patch (arrays replace) and validates the result. Sculpts (hand edits made in the Tree Editor)
 belong to one Seed: they only change the tree of that Seed.
 
@@ -184,7 +190,7 @@ Both only write a uniform, so they are cheap to animate every frame:
 ```ts
 import { createTree, SEASON_PROFILES } from '@casmo/tree.js';
 
-const tree = createTree({ schemaVersion: 2, season: SEASON_PROFILES.deciduous }, { seed: 5, growth: 0, season: 0 });
+const tree = createTree({ schemaVersion: 3, season: SEASON_PROFILES.deciduous }, { seed: 5, growth: 0, season: 0 });
 scene.add(tree);
 
 renderer.setAnimationLoop((time) => {
@@ -211,11 +217,11 @@ unless you give it another `Wind`. All of it is uniforms, so changing the wind i
 import { createTree, sceneWind, Wind } from '@casmo/tree.js';
 
 sceneWind.set({ direction: [1, 0, -0.4], strength: 0.6 }); // 0 = calm (default), 1 = strong
-const swaying = createTree({ schemaVersion: 2, wind: { trunk: 0.4, branches: 0.8, leaves: 1 } }, { seed: 1 });
+const swaying = createTree({ schemaVersion: 3, wind: { trunk: 0.4, branches: 0.8, leaves: 1 } }, { seed: 1 });
 
 // A separate wind, e.g. for a sheltered courtyard:
 const breeze = new Wind({ direction: [0, 0, 1], strength: 0.2 });
-const sheltered = createTree({ schemaVersion: 2 }, { seed: 2, wind: breeze });
+const sheltered = createTree({ schemaVersion: 3 }, { seed: 2, wind: breeze });
 
 swaying.windResponse.set({ leaves: 0.5 }); // change one tree's response live
 sceneWind.time = 1.5; // pin the wind clock (seconds), e.g. for screenshots; null = the renderer's clock
@@ -320,7 +326,7 @@ function Trees() {
     <>
       <Tree style={lowPoly} form="broadleaf" seed={1} growth={0.8} season={0.4} />
       <Tree style="low-poly" form="conifer" seed={2} position={[3, 0, 0]} castShadow={false} />
-      <Tree definition={{ schemaVersion: 2, leaves: { count: 4 } }} seed={7} position={[-3, 0, 0]} />
+      <Tree definition={{ schemaVersion: 3, leaves: { count: 4 } }} seed={7} position={[-3, 0, 0]} />
       <Forest
         style={lowPoly}
         form="conifer"
@@ -413,7 +419,7 @@ classic `MeshStandardMaterial`s, for other engines or tools:
 ```ts
 import { bakeTree, createTree, disposeBakedTree, exportBakedTree } from '@casmo/tree.js';
 
-const tree = createTree({ schemaVersion: 2 }, { seed: 4 });
+const tree = createTree({ schemaVersion: 3 }, { seed: 4 });
 const glb = await exportBakedTree(tree, { growth: 1, season: 0.6 }); // ArrayBuffer (.glb); binary: false = glTF JSON
 const url = URL.createObjectURL(new Blob([glb], { type: 'model/gltf-binary' }));
 

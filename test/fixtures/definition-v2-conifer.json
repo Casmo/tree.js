@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "name": "My spruce",
+  "form": "conifer",
+  "trunk": { "length": 6, "radius": 0.22, "taper": 0.1, "sides": 7, "sections": 6, "lengthVariation": 0.1, "bend": 0.04 },
+  "branches": [
+    { "count": 20, "start": 0.27, "end": 0.96, "angle": 85, "angleVariation": 0.1, "spiral": 137.5, "length": 0.38, "lengthVariation": 0.2, "radius": 0.45, "taper": 0.3, "sides": 4, "sections": 3, "bend": 0.08, "gravity": -0.2 },
+    { "count": 4, "start": 0.2, "end": 0.9, "angle": 50, "angleVariation": 0.2, "spiral": 180, "length": 0.4, "lengthVariation": 0.2, "radius": 0.6, "taper": 0.3, "sides": 3, "sections": 2, "bend": 0.1, "gravity": -0.1 }
+  ],
+  "leaves": { "count": 6, "shape": "needle", "size": 0.4, "sizeVariation": 0.2, "start": 0.1, "angle": 35 },
+  "materials": {
+    "shading": "standard",
+    "bark": { "color": "#4f3a2a", "roughness": 0.9, "map": null, "normalMap": null },
+    "leaf": { "roughness": 0.8, "map": null, "alphaTest": 0.5 }
+  },
+  "season": {
+    "leafColor": [{ "t": 0, "value": "#2f5d34" }, { "t": 0.9, "value": "#264a2c" }],
+    "leafCoverage": [{ "t": 0, "value": 1 }],
+    "blossom": [{ "t": 0, "value": 0 }],
+    "blossomColor": "#f7c6d9"
+  },
+  "wind": { "trunk": 0.1, "branches": 0.3, "leaves": 0.4, "frequency": 0.9 },
+  "variation": { "color": 0.1, "growth": 0.1, "season": 0.05 },
+  "sculpts": [{ "seed": 7, "path": "0.4", "action": "delete" }]
+}

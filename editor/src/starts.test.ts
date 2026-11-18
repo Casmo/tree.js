@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseDefinition } from '@casmo/tree.js';
+import { loadStyle, parseDefinition, type StyleName } from '@casmo/tree.js';
 import { loadStart, STARTS } from './starts';
 
 describe('starting points', () => {
@@ -7,10 +7,11 @@ describe('starting points', () => {
     expect(STARTS.map((start) => start.id)).toEqual(expect.arrayContaining(['low-poly/broadleaf', 'low-poly/conifer', 'stylized/broadleaf', 'stylized/conifer']));
   });
 
-  it.each(STARTS.map((start) => [start.id, start] as const))('%s loads a valid Definition of its Form', async (_id, start) => {
+  it.each(STARTS.map((start) => [start.id, start] as const))('%s loads its Style\'s Definition for its Form', async (_id, start) => {
     const definition = await loadStart(start.id);
     expect(parseDefinition(definition)).toEqual(definition);
-    expect(definition.form).toBe(start.form);
+    const style = await loadStyle(start.style as StyleName);
+    expect(definition).toEqual(style[start.form]);
   });
 
   it('rejects an unknown starting point', async () => {

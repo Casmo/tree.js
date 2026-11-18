@@ -27,7 +27,6 @@ export const PARAMETER_GROUPS: FieldGroup[] = [
     title: 'Tree',
     fields: [
       { kind: 'text', path: 'name', label: 'Name' },
-      { kind: 'choice', path: 'form', label: 'Form', options: ['broadleaf', 'conifer'] },
     ],
   },
   {

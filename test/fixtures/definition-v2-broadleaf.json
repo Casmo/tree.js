@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "name": "My oak",
+  "form": "broadleaf",
+  "trunk": { "length": 4.2, "radius": 0.3, "taper": 0.45, "sides": 8, "sections": 6, "lengthVariation": 0.15, "bend": 0.1 },
+  "branches": [
+    { "count": 7, "start": 0.4, "end": 0.95, "angle": 50, "angleVariation": 0.2, "spiral": 137.5, "length": 0.55, "lengthVariation": 0.2, "radius": 0.6, "taper": 0.35, "sides": 6, "sections": 4, "bend": 0.12, "gravity": 0.1 },
+    { "count": 4, "start": 0.2, "end": 0.95, "angle": 40, "angleVariation": 0.2, "spiral": 137.5, "length": 0.45, "lengthVariation": 0.2, "radius": 0.6, "taper": 0.3, "sides": 4, "sections": 3, "bend": 0.1, "gravity": 0.1 }
+  ],
+  "leaves": { "count": 8, "shape": "card", "size": 0.3, "sizeVariation": 0.2, "start": 0.3, "angle": 40 },
+  "season": {
+    "leafColor": [{ "t": 0, "value": "#8bc34a" }, { "t": 0.3, "value": "#3e7d2b" }, { "t": 0.65, "value": "#c9762b" }],
+    "leafCoverage": [{ "t": 0, "value": 0.4 }, { "t": 0.1, "value": 1 }, { "t": 0.7, "value": 1 }, { "t": 0.8, "value": 0 }],
+    "blossom": [{ "t": 0, "value": 0.6 }, { "t": 0.1, "value": 0 }],
+    "blossomColor": "#ffffff"
+  }
+}
