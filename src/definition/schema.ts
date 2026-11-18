@@ -206,7 +206,7 @@ const treeDefinition = obj<TreeDefinition>({
     angle: range(0, 180),
   }),
   fruit: optionalBlock<FruitDefinition>(
-    obj({
+    obj<FruitDefinition>({
       type: oneOf(...FRUIT_TYPES),
       count: nonNegative,
       size: positive,
