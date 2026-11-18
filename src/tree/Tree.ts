@@ -15,6 +15,7 @@ import type { TreeDefinition } from '../definition';
 import { trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { clampGrowth, growthPosition } from '../growth';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
+import { applyStructuralOcclusion, setOcclusionStrength, type OcclusionStrengthUniform } from '../materials/occlusion';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes, type SeasonUniform } from '../season';
 import { checkedSeason } from '../season/check';
@@ -107,6 +108,7 @@ export class Tree extends Group {
   /** This tree's response to the Wind, from `definition.wind`; `windResponse.set(...)` changes it live. */
   readonly windResponse: WindResponse;
   private readonly windBinding: WindBinding;
+  private readonly occlusion: OcclusionStrengthUniform | null;
 
   /**
    * Resolves once every texture of this tree has loaded (at once for a tree without textures);
@@ -153,6 +155,20 @@ export class Tree extends Group {
     fruit.positionNode = growthPosition(this.growthUniform, fruitSeason.position);
     applyWind(fruit, offset);
     this.season = options.season ?? 0;
+    this.occlusion = applyStructuralOcclusion(definition, [bark, leaf, fruit]);
+  }
+
+  /**
+   * Structural Occlusion strength (0..1), from the Definition's `materials.occlusion`; null when it has none.
+   * Setting it (clamped to 0..1) only writes a uniform: no regeneration, no recompile. Throws on a tree
+   * without Structural Occlusion (there is no baked occlusion to show).
+   */
+  get occlusionStrength(): number | null {
+    return this.occlusion?.value ?? null;
+  }
+
+  set occlusionStrength(value: number) {
+    setOcclusionStrength(this.occlusion, value);
   }
 
   /**
