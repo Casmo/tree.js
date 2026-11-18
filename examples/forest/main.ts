@@ -117,8 +117,14 @@ function withOcclusion(definition: TreeDefinitionInput | TreeDefinition): TreeDe
   return extendDefinition(definition, { materials: { occlusion: { strength: Number(strength) } } });
 }
 
+/** `?crownNormals=<0..1>`: the Crown Normals Material Feature (off when absent). */
+function withCrownNormals(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
+  const amount = params.get('crownNormals');
+  return amount === null ? definition : extendDefinition(definition, { materials: { leaf: { crownNormals: Number(amount) } } });
+}
+
 async function main(): Promise<void> {
-  const forest = createForest(withOcclusion(withFruit(await loadDefinition())), placements, {
+  const forest = createForest(withOcclusion(withCrownNormals(withFruit(await loadDefinition()))), placements, {
     variants: number('variants', 4),
     seed: number('seed', 1),
     growth: number('growth', 1),

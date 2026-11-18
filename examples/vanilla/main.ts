@@ -138,6 +138,12 @@ function withOcclusion(definition: TreeDefinitionInput | TreeDefinition): TreeDe
   return extendDefinition(definition, { materials: { occlusion: { strength: Number(strength) } } });
 }
 
+/** `?crownNormals=<0..1>`: the Crown Normals Material Feature (off when absent). */
+function withCrownNormals(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
+  const amount = params.get('crownNormals');
+  return amount === null ? definition : extendDefinition(definition, { materials: { leaf: { crownNormals: Number(amount) } } });
+}
+
 const form = params.get('form') === 'conifer' ? 'conifer' : 'broadleaf';
 
 async function loadDefinition(): Promise<TreeDefinitionInput | TreeDefinition> {
@@ -187,7 +193,7 @@ function withCustomTextures(definition: TreeDefinitionInput | TreeDefinition): T
 async function main(): Promise<void> {
   const textureBase = params.get('textureBase');
   if (textureBase) setTextureOptions({ basePath: textureBase });
-  const tree = createTree(withOcclusion(withFruit(withCustomTextures(await loadDefinition()))), { seed, growth, season });
+  const tree = createTree(withOcclusion(withCrownNormals(withFruit(withCustomTextures(await loadDefinition())))), { seed, growth, season });
   await tree.ready; // textures (realistic Style, custom maps) are loaded before the first frame
   scene.add(tree);
   if (params.get('style') || params.get('species')) frame(tree);

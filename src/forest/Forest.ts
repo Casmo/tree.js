@@ -17,7 +17,7 @@ import {
 import { positionGeometry } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
 import { generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
-import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
+import { applyCrownNormals, createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
 import { applyStructuralOcclusion, setOcclusionStrength, type OcclusionStrengthUniform } from '../materials/occlusion';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes } from '../season';
@@ -25,7 +25,7 @@ import { checkedSeason } from '../season/check';
 import { clampGrowth } from '../growth';
 import { textureReady, type TextureOptions } from '../textures';
 import { sceneWind, Wind, WindBinding, WindResponse, type WindSource } from '../wind';
-import { INSTANCE_ATTRIBUTES, INSTANCE_STRIDE, forestPosition, instanceState } from './nodes';
+import { INSTANCE_ATTRIBUTES, INSTANCE_STRIDE, forestPosition, instanceRotate, instanceState } from './nodes';
 import {
   delayedGrowth,
   forestTreeKey,
@@ -207,6 +207,8 @@ export class ForestVariant {
     this.barkMaterial.positionNode = position;
     this.leafMaterial = createLeafMaterial(definition, textures);
     this.leafMaterial.positionNode = position;
+    // The Crown Volume is in tree space; the bent normal turns with the instance (uniform scale: rotation only).
+    applyCrownNormals(this.leafMaterial, definition.materials.leaf.crownNormals, this.data.crown, instanceState().growth, (n) => instanceRotate(n));
     applySeasonToLeafMaterial(this.leafMaterial, createSeasonNodes(definition.season, instanceState().season));
 
     this.woodSource = interleavedGeometry(this.data.wood, height * WIND_BOUNDS);
