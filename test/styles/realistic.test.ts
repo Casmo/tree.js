@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { MeshStandardNodeMaterial } from 'three/webgpu';
-import { createTree, hashTreeData, parseDefinition, resolveTextureUrl } from '../../src/index';
+import { BARK_TYPES, createTree, extendDefinition, hashTreeData, LEAF_TYPES, parseDefinition, resolveTextureUrl, type SpeciesDefinition } from '../../src/index';
 import { generateTree } from '../../src/generator';
 
 const realistic = await import('../../src/styles/realistic');
@@ -61,5 +61,27 @@ describe('realistic Style (dynamic import of the /styles/realistic subpath)', ()
     });
     expect(pkg.files).toContain('dist');
     expect(readFileSync(new URL('../../src/index.ts', import.meta.url), 'utf8')).not.toMatch(/styles\/realistic/);
+  });
+
+  describe('a texture for every Leaf Type and Bark Type', () => {
+    const species = (leaf: SpeciesDefinition['foliage']['type'], bark: SpeciesDefinition['bark']['type']) =>
+      realistic.default.apply(extendDefinition(realistic.broadleaf, { leaves: { type: leaf }, materials: { bark: { type: bark } } }));
+
+    it('ships the file for each one', () => {
+      const urls = [...Object.values(realistic.LEAF_TEXTURES), ...Object.values(realistic.BARK_TEXTURES).flatMap((b) => [b.map, b.normalMap])];
+      expect(Object.keys(realistic.LEAF_TEXTURES).sort()).toEqual([...LEAF_TYPES].sort());
+      expect(Object.keys(realistic.BARK_TEXTURES).sort()).toEqual([...BARK_TYPES].sort());
+      for (const url of urls) expect(existsSync(fileURLToPath(resolveTextureUrl(url))), url).toBe(true);
+    });
+
+    it('loads them from an app-provided base path (asset path override)', () => {
+      const definition = species('palmate', 'fibrous');
+      const tree = createTree(definition, { seed: 1, textures: { basePath: 'https://cdn.example.com/trees/' } });
+      const wood = tree.wood.material as MeshStandardNodeMaterial;
+      expect(wood.map?.name).toBe('https://cdn.example.com/trees/realistic/bark-fibrous.png');
+      expect(wood.normalMap?.name).toBe('https://cdn.example.com/trees/realistic/bark-fibrous-normal.png');
+      expect(tree.leaves.material.map?.name).toBe('https://cdn.example.com/trees/realistic/leaf-palmate.png');
+      tree.dispose();
+    });
   });
 });
