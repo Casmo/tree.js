@@ -32,6 +32,14 @@ _Avoid_: Leaf shape, foliage style
 The kind of bark surface a Species has, such as furrowed, smooth, papery, fibrous or plated; each Style decides how to draw it.
 _Avoid_: Bark texture, bark style
 
+**Fruit**:
+What a tree bears on its outermost twigs after blossom, such as apples, nuts or cones; it swells, ripens and drops across Season and only appears on a fully grown tree.
+_Avoid_: Produce, seeds
+
+**Fruit Type**:
+The kind of Fruit a Species bears: round, pear, nut, cone or berry; each Style decides how to draw it.
+_Avoid_: Fruit shape
+
 **Stem**:
 One of the trunks a tree grows from the ground; most trees have a single Stem, a juniper or an olive may have several.
 _Avoid_: Trunk copy, multi-trunk
