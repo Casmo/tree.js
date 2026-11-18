@@ -2,9 +2,33 @@
 
 /** Id of a Species in the collection (kebab-case), e.g. `'oak'`. */
 export type SpeciesName =
-  | 'oak';
+  | 'ash'
+  | 'beech'
+  | 'birch'
+  | 'chestnut'
+  | 'elm'
+  | 'hickory'
+  | 'mahogany'
+  | 'maple'
+  | 'oak'
+  | 'red-oak'
+  | 'teak'
+  | 'walnut'
+  | 'white-oak';
 
 /** Dynamic import of each Species (its own chunk in the build), by id. */
 export const SPECIES_LOADERS: Record<SpeciesName, () => Promise<{ default: unknown }>> = {
+  'ash': () => import('./data/ash.json'),
+  'beech': () => import('./data/beech.json'),
+  'birch': () => import('./data/birch.json'),
+  'chestnut': () => import('./data/chestnut.json'),
+  'elm': () => import('./data/elm.json'),
+  'hickory': () => import('./data/hickory.json'),
+  'mahogany': () => import('./data/mahogany.json'),
+  'maple': () => import('./data/maple.json'),
   'oak': () => import('./data/oak.json'),
+  'red-oak': () => import('./data/red-oak.json'),
+  'teak': () => import('./data/teak.json'),
+  'walnut': () => import('./data/walnut.json'),
+  'white-oak': () => import('./data/white-oak.json'),
 };

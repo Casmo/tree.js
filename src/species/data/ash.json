@@ -1,0 +1,144 @@
+{
+  "id": "ash",
+  "name": "Ash",
+  "form": "broadleaf",
+  "trunk": {
+    "length": 6,
+    "radius": 0.36,
+    "taper": 0.32,
+    "lengthVariation": 0.1,
+    "bend": 0.1
+  },
+  "branches": [
+    {
+      "angleVariation": 0.3,
+      "spiral": 137.5,
+      "lengthVariation": 0.25,
+      "radius": 0.6,
+      "taper": 0.45,
+      "bend": 0.25,
+      "gravity": 0.22,
+      "count": 7,
+      "start": 0.48,
+      "end": 0.95,
+      "angle": 44,
+      "length": 0.72,
+      "lengthProfile": [
+        {
+          "t": 0.48,
+          "value": 1
+        },
+        {
+          "t": 0.75,
+          "value": 0.9
+        },
+        {
+          "t": 1,
+          "value": 0.5
+        }
+      ]
+    },
+    {
+      "angleVariation": 0.3,
+      "spiral": 137.5,
+      "lengthVariation": 0.25,
+      "radius": 0.6,
+      "taper": 0.45,
+      "bend": 0.3,
+      "gravity": 0.25,
+      "count": 3,
+      "start": 0.35,
+      "end": 1,
+      "angle": 35,
+      "length": 0.6
+    }
+  ],
+  "foliage": {
+    "type": "compound",
+    "density": 0.46,
+    "size": 0.62,
+    "sizeVariation": 0.25,
+    "start": 0.15,
+    "angle": 45
+  },
+  "bark": {
+    "type": "furrowed",
+    "color": "#a19d93"
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#a5c45a"
+      },
+      {
+        "t": 0.2,
+        "value": "#5a8a3a"
+      },
+      {
+        "t": 0.5,
+        "value": "#5a8a3a"
+      },
+      {
+        "t": 0.58,
+        "value": "#c7b648"
+      },
+      {
+        "t": 0.6799999999999999,
+        "value": "#9c7a46"
+      },
+      {
+        "t": 0.97,
+        "value": "#9c7a46"
+      },
+      {
+        "t": 1,
+        "value": "#a5c45a"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 0.3
+      },
+      {
+        "t": 0.1,
+        "value": 1
+      },
+      {
+        "t": 0.58,
+        "value": 1
+      },
+      {
+        "t": 0.7,
+        "value": 0
+      },
+      {
+        "t": 0.96,
+        "value": 0
+      },
+      {
+        "t": 1,
+        "value": 0.3
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#d8d48a"
+  },
+  "wind": {
+    "trunk": 0.08,
+    "branches": 0.3,
+    "leaves": 0.6,
+    "frequency": 0.9
+  },
+  "variation": {
+    "color": 0.1,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}
