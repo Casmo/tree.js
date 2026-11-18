@@ -21,6 +21,7 @@ thousands at once as an instanced Forest, add opt-in Tree Effects, or design you
 - [React Three Fiber](#react-three-fiber)
 - [Without a bundler: import map (CDN)](#without-a-bundler-import-map-cdn)
 - [Baked Trees (glTF export)](#baked-trees-gltf-export)
+- [Using a Baked Tree in other engines](#using-a-baked-tree-in-other-engines)
 - [Textures](#textures)
 - [Tree Editor](#tree-editor)
 - [Examples](#examples)
@@ -581,6 +582,32 @@ const baked = bakeTree(tree, { season: 0.6 }); // a THREE.Group, e.g. for your o
 // ...export it, then free its geometries and materials:
 disposeBakedTree(baked);
 ```
+
+## Using a Baked Tree in other engines
+
+A Baked Tree carries its Material Features (Crown Normals, Leaf Translucency, Structural Occlusion; see
+`materials` in the Tree Definition) in standard glTF channels, so other engines can show them. With no
+Material Feature set, the `.glb` is exactly what it was without them.
+
+```ts
+const tree = createTree(definition, { seed: 4 }); // a Definition with Material Features set
+const glb = await exportBakedTree(tree, { occlusionInVertexColors: true }); // also bakeTree(tree, { ... })
+```
+
+| glTF channel | What it holds | Unity | Godot 4 | Unreal | Blender |
+| --- | --- | --- | --- | --- | --- |
+| `NORMAL` | Crown Normals already bent in (flat shading: the facet normals, bent by the same amount). Leaf cards face the crown's outside, so double-sided rendering keeps them right. | Imported as mesh normals; keep the importer from recalculating them. | Imported as mesh normals. | Imported as mesh normals; turn "Recompute Normals" off. | Imported as custom normals. |
+| `_OCCLUSION` (float, 0..1, all meshes) | Structural Occlusion as the tree shows it: `mix(1, aOcclusion, strength)`, 0 = occluded. Only when `materials.occlusion` is set. | Custom attributes are not imported by default: copy it into a UV channel or vertex colour in a custom importer, then feed it to the shader's occlusion. Or use `COLOR_0` (below). | Copy it into `CUSTOM0` with a `GLTFDocumentExtension` and read it as `AO` in a `ShaderMaterial`. Or use `COLOR_0`. | Not imported: use `COLOR_0`. | Imported as a mesh attribute `_OCCLUSION`: an Attribute node, multiplied into the indirect light or the Base Color. |
+| `COLOR_0` | The vertex colours (Season colour, bark shading) as without the features; times `_OCCLUSION` with `occlusionInVertexColors: true`. | A shader that multiplies vertex colour into albedo (glTFast's shaders do). | `vertex_color_use_as_albedo` on the material. | Vertex Color node into Base Color. | Color Attribute node into Base Color (the importer wires it). |
+| `KHR_materials_diffuse_transmission` (leaf material) | Leaf Translucency: `diffuseTransmissionFactor` = strength, `diffuseTransmissionColorFactor` = the leaf colour (linear, mean at the baked Season). | A foliage or translucent shader: transmission or thickness from the factor, colour from the colour factor. | `backlight_enabled`, `backlight` = colour × factor. | Shading model Two Sided Foliage, Subsurface Color = colour × factor. | Mix a Translucent BSDF (the colour) into the leaf shader by the factor. |
+| `extras.treejs` (leaf and bark materials) | The raw settings `crownNormals`, `translucency { strength, edge, ambient }`, `occlusion { strength }` (only those set) and the Crown Volume `crown { center, radii }` in the Baked Tree's space (scaled by its Growth). | Read the glTF JSON in a custom importer to rebuild the effects in your own shader. | Imported as metadata on the material (`extras`), or read in a `GLTFDocumentExtension`. | Not imported: read the glTF JSON. | Imported as custom properties of the material. |
+
+Importer support differs between versions; the columns show where each value goes.
+
+**`occlusionInVertexColors`** (default `false`, in `bakeTree` and `exportBakedTree`): engines that only read
+vertex colours show the occlusion without a custom shader. The trade-off: `COLOR_0` darkens all light,
+direct sunlight included, while Structural Occlusion in tree.js (and `_OCCLUSION` used as AO) darkens only
+ambient and indirect light. Leave it off when your engine can read `_OCCLUSION`, or keep the strength lower.
 
 ## Textures
 

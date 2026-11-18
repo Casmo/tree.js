@@ -194,7 +194,7 @@ function bakeLeaves(
   const ao = occlusion.of(leaves);
   const positions = growPositions(leaves, growth);
   const amount = definition.materials.leaf.crownNormals;
-  const bend = amount ? crownBend(leaves, positions, growth, crown, amount) : undefined;
+  const bend = amount ? crownBend(leaves, positions, growth, crown, amount, definition.leaves.shape === 'card') : undefined;
   return compact(
     {
       positions,
@@ -212,21 +212,31 @@ function bakeLeaves(
 
 /**
  * Crown Normals for the leaves: the Crown Volume's normal at each grown vertex (the Volume scaled by
- * the Growth scale, as in the material), and which cards to turn around. A leaf card is double-sided:
- * turning it (normal and winding together) changes nothing, but makes its front face the crown's
- * outside, so the bent normal of every card points out in engines that flip normals of back faces.
- * Decided per card, at its attachment point (`aOrigin`, shared by the card's vertices).
+ * the Growth scale, as in the material), and which leaf cards to turn around. A card (`leaves.shape`
+ * 'card') is flat and double-sided with one normal for both sides: turning it (normal and winding
+ * together) changes nothing else, but makes its front face the crown's outside, so in engines that flip
+ * the normal of back faces the bent normal of every card points out. Decided per card at its attachment
+ * point (`aOrigin`, shared by its vertices). Solid leaf shapes are closed: their front faces are already
+ * their outside, and they keep their winding.
  */
-function crownBend(leaves: GeometryBuffers, grown: Float32Array, growth: number, crown: CrownVolume, amount: number): CrownBend {
+function crownBend(
+  leaves: GeometryBuffers,
+  grown: Float32Array,
+  growth: number,
+  crown: CrownVolume,
+  amount: number,
+  cards: boolean,
+): CrownBend {
   const count = grown.length / 3;
   const scale = treeScale(growth);
   const origin = leaves.attributes.aOrigin!.array;
+  const n = leaves.normals;
   const normals = new Float32Array(count * 3);
   const flipped = new Uint8Array(count);
-  const n = leaves.normals;
   for (let v = 0; v < count; v++) {
     const i = v * 3;
     normals.set(crownNormal(crown, [grown[i]! / scale, grown[i + 1]! / scale, grown[i + 2]! / scale]), i);
+    if (!cards) continue;
     const out = crownNormal(crown, [origin[i]!, origin[i + 1]!, origin[i + 2]!]);
     flipped[v] = n[i]! * out[0] + n[i + 1]! * out[1] + n[i + 2]! * out[2] < 0 ? 1 : 0;
   }

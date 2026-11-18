@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { validateBytes } from 'gltf-validator';
 import { Box3, Mesh, MeshStandardMaterial, NodeMaterial, Vector3, type BufferGeometry } from 'three/webgpu';
-import { oak } from '../src/species';
+import { loadSpecies, oak } from '../src/species';
 import { bakeTree, createTree, crownNormal, exportBakedTree, extendDefinition, hexToLinear, type Tree, type TreeDefinition } from '../src/index';
 import lowPoly from '../src/styles/low-poly';
 import realistic from '../src/styles/realistic';
@@ -254,7 +254,7 @@ describe('Baked Tree: Material Features', () => {
     return sum / position.count;
   };
 
-  for (const [name, definition] of [['standard', stylized.broadleaf], ['flat', lowPoly.broadleaf]] as const) {
+  for (const [name, definition] of [['standard', realistic.broadleaf], ['flat', extendDefinition(lowPoly.broadleaf, { leaves: { shape: 'card' } })]] as const) {
     it(`writes the bent normals into NORMAL with Crown Normals (${name} shading)`, () => {
       const plain = createTree(definition, { seed: 4 });
       const half = createTree(features(definition, { crownNormals: 0.5 }), { seed: 4 });
@@ -266,9 +266,9 @@ describe('Baked Tree: Material Features', () => {
       expect(a1).toBeGreaterThan(0.999);
       // A young tree is measured against its own, smaller crown.
       expect(crownAlignment(full, bakeTree(full, { growth: 0.8, season: 0.3 }).getObjectByName('leaves') as Mesh, 0.8)).toBeGreaterThan(0.999);
-      // Each card faces the crown's outside: its winding agrees with its normal, so a double-sided engine
+      // Each flat card faces the crown's outside: its winding agrees with its normal, so a double-sided engine
       // doesn't turn the normal of half the cards inwards.
-      const mesh = leaves(half);
+      const mesh = leaves(full); // at 1 every normal is the crown's: a card wound inwards would face against it
       const geometry = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry;
       const p = geometry.getAttribute('position');
       const n = geometry.getAttribute('normal');
@@ -280,6 +280,16 @@ describe('Baked Tree: Material Features', () => {
       for (const tree of [plain, half, full]) tree.dispose();
     });
   }
+
+  it('keeps the winding of solid leaf shapes (closed): their front faces are already their outside', async () => {
+    const definition = stylized.apply(await loadSpecies('oak')); // puffs
+    const plain = bakeTree(createTree(definition, { seed: 1 })).getObjectByName('leaves') as Mesh;
+    const full = createTree(features(definition, { crownNormals: 1 }), { seed: 1 });
+    const bent = bakeTree(full).getObjectByName('leaves') as Mesh;
+    expect(Array.from(bent.geometry.index!.array)).toEqual(Array.from(plain.geometry.index!.array));
+    expect(crownAlignment(full, bent)).toBeGreaterThan(0.999);
+    full.dispose();
+  });
 });
 
 describe('Baked Tree: Material Features off', () => {

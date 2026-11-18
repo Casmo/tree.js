@@ -18,10 +18,14 @@
 //   ?backlight=1  put the sun low behind the tree, facing the camera (to see Leaf Translucency)
 //   ?translucency=<strength>,<edge>,<ambient>  turn on Leaf Translucency (a Material Feature, off by default)
 //   ?occlusion=<0..1>  Structural Occlusion at that strength (a Material Feature, off by default)
+//   ?baked=1  show the tree as a Baked Tree: exportBakedTree, loaded back with three's GLTFLoader
+//   ?occlusionInVertexColors=1  with ?baked=1: multiply Structural Occlusion into the vertex colours
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
   createTree,
+  exportBakedTree,
   type BarkType,
   type LeafType,
   extendDefinition,
@@ -201,13 +205,22 @@ function withTranslucency(definition: TreeDefinitionInput | TreeDefinition): Tre
   return extendDefinition(definition, { materials: { leaf: { translucency: { strength: strength!, edge: edge!, ambient: ambient! } } } });
 }
 
+/** `?baked=1`: the tree as another engine gets it, a Baked Tree `.glb` loaded back with three's GLTFLoader. */
+async function baked(tree: ReturnType<typeof createTree>): Promise<THREE.Object3D> {
+  const glb = await exportBakedTree(tree, { occlusionInVertexColors: params.get('occlusionInVertexColors') === '1' });
+  const gltf = await new GLTFLoader().parseAsync(glb, '');
+  gltf.scene.traverse((object) => (object.castShadow = object.receiveShadow = true));
+  return gltf.scene;
+}
+
 async function main(): Promise<void> {
   const textureBase = params.get('textureBase');
   if (textureBase) setTextureOptions({ basePath: textureBase });
   const tree = createTree(withTranslucency(withOcclusion(withCrownNormals(withFruit(withCustomTextures(await loadDefinition()))))), { seed, growth, season });
   await tree.ready; // textures (realistic Style, custom maps) are loaded before the first frame
-  scene.add(tree);
-  if (params.get('style') || params.get('species')) frame(tree);
+  const shown = params.get('baked') === '1' ? await baked(tree) : tree;
+  scene.add(shown);
+  if (params.get('style') || params.get('species')) frame(shown);
 
   if (params.get('renderer') === 'classic') {
     // A classic-renderer app uses classic materials; only the tree brings TSL node materials.
