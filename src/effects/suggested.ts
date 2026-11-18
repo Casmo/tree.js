@@ -1,6 +1,7 @@
 import type { StyleName } from '../styles/registry';
 import type { TreeColorGradeOptions } from './grade';
 import type { LeafGlowOptions } from './glow';
+import type { TreeHighlightOptions } from './highlight';
 import type { TreeOutlineOptions } from './outline';
 
 /** A combination of Tree Effects; leave an effect out to skip it. `{}` = no effects. */
@@ -8,6 +9,8 @@ export interface TreeEffectsSettings {
   grade?: TreeColorGradeOptions;
   glow?: LeafGlowOptions;
   outline?: TreeOutlineOptions;
+  /** Marks the TreeEffects' `highlighted` trees; never in a suggestion. */
+  highlight?: TreeHighlightOptions;
 }
 
 /** The suggested combination of Tree Effects for each built-in Style. */

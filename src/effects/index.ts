@@ -4,6 +4,7 @@ export { treeEffectsPass, type TreeEffectsChannels, type TreeEffectsPass } from 
 export { treeOutline, type TreeOutlineOptions } from './outline';
 export { leafGlow, type LeafGlowOptions } from './glow';
 export { treeColorGrade, type TreeColorGradeOptions } from './grade';
+export { treeHighlight, type TreeHighlightOptions } from './highlight';
 export { TREE_ID, readTreeId, treeFromId, treeIdMRT, treeIdOf, treeIdTexture } from './tree-id';
 export { SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from './suggested';
 export {

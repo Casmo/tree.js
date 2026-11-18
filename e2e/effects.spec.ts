@@ -173,3 +173,51 @@ for (const backend of backends) {
     }
   });
 }
+
+/** The pixels that differ between two screenshots (decoded in the page): how many, and their bounding box. */
+async function changedPixels(page: Page, a: Buffer, b: Buffer) {
+  return page.evaluate(
+    async ([pa, pb]) => {
+      const decode = async (base64: string) => {
+        const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${base64}`)).blob());
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+        const context = canvas.getContext('2d')!;
+        context.drawImage(bitmap, 0, 0);
+        return context.getImageData(0, 0, bitmap.width, bitmap.height);
+      };
+      const [ia, ib] = await Promise.all([decode(pa), decode(pb)]);
+      const box = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
+      let count = 0;
+      for (let i = 0; i < ia.data.length; i += 4) {
+        const diff = Math.max(Math.abs(ia.data[i]! - ib.data[i]!), Math.abs(ia.data[i + 1]! - ib.data[i + 1]!), Math.abs(ia.data[i + 2]! - ib.data[i + 2]!));
+        if (diff === 0) continue;
+        const x = (i / 4) % ia.width;
+        const y = Math.floor(i / 4 / ia.width);
+        count++;
+        box.left = Math.min(box.left, x);
+        box.right = Math.max(box.right, x);
+        box.top = Math.min(box.top, y);
+        box.bottom = Math.max(box.bottom, y);
+      }
+      return { count, box, width: ia.width };
+    },
+    [a.toString('base64'), b.toString('base64')] as const,
+  );
+}
+
+for (const backend of backends) {
+  test(`a Forest tree picked through effects.pick() is highlighted, the rest only gets its ring (${backend.name})`, async ({ page }) => {
+    const plain = await shot(page, `style=low-poly&pick=f0${backend.query}`);
+    const image = await shot(page, `style=low-poly&highlight=f0${backend.query}`);
+    const picked = await page.evaluate(() => window.effectsExample.picked);
+    expect(picked?.name, 'pick() returns the Forest tree under its trunk').toBe('f0');
+    await expect(page.locator('canvas')).toHaveScreenshot(`low-poly-highlight-f0-${backend.name}.png`);
+    // Only the highlighted tree and its ring change: around the picked point, not the other trees.
+    const changed = await changedPixels(page, plain, image);
+    expect(changed.count, 'the highlighted tree changes').toBeGreaterThan(300);
+    expect(changed.box.left).toBeLessThanOrEqual(picked!.x);
+    expect(changed.box.right).toBeGreaterThanOrEqual(picked!.x);
+    expect(changed.box.bottom).toBeGreaterThanOrEqual(picked!.y);
+    expect(changed.box.right - changed.box.left, 'one tree changes').toBeLessThan(changed.width / 2);
+  });
+}

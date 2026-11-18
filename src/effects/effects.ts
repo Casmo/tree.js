@@ -4,6 +4,7 @@ import { glowRadius, liveLeafGlow } from './glow';
 import { liveTreeColorGrade } from './grade';
 import type { LiveTreeEffect } from './live';
 import type { TreeEffectInput } from './mask';
+import { liveTreeHighlight } from './highlight';
 import { liveTreeOutline } from './outline';
 import { treeEffectsPass, type TreeEffectsChannels, type TreeEffectsPass } from './pass';
 import { SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from './suggested';
@@ -14,10 +15,11 @@ import type { Tree } from '../tree';
 /**
  * Applies a combination of Tree Effects to `input` and returns the resulting colour node, for use in
  * your own post-processing pipeline (`pipeline.outputNode = applyTreeEffects(...)`, or feed it into
- * more effects). Order: colour grade, leaf glow, outline. Empty settings return `input.color`.
+ * more effects). Order: colour grade, leaf glow, outline, highlight (always on top). Empty settings
+ * return `input.color`. `highlighted`: the trees the Highlight marks (mutable, read every frame).
  */
-export function applyTreeEffects(input: TreeEffectInput, settings: TreeEffectsSettings): Node<'vec4'> {
-  return liveTreeEffects(input, settings).node;
+export function applyTreeEffects(input: TreeEffectInput, settings: TreeEffectsSettings, highlighted: readonly (Tree | ForestTree)[] = []): Node<'vec4'> {
+  return liveTreeEffects(input, settings, highlighted).node;
 }
 
 /**
@@ -25,11 +27,15 @@ export function applyTreeEffects(input: TreeEffectInput, settings: TreeEffectsSe
  * radius). Settings of the same shape only differ in uniforms.
  */
 function shapeOf(settings: TreeEffectsSettings): string {
-  return JSON.stringify([!!settings.grade, settings.glow ? glowRadius(settings.glow) : null, !!settings.outline]);
+  return JSON.stringify([!!settings.grade, settings.glow ? glowRadius(settings.glow) : null, !!settings.outline, !!settings.highlight]);
 }
 
 /** {@link applyTreeEffects} with every colour and number as a uniform; `update()` needs the same shape. */
-function liveTreeEffects(input: TreeEffectInput, settings: TreeEffectsSettings): LiveTreeEffect<TreeEffectsSettings> {
+function liveTreeEffects(
+  input: TreeEffectInput,
+  settings: TreeEffectsSettings,
+  highlighted: readonly (Tree | ForestTree)[],
+): LiveTreeEffect<TreeEffectsSettings> {
   const updates: ((settings: TreeEffectsSettings) => void)[] = [];
   let color = input.color;
   if (settings.grade) {
@@ -46,6 +52,12 @@ function liveTreeEffects(input: TreeEffectInput, settings: TreeEffectsSettings):
     const outline = liveTreeOutline({ color, mask: input.mask }, settings.outline);
     updates.push((s) => outline.update(s.outline!));
     color = outline.node;
+  }
+  // Highlight last, so it always sits on top.
+  if (settings.highlight) {
+    const highlight = liveTreeHighlight({ ...input, color }, highlighted, settings.highlight);
+    updates.push((s) => highlight.update(s.highlight!));
+    color = highlight.node;
   }
   return { node: color, update: (s) => updates.forEach((update) => update(s)) };
 }
@@ -74,14 +86,20 @@ export interface TreeEffectsOptions {
    * Default: false (the channel is only rendered when an effect needs it).
    */
   treeId?: boolean;
+  /**
+   * The trees the Highlight marks (`effects: { highlight: {...} }`): Trees and Forest trees, at most
+   * 64; mutable, read every frame, so hover and selection changes never recompile. Default: none
+   * (a new empty list, see {@link TreeEffects.highlighted}).
+   */
+  highlighted?: (Tree | ForestTree)[];
 }
 
 /**
  * The extra channels the scene pass needs for `settings` (with the `treeId` option). Only this
  * set decides the scene pass's MRT: settings that need the same channels keep it.
  */
-function channelsFor(_settings: TreeEffectsSettings, options: TreeEffectsOptions): TreeEffectsChannels {
-  return { treeId: options.treeId === true };
+function channelsFor(settings: TreeEffectsSettings, options: TreeEffectsOptions): TreeEffectsChannels {
+  return { treeId: options.treeId === true || !!settings.highlight };
 }
 
 /** A key that is equal for equal sets of channels. */
@@ -101,6 +119,8 @@ function channelsKey(channels: TreeEffectsChannels): string {
  */
 export class TreeEffects {
   readonly pipeline: RenderPipeline;
+  /** The trees the Highlight marks (the `highlighted` option, or an empty list): change it in place. */
+  readonly highlighted: (Tree | ForestTree)[];
   private nodes: Node[] = [];
   private current: TreeEffectsSettings = {};
   private graph: { shape: string; effects: LiveTreeEffect<TreeEffectsSettings> } | null = null;
@@ -113,6 +133,7 @@ export class TreeEffects {
     private readonly options: TreeEffectsOptions = {},
   ) {
     this.pipeline = new RenderPipeline(renderer);
+    this.highlighted = options.highlighted ?? [];
     this.set(options.effects ?? null);
   }
 
@@ -151,7 +172,7 @@ export class TreeEffects {
       return;
     }
     this.disposeNodes();
-    const live = liveTreeEffects(this.scenePass, this.current);
+    const live = liveTreeEffects(this.scenePass, this.current, this.highlighted);
     this.graph = { shape, effects: live };
     this.nodes = collectEffectNodes(live.node, this.scenePass.color);
     this.pipeline.outputNode = live.node;

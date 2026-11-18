@@ -10,6 +10,9 @@
 //   ?pick=tree|second|f0|f1  the scene of ?view=treeId through TreeEffects with `treeId: true`: after
 //                 rendering, `effects.pick()` at that tree's trunk (a fixed point); the result is in
 //                 `effectsExample.picked` (the name of the picked tree, null for none)
+//   ?highlight=tree|second|f0|f1  the scene of ?view=treeId through TreeEffects with a Highlight:
+//                 hover a tree to highlight it (`effects.pick`). After rendering, that tree is picked
+//                 at its trunk and highlighted; the result is in `effectsExample.picked`
 //   ?pipeline=custom  build the pipeline by hand (treeEffectsPass + applyTreeEffects) with an extra
 //                     user effect (vignette) on top, to show the effects compose with other effects
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
@@ -137,7 +140,8 @@ async function main(): Promise<void> {
 
   // `?view=treeId`: more trees to tell apart, a second Tree and a Forest, overlapping on screen.
   const treeIdView = params.get('view') === 'treeId';
-  const pickName = params.get('pick');
+  const highlightName = params.get('highlight');
+  const pickName = params.get('pick') ?? highlightName;
   // Each tree with a point on its trunk (a little above the ground), to read its ID under.
   const trunk = (x: number, z: number) => new THREE.Vector3(x, size.y * 0.12, z);
   const named = new Map<string, { tree: Parameters<typeof treeIdOf>[0]; at: THREE.Vector3 }>([['tree', { tree, at: trunk(0, 0) }]]);
@@ -225,11 +229,34 @@ async function main(): Promise<void> {
     // GPU picking through the ready-made pipeline: the Tree ID channel on without an effect needing it.
     const target = named.get(pickName);
     if (!target) throw new Error(`Unknown tree to pick "${pickName}"`);
-    const effects = createTreeEffects(renderer, scene, camera, { effects: settings, treeId: true });
+    const effects = createTreeEffects(renderer, scene, camera, {
+      effects: highlightName ? { ...settings, highlight: {} } : settings,
+      treeId: true,
+    });
     render = () => effects.render();
+    /** Highlights the tree under a point (none off the trees) and renders. */
+    const highlightAt = async (x: number, y: number) => {
+      const found = await effects.pick(x, y);
+      effects.highlighted.splice(0, effects.highlighted.length, ...(found ? [found] : []));
+      render();
+      return found;
+    };
+    if (highlightName) {
+      // Hover-to-highlight: the list is read every frame, so changing it never recompiles.
+      let picking = false;
+      renderer.domElement.addEventListener('pointermove', (event) => {
+        if (picking) return;
+        picking = true;
+        void highlightAt(event.offsetX, event.offsetY).finally(() => (picking = false));
+      });
+    }
     pick = async () => {
       const { x, y } = onScreen(target.at);
-      return { name: nameOf(await effects.pick(x, y)), x, y };
+      if (!highlightName) return { name: nameOf(await effects.pick(x, y)), x, y };
+      const found = await highlightAt(x, y);
+      await new Promise(requestAnimationFrame);
+      render();
+      return { name: nameOf(found), x, y };
     };
   } else if (params.get('from') === 'tweaked') {
     const effects = createTreeEffects(renderer, scene, camera, { effects: tweaked(settings) });
