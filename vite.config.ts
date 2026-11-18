@@ -1,4 +1,6 @@
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 // Library build: ESM only, peer dependencies (three, react, @react-three/fiber) stay external.
@@ -19,9 +21,29 @@ export function textureDefine(command: 'build' | 'serve'): Record<string, string
   return { __TREE_TEXTURES_DIR__: JSON.stringify(command === 'build' ? './textures/' : '../../assets/textures/') };
 }
 
+// Species (src/species/data/<id>.json): each its own chunk dist/species/<id>.js, so importing one
+// Species (or loading it with loadSpecies) never pulls in the others, and shipped verbatim as
+// dist/species/<id>.json for apps without a bundler. A new Species file is picked up automatically.
+const SPECIES_DIR = resolve(import.meta.dirname, 'src/species/data');
+const speciesFiles = readdirSync(SPECIES_DIR).filter((file) => file.endsWith('.json'));
+
+/** Emits every Species JSON file as is into dist/species/. */
+function speciesJson(): Plugin {
+  return {
+    name: 'tree-js-species-json',
+    apply: 'build',
+    generateBundle() {
+      for (const file of speciesFiles) {
+        this.emitFile({ type: 'asset', fileName: `species/${file}`, source: readFileSync(resolve(SPECIES_DIR, file), 'utf8') });
+      }
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
   resolve: { alias: packageAliases },
   publicDir: 'assets',
+  plugins: [speciesJson()],
   define: textureDefine(command),
   build: {
     target: 'es2022',
@@ -38,6 +60,9 @@ export default defineConfig(({ command }) => ({
         react: resolve(import.meta.dirname, 'src/react/index.ts'),
         // Tree Effects: opt-in post-processing nodes (three/addons stay external).
         effects: resolve(import.meta.dirname, 'src/effects/index.ts'),
+        // Species collection: one named export per Species, loadSpecies, SPECIES_NAMES.
+        species: resolve(import.meta.dirname, 'src/species/index.ts'),
+        ...Object.fromEntries(speciesFiles.map((file) => [`species/${file.slice(0, -'.json'.length)}`, resolve(SPECIES_DIR, file)])),
       },
       formats: ['es'],
     },
