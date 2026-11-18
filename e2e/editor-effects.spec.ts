@@ -45,6 +45,23 @@ test('each Tree Effect can be toggled in the preview', async ({ page }) => {
   expect(await page.evaluate(() => window.treeEditor.effects?.settings)).toBeNull();
 });
 
+test('Inner Lines can be toggled in the preview, with the Style\'s ink settings', async ({ page }) => {
+  await page.goto('/editor/?start=low-poly/broadleaf&seed=1');
+  const none = await shot(page);
+  const toggle = page.getByLabel('Inner lines', { exact: true });
+  await toggle.check();
+  const on = await shot(page);
+  expect(await changedPixels(page, none, on), 'Inner lines change the preview').toBeGreaterThan(300);
+  expect(await page.evaluate(() => window.treeEditor.effects?.settings)).toEqual({
+    innerLines: { color: '#18230f', thickness: 1, strength: 0.8 },
+  });
+  await toggle.uncheck();
+  expect(await changedPixels(page, none, await shot(page)), 'Inner lines off again').toBe(0);
+  expect(await page.evaluate(() => window.treeEditor.effects?.settings)).toBeNull();
+  // Highlight is not part of the Editor.
+  await expect(page.locator('#effect-highlight')).toHaveCount(0);
+});
+
 test("applies the current Style's suggested combination with one action", async ({ page }) => {
   await page.goto('/editor/?start=low-poly/broadleaf&seed=1');
   await shot(page);
@@ -53,6 +70,7 @@ test("applies the current Style's suggested combination with one action", async 
   await shot(page);
   await expect(page.getByLabel('Colour grade', { exact: true })).toBeChecked();
   await expect(page.getByLabel('Leaf glow', { exact: true })).not.toBeChecked();
+  await expect(page.getByLabel('Inner lines', { exact: true })).toBeChecked();
   await expect(page.getByLabel('Outline', { exact: true })).toBeChecked();
   await expect(page.locator('#preview canvas')).toHaveScreenshot('low-poly-suggested.png');
 
@@ -65,6 +83,7 @@ test("applies the current Style's suggested combination with one action", async 
   await expect(page.getByLabel('Effects Style')).toHaveValue('stylized');
   await page.getByRole('button', { name: 'Apply stylized suggestion' }).click();
   await expect(page.getByLabel('Leaf glow', { exact: true })).toBeChecked();
+  await expect(page.getByLabel('Inner lines', { exact: true })).toBeChecked();
   await expect(page.locator('#preview canvas')).toHaveScreenshot('stylized-suggested.png');
 });
 

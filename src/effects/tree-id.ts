@@ -170,9 +170,11 @@ export function treeIdMRT(): MRTNode {
 /**
  * Makes the Tree ID target of a scene pass ({@link treeIdMRT} merged into its MRT) one 32-bit
  * unsigned integer per pixel (`r32uint`, read without filtering) and returns its texture. Call it
- * once after `setMRT`, before the first render.
+ * once after `setMRT`, before the first render. An integer target cannot be multisampled, so the
+ * pass then renders without MSAA (`samples: 0`), also with an `antialias: true` renderer.
  */
 export function treeIdTexture(scenePass: PassNode): Texture {
+  scenePass.options.samples = 0;
   const texture = scenePass.getTexture(TREE_ID);
   texture.format = RedIntegerFormat;
   texture.type = UnsignedIntType;

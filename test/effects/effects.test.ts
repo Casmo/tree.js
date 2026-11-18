@@ -23,6 +23,21 @@ describe('Tree Effects', () => {
     }
   });
 
+  it('suggests Inner Lines and lines between trees for low-poly, soft Inner Lines for stylized', () => {
+    expect(SUGGESTED_TREE_EFFECTS['low-poly'].innerLines).toEqual({ color: '#18230f', thickness: 1, strength: 0.8 });
+    expect(SUGGESTED_TREE_EFFECTS['low-poly'].outline?.betweenTrees).toBe(true);
+    expect(SUGGESTED_TREE_EFFECTS.stylized.innerLines).toEqual({ color: '#2b3a1c', thickness: 1, strength: 0.45, normalThreshold: 0.5 });
+    expect(SUGGESTED_TREE_EFFECTS.stylized.outline?.betweenTrees).toBeUndefined();
+  });
+
+  it('keeps the realistic suggestion unchanged and puts Highlight in no suggestion', () => {
+    expect(SUGGESTED_TREE_EFFECTS.realistic).toEqual({
+      grade: { exposure: 1.05, contrast: 1.08, saturation: 0.95, tint: '#fff5e6' },
+      glow: { color: '#e8ffc0', intensity: 0.35, threshold: 0.12, radius: 4 },
+    });
+    for (const settings of Object.values(SUGGESTED_TREE_EFFECTS)) expect(settings).not.toHaveProperty('highlight');
+  });
+
   it('tells tree materials (bark, leaves, fruit) from the rest of the scene', () => {
     const tree = createTree({ schemaVersion: 2, leaves: { count: 2 } }, { seed: 1 });
     expect(treePartOf(tree.wood.material)).toBe('bark');
@@ -62,6 +77,7 @@ describe('Tree Effects', () => {
     const tweaked = {
       grade: { saturation: 1.4, contrast: 0.9, exposure: 1.2, tint: '#ddeeff' },
       glow: { color: '#ff0000', intensity: 1, threshold: 0.05, radius: SUGGESTED_TREE_EFFECTS.stylized.glow!.radius },
+      innerLines: { color: '#00ff00', thickness: 2, strength: 0.9, normalThreshold: 0.3 },
       outline: { color: '#ff00ff', thickness: 4, strength: 0.3 },
     };
     effects.set(tweaked);
@@ -75,6 +91,7 @@ describe('Tree Effects', () => {
     const renderer = { isWebGPURenderer: true } as unknown as Renderer;
     const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'stylized' });
     const { grade, glow, outline } = SUGGESTED_TREE_EFFECTS.stylized;
+    effects.set({ grade, glow, outline });
     const outputs = new Set([effects.pipeline.outputNode]);
     effects.set({ grade, glow }); // outline off
     outputs.add(effects.pipeline.outputNode);
@@ -104,7 +121,8 @@ describe('TreeEffects channels', () => {
   const outputsOf = (effects: TreeEffects) => Object.keys(effects.scenePass.pass.getMRT()!.outputNodes);
 
   it('renders exactly { output, treeMask } with an 8-bit mask without new settings', () => {
-    for (const choice of [null, 'low-poly', 'stylized', 'realistic', { grade: {}, glow: {}, outline: {} }] as const) {
+    const lowPolyBefore = { grade: { saturation: 1.15, contrast: 1.1 }, outline: { color: '#18230f', thickness: 2, strength: 0.9 } };
+    for (const choice of [null, 'realistic', lowPolyBefore, { grade: {}, glow: {}, outline: {} }] as const) {
       const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: choice });
       expect(outputsOf(effects)).toEqual(['output', TREE_MASK]);
       expect(effects.scenePass.pass.getTexture(TREE_MASK).type).toBe(UnsignedByteType);
@@ -113,8 +131,15 @@ describe('TreeEffects channels', () => {
     expect(Object.keys(treeEffectsPass(new Scene(), new PerspectiveCamera()).pass.getMRT()!.outputNodes)).toEqual(['output', TREE_MASK]);
   });
 
+  it('adds the normal channel for the stylized suggestion and the normal and Tree ID channels for low-poly', () => {
+    expect(outputsOf(createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'stylized' }))).toEqual(['output', TREE_MASK, 'normal']);
+    const lowPoly = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'low-poly' });
+    expect(outputsOf(lowPoly).sort()).toEqual(['normal', 'output', TREE_ID, TREE_MASK].sort());
+    expect(lowPoly.scenePass.pass.getTexture(TREE_MASK).type).toBe(UnsignedByteType);
+  });
+
   it('adds the Tree ID channel with treeId: true, and gives the effects its texture as input', () => {
-    const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'stylized', treeId: true });
+    const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'realistic', treeId: true });
     expect(outputsOf(effects)).toEqual(['output', TREE_MASK, TREE_ID]);
     expect(effects.scenePass.pass.getTexture(TREE_MASK).type).toBe(UnsignedByteType);
     expect(effects.scenePass.pass.getTexture(TREE_ID).type).toBe(UnsignedIntType);
@@ -124,13 +149,21 @@ describe('TreeEffects channels', () => {
     expect(input.treeId?.value).toBe(input.pass.getTexture(TREE_ID));
   });
 
+  it('renders the scene pass without MSAA only with the Tree ID channel (an integer target cannot be multisampled)', () => {
+    const plain = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'stylized' });
+    expect(plain.scenePass.pass.options.samples).toBeUndefined();
+    const lowPoly = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'low-poly' });
+    expect(lowPoly.scenePass.pass.options.samples).toBe(0);
+    expect(treeEffectsPass(new Scene(), new PerspectiveCamera(), null, { treeId: true }).pass.options.samples).toBe(0);
+  });
+
   it('keeps the MRT when set() needs the same channels', () => {
     for (const treeId of [false, true]) {
-      const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'stylized', treeId });
+      const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'realistic', treeId });
       const scenePass = effects.scenePass;
       const before = scenePass.pass.getMRT();
       effects.set(null);
-      effects.set('low-poly');
+      effects.set({ grade: {}, outline: { thickness: 3 } });
       effects.set({ glow: { radius: 2 } });
       expect(effects.scenePass).toBe(scenePass);
       expect(effects.scenePass.pass.getMRT()).toBe(before);

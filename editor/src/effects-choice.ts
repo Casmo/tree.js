@@ -6,19 +6,20 @@ import { SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from '@casmo/tree.js
 import { parseStartId } from './starts';
 
 /** The Tree Effects, in the order they are applied. */
-export const EFFECT_NAMES = ['grade', 'glow', 'outline'] as const;
+export const EFFECT_NAMES = ['grade', 'glow', 'innerLines', 'outline'] as const;
 export type EffectName = (typeof EFFECT_NAMES)[number];
 
 export const EFFECT_LABELS: Record<EffectName, string> = {
   grade: 'Colour grade',
   glow: 'Leaf glow',
+  innerLines: 'Inner lines',
   outline: 'Outline',
 };
 
 /** Which effects are switched on. */
 export type EffectToggles = Record<EffectName, boolean>;
 
-export const NO_EFFECTS: EffectToggles = { grade: false, glow: false, outline: false };
+export const NO_EFFECTS: EffectToggles = { grade: false, glow: false, innerLines: false, outline: false };
 
 /** The Style of a starting point id ("oak/realistic", old "low-poly/conifer"), or null (imported JSON, unknown Style). */
 export function styleOfSource(source: string): StyleName | null {
@@ -28,7 +29,7 @@ export function styleOfSource(source: string): StyleName | null {
 /** The toggles of a Style's suggested combination. */
 export function suggestedEffects(style: StyleName): EffectToggles {
   const settings = SUGGESTED_TREE_EFFECTS[style];
-  return { grade: !!settings.grade, glow: !!settings.glow, outline: !!settings.outline };
+  return { grade: !!settings.grade, glow: !!settings.glow, innerLines: !!settings.innerLines, outline: !!settings.outline };
 }
 
 /**

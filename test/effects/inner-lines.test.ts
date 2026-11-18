@@ -47,7 +47,7 @@ describe('Inner Lines', () => {
   });
 
   it('adds the normal channel to TreeEffects only with innerLines', () => {
-    const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'stylized' });
+    const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'realistic' });
     expect(outputsOf(effects)).toEqual(['output', TREE_MASK]);
     effects.set({ innerLines: {} });
     expect(outputsOf(effects)).toEqual(['output', TREE_MASK, 'normal']);

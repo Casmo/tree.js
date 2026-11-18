@@ -532,6 +532,19 @@ renderer.setAnimationLoop(() => effects.render()); // instead of renderer.render
 effects.set({ outline: { color: '#203018', thickness: 2 }, grade: { saturation: 1.1 } }); // or null = none
 ```
 
+Each Style has a suggested combination (`SUGGESTED_TREE_EFFECTS`): `low-poly` has a colour grade, ink
+[Inner Lines](#inner-lines) and a dark outline that is also drawn [between overlapping trees](#outline-between-overlapping-trees);
+`stylized` has a warm grade, a leaf glow, soft Inner Lines and a soft outline; `realistic` only a gentle
+grade and a faint leaf glow (no ink).
+
+> **Changed in this release:** the `low-poly` and `stylized` suggestions now include Inner Lines, and
+> `low-poly` also `outline.betweenTrees`. Apps that use either suggestion get a changed look (ink lines
+> inside the crown, and for low-poly between overlapping trees) and extra channels in the scene pass:
+> the `normal` channel for both, and for low-poly also the [Tree ID](#tree-id) channel (a scene pass with
+> the Tree ID renders without MSAA). In your own pipeline, request those channels from `treeEffectsPass`
+> (see below). Use your own settings, e.g. `{ ...SUGGESTED_TREE_EFFECTS.stylized, innerLines: undefined }`,
+> to keep the old look.
+
 Pass `selection: [tree]` to outline only some trees. In your own pipeline, the effects are nodes that
 compose with your other effects:
 
@@ -541,7 +554,8 @@ import { float, screenUV, vec4 } from 'three/tsl';
 import { applyTreeEffects, SUGGESTED_TREE_EFFECTS, treeEffectsPass } from '@casmo/tree.js/effects';
 
 const pipeline = new THREE.RenderPipeline(renderer);
-const input = treeEffectsPass(scene, camera); // { pass, color, mask }
+// The low-poly suggestion's Inner Lines need the normal channel, its betweenTrees outline the Tree ID.
+const input = treeEffectsPass(scene, camera, null, { normal: true, treeId: true }); // { pass, color, mask, ... }
 const trees = applyTreeEffects(input, SUGGESTED_TREE_EFFECTS['low-poly']); // or treeOutline / leafGlow / treeColorGrade
 const vignette = float(1).sub(screenUV.sub(0.5).length().mul(0.9).pow(2)); // your own effect on top
 pipeline.outputNode = vec4(trees.rgb.mul(vignette), 1);
@@ -574,7 +588,9 @@ renderer.domElement.addEventListener('click', async (event) => {
 ```
 
 - **Encoding:** `r32uint`, 0 = not a tree. A Forest Variant reserves a block of IDs the size of its
-  capacity, and its trees write block start + instance index.
+  capacity, and its trees write block start + instance index. An integer target cannot be
+  multisampled, so `treeIdTexture` makes the scene pass render without MSAA (`samples: 0`), also with
+  an `antialias: true` renderer.
 - **Limits:** IDs are handed out by one registry for the whole page, the first time a tree is drawn
   with the channel (or asked for with `treeIdOf(tree)`), and are never reused: about 4.29 billion per
   session. The registry keeps no tree alive. The ID ignores the outline's `selection`.

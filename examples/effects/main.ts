@@ -74,14 +74,16 @@ function chosenEffects(): TreeEffectsSettings {
   switch (effectsParam) {
     case 'none':
       return {};
-    case 'outline':
-      return { outline: settings.outline ?? {} };
+    case 'outline': {
+      // The plain outline; `?overlap=between` adds the lines between trees.
+      return { outline: { ...settings.outline, betweenTrees: undefined } };
+    }
     case 'glow':
       return { glow: settings.glow ?? { intensity: 0.8 } };
     case 'grade':
       return { grade: settings.grade ?? { saturation: 1.3 } };
     case 'inner-lines':
-      return { innerLines: settings.innerLines ?? {} };
+      return { innerLines: {} }; // the defaults, the same for every Style
     case 'style':
       return settings;
     default:
@@ -100,7 +102,8 @@ function tweaked(settings: TreeEffectsSettings): TreeEffectsSettings {
   return {
     ...(settings.grade && { grade: { exposure: 1.3, saturation: 0.2, contrast: 1.5, tint: '#88aaff' } }),
     ...(settings.glow && { glow: { color: '#ff0000', intensity: 2, threshold: 0.01, radius: settings.glow.radius } }),
-    ...(settings.outline && { outline: { color: '#ff00ff', thickness: 5, strength: 0.4 } }),
+    ...(settings.innerLines && { innerLines: { color: '#0000ff', thickness: 2, strength: 1, normalThreshold: 0.2, depthThreshold: 0.05 } }),
+    ...(settings.outline && { outline: { color: '#ff00ff', thickness: 5, strength: 0.4, betweenTrees: settings.outline.betweenTrees } }),
   };
 }
 
@@ -222,7 +225,8 @@ async function main(): Promise<void> {
   } else if (params.get('view') === 'mask' || params.get('pipeline') === 'custom') {
     // A hand-built pipeline: the Tree Effects are nodes among the user's own.
     const pipeline = new THREE.RenderPipeline(renderer);
-    const input = treeEffectsPass(scene, camera);
+    // The channels the chosen effects need (the low-poly and stylized suggestions use Inner Lines).
+    const input = treeEffectsPass(scene, camera, null, { normal: !!settings.innerLines, treeId: !!settings.outline?.betweenTrees });
     if (params.get('view') === 'mask') {
       pipeline.outputColorTransform = false;
       pipeline.outputNode = vec4(input.mask.rgb, 1);
