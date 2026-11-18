@@ -70,8 +70,8 @@ scene.add(tree);
 renderer.setAnimationLoop(() => renderer.render(scene, camera));
 ```
 
-A `Tree` is a three.js `Group` with two meshes, `tree.wood` and `tree.leaves` (both cast and receive
-shadows). `tree.dispose()` frees its geometries and materials and removes it from the scene.
+A `Tree` is a three.js `Group` with three meshes, `tree.wood`, `tree.leaves` and `tree.fruit` (empty
+without Fruit; all cast and receive shadows). `tree.dispose()` frees its geometries and materials and removes it from the scene.
 
 ## WebGPURenderer is required
 
@@ -178,6 +178,24 @@ trunks (each with the whole branch structure) in a small ring, leaning out about
 Seed varies each lean). `trunk.gravity` (−1..1) bends only the leader, the top third of each Stem: −1 makes
 it nod like a hemlock's. Absent, a tree has one upright Stem without gravity.
 
+**Fruit** is an optional `fruit` block: `type` (`'round'`, `'pear'`, `'nut'`, `'cone'` or `'berry'`),
+`count` per outermost twig, `size`, `sizeVariation` and `hang` (0 = sits on the twig .. 1 = hangs
+straight down). It is drawn in its own mesh in the Definition's shading, only on a fully grown tree,
+and sways with its twig:
+
+```ts
+import { createTree } from '@casmo/tree.js';
+
+const apple = createTree({
+  schemaVersion: 3,
+  fruit: { type: 'round', count: 2, size: 0.1, hang: 0.8 },
+  season: {
+    fruit: [{ t: 0.1, value: 0 }, { t: 0.35, value: 1 }, { t: 0.6, value: 1 }, { t: 0.7, value: 0 }],
+    fruitColor: [{ t: 0.25, value: '#7cb342' }, { t: 0.5, value: '#c62828' }],
+  },
+});
+```
+
 Older Definitions (lower `schemaVersion`) are migrated when parsed (a v2 `form: 'conifer'` becomes the
 equivalent cone `lengthProfile`, so the tree stays identical). `extendDefinition(base, patch)`
 deep-merges a patch (arrays replace) and validates the result. Sculpts (hand edits made in the Tree Editor)
@@ -208,7 +226,8 @@ renderer.setAnimationLoop((time) => {
 Each tree's Seed shifts its timing a little (`variation.growth`, `variation.season`), so trees of one
 Definition don't change in lockstep. `SEASON_PROFILES.deciduous` and `.evergreen` are ready-made Season
 Profiles; write your own as keyframes in the Definition's `season` (`leafColor`, `leafCoverage`,
-`blossom`, `blossomColor`).
+`blossom`, `blossomColor`, and for Fruit `fruit` (amount: each Fruit shows above its own rank and swells
+with the amount; 1 all year when absent) and `fruitColor` (ripening)).
 
 ## Wind
 

@@ -1,6 +1,7 @@
 import { DoubleSide, type MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, mix, uv, float } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
+import { fruitTracks } from '../season/profile';
 import type { TextureOptions } from '../textures';
 import { applyBarkMaps, applyLeafMap } from './maps';
 import { createShadedMaterial, isFlatShading } from './shading';
@@ -45,3 +46,22 @@ export function createLeafMaterial(definition: TreeDefinition, textures?: Textur
   applyLeafMap(material, definition.materials.leaf, textures);
   return material;
 }
+
+/**
+ * Fruit material: the Definition's shading (flat facets in low-poly, smooth toon in stylized,
+ * smooth PBR in realistic), no textures. `.color` is the Fruit colour at Season 0; `Tree` sets the
+ * Season colour (`createFruitSeasonNodes`), multiplied by the per-Fruit vertex colours (the Seed's tint).
+ */
+export function createFruitMaterial(definition: TreeDefinition): MeshStandardNodeMaterial {
+  const material = createShadedMaterial(definition.materials.shading);
+  material.name = 'tree.js fruit';
+  material.userData.treePart = 'fruit';
+  material.color.set(fruitTracks(definition.season).fruitColor[0]!.value);
+  material.vertexColors = true;
+  material.roughness = FRUIT_ROUGHNESS;
+  material.metalness = 0;
+  return material;
+}
+
+/** Fruit skin is a little glossier than leaves. */
+const FRUIT_ROUGHNESS = 0.45;

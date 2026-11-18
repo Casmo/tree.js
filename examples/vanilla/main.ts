@@ -6,6 +6,7 @@
 //   ?growth=<0..1>  Growth (default 1, fully grown); only a uniform changes
 //   ?season=<0..1>  Season (default 0.37, summer)
 //   ?form=conifer  an evergreen conifer instead of the deciduous broadleaf
+//   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (sets in late spring, ripens green -> red, drops in autumn)
 //   ?style=low-poly|stylized|realistic  grow that built-in Style's Definition for the form (loaded with a dynamic import)
 //   ?textureBase=<url>  load relative texture URLs (the realistic Style's) from this base path / CDN
 //   ?barkMap=<url>&leafMap=<url>  use these textures instead of the Definition's (custom textures)
@@ -20,6 +21,7 @@ import {
   sceneWind,
   SEASON_PROFILES,
   setTextureOptions,
+  type FruitType,
   type TreeDefinition,
   type TreeDefinitionInput,
   type TreeStyle,
@@ -40,6 +42,8 @@ declare global {
       error?: string;
       /** id of the leaf BufferGeometry, to check that Season does not regenerate. */
       leafGeometryId?: number;
+      /** Vertex count of the tree's fruit mesh (0 without Fruit). */
+      fruitVertices?: number;
       /** Sets `tree.season` and re-renders (status goes 'loading' -> 'rendered'). */
       setSeason?: (season: number) => void;
     };
@@ -107,6 +111,19 @@ const conifer: TreeDefinitionInput = {
   leaves: { count: 8, size: 0.3 },
   season: SEASON_PROFILES.evergreen,
 };
+/** `?fruit=<type>`: Fruit on the outermost twigs, with Season tracks for setting, ripening and dropping. */
+function withFruit(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
+  const type = params.get('fruit') as FruitType | null;
+  if (!type) return definition;
+  return extendDefinition(definition, {
+    fruit: { type, count: 2, size: 0.22, hang: type === 'cone' ? 0.2 : 0.8 },
+    season: {
+      fruit: [{ t: 0.12, value: 0 }, { t: 0.32, value: 1 }, { t: 0.62, value: 1 }, { t: 0.7, value: 0 }],
+      fruitColor: [{ t: 0.25, value: '#7cb342' }, { t: 0.5, value: '#c62828' }],
+    },
+  });
+}
+
 const form = params.get('form') === 'conifer' ? 'conifer' : 'broadleaf';
 
 async function loadDefinition(): Promise<TreeDefinitionInput | TreeDefinition> {
@@ -144,7 +161,7 @@ function withCustomTextures(definition: TreeDefinitionInput | TreeDefinition): T
 async function main(): Promise<void> {
   const textureBase = params.get('textureBase');
   if (textureBase) setTextureOptions({ basePath: textureBase });
-  const tree = createTree(withCustomTextures(await loadDefinition()), { seed, growth, season });
+  const tree = createTree(withFruit(withCustomTextures(await loadDefinition())), { seed, growth, season });
   await tree.ready; // textures (realistic Style, custom maps) are loaded before the first frame
   scene.add(tree);
   if (params.get('style')) frame(tree);
@@ -182,7 +199,8 @@ async function main(): Promise<void> {
     tree.season = value; // a uniform update: no regeneration
     void renderer.renderAsync(scene, camera).then(() => (window.treeExample.status = 'rendered'));
   };
-  window.treeExample = { status: 'rendered', backend, leafGeometryId, setSeason };
+  const fruitVertices = tree.fruit.geometry.getAttribute('position').count;
+  window.treeExample = { status: 'rendered', backend, leafGeometryId, fruitVertices, setSeason };
   // A swaying tree needs a render loop; with a pinned Wind clock one frame is enough.
   if (windStrength > 0 && windTime === null) renderer.setAnimationLoop(() => renderer.render(scene, camera));
 }

@@ -51,10 +51,10 @@ describe('createTree', () => {
     }
   });
 
-  it('returns a three.js object with a wood mesh and a leaf mesh', () => {
+  it('returns a three.js object with a wood mesh, a leaf mesh and a (here empty) fruit mesh', () => {
     const tree = createTree(definition, { seed: 1 });
     expect(tree).toBeInstanceOf(Object3D);
-    expect(meshes(tree)).toEqual([tree.wood, tree.leaves]);
+    expect(meshes(tree)).toEqual([tree.wood, tree.leaves, tree.fruit]);
     expect(tree.data.skeleton.branches.length).toBeGreaterThan(1);
     expect(tree.leaves.geometry.getAttribute('position').count).toBeGreaterThan(0);
   });
@@ -136,7 +136,7 @@ describe('createTree', () => {
       );
     }
     tree.dispose();
-    expect(disposed.sort()).toEqual(['geometry', 'geometry', 'material', 'material']);
+    expect(disposed.sort()).toEqual(['geometry', 'geometry', 'geometry', 'material', 'material', 'material']);
   });
 
   it('throws a clear error pointing to WebGPURenderer when drawn by the classic WebGLRenderer', () => {
