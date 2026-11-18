@@ -1,0 +1,145 @@
+{
+  "id": "cedar",
+  "name": "Cedar",
+  "form": "conifer",
+  "trunk": {
+    "length": 6.5,
+    "radius": 0.24,
+    "taper": 0.2,
+    "lengthVariation": 0.12,
+    "bend": 0.06,
+    "stems": 2,
+    "spread": 8
+  },
+  "branches": [
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.3,
+      "bend": 0.15,
+      "gravity": 0.25,
+      "count": 8,
+      "start": 0.12,
+      "end": 0.97,
+      "angle": 80,
+      "length": 0.4,
+      "radius": 0.35,
+      "lengthProfile": [
+        {
+          "t": 0.12,
+          "value": 1
+        },
+        {
+          "t": 0.5,
+          "value": 0.8
+        },
+        {
+          "t": 0.95,
+          "value": 0.15
+        },
+        {
+          "t": 1,
+          "value": 0.1
+        }
+      ],
+      "angleProfile": [
+        {
+          "t": 0.12,
+          "value": 1.1
+        },
+        {
+          "t": 1,
+          "value": 0.75
+        }
+      ]
+    }
+  ],
+  "foliage": {
+    "type": "scale",
+    "density": 0.55,
+    "size": 0.6,
+    "sizeVariation": 0.2,
+    "start": 0.05,
+    "angle": 45
+  },
+  "bark": {
+    "type": "fibrous",
+    "color": "#a88070"
+  },
+  "fruit": {
+    "type": "cone",
+    "count": 1,
+    "size": 0.1,
+    "sizeVariation": 0.2,
+    "hang": 0
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#5c8f42"
+      },
+      {
+        "t": 0.25,
+        "value": "#3f7a3a"
+      },
+      {
+        "t": 0.55,
+        "value": "#3f7a3a"
+      },
+      {
+        "t": 0.75,
+        "value": "#4a6a35"
+      },
+      {
+        "t": 0.92,
+        "value": "#4a6a35"
+      },
+      {
+        "t": 1,
+        "value": "#5c8f42"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 1
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#c9b46a",
+    "fruit": [
+      {
+        "t": 0,
+        "value": 1
+      }
+    ],
+    "fruitColor": [
+      {
+        "t": 0.15,
+        "value": "#8fa04a"
+      },
+      {
+        "t": 0.55,
+        "value": "#8a5a34"
+      }
+    ]
+  },
+  "wind": {
+    "trunk": 0.08,
+    "branches": 0.35,
+    "leaves": 0.45,
+    "frequency": 0.8
+  },
+  "variation": {
+    "color": 0.08,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}
