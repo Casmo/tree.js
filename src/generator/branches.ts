@@ -11,15 +11,15 @@ const DEG = Math.PI / 180;
 const GRAVITY_PER_BRANCH = 1.5;
 
 /**
- * Grows all branching levels below the trunk, breadth first (level by level).
+ * Grows all branching levels on every Stem, breadth first (level by level, over all Stems).
  *
  * Branch path stability (ADR 0003): a parent's spiral phase comes from `random.fork(parentPath)`
  * and each child's shape from `random.fork(childPath)`. So a branch depends only on its
  * ancestors and its own path, never on its siblings' subtrees, on deeper levels or on leaves.
  */
-export function buildBranches(definition: TreeDefinition, trunk: SkeletonBranch, random: Random): SkeletonBranch[] {
+export function buildBranches(definition: TreeDefinition, stems: SkeletonBranch[], random: Random): SkeletonBranch[] {
   const out: SkeletonBranch[] = [];
-  const queue: SkeletonBranch[] = [trunk];
+  const queue: SkeletonBranch[] = [...stems];
   for (let q = 0; q < queue.length; q++) {
     const parent = queue[q]!;
     const level = definition.branches[parent.level];

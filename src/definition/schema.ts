@@ -13,6 +13,7 @@ import {
   type MoveSculpt,
   type Sculpt,
   type TreeDefinition,
+  type TrunkDefinition,
 } from './types';
 
 /** Thrown for an invalid Tree Definition; `field` is the path of the bad field, e.g. `branches[1].angle`. */
@@ -160,7 +161,7 @@ const branchLevel = refine(
   (b) => (b.end < b.start ? ['end', `must be >= start (${b.start}), got ${b.end}`] : null),
 );
 
-const branchPath = leaf<string>('a branch path like "0" or "0.3.1"', (v) => typeof v === 'string' && /^0(\.\d+)*$/.test(v));
+const branchPath = leaf<string>('a branch path like "0", "1" or "0.3.1"', (v) => typeof v === 'string' && /^\d+(\.\d+)*$/.test(v));
 const sculpt = tagged<Sculpt>('action', {
   delete: obj<DeleteSculpt>({ action: literal('delete'), seed: finite, path: branchPath }) as Schema<Sculpt>,
   move: obj<MoveSculpt>({ action: literal('move'), seed: finite, path: branchPath, rotation: vec3, scale: positive }) as Schema<Sculpt>,
@@ -172,7 +173,7 @@ const treeDefinition = obj<TreeDefinition>({
   schemaVersion: literal(CURRENT_SCHEMA_VERSION),
   name: text,
   species: optional(text),
-  trunk: obj({
+  trunk: obj<TrunkDefinition>({
     length: positive,
     radius: positive,
     taper: unit,
@@ -180,6 +181,9 @@ const treeDefinition = obj<TreeDefinition>({
     sections: intAtLeast(1),
     lengthVariation: unit,
     bend: unit,
+    stems: optional(intAtLeast(1)),
+    spread: optional(range(0, 90)),
+    gravity: optional(range(-1, 1)),
   }),
   branches: arr(branchLevel, { max: MAX_BRANCH_LEVELS, itemFallback: DEFAULT_BRANCH_LEVEL }),
   leaves: obj<LeavesDefinition>({

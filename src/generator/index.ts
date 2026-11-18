@@ -7,7 +7,7 @@ import { solidLeafGeometry } from './leaf-shapes';
 import { leafGeometry, placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
 import { sculptBranches, sculptLeaves, sculptsFor } from './sculpt';
-import { buildTrunk } from './trunk';
+import { buildStems } from './trunk';
 import { branchSway, writeTrunkSway } from './wind';
 import type { GeometryBuffers, TreeData, TreeSkeleton } from './types';
 
@@ -23,9 +23,9 @@ export type { GrowthTiming, GrowthWindow, GeometryBuffers, TreeAttributes, Verte
  */
 export function generateTree(definition: TreeDefinition, seed: number): TreeData {
   const random = createRandom(seed);
-  const trunk = buildTrunk(definition, random.fork('trunk'));
+  const stems = buildStems(definition, random);
   const sculpts = sculptsFor(definition, seed);
-  const branches = sculptBranches([trunk, ...buildBranches(definition, trunk, random.fork('branches'))], sculpts);
+  const branches = sculptBranches([...stems, ...buildBranches(definition, stems, random.fork('branches'))], sculpts);
   const sidesOf = (level: number) => (level === 0 ? definition.trunk.sides : definition.branches[level - 1]!.sides);
   const leaves = sculptLeaves(placeLeaves(definition, branches, random.fork('leaves')), sculpts, seed);
   const growth = growthTiming(definition, seed, branches, leaves);
@@ -53,12 +53,13 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
 }
 
 /**
- * Height of the (possibly Sculpted) trunk's tip: the scale of a tree's Wind sway. A Sculpt may
- * delete the trunk (an empty tree, nothing sways); the height is then 1.
+ * Height of the tallest (possibly Sculpted) Stem: the scale of a tree's Wind sway. For an upright
+ * trunk that is its tip. A Sculpt may delete every Stem (an empty tree, nothing sways); it is then 1.
  */
 export function trunkHeight(skeleton: Pick<TreeSkeleton, 'branches'>): number {
-  const trunk = skeleton.branches.find((b) => b.parent === null)?.points;
-  return trunk ? trunk[trunk.length - 1]!.position[1] : 1;
+  const stems = skeleton.branches.filter((b) => b.parent === null);
+  if (stems.length === 0) return 1;
+  return Math.max(...stems.flatMap((stem) => stem.points.map((p) => p.position[1])));
 }
 
 /** Stable 32-bit hash (hex) of the generated geometry buffers, for determinism checks. */
