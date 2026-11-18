@@ -13,12 +13,16 @@ A number that, combined with a Tree Definition, picks one specific individual tr
 _Avoid_: Random, variation id
 
 **Style**:
-A visual look shipped with the library, such as low-poly, stylized or realistic, provided as one ready-made Tree Definition per Form.
+A visual look shipped with the library, such as low-poly, stylized or realistic, that can be applied to any Species: it sets how the tree is drawn (shading, leaf shape, textures, level of detail), not what shape it grows.
 _Avoid_: Theme, type, kind
+
+**Species**:
+A named kind of real tree shipped with the library, such as Oak, Birch or Douglas Fir, described once by its shape, foliage, colours and Season Profile, and drawn in any Style.
+_Avoid_: Preset, tree type
 
 **Form**:
 The overall kind of tree a Tree Definition grows, such as broadleaf or conifer.
-_Avoid_: Species, tree type
+_Avoid_: Tree type
 
 **Growth**:
 How far a tree has grown, a value from 0 (sapling) to 1 (fully grown) that the app may change at any moment to animate it.
