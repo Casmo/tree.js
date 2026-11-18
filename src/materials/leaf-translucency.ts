@@ -1,6 +1,5 @@
 import type { LightingModelDirectInput, Node, NodeBuilder } from 'three/webgpu';
-import { BRDF_Lambert, diffuseColor, float, mix, positionViewDirection, uniform } from 'three/tsl';
-import type { TranslucencyDefinition } from '../definition';
+import { BRDF_Lambert, diffuseColor, float, mix, positionViewDirection } from 'three/tsl';
 import type { CrownVolume } from '../generator';
 import { crownNodes } from './crown-nodes';
 
@@ -47,19 +46,23 @@ const BACK_POWER = 3;
  * one (`TranslucentLightingModel`, flat and standard shading) and `SoftToonLightingModel` (toon).
  * Build it with {@link leafTranslucencyTerm}; the values are uniforms, so changing them needs no recompile.
  */
-export interface LeafTranslucencyTerm {
+export interface LeafTranslucencyTerm extends LeafTranslucencyValues {
+  /** How thin the crown is at this fragment: 1 on (or outside) the Crown Volume's shell, towards 0 at its centre. */
+  readonly thinness: Node<'float'>;
+}
+
+/** The settings of `materials.leaf.translucency` as nodes (uniforms, shared by every leaf material of a Tree or Forest). */
+export interface LeafTranslucencyValues {
   /** Direct glow per light (0..1). */
   readonly strength: Node<'float'>;
   /** Indirect (sky) glow (0..1). */
   readonly ambient: Node<'float'>;
   /** Extra glow at the thin edge of the Crown Volume (0..1). */
   readonly edge: Node<'float'>;
-  /** How thin the crown is at this fragment: 1 on (or outside) the Crown Volume's shell, towards 0 at its centre. */
-  readonly thinness: Node<'float'>;
 }
 
 /**
- * The term for a leaf material: `settings` from `materials.leaf.translucency`, `crown` the tree's
+ * The term for a leaf material: `values` the settings of `materials.leaf.translucency`, `crown` the tree's
  * Crown Volume (`TreeData.crown`, tree space, fully grown) and `growth` the Growth node the material
  * grows with (the Tree's uniform, or a Forest's per-instance Growth).
  *
@@ -68,11 +71,11 @@ export interface LeafTranslucencyTerm {
  * the vertices get. Being in tree space, it is the same for every Forest instance whatever its rotation and
  * scale. It needs no vertex attribute.
  */
-export function leafTranslucencyTerm(settings: TranslucencyDefinition, crown: CrownVolume, growth: Node<'float'>): LeafTranslucencyTerm {
+export function leafTranslucencyTerm(values: LeafTranslucencyValues, crown: CrownVolume, growth: Node<'float'>): LeafTranslucencyTerm {
   return {
-    strength: uniform(settings.strength),
-    ambient: uniform(settings.ambient),
-    edge: uniform(settings.edge),
+    strength: values.strength,
+    ambient: values.ambient,
+    edge: values.edge,
     thinness: crownNodes(crown, growth).distance.clamp(0, 1),
   };
 }

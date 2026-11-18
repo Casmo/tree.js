@@ -17,9 +17,8 @@ import {
 import { positionGeometry } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
 import { generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
-import { applyCrownNormals, createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
-import { applyLeafTranslucency } from '../materials/leaf-translucency-model';
-import { applyStructuralOcclusion, setOcclusionStrength, type OcclusionStrengthUniform } from '../materials/occlusion';
+import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
+import { LiveMaterialFeatures, type MaterialFeatureTarget } from '../materials/material-features';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes } from '../season';
 import { checkedSeason } from '../season/check';
@@ -208,10 +207,6 @@ export class ForestVariant {
     this.barkMaterial.positionNode = position;
     this.leafMaterial = createLeafMaterial(definition, textures);
     this.leafMaterial.positionNode = position;
-    // The Crown Volume is in tree space; the crown normal turns with the instance (uniform scale: rotation only).
-    applyCrownNormals(this.leafMaterial, definition.materials.leaf.crownNormals, this.data.crown, instanceState().growth, (n) => instanceRotate(n));
-    const { translucency } = definition.materials.leaf;
-    if (translucency) applyLeafTranslucency(this.leafMaterial, translucency, this.data.crown, instanceState().growth);
     applySeasonToLeafMaterial(this.leafMaterial, createSeasonNodes(definition.season, instanceState().season));
 
     this.woodSource = interleavedGeometry(this.data.wood, height * WIND_BOUNDS);
@@ -392,7 +387,7 @@ export class Forest extends Group {
   private readonly windBinding: WindBinding;
   private growthValue: number;
   private seasonValue: number;
-  private readonly occlusion: OcclusionStrengthUniform | null;
+  private readonly features: LiveMaterialFeatures;
 
   constructor(definition: TreeDefinition, placements: readonly ForestPlacement[] = [], options: ForestOptions = {}) {
     super();
@@ -410,10 +405,18 @@ export class Forest extends Group {
       { length: count },
       (_, i) => new ForestVariant(this, definition, i, variantSeed(this.seed, i), this.windBinding, capacity, options.textures),
     );
-    // Structural Occlusion: one strength for the whole forest; each Variant has its own baked `aOcclusion`.
-    this.occlusion = applyStructuralOcclusion(
+    // Material Features: one set of values for the whole forest; each Variant has its own Crown Volume and
+    // baked `aOcclusion`. The Crown Volume is in tree space: its normal turns with the instance (uniform
+    // scale: rotation only).
+    this.features = new LiveMaterialFeatures(
       definition,
-      this.variants.flatMap((v) => [v.barkMaterial, v.leafMaterial, v.fruitMaterial]),
+      this.variants.map((v): MaterialFeatureTarget => ({
+        leaf: v.leafMaterial,
+        materials: [v.barkMaterial, v.leafMaterial, v.fruitMaterial],
+        crown: v.data.crown,
+        growth: instanceState().growth,
+        toObject: (normal) => instanceRotate(normal),
+      })),
     );
     const textures = this.variants.flatMap((v) => [v.barkMaterial.map, v.barkMaterial.normalMap, v.leafMaterial.map]);
     this.ready = Promise.all(textures.filter((t) => t !== null).map(textureReady)).then(() => undefined);
@@ -522,11 +525,11 @@ export class Forest extends Group {
    * when it has none. Setting it (clamped to 0..1) only writes a uniform. Throws without Structural Occlusion.
    */
   get occlusionStrength(): number | null {
-    return this.occlusion?.value ?? null;
+    return this.features.occlusionStrength;
   }
 
   set occlusionStrength(value: number) {
-    setOcclusionStrength(this.occlusion, value);
+    this.features.occlusionStrength = value;
   }
 
   /** Frees every Variant's geometries, materials and instance buffers, and removes the forest from its parent. */

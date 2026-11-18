@@ -5,9 +5,16 @@ import {
   type Node,
   type NodeBuilder,
 } from 'three/webgpu';
-import type { TranslucencyDefinition } from '../definition';
 import type { CrownVolume } from '../generator';
-import { directLight, leafTranslucencyTerm, lightingContext, translucencyDirect, translucencyIndirect, type LeafTranslucencyTerm } from './leaf-translucency';
+import {
+  directLight,
+  leafTranslucencyTerm,
+  lightingContext,
+  translucencyDirect,
+  translucencyIndirect,
+  type LeafTranslucencyTerm,
+  type LeafTranslucencyValues,
+} from './leaf-translucency';
 import { SoftToonLightingModel, SoftToonNodeMaterial } from './toon';
 
 /**
@@ -36,7 +43,7 @@ class TranslucentLightingModel extends PhysicalLightingModel {
 }
 
 /**
- * Gives a leaf material Leaf Translucency (`materials.leaf.translucency`, a Material Feature, ADR 0008):
+ * Gives a leaf material Leaf Translucency (`materials.leaf.translucency` as uniforms, a Material Feature, ADR 0008):
  * its lighting model becomes the translucent one (the physical model with the term for flat and standard
  * shading, the soft toon model with the same term for toon). The material keeps its class and every node.
  * Only call it when the feature is set: without it the leaf material keeps today's lighting model.
@@ -46,11 +53,11 @@ class TranslucentLightingModel extends PhysicalLightingModel {
  */
 export function applyLeafTranslucency(
   material: MeshStandardNodeMaterial,
-  settings: TranslucencyDefinition,
+  values: LeafTranslucencyValues,
   crown: CrownVolume,
   growth: Node<'float'>,
 ): void {
-  const term = leafTranslucencyTerm(settings, crown, growth);
+  const term = leafTranslucencyTerm(values, crown, growth);
   const toon = material instanceof SoftToonNodeMaterial;
   // The declared return type is the physical model; the renderer only uses the LightingModel interface.
   material.setupLightingModel = () =>
