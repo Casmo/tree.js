@@ -1,7 +1,7 @@
 // Start from a Species (or a generic Form) in a Style, or import a JSON Tree Definition.
 // Picking a Species starts anew; picking a Style re-styles the current Definition, keeping its shape.
 import type { StyleName } from '@casmo/tree.js';
-import { loadStart, parseStartId, SPECIES_GROUPS, STYLE_CHOICES } from '../starts';
+import { loadStart, parseStartId, SPECIES_GROUPS, STYLE_CHOICES, treeChoice } from '../starts';
 import { currentStyle, switchStyle } from '../style-switch';
 import { errorMessage } from './controls';
 import type { Panel } from './types';
@@ -79,7 +79,8 @@ export const startPanel: Panel = {
     });
 
     const sync = (): void => {
-      species.value = parseStartId(store.state.source)?.species ?? IMPORTED;
+      const start = parseStartId(store.state.source);
+      species.value = start ? treeChoice(start.tree) : IMPORTED;
       style.value = currentStyle(store.state);
     };
     store.subscribe(sync);

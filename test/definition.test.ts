@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { generateTree } from '../src/generator';
 import {
+  coneCurve,
   CURRENT_SCHEMA_VERSION,
+  loadStyle,
+  STYLE_NAMES,
   hashTreeData,
   createTree,
   DEFAULT_BRANCH_LEVEL,
@@ -67,6 +70,16 @@ describe('Definition migration', () => {
     expect(def.branches[0]!.angleProfile).toBeUndefined();
     expect(def.branches[1]!.lengthProfile).toBeUndefined();
     expect(def.sculpts).toEqual([{ seed: 7, path: '0.4', action: 'delete' }]);
+  });
+
+  it('coneCurve is the Crown Shape the migration writes, and the curve of every Style\'s own conifer', async () => {
+    expect(coneCurve(0.18)).toEqual([{ t: 0.18, value: 1 }, { t: 0.918, value: 0.1 }, { t: 1, value: 0.1 }]);
+    const conifer = parseDefinition(fixture('definition-v2-conifer.json'));
+    expect(conifer.branches[0]!.lengthProfile).toEqual(coneCurve(0.27));
+    for (const name of STYLE_NAMES) {
+      const level = (await loadStyle(name)).conifer.branches[0]!;
+      expect(level.lengthProfile, name).toEqual(coneCurve(level.start));
+    }
   });
 
   it('a migrated v2 conifer without branches stays a valid, branchless tree', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadStyle, parseDefinition, STYLE_NAMES } from '@casmo/tree.js';
 import { oak, SPECIES_NAMES } from '@casmo/tree.js/species';
-import { loadStart, parseStartId, SPECIES_GROUPS, STARTS, STYLE_CHOICES } from './starts';
+import { loadStart, parseStartId, SPECIES_GROUPS, startId, STARTS, STYLE_CHOICES } from './starts';
 
 describe('starting points', () => {
   it('offers every Species of the collection, grouped by Form, plus the generic Forms', () => {
@@ -43,12 +43,17 @@ describe('starting points', () => {
   );
 
   it('reads new and old ids as Species + Style', () => {
-    expect(parseStartId('oak/realistic')).toEqual({ id: 'oak/realistic', species: 'oak', style: 'realistic' });
-    expect(parseStartId('broadleaf/stylized')).toEqual({ id: 'broadleaf/stylized', species: 'broadleaf', style: 'stylized' });
-    expect(parseStartId('low-poly/conifer')).toEqual({ id: 'conifer/low-poly', species: 'conifer', style: 'low-poly' });
+    expect(parseStartId('oak/realistic')).toEqual({ id: 'oak/realistic', tree: { kind: 'species', id: 'oak' }, style: 'realistic' });
+    expect(parseStartId('broadleaf/stylized')).toEqual({ id: 'broadleaf/stylized', tree: { kind: 'generic', form: 'broadleaf' }, style: 'stylized' });
+    expect(parseStartId('low-poly/conifer')).toEqual({ id: 'conifer/low-poly', tree: { kind: 'generic', form: 'conifer' }, style: 'low-poly' });
     expect(parseStartId('my-tree.json')).toBeNull();
     expect(parseStartId('nope/realistic')).toBeNull();
     expect(parseStartId('oak/watercolour')).toBeNull();
+  });
+
+  it('names a start by its tree and Style', () => {
+    expect(startId({ kind: 'species', id: 'white-oak' }, 'stylized')).toBe('white-oak/stylized');
+    expect(startId({ kind: 'generic', form: 'conifer' }, 'realistic')).toBe('conifer/realistic');
   });
 
   it('rejects an unknown starting point', async () => {

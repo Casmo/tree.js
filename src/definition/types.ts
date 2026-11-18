@@ -152,6 +152,9 @@ export interface LeavesDefinition {
  */
 export type FruitType = 'round' | 'pear' | 'nut' | 'cone' | 'berry';
 
+/** Every Fruit Type. */
+export const FRUIT_TYPES: readonly FruitType[] = ['round', 'pear', 'nut', 'cone', 'berry'];
+
 /**
  * Fruit (ADR 0006): its own tree part, grown on the outermost twigs (the trunk if there are no
  * branch levels) from its own random stream, drawn as small solid shapes in the `fruit` mesh.

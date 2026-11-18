@@ -9,11 +9,11 @@ import {
   type LeafMaterialDefinition,
   type LeafShape,
   type LeafType,
-  type Shading,
   type TreeDefinition,
   type TreeDefinitionInput,
 } from '../definition/types';
 import type { SpeciesBarkDefinition, SpeciesDefinition, SpeciesFoliageDefinition } from '../species/types';
+import { styleOfShading, styleShading, type StyleName } from './names';
 import { BARK_TEXTURES, LEAF_TEXTURES } from './realistic/textures';
 
 /** Polygon detail of one tree part. */
@@ -32,9 +32,8 @@ interface LeafLook {
   material: LeafMaterialDefinition;
 }
 
-/** Everything a Style decides about a tree: its look. */
+/** Everything a Style decides about a tree: its look (its shading is in names.ts). */
 interface StyleLook {
-  shading: Shading;
   trunk: Detail;
   /** Detail per branch level; deeper levels reuse the last entry. */
   branches: Detail[];
@@ -42,7 +41,7 @@ interface StyleLook {
   leaf(type: LeafType): LeafLook;
 }
 
-const isFine = (type: LeafType) => type === 'needle' || type === 'scale';
+const isNeedleLike = (type: LeafType) => type === 'needle' || type === 'scale';
 const untexturedLeaf: LeafMaterialDefinition = { roughness: 1, map: null, alphaTest: 0.5 };
 const untexturedBark = () => ({ roughness: 1, map: null, normalMap: null });
 
@@ -52,41 +51,35 @@ const untexturedBark = () => ({ roughness: 1, map: null, normalMap: null });
 // about 20-40), so realistic draws twice as many (cheap) cards per twig to keep the crown full.
 const LOOKS = {
   'low-poly': {
-    shading: 'flat',
     trunk: { sides: 5, sections: 4 },
     branches: [{ sides: 4, sections: 2 }, { sides: 3, sections: 1 }],
     bark: untexturedBark,
     leaf: (type) =>
-      isFine(type)
+      isNeedleLike(type)
         ? { shape: 'needle', perDensity: 14, sizeScale: 1.86, material: untexturedLeaf }
         : { shape: 'clump', perDensity: 4, sizeScale: 2.86, material: untexturedLeaf },
   },
   stylized: {
-    shading: 'toon',
     trunk: { sides: 10, sections: 8 },
     branches: [{ sides: 8, sections: 5 }, { sides: 6, sections: 3 }, { sides: 4, sections: 2 }, { sides: 3, sections: 1 }],
     bark: untexturedBark,
     // All puffs; smaller and denser for needle / scale foliage.
     leaf: (type) =>
-      isFine(type)
+      isNeedleLike(type)
         ? { shape: 'puff', perDensity: 8, sizeScale: 1.7, material: untexturedLeaf }
         : { shape: 'puff', perDensity: 4, sizeScale: 3.14, material: untexturedLeaf },
   },
   realistic: {
-    shading: 'standard',
     trunk: { sides: 12, sections: 10 },
     branches: [{ sides: 8, sections: 6 }, { sides: 5, sections: 4 }, { sides: 3, sections: 2 }],
     // A texture per Bark Type and per Leaf Type (scripts/generate-textures.mjs).
     bark: (type) => ({ roughness: 0.95, ...BARK_TEXTURES[type] }),
     leaf: (type) =>
-      isFine(type)
+      isNeedleLike(type)
         ? { shape: 'card', perDensity: 16, sizeScale: 2.3, material: { roughness: 0.7, map: LEAF_TEXTURES[type], alphaTest: 0.4 } }
         : { shape: 'card', perDensity: 24, sizeScale: 2, material: { roughness: 0.65, map: LEAF_TEXTURES[type], alphaTest: 0.4 } },
   },
-} satisfies Record<string, StyleLook>;
-
-/** Name of a Style that has a look (the built-in Styles). */
-export type LookName = keyof typeof LOOKS;
+} satisfies Record<StyleName, StyleLook>;
 
 /** What `Style.apply` accepts: a Species, or a Tree Definition to re-style. */
 export type StyleSource = SpeciesDefinition | TreeDefinition | TreeDefinitionInput;
@@ -119,15 +112,12 @@ function fromSpecies(species: SpeciesDefinition): Neutral {
   };
 }
 
-/** The look a Definition was drawn in, recognised by its shading. */
-const LOOK_BY_SHADING: Record<Shading, StyleLook> = { flat: LOOKS['low-poly'], toon: LOOKS.stylized, standard: LOOKS.realistic };
-
 function fromDefinition(input: TreeDefinition | TreeDefinitionInput): Neutral {
   const definition = parseDefinition(input);
   const { leaves, materials, ...base } = definition;
   // Definitions not made by `apply` carry no Leaf / Bark Type: guess them from how they are drawn.
   const leafType = leaves.type ?? (leaves.shape === 'needle' || /needle/.test(materials.leaf.map ?? '') ? 'needle' : 'broad');
-  const source = LOOK_BY_SHADING[materials.shading].leaf(leafType);
+  const source = LOOKS[styleOfShading(materials.shading)].leaf(leafType);
   return {
     base,
     foliage: {
@@ -142,7 +132,8 @@ function fromDefinition(input: TreeDefinition | TreeDefinitionInput): Neutral {
   };
 }
 
-function draw(look: StyleLook, { base, foliage, bark }: Neutral): TreeDefinition {
+function draw(name: StyleName, { base, foliage, bark }: Neutral): TreeDefinition {
+  const look: StyleLook = LOOKS[name];
   const leaf = look.leaf(foliage.type);
   return parseDefinition({
     ...base,
@@ -158,7 +149,7 @@ function draw(look: StyleLook, { base, foliage, bark }: Neutral): TreeDefinition
       angle: foliage.angle,
     },
     materials: {
-      shading: look.shading,
+      shading: styleShading(name),
       bark: { type: bark.type, color: bark.color, ...look.bark(bark.type) },
       leaf: { ...leaf.material },
     },
@@ -169,8 +160,8 @@ function draw(look: StyleLook, { base, foliage, bark }: Neutral): TreeDefinition
  * Applies a built-in Style's look to a Species or a Tree Definition (see `TreeStyle.apply`).
  * Pure: never mutates its inputs.
  */
-export function applyStyle(name: LookName, source: StyleSource, overrides?: DefinitionPatch): TreeDefinition {
+export function applyStyle(name: StyleName, source: StyleSource, overrides?: DefinitionPatch): TreeDefinition {
   const neutral = 'schemaVersion' in source ? fromDefinition(source) : fromSpecies(source);
-  const definition = draw(LOOKS[name], neutral);
+  const definition = draw(name, neutral);
   return overrides ? extendDefinition(definition, overrides) : definition;
 }

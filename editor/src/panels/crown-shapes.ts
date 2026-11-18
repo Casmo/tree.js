@@ -1,7 +1,7 @@
 // One-click Crown Shapes (ADR 0004): named presets that write a branch level's length and angle
 // curves. The name is never stored; the curves are, and can be fine-tuned like any keyframe track.
 // Curves are laid out over where the level's branches attach (its start..end on the parent).
-import type { BranchLevelDefinition, Keyframe } from '@casmo/tree.js';
+import { coneCurve, type BranchLevelDefinition, type Keyframe } from '@casmo/tree.js';
 
 export type CrownShape = 'cone' | 'ball' | 'column' | 'vase' | 'flat-top';
 
@@ -17,7 +17,7 @@ export const CROWN_SHAPES: { id: CrownShape; label: string; curves: ShapeCurves 
     // The conifer cone (as the v2 -> v3 migration writes it): length falls from 1 at the start to 0.1 near the tip.
     id: 'cone',
     label: 'Cone',
-    curves: ({ start }) => ({ lengthProfile: [key(start, 1), key(1 - 0.1 * (1 - start), 0.1), key(1, 0.1)] }),
+    curves: ({ start }) => ({ lengthProfile: coneCurve(start) }),
   },
   {
     id: 'ball',

@@ -1,4 +1,4 @@
-export { BARK_TYPES, CURRENT_SCHEMA_VERSION, LEAF_TYPES, MAX_BRANCH_LEVELS } from './types';
+export { BARK_TYPES, CURRENT_SCHEMA_VERSION, FRUIT_TYPES, LEAF_TYPES, MAX_BRANCH_LEVELS } from './types';
 export type {
   TreeDefinition,
   TreeDefinitionInput,
@@ -27,6 +27,7 @@ export type {
   MoveSculpt,
   LeavesSculpt,
 } from './types';
+export { coneCurve } from './crown-shape';
 export { DEFAULT_DEFINITION, DEFAULT_BRANCH_LEVEL, DEFAULT_FRUIT, DEFAULT_FRUIT_AMOUNT, DEFAULT_FRUIT_COLOR } from './defaults';
 export {
   parseDefinition,

@@ -3,6 +3,7 @@
 // The textures are separate files (dist/textures/realistic/*.png, made by scripts/generate-textures.mjs),
 // referenced by relative URLs that resolve against the texture base path (`setTextureOptions`,
 // or `createTree(definition, { textures: { basePath } })`), so an app can host them on its own CDN.
+import { coneCurve } from '../../definition/crown-shape';
 import { CURRENT_SCHEMA_VERSION, type TreeDefinition } from '../../definition/types';
 import { SEASON_PROFILES } from '../../season/profiles';
 import { applyStyle } from '../apply';
@@ -47,7 +48,7 @@ export const conifer: TreeDefinition = {
   branches: [
     { count: 34, start: 0.12, end: 0.97, angle: 88, angleVariation: 0.1, spiral: 137.5, length: 0.38, lengthVariation: 0.15, radius: 0.22, taper: 0.25, sides: 5, sections: 4, bend: 0.08, gravity: 0.12,
       // Crown Shape: a cone, full length at the lowest whorl, a tenth of it at the top.
-      lengthProfile: [{ t: 0.12, value: 1 }, { t: 0.912, value: 0.1 }, { t: 1, value: 0.1 }] },
+      lengthProfile: coneCurve(0.12) },
     { count: 6, start: 0.15, end: 1, angle: 55, angleVariation: 0.2, spiral: 180, length: 0.45, lengthVariation: 0.2, radius: 0.5, taper: 0.4, sides: 3, sections: 2, bend: 0.05, gravity: 0.1 },
   ],
   leaves: { count: 8, shape: 'card', size: 0.8, sizeVariation: 0.2, start: 0, angle: 35 },

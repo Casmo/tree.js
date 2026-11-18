@@ -1,6 +1,7 @@
 import { DEFAULT_BRANCH_LEVEL, DEFAULT_DEFINITION, DEFAULT_FRUIT } from './defaults';
 import {
   BARK_TYPES,
+  FRUIT_TYPES,
   CURRENT_SCHEMA_VERSION,
   LEAF_TYPES,
   MAX_BRANCH_LEVELS,
@@ -204,7 +205,7 @@ const treeDefinition = obj<TreeDefinition>({
   }),
   fruit: optionalBlock<FruitDefinition>(
     obj({
-      type: oneOf('round', 'pear', 'nut', 'cone', 'berry'),
+      type: oneOf(...FRUIT_TYPES),
       count: intAtLeast(0),
       size: positive,
       sizeVariation: unit,

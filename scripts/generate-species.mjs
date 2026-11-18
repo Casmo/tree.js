@@ -40,9 +40,15 @@ export function speciesSources(dir = DATA_DIR) {
   const catalog = [
     HEADER,
     '// One named export per Species, each its own module (tree-shakeable).',
+    "import type { SpeciesName } from './loaders';",
     "import type { SpeciesDefinition } from './types';",
     ...species.map(({ id, name }) => `import ${name}Data from './data/${id}.json';`),
     ...species.flatMap(({ name, label }) => ['', `/** ${label}. */`, `export const ${name} = ${name}Data as SpeciesDefinition;`]),
+    '',
+    '/** Every Species by id (for pickers that list them all; importing one Species by name bundles only that one). */',
+    'export const SPECIES_BY_NAME: Readonly<Record<SpeciesName, SpeciesDefinition>> = {',
+    ...species.map(({ id, name }) => `  '${id}': ${name},`),
+    '};',
     '',
   ];
   const loaders = [

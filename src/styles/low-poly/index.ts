@@ -1,5 +1,6 @@
 // @casmo/tree.js/styles/low-poly: faceted geometry, flat vertex colours, no image files.
 // Pure data plus `apply` (shared with the other Styles), fetched only when imported.
+import { coneCurve } from '../../definition/crown-shape';
 import { CURRENT_SCHEMA_VERSION, type TreeDefinition } from '../../definition/types';
 import { SEASON_PROFILES } from '../../season/profiles';
 import { applyStyle } from '../apply';
@@ -40,7 +41,7 @@ export const conifer: TreeDefinition = {
   branches: [
     { count: 24, start: 0.18, end: 0.97, angle: 95, angleVariation: 0.08, spiral: 137.5, length: 0.42, lengthVariation: 0.15, radius: 0.4, taper: 0.3, sides: 3, sections: 2, bend: 0.05, gravity: -0.08,
       // Crown Shape: a cone, full length at the lowest whorl, a tenth of it at the top.
-      lengthProfile: [{ t: 0.18, value: 1 }, { t: 0.918, value: 0.1 }, { t: 1, value: 0.1 }] },
+      lengthProfile: coneCurve(0.18) },
   ],
   leaves: { count: 7, shape: 'needle', size: 0.65, sizeVariation: 0.2, start: 0, angle: 35 },
   materials: {

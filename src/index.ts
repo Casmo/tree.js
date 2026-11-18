@@ -42,7 +42,7 @@ export type {
   SpeciesBarkDefinition,
   SpeciesFruitDefinition,
 } from './species/types';
-export { loadStyle, STYLE_NAMES, type StyleName } from './styles/registry';
+export { loadStyle, STYLE_NAMES, styleLabel, styleOfShading, type StyleName } from './styles/registry';
 export {
   bakeTree,
   disposeBakedTree,

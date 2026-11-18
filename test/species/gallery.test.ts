@@ -11,7 +11,7 @@ const galleryFile = resolve(root, 'docs/species/README.md');
 const gallery = existsSync(galleryFile) ? readFileSync(galleryFile, 'utf8') : '';
 const readme = readFileSync(resolve(root, 'README.md'), 'utf8');
 const { SPECIES_NAMES } = collection;
-const STYLES = ['low-poly', 'stylized', 'realistic'];
+const { STYLE_NAMES: STYLES } = await import('../../src/styles/names');
 const camelCase = (id: string) => id.replace(/-(\w)/g, (_, c: string) => c.toUpperCase());
 const speciesOf = (id: string) => (collection as unknown as Record<string, SpeciesDefinition>)[camelCase(id)]!;
 
@@ -45,9 +45,9 @@ describe('the Species gallery page', () => {
     });
   }
 
-  it('shows the fruit trees with their Fruit and the deciduous broadleaves in autumn, in every Style', () => {
-    const fruitTrees = ['almond', 'apple', 'cherry', 'olive', 'peach', 'pear', 'plum'];
-    const autumn = ['ash', 'beech', 'birch', 'chestnut', 'elm', 'hickory', 'maple', 'oak', 'red-oak', 'walnut', 'white-oak'];
+  it('shows the Species with seasonal Fruit with ripe Fruit and the deciduous broadleaves in autumn, in every Style', () => {
+    const fruitTrees = ['almond', 'apple', 'cherry', 'chestnut', 'hickory', 'mahogany', 'oak', 'olive', 'peach', 'pear', 'plum', 'red-oak', 'walnut', 'white-oak'];
+    const autumn = ['almond', 'apple', 'ash', 'beech', 'birch', 'cherry', 'chestnut', 'elm', 'hickory', 'maple', 'oak', 'peach', 'pear', 'plum', 'red-oak', 'teak', 'walnut', 'white-oak'];
     for (const [ids, extra] of [[fruitTrees, 'fruit'], [autumn, 'autumn']] as const) {
       for (const id of ids) {
         const files = targets(section(gallery, speciesOf(id).name));

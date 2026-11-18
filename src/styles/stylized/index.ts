@@ -1,5 +1,6 @@
 // @casmo/tree.js/styles/stylized: soft toon shading, rounded leaf clumps, blossom in early spring, no image files.
 // Pure data plus `apply` (shared with the other Styles), fetched only when imported.
+import { coneCurve } from '../../definition/crown-shape';
 import { CURRENT_SCHEMA_VERSION, type SeasonProfileDefinition, type TreeDefinition } from '../../definition/types';
 import { SEASON_PROFILES } from '../../season/profiles';
 import { applyStyle } from '../apply';
@@ -83,7 +84,7 @@ export const conifer: TreeDefinition = {
   branches: [
     { count: 18, start: 0.15, end: 0.97, angle: 85, angleVariation: 0.1, spiral: 137.5, length: 0.5, lengthVariation: 0.1, radius: 0.4, taper: 0.35, sides: 5, sections: 3, bend: 0.1, gravity: 0.05,
       // Crown Shape: a cone, full length at the lowest whorl, a tenth of it at the top.
-      lengthProfile: [{ t: 0.15, value: 1 }, { t: 0.915, value: 0.1 }, { t: 1, value: 0.1 }] },
+      lengthProfile: coneCurve(0.15) },
   ],
   leaves: { count: 4, shape: 'puff', size: 0.6, sizeVariation: 0.2, start: 0.1, angle: 20 },
   materials: {

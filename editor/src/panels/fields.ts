@@ -5,9 +5,9 @@ import {
   BARK_TYPES,
   DEFAULT_FRUIT_AMOUNT,
   DEFAULT_FRUIT_COLOR,
+  FRUIT_TYPES,
   LEAF_TYPES,
   type BranchLevelDefinition,
-  type FruitType,
   type HexColor,
   type Keyframe,
   type TreeDefinition,
@@ -110,8 +110,6 @@ export const PARAMETER_GROUPS: FieldGroup[] = [
     ],
   },
 ];
-
-export const FRUIT_TYPES: readonly FruitType[] = ['round', 'pear', 'nut', 'cone', 'berry'];
 
 /** The fields of the optional `fruit` block (shown while the Definition has Fruit). */
 export const FRUIT_FIELDS: Field[] = [

@@ -6,25 +6,10 @@
  * To change the format: bump CURRENT_SCHEMA_VERSION, add `MIGRATIONS[old]`, and add a
  * fixture in test/fixtures/definition-v<old>.json with a test.
  */
+import { coneCurve } from './crown-shape';
 import { DEFAULT_BRANCH_LEVEL, DEFAULT_DEFINITION } from './defaults';
 
 type Raw = Record<string, unknown>;
-
-/** The v2 conifer cone's shortest trunk branch, as a fraction of the declared length. */
-const MIN_CONE = 0.1;
-
-/**
- * The v2 conifer cone as a Crown Shape length curve: full length at the level's `start`, shrinking
- * linearly to {@link MIN_CONE} of it at the trunk tip, never below MIN_CONE (the old generator
- * computed `max(0.1, (1 - t) / (1 - start))`; this curve is the same line).
- */
-function coneProfile(start: number) {
-  return [
-    { t: start, value: 1 },
-    { t: 1 - MIN_CONE * (1 - start), value: MIN_CONE },
-    { t: 1, value: MIN_CONE },
-  ];
-}
 
 export const MIGRATIONS: Record<number, (input: Raw) => Raw> = {
   /**
@@ -59,6 +44,6 @@ export const MIGRATIONS: Record<number, (input: Raw) => Raw> = {
     if (typeof first !== 'object' || first === null || Array.isArray(first)) return out; // validation reports it
     const level = first as Raw;
     const start = typeof level.start === 'number' ? level.start : DEFAULT_BRANCH_LEVEL.start;
-    return { ...out, branches: [{ ...level, lengthProfile: coneProfile(start) }, ...deeper] };
+    return { ...out, branches: [{ ...level, lengthProfile: coneCurve(start) }, ...deeper] };
   },
 };

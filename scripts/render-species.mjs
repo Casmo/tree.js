@@ -3,13 +3,13 @@
 // the vanilla example (`examples/vanilla/?species=<id>&style=<style>`), for checking how they look.
 // (The committed gallery, docs/species/, is made by `npm run gallery`.)
 //
-//   node scripts/render-species.mjs [outDir] [id ...] [--season=0.37] [--seed=1] [--port=5198]
+//   node scripts/render-species.mjs [outDir] [id ...] [--season=<summer>] [--seed=1] [--port=5198]
 //
 // Writes <outDir>/<id>-<style>.png (outDir default: species-renders/), all Species when no id is given.
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { speciesIds } from './generate-species.mjs';
-import { startSpeciesRenderer, STYLES } from './species-renderer.mjs';
+import { startSpeciesRenderer, STYLES, SUMMER } from './species-renderer.mjs';
 
 const options = Object.fromEntries(
   process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => a.slice(2).split('=')),
@@ -23,7 +23,7 @@ try {
   for (const id of species) {
     for (const style of STYLES) {
       const path = resolve(outDir, `${id}-${style}.png`);
-      await renderer.render({ id, style, season: options.season ?? 0.37, seed: options.seed ?? 1, path });
+      await renderer.render({ id, style, season: options.season ?? SUMMER, seed: options.seed ?? 1, path });
       console.log(path);
     }
   }
