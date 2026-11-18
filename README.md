@@ -439,7 +439,11 @@ disposeBakedTree(baked);
 
 Definitions with textures (the realistic Style, or your own `materials.bark.map` / `materials.leaf.map`
 URLs) load them relative to the package's `dist/textures/` by default. To serve them yourself, copy that
-folder and point tree.js at it, app-wide or per tree:
+folder and point tree.js at it, app-wide or per tree. `realistic.apply` picks a leaf card per Leaf Type
+(`realistic/leaf.png`, `leaf-lobed.png`, `leaf-palmate.png`, `leaf-compound.png`, `needles.png`,
+`scale.png`) and a colour + normal pair per Bark Type (`realistic/bark.png` for furrowed, `bark-smooth.png`,
+`bark-papery.png`, `bark-fibrous.png`, `bark-plated.png`, each with its `-normal.png`); all are made by
+`scripts/generate-textures.mjs` (MIT, reproducible):
 
 ```ts
 import { createTree, setTextureOptions } from '@casmo/tree.js';

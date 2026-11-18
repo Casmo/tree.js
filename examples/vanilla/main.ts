@@ -7,6 +7,7 @@
 //   ?season=<0..1>  Season (default 0.37, summer)
 //   ?form=conifer  an evergreen conifer instead of the deciduous broadleaf
 //   ?style=low-poly|stylized|realistic  grow that built-in Style's Definition for the form (loaded with a dynamic import)
+//   ?leafType=<Leaf Type>&barkType=<Bark Type>  re-apply the Style with this Leaf / Bark Type (e.g. palmate, papery)
 //   ?textureBase=<url>  load relative texture URLs (the realistic Style's) from this base path / CDN
 //   ?barkMap=<url>&leafMap=<url>  use these textures instead of the Definition's (custom textures)
 //   ?wind=<strength>  scene-wide Wind strength (default 0 = calm); animates unless windTime is given
@@ -16,6 +17,8 @@ import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
 import {
   createTree,
+  type BarkType,
+  type LeafType,
   extendDefinition,
   sceneWind,
   SEASON_PROFILES,
@@ -114,7 +117,17 @@ async function loadDefinition(): Promise<TreeDefinitionInput | TreeDefinition> {
   if (!styleName) return form === 'conifer' ? conifer : broadleaf;
   const load = styles[styleName];
   if (!load) throw new Error(`Unknown style "${styleName}"`);
-  return (await load()).default[form];
+  const style = (await load()).default;
+  const leafType = params.get('leafType') as LeafType | null;
+  const barkType = params.get('barkType') as BarkType | null;
+  if (!leafType && !barkType) return style[form];
+  // The Style draws the Leaf / Bark Type its own way (for realistic: their textures).
+  return style.apply(
+    extendDefinition(style[form], {
+      ...(leafType ? { leaves: { type: leafType } } : {}),
+      ...(barkType ? { materials: { bark: { type: barkType } } } : {}),
+    }),
+  );
 }
 
 /** Points the camera at the whole tree (Style trees differ in size). */
