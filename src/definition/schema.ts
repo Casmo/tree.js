@@ -194,6 +194,8 @@ const treeDefinition = obj<TreeDefinition>({
     stems: optional(intAtLeast(1)),
     spread: optional(range(0, 90)),
     gravity: optional(range(-1, 1)),
+    flare: optional(unit),
+    flareSections: optional(intAtLeast(1)),
   }),
   branches: arr(branchLevel, { max: MAX_BRANCH_LEVELS, itemFallback: DEFAULT_BRANCH_LEVEL }),
   leaves: obj<LeavesDefinition>({

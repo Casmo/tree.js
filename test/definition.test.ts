@@ -92,10 +92,11 @@ describe('Definition migration', () => {
     expect(def.branches[0]!.lengthProfile![0]).toEqual({ t: DEFAULT_BRANCH_LEVEL.start, value: 1 });
   });
 
-  // Golden hashes recorded with the v2 generator (special-cased `form: 'conifer'`) before the migration existed.
+  // Golden hashes recorded with the v2 generator (special-cased `form: 'conifer'`) before the migration existed;
+  // re-recorded once when the trunk's base ring sank below the ground (ADR 0007: only that ring changed).
   const before = {
-    broadleaf: { 1: 'ad9ff0e7', 7: '973752c7', 42: '03202463' },
-    conifer: { 1: 'ce9bf885', 7: '231adb22', 42: 'c1afa72e' },
+    broadleaf: { 1: '376931fb', 7: '37e4b84b', 42: '66fa5e97' },
+    conifer: { 1: 'd7549c0d', 7: '00a6864a', 42: '72b65ae6' },
   } as const;
   for (const [form, hashes] of Object.entries(before)) {
     it(`a migrated v2 ${form} grows exactly the same tree as before (geometry hash)`, () => {

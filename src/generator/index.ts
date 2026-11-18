@@ -8,7 +8,7 @@ import { solidLeafGeometry } from './leaf-shapes';
 import { leafGeometry, placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
 import { sculptBranches, sculptLeaves, sculptsFor } from './sculpt';
-import { buildStems } from './trunk';
+import { buildStems, FLARE_SECTIONS } from './trunk';
 import { branchSway, writeTrunkSway } from './wind';
 import type { GeometryBuffers, TreeData, TreeSkeleton } from './types';
 
@@ -35,6 +35,7 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
     ...partGrowth,
     fruit: fruitGrowth(seed, fruit, new Map(branches.map((b, i) => [b.path, partGrowth.branches[i]!]))),
   };
+  const stemSweep = { flare: definition.trunk.flare ?? 0, sections: definition.trunk.flareSections ?? FLARE_SECTIONS };
   const sway = branchSway(branches, definition.branches.length);
   const wood = mergeBuffers(
     branches.map((b, i) =>
@@ -45,6 +46,7 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
         woodSeasonAttribute(seed, definition.variation),
         growth.branches[i],
         sway.get(b.path),
+        b.parent === null ? stemSweep : undefined,
       ),
     ),
   );

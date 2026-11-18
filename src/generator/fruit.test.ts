@@ -41,13 +41,13 @@ describe('Fruit placement', () => {
     expect(Math.max(...perTwig)).toBe(2);
   });
 
-  it('whole counts grow exactly the Fruit they always did (geometry hashes recorded before fractional counts)', () => {
+  it('whole counts grow exactly the Fruit they always did (geometry hashes recorded before fractional counts, re-recorded once when the trunk base ring sank below the ground)', () => {
     const golden = {
-      round: ['ecc9c2af', '92926766', '3a86c9c1'],
-      pear: ['cce68946', '5bd721da', '696d526e'],
-      nut: ['336d52ec', '3e0b8f65', '37b5224c'],
-      cone: ['0e75bb6d', '0094b511', '967da706'],
-      berry: ['4bfe3b6f', 'f9722ea0', '8306ffc1'],
+      round: ['6181c622', '19cd87e7', '1b42f90c'],
+      pear: ['4a97c14f', '7d358b9f', '273b08eb'],
+      nut: ['0c5974f1', '82e4cda4', '348ef271'],
+      cone: ['10be874c', '4af72b6c', 'dd014a23'],
+      berry: ['bf6b2f5a', 'caac64b9', '3ed2bda8'],
     } as const;
     for (const [type, hashes] of Object.entries(golden)) {
       const definition = extendDefinition(fruiting, { fruit: { type: type as keyof typeof golden } });

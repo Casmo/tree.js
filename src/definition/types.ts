@@ -58,6 +58,17 @@ export interface TrunkDefinition {
    * drooping tip), + pulls a leaning Stem back up. The lower trunk is never bent. Absent = 0 (none).
    */
   gravity?: number;
+  /**
+   * Root Flare (0..1): how much each Stem widens towards the ground over the bottom of its length.
+   * 1 makes the base ring 1.8 × the trunk radius. Geometry only (ADR 0007): branches, leaves, Fruit,
+   * Growth, Wind and Sculpts never move. Absent = 0 (none).
+   */
+  flare?: number;
+  /**
+   * Number of extra sections the trunk sweep puts in the Root Flare (integer >= 1), set by the Style
+   * like `sides` and `sections`: 2 in low-poly, 3 in the others. Unused without flare. Absent = 3.
+   */
+  flareSections?: number;
 }
 
 /**

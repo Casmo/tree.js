@@ -15,6 +15,14 @@ const SPREAD_VARIATION = 0.3;
 const RING_JITTER = 0.25;
 /** Radius of the ring the Stems stand in, as a fraction of the trunk radius (several Stems only). */
 const RING_RADIUS = 1;
+/** How far a Stem's base ring sinks straight down below the ground, as a fraction of the trunk radius (no seam on uneven terrain). */
+export const BASE_SINK = 0.1;
+/** Root Flare zone: the bottom fraction of a Stem's length (measured along it, after Sculpts) that widens. */
+export const FLARE_ZONE = 0.12;
+/** Root Flare width: at `flare` = 1 the base ring is (1 + this) × the trunk radius. */
+export const FLARE_WIDTH = 0.8;
+/** Extra rings the trunk sweep puts in the Root Flare zone while `trunk.flareSections` is absent (the low-poly Style sets 2). */
+export const FLARE_SECTIONS = 3;
 
 /**
  * Builds the Stems: `trunk.stems` full trunks standing in a small ring at the base, paths "0", "1", ...
