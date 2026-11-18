@@ -145,12 +145,15 @@ test('Fruit can be added, tuned with its Season tracks, removed, and exports', a
   expect(exported.fruit).toEqual(tuned.definition.fruit);
   expect(exported.season.fruit).toEqual(seasoned.definition.season.fruit);
 
-  // Export glTF still makes a valid Baked Tree.
+  // Export glTF makes a valid Baked Tree with the Fruit.
   const glbDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export glTF' }).click();
   const glb = await readFile((await (await glbDownload).path())!);
   const report = await validateBytes(new Uint8Array(glb));
   expect(report.issues.numErrors, JSON.stringify(report.issues.messages.slice(0, 5))).toBe(0);
+  // The JSON chunk of the .glb: the Fruit is a mesh of the Baked Tree.
+  const gltf = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8'));
+  expect(gltf.nodes.filter((n: { mesh?: number }) => n.mesh !== undefined).map((n: { name: string }) => n.name)).toContain('fruit');
 
   await page.getByRole('button', { name: 'Remove Fruit', exact: true }).click();
   const removed = await waitForEditor(page);
