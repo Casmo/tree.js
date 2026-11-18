@@ -47,3 +47,8 @@ ul.sculpts li { display: flex; justify-content: space-between; align-items: cent
 #seed-warning h2 { font-size: 14px; margin: 0 0 6px; }
 #seed-warning form { display: flex; justify-content: flex-end; gap: 6px; }
 .toggle { display: flex; align-items: center; gap: 4px; margin: 2px 0; }
+.code-tabs { display: flex; }
+.code-tabs button { margin: 0 2px 0 0; }
+.code-tabs button[aria-selected='true'] { background: #557a3a; color: #fff; border-color: #3f5c2b; }
+#export-code { display: block; width: 100%; box-sizing: border-box; margin: 4px 0; font: 11px/1.35 ui-monospace, monospace;
+  background: #fff; color: #1d2a1d; border: 1px solid #c4ccbb; border-radius: 3px; resize: vertical; }
