@@ -1,0 +1,111 @@
+{
+ "title": "Trees grow a Root Flare and Roots",
+ "kicker": "New \u00b7 Roots",
+ "app": "tree-js",
+ "url": "http://localhost:5190/examples/vanilla/?species=oak&style=realistic",
+ "chapters": [
+  {
+   "title": "Oak: the trunk widens into the ground, with Roots",
+   "steps": [
+    {
+     "waitFor": "canvas"
+    },
+    {
+     "wait": 3000
+    }
+   ]
+  },
+  {
+   "title": "Redwood: a flared base with Roots diving below the ground",
+   "steps": [
+    {
+     "goto": "/examples/vanilla/?species=redwood&style=realistic"
+    },
+    {
+     "waitFor": "canvas"
+    },
+    {
+     "wait": 3000
+    }
+   ]
+  },
+  {
+   "title": "Editor: drag the Root Flare slider",
+   "steps": [
+    {
+     "goto": "/editor/?start=broadleaf/realistic&seed=1"
+    },
+    {
+     "waitFor": "[id=\"trunk.flare\"]"
+    },
+    {
+     "scroll": "[id=\"trunk.flare\"]"
+    },
+    {
+     "click": ".control.slider:has([id=\"trunk.flare\"]) input[type=\"range\"]",
+     "zoom": true
+    },
+    {
+     "press": "End"
+    },
+    {
+     "wait": 1500
+    }
+   ]
+  },
+  {
+   "title": "Add Roots in the new Roots panel and tune them",
+   "steps": [
+    {
+     "scroll": "#panel-roots"
+    },
+    {
+     "click": "role=button[name=\"Add Roots\"]",
+     "zoom": true
+    },
+    {
+     "click": ".control.slider:has([id=\"roots.count\"]) input[type=\"range\"]"
+    },
+    {
+     "press": "ArrowRight"
+    },
+    {
+     "press": "ArrowRight"
+    },
+    {
+     "click": ".control.slider:has([id=\"roots.length\"]) input[type=\"range\"]"
+    },
+    {
+     "click": ".control.slider:has([id=\"roots.angle\"]) input[type=\"range\"]"
+    },
+    {
+     "wait": 1500
+    }
+   ]
+  },
+  {
+   "title": "Materials: Ground Tint darkens the bark near the ground",
+   "steps": [
+    {
+     "scroll": "#panel-materials"
+    },
+    {
+     "click": "[id=\"materials.bark.groundTint\"]",
+     "zoom": true
+    },
+    {
+     "click": ".control.slider:has([id=\"materials.bark.groundTint.height\"]) input[type=\"range\"]"
+    },
+    {
+     "click": ".control.slider:has([id=\"materials.bark.groundTint.strength\"]) input[type=\"range\"]"
+    },
+    {
+     "press": "End"
+    },
+    {
+     "wait": 2000
+    }
+   ]
+  }
+ ]
+}
