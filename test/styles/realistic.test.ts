@@ -12,7 +12,8 @@ describe('realistic Style (dynamic import of the /styles/realistic subpath)', ()
   it('exports a broadleaf and a conifer Definition, also as one Style object', () => {
     expect(realistic.broadleaf.name).toMatch(/broadleaf/);
     expect(realistic.conifer.name).toMatch(/conifer/);
-    expect(realistic.default).toEqual({ name: 'realistic', broadleaf: realistic.broadleaf, conifer: realistic.conifer });
+    expect(realistic.default).toMatchObject({ name: 'realistic', broadleaf: realistic.broadleaf, conifer: realistic.conifer });
+    expect(realistic.default.apply).toBeTypeOf('function');
   });
 
   for (const [form, definition] of Object.entries(forms)) {

@@ -173,6 +173,11 @@ and `angle` (linear between keyframes, flat = 1 when absent). A cone is
 `lengthProfile: [{ t: 0.2, value: 1 }, { t: 1, value: 0.1 }]` on the first level; a ball, column, vase
 or flat top are other curves.
 
+A tree can grow several **Stems** from the ground: `trunk: { stems: 3, spread: 20 }` stands three full
+trunks (each with the whole branch structure) in a small ring, leaning out about 20° from vertical (the
+Seed varies each lean). `trunk.gravity` (−1..1) bends only the leader, the top third of each Stem: −1 makes
+it nod like a hemlock's. Absent, a tree has one upright Stem without gravity.
+
 **Fruit** is an optional `fruit` block: `type` (`'round'`, `'pear'`, `'nut'`, `'cone'` or `'berry'`),
 `count` per outermost twig, `size`, `sizeVariation` and `hang` (0 = sits on the twig .. 1 = hangs
 straight down). It is drawn in its own mesh in the Definition's shading, only on a fully grown tree,

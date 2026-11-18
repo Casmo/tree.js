@@ -43,6 +43,21 @@ export interface TrunkDefinition {
   lengthVariation: number;
   /** Seed range: maximum sideways drift per section, as a fraction of the section length (0..1). */
   bend: number;
+  /**
+   * Number of Stems growing from the ground (integer >= 1). Each Stem is a full trunk with these
+   * parameters and the full branch structure; Stem paths are "0", "1", "2", ... Absent = 1 (a single trunk).
+   */
+  stems?: number;
+  /**
+   * How far each Stem leans out from vertical, degrees (0..90). The Seed varies it per Stem
+   * (± 30 %) and turns the ring of Stems. Absent = 0 (upright).
+   */
+  spread?: number;
+  /**
+   * Pull on the leader, the upper third of each Stem (−1..1): − makes it nod over (a hemlock's
+   * drooping tip), + pulls a leaning Stem back up. The lower trunk is never bent. Absent = 0 (none).
+   */
+  gravity?: number;
 }
 
 /**
@@ -97,8 +112,26 @@ export const MAX_BRANCH_LEVELS = 4;
  */
 export type LeafShape = 'card' | 'clump' | 'needle' | 'puff';
 
+/**
+ * Leaf Type: the kind of leaf a Species has. Each Style decides how to draw it (leaf shape,
+ * count, size, texture); in a Tree Definition it is a label that never changes geometry by itself.
+ */
+export type LeafType = 'broad' | 'lobed' | 'palmate' | 'compound' | 'needle' | 'scale';
+/** All Leaf Types. */
+export const LEAF_TYPES: readonly LeafType[] = ['broad', 'lobed', 'palmate', 'compound', 'needle', 'scale'];
+
+/**
+ * Bark Type: the kind of bark surface a Species has. Each Style decides how to draw it (colour
+ * only, or a texture); in a Tree Definition it is a label that never changes geometry by itself.
+ */
+export type BarkType = 'furrowed' | 'smooth' | 'papery' | 'fibrous' | 'plated';
+/** All Bark Types. */
+export const BARK_TYPES: readonly BarkType[] = ['furrowed', 'smooth', 'papery', 'fibrous', 'plated'];
+
 /** Leaves, placed on the last branching level (or the trunk if there are no branches). */
 export interface LeavesDefinition {
+  /** Leaf Type the leaves were drawn from (set by `Style.apply`), so a Style can be re-applied. Optional. */
+  type?: LeafType;
   /** Leaves per terminal branch (integer >= 0; 0 = no leaves). */
   count: number;
   /** Leaf shape. */
@@ -141,6 +174,8 @@ export interface FruitDefinition {
 export type Shading = 'standard' | 'flat' | 'toon';
 
 export interface BarkMaterialDefinition {
+  /** Bark Type the bark was drawn from (set by `Style.apply`), so a Style can be re-applied. Optional. */
+  type?: BarkType;
   /** Base bark colour. */
   color: HexColor;
   /** PBR roughness (0..1). */
@@ -222,7 +257,7 @@ export interface VariationDefinition {
 interface SculptBase {
   /** The Seed the Sculpt was made on; every other Seed ignores it (ADR 0003). */
   seed: number;
-  /** Branch path, e.g. "0" (trunk) or "0.3.1". */
+  /** Branch path, e.g. "0" (trunk / first Stem), "1" (second Stem) or "0.3.1". */
   path: string;
 }
 /** Removes a branch and everything growing from it. */
@@ -251,6 +286,8 @@ export interface TreeDefinition {
   schemaVersion: typeof CURRENT_SCHEMA_VERSION;
   /** Optional human-readable name. */
   name: string;
+  /** Id of the Species this Definition was made from by `Style.apply` (e.g. `'oak'`). Optional; never changes geometry. */
+  species?: string;
   trunk: TrunkDefinition;
   /** Branching levels below the trunk (0..{@link MAX_BRANCH_LEVELS} entries). */
   branches: BranchLevelDefinition[];

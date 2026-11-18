@@ -1,4 +1,4 @@
-export { CURRENT_SCHEMA_VERSION, MAX_BRANCH_LEVELS } from './types';
+export { BARK_TYPES, CURRENT_SCHEMA_VERSION, LEAF_TYPES, MAX_BRANCH_LEVELS } from './types';
 export type {
   TreeDefinition,
   TreeDefinitionInput,
@@ -9,6 +9,8 @@ export type {
   TrunkDefinition,
   BranchLevelDefinition,
   LeafShape,
+  LeafType,
+  BarkType,
   LeavesDefinition,
   FruitType,
   FruitDefinition,

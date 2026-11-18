@@ -8,7 +8,7 @@ export interface SkeletonPoint {
 
 /**
  * One branch of the skeleton. `path` is stable for a given Definition and Seed
- * (ADR 0003): the trunk is "0", its children "0.0", "0.1", ... (ticket #4).
+ * (ADR 0003): the trunk is "0", its children "0.0", "0.1", ... (ticket #4). Extra Stems are "1", "2", ...
  */
 export interface SkeletonBranch {
   path: string;
@@ -75,7 +75,7 @@ export interface SkeletonFruit {
 }
 
 export interface TreeSkeleton {
-  /** Trunk first, then breadth first: all of level 1, all of level 2, ... */
+  /** Stems (trunks) first, then breadth first: all of level 1, all of level 2, ... */
   branches: SkeletonBranch[];
   leaves: SkeletonLeaf[];
   /** Fruit on the outermost twigs (empty without a `fruit` block). */
