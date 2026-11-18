@@ -5,6 +5,7 @@ import {
   BRANCH_LEVEL_FIELDS,
   FRUIT_FIELDS,
   GROUND_TINT_FIELDS,
+  MATERIAL_FEATURES,
   PARAMETER_GROUPS,
   ROOTS_FIELDS,
   SEASON_FIELDS,
@@ -24,7 +25,7 @@ function parameterPaths(node: unknown, prefix = ''): string[] {
   return [prefix];
 }
 
-/** A Definition with every optional field and block present (Stems, Root Flare, Crown Shape curves, Leaf/Bark Type, Ground Tint, Fruit, Roots). */
+/** A Definition with every optional field and block present (Stems, Root Flare, Crown Shape curves, Leaf/Bark Type, Ground Tint, Material Features, Fruit, Roots). */
 const FULL_DEFINITION = parseDefinition({
   ...DEFAULT_DEFINITION,
   species: 'test-oak',
@@ -35,13 +36,24 @@ const FULL_DEFINITION = parseDefinition({
     angleProfile: [{ t: 0, value: 1 }],
   })),
   leaves: { ...DEFAULT_DEFINITION.leaves, type: 'lobed' },
-  materials: { ...DEFAULT_DEFINITION.materials, bark: { ...DEFAULT_DEFINITION.materials.bark, type: 'smooth', groundTint: {} } },
+  materials: {
+    ...DEFAULT_DEFINITION.materials,
+    bark: { ...DEFAULT_DEFINITION.materials.bark, type: 'smooth', groundTint: {} },
+    leaf: { ...DEFAULT_DEFINITION.materials.leaf, crownNormals: 0.5, translucency: {} },
+    occlusion: {},
+  },
   fruit: { type: 'pear', sides: 6 },
   roots: { count: 4, sides: 6, sections: 4 },
   season: { ...DEFAULT_DEFINITION.season, fruit: [{ t: 0, value: 1 }], fruitColor: [{ t: 0, value: '#ff0000' }] },
 });
 
-const allFields = (): Field[] => [...PARAMETER_GROUPS.flatMap((group) => group.fields), ...FRUIT_FIELDS, ...ROOTS_FIELDS, ...GROUND_TINT_FIELDS];
+const allFields = (): Field[] => [
+  ...PARAMETER_GROUPS.flatMap((group) => group.fields),
+  ...FRUIT_FIELDS,
+  ...ROOTS_FIELDS,
+  ...GROUND_TINT_FIELDS,
+  ...MATERIAL_FEATURES.flatMap((feature) => feature.fields),
+];
 
 /** Polygon detail of the Roots: always the Style's choice, so no control (ADR 0007, #46). */
 const STYLE_ONLY = ['roots.sides', 'roots.sections'];
@@ -65,6 +77,9 @@ describe('parameter panels', () => {
     expect(paths).toContain('trunk.flareSections');
     expect(paths).toContain('fruit.hang');
     for (const key of ['color', 'height', 'strength']) expect(paths).toContain(`materials.bark.groundTint.${key}`);
+    expect(paths).toContain('materials.leaf.crownNormals');
+    for (const key of ['strength', 'edge', 'ambient']) expect(paths).toContain(`materials.leaf.translucency.${key}`);
+    expect(paths).toContain('materials.occlusion.strength');
     for (const key of ['count', 'length', 'lengthVariation', 'radius', 'angle', 'bend']) expect(paths).toContain(`roots.${key}`);
     expect(paths).toContain('season.fruitColor');
     expect([...editable].sort()).toEqual([...paths].sort());
@@ -105,6 +120,27 @@ describe('parameter panels', () => {
       if (field.path !== 'branches.0.start') expect(() => set(field.max), field.path).not.toThrow();
       if (field.path !== 'branches.0.end') expect(() => set(field.min), field.path).not.toThrow();
     }
+  });
+
+  it('offer a Material features group: one toggle per feature, sliders over its 0..1 range', () => {
+    expect(MATERIAL_FEATURES.map((feature) => [feature.key, feature.label, feature.path])).toEqual([
+      ['crownNormals', 'Crown Normals', 'materials.leaf.crownNormals'],
+      ['translucency', 'Leaf Translucency', 'materials.leaf.translucency'],
+      ['occlusion', 'Structural Occlusion', 'materials.occlusion'],
+    ]);
+    const sliders = MATERIAL_FEATURES.flatMap((feature) => feature.fields);
+    expect(sliders.map((field) => field.path)).toEqual([
+      'materials.leaf.crownNormals',
+      'materials.leaf.translucency.strength',
+      'materials.leaf.translucency.edge',
+      'materials.leaf.translucency.ambient',
+      'materials.occlusion.strength',
+    ]);
+    for (const field of sliders) expect(field).toMatchObject({ kind: 'number', min: 0, max: 1, step: 0.01 });
+    // Out of range is still rejected by the schema (a typed value beyond the slider).
+    expect(() => parseDefinition({ ...FULL_DEFINITION, materials: { ...FULL_DEFINITION.materials, occlusion: { strength: 1.5 } } })).toThrow(
+      /materials.occlusion.strength/,
+    );
   });
 
   it('offer exactly the choices the schema accepts', () => {

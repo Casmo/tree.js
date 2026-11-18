@@ -17,10 +17,12 @@ thousands at once as an instanced Forest, add opt-in Tree Effects, or design you
 - [Growth and Season](#growth-and-season)
 - [Wind](#wind)
 - [Forests](#forests)
+- [Material Features](#material-features)
 - [Tree Effects](#tree-effects)
 - [React Three Fiber](#react-three-fiber)
 - [Without a bundler: import map (CDN)](#without-a-bundler-import-map-cdn)
 - [Baked Trees (glTF export)](#baked-trees-gltf-export)
+- [Using a Baked Tree in other engines](#using-a-baked-tree-in-other-engines)
 - [Textures](#textures)
 - [Tree Editor](#tree-editor)
 - [Examples](#examples)
@@ -287,6 +289,22 @@ const wet = extendDefinition(mossy, { materials: { bark: { groundTint: { color: 
 const defaults = DEFAULT_GROUND_TINT; // { color: '#3f4a2a', height: 0.5, strength: 0.6 }
 ```
 
+The **Crown Volume** is one smooth ellipsoid around all leaves of the fully grown tree (every Stem's
+together), fitted as tightly as an axis-aligned ellipsoid can be. The Generator always computes it,
+deterministically per Definition and Seed, and keeps it next to the geometry as `data.crown = { center, radii }`
+(tree space, metres), so the meshes and `hashTreeData` are unchanged. Use it in your own shaders or
+gameplay: `crownDistance` is 0 at its centre, 1 on its shell and more outside, and `crownNormal` is the
+ellipsoid's outward normal through a point. A tree without leaves gets a Volume around its branches.
+
+```ts
+import { createTree, crownDistance, crownNormal, type CrownVolume } from '@casmo/tree.js';
+
+const tree = createTree({ schemaVersion: 3 }, { seed: 3 });
+const crown: CrownVolume = tree.data.crown; // { center: [x, y, z], radii: [rx, ry, rz] }
+const inside = crownDistance(crown, [0, 4, 0]) <= 1; // is this point within the crown?
+const outward = crownNormal(crown, [0, 4, 0]); // unit normal of the ellipsoid through the point
+```
+
 **Fruit** is an optional `fruit` block: `type` (`'round'`, `'pear'`, `'nut'`, `'cone'` or `'berry'`),
 `count` per outermost twig, `size`, `sizeVariation` and `hang` (0 = sits on the twig .. 1 = hangs
 straight down). A fractional `count` is a chance per twig: `0.3` puts one Fruit on about 30% of the
@@ -403,6 +421,97 @@ if (hit) console.log(forest.treeAt(hit)?.key);
 ```
 
 `forest.dispose()` frees everything. `forest.ready` resolves once its textures have loaded.
+
+## Material Features
+
+![The same stylized tree without (left) and with (right) the suggested Material Features: the crown is lit as one rounded shape, glows at its edge against the low sun and is darker inside](docs/images/material-features.png)
+
+*The same tree and lights, without (left) and with (right) `SUGGESTED_MATERIAL_FEATURES.stylized`.*
+
+Material Features make a crown read as one soft volume instead of a noise of leaf cards. There are
+three, each an optional field in the Definition's `materials` section:
+
+| Field | Range | What it does |
+| --- | --- | --- |
+| `materials.leaf.crownNormals` | 0..1 | **Crown Normals**: each leaf's normal is blended towards the [Crown Volume](#tree-definitions-and-seeds)'s, so the crown is lit as one rounded shape (0 = each leaf on its own .. 1 = fully). With flat shading the facets stay visible below 1. |
+| `materials.leaf.translucency` | `{ strength, edge, ambient }`, each 0..1 | **Leaf Translucency**: leaves glow in their own Season colour when you look towards a light through them. `strength` per direct light (shadowed leaves don't glow), `edge` = how much more the thin edge of the crown glows than its inside, `ambient` = the sky shining through, dimmed by occlusion. Leaves only, never bark or Fruit. |
+| `materials.occlusion` | `{ strength }`, 0..1 | **Structural Occlusion**: the inside of the crown and the trunk under it get less ambient light. Worked out once from the tree's shape (baked per vertex, the same for every Season), for wood, leaves and Fruit. Changing `strength` doesn't regenerate the tree. |
+
+**They are strictly opt-in and pass-free.** Absent means off, and no built-in Style or Species turns one
+on, so a game that sets nothing sees exactly the trees it saw before (same geometry, attributes and
+materials). Turning one on only changes the tree's own node materials: your renderer, scene, lights and
+post-processing are left alone, and there is no extra render pass, only some shader math per pixel. They
+work in every Style (flat, standard and toon shading), with Growth and Wind, and in Forests.
+
+Each Style has suggested values. Opt in with one line: `withMaterialFeatures(definition, features)`
+returns a new Definition whose Material Features are exactly `features` (a feature you leave out is off,
+`{}` turns them all off) and leaves its input unchanged:
+
+```ts
+import { createTree, SUGGESTED_MATERIAL_FEATURES, withMaterialFeatures } from '@casmo/tree.js';
+import { oak } from '@casmo/tree.js/species';
+import realistic from '@casmo/tree.js/styles/realistic';
+import stylized from '@casmo/tree.js/styles/stylized';
+
+const tree = createTree(withMaterialFeatures(stylized.broadleaf, SUGGESTED_MATERIAL_FEATURES.stylized), { seed: 3 });
+
+// Or your own values, e.g. only a little crown shading and occlusion:
+const subtle = withMaterialFeatures(realistic.apply(oak), { crownNormals: 0.4, occlusion: { strength: 0.5 } });
+const off = withMaterialFeatures(subtle, {}); // the plain Style tree again
+```
+
+| Style | `crownNormals` | `translucency` | `occlusion` |
+| --- | --- | --- | --- |
+| `low-poly` | 0.5 | (off: it would soften the flat look) | `{ strength: 0.8 }` |
+| `stylized` | 1 | `{ strength: 0.3, edge: 0.8, ambient: 0.2 }` | `{ strength: 0.9 }` |
+| `realistic` | 0.6 | `{ strength: 0.45, edge: 0.7, ambient: 0.25 }` | `{ strength: 0.9 }` |
+
+The fields are plain numbers, so they are saved in the Definition JSON (the Tree Editor exports them) and
+can be set with `extendDefinition` too (`{ materials: { leaf: { crownNormals: 1 } } }`). Validation
+rejects values outside 0..1.
+
+**Tuning live.** A feature that is on can be retuned on a Tree or Forest without regenerating it: the
+values are uniforms, so there is no new geometry and no recompile. Values are clamped to 0..1; setting a
+feature that is off throws (switching one on or off needs a new Tree or Forest). A Baked Tree is baked
+with the values as tuned.
+
+```ts
+import { createTree, SUGGESTED_MATERIAL_FEATURES, withMaterialFeatures } from '@casmo/tree.js';
+import stylized from '@casmo/tree.js/styles/stylized';
+
+const tree = createTree(withMaterialFeatures(stylized.broadleaf, SUGGESTED_MATERIAL_FEATURES.stylized));
+tree.crownNormals = 0.8;                         // number | null (null = off)
+tree.translucency = { strength: 0.6 };           // any of strength, edge, ambient; the others are kept
+tree.occlusionStrength = 0.5;                    // number | null
+tree.materialFeatures;                           // { crownNormals?, translucency?, occlusion? } as tuned now
+```
+
+**With your SSAO/GTAO.** Structural Occlusion is the materials' built-in ambient occlusion (`aoNode`),
+so it darkens ambient and indirect light only (sunlit sides stay sunlit) and three.js multiplies it
+with screen-space AO the same way it does for any material. Your SSAO pass needs no changes; trees simply
+bring their own occlusion, including the inside of the crown, which screen-space AO can't see:
+
+```ts
+import * as THREE from 'three/webgpu';
+import { builtinAOContext, mrt, normalView, output, pass, screenUV } from 'three/tsl';
+import { ao } from 'three/addons/tsl/display/GTAONode.js';
+
+const prePass = pass(scene, camera);
+prePass.setMRT(mrt({ output, normal: normalView }));
+const gtao = ao(prePass.getTextureNode('depth'), prePass.getTextureNode('normal'), camera);
+
+const scenePass = pass(scene, camera);
+// GTAO and the trees' Structural Occlusion are multiplied together, for ambient light only.
+scenePass.contextNode = builtinAOContext(gtao.getTextureNode().sample(screenUV).r);
+
+const pipeline = new THREE.RenderPipeline(renderer);
+pipeline.outputNode = scenePass;
+renderer.setAnimationLoop(() => pipeline.render());
+```
+
+Material Features are a different thing from [Tree Effects](#tree-effects): those are post-processing
+(the "leaf glow" effect is a screen-space bloom, not Leaf Translucency). See them side by side per Style in
+[`examples/material-features`](examples/material-features/main.ts).
 
 ## Tree Effects
 
@@ -566,6 +675,41 @@ const baked = bakeTree(tree, { season: 0.6 }); // a THREE.Group, e.g. for your o
 disposeBakedTree(baked);
 ```
 
+## Using a Baked Tree in other engines
+
+A Baked Tree carries its Material Features (Crown Normals, Leaf Translucency, Structural Occlusion; see
+`materials` in the Tree Definition) in standard glTF channels, so other engines can show them. With no
+Material Feature set, the `.glb` is exactly what it was without them.
+
+```ts
+import { createTree, exportBakedTree, extendDefinition } from '@casmo/tree.js';
+
+const definition = extendDefinition({ schemaVersion: 3 }, {
+  materials: { leaf: { crownNormals: 1, translucency: { strength: 0.5, edge: 0.6, ambient: 0.3 } }, occlusion: { strength: 0.7 } },
+});
+const tree = createTree(definition, { seed: 4 });
+const glb = await exportBakedTree(tree, { occlusionInVertexColors: true }); // the option works for bakeTree too
+```
+
+| glTF channel | What it holds | Unity | Godot 4 | Unreal | Blender |
+| --- | --- | --- | --- | --- | --- |
+| `NORMAL` | Crown Normals already blended in (flat shading: the facet normals, blended by the same amount). Flat leaf cards (`leaves.shape: 'card'`) are turned (normal and winding together) to face outward of the Crown Volume, so engines that flip the normal of back faces still light every card from the crown's outside. Solid leaf shapes keep their winding. | Imported as mesh normals; keep the importer from recalculating them. | Imported as mesh normals. | Imported as mesh normals; turn "Recompute Normals" off. | Imported as custom normals. |
+| `_OCCLUSION` (float, 0..1, all meshes) | Structural Occlusion as the tree shows it: `mix(1, aOcclusion, strength)`, 0 = occluded. **Final: the strength is already applied**, use it as AO as it is. Only when `materials.occlusion` is set. | Custom attributes are not imported by default: copy it into a UV channel or vertex colour in a custom importer, then feed it to the shader's occlusion. Or use `COLOR_0` (below). | Copy it into `CUSTOM0` with a `GLTFDocumentExtension` and read it as `AO` in a `ShaderMaterial`. Or use `COLOR_0`. | Not imported: use `COLOR_0`. | Imported as a mesh attribute `_OCCLUSION`: an Attribute node, multiplied into the indirect light or the Base Color. |
+| `COLOR_0` | The vertex colours (Season colour, bark shading) as without the features; times `_OCCLUSION` with `occlusionInVertexColors: true`. | A shader that multiplies vertex colour into albedo (glTFast's shaders do). | `vertex_color_use_as_albedo` on the material. | Vertex Color node into Base Color. | Color Attribute node into Base Color (the importer wires it). |
+| `KHR_materials_diffuse_transmission` (leaf material) | Leaf Translucency: `diffuseTransmissionFactor` = strength, `diffuseTransmissionColorFactor` = the leaf colour (linear, mean at the baked Season). | A foliage or translucent shader: transmission or thickness from the factor, colour from the colour factor. | `backlight_enabled`, `backlight` = colour × factor. | Shading model Two Sided Foliage, Subsurface Color = colour × factor. | Mix a Translucent BSDF (the colour) into the leaf shader by the factor. |
+| `extras.treejs` (leaf and bark materials) | The settings `crownNormals`, `translucency { strength, edge, ambient }`, `occlusion { strength, strengthApplied: true, inVertexColors }` (only those set) and the Crown Volume `crown { center, radii }` in the Baked Tree's space (scaled by its Growth). `occlusion.strength` is for reference: `strengthApplied: true` says `_OCCLUSION` already has it, and `inVertexColors` whether `COLOR_0` has the occlusion too. | Read the glTF JSON in a custom importer to rebuild the effects in your own shader. | Imported as metadata on the material (`extras`), or read in a `GLTFDocumentExtension`. | Not imported: read the glTF JSON. | Imported as custom properties of the material. |
+
+Importer support differs between versions; the columns show where each value goes.
+
+**Don't apply the occlusion strength twice:** `_OCCLUSION` (and `COLOR_0` with `occlusionInVertexColors`)
+already has `materials.occlusion.strength` applied. Use `_OCCLUSION` as AO directly, and only read
+`extras.treejs.occlusion.strength` if you rebuild the effect from scratch.
+
+**`occlusionInVertexColors`** (default `false`, in `bakeTree` and `exportBakedTree`): engines that only read
+vertex colours show the occlusion without a custom shader. The trade-off: `COLOR_0` darkens all light,
+direct sunlight included, while Structural Occlusion in tree.js (and `_OCCLUSION` used as AO) darkens only
+ambient and indirect light. Leave it off when your engine can read `_OCCLUSION`, or keep the strength lower.
+
 ## Textures
 
 ![The realistic Style up close: textured bark and leaf cards on a broadleaf, needle cards on a conifer](docs/images/textures.png)
@@ -609,6 +753,7 @@ a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branche
 | [`examples/react`](examples/react/main.tsx) | `/examples/react/` | React Three Fiber: `<Tree>`, `<Wind>`, `useTreeStyle`; `?scene=forest` for `<Forest>` | <img src="docs/images/example-react.png" alt="examples/react" width="160"> |
 | [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
 | [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` | <img src="docs/images/example-effects.png" alt="examples/effects" width="160"> |
+| [`examples/material-features`](examples/material-features/main.ts) | `/examples/material-features/` | the same tree with Material Features off and on (`SUGGESTED_MATERIAL_FEATURES`); `?style=realistic&species=oak` | <img src="docs/images/example-material-features.png" alt="examples/material-features" width="160"> |
 | [`examples/species`](examples/species/main.ts) | `/examples/species/` | a Species x Style picker over the whole collection; `?species=douglas-fir&style=realistic` | <img src="docs/images/example-species.png" alt="examples/species" width="160"> |
 
 ```sh

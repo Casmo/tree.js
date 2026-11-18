@@ -5,6 +5,7 @@ import { extendDefinition, parseDefinition, type DefinitionPatch } from '../defi
 import {
   CURRENT_SCHEMA_VERSION,
   type BarkMaterialDefinition,
+  type MaterialFeatures,
   type BarkType,
   type LeafMaterialDefinition,
   type LeafShape,
@@ -14,6 +15,7 @@ import {
 } from '../definition/types';
 import type { SpeciesBarkDefinition, SpeciesDefinition, SpeciesFoliageDefinition } from '../species/types';
 import { styleOfShading, styleShading, type StyleName } from './names';
+import { materialFeaturesOf } from './material-features';
 import { BARK_TEXTURES, LEAF_TEXTURES } from './realistic/textures';
 
 /** Polygon detail of one tree part. */
@@ -112,6 +114,8 @@ interface Neutral {
   foliage: SpeciesFoliageDefinition;
   /** A Definition's Ground Tint passes through too: it is not part of a Style's look. */
   bark: SpeciesBarkDefinition & Pick<BarkMaterialDefinition, 'groundTint'>;
+  /** A Definition's Material Features pass through too (ADR 0008): they are the app's choice, never a Style's. */
+  features: MaterialFeatures;
 }
 
 function fromSpecies(species: SpeciesDefinition): Neutral {
@@ -132,6 +136,7 @@ function fromSpecies(species: SpeciesDefinition): Neutral {
     },
     foliage,
     bark,
+    features: {},
   };
 }
 
@@ -156,10 +161,11 @@ function fromDefinition(input: TreeDefinition | TreeDefinitionInput): Neutral {
       color: materials.bark.color,
       ...present('groundTint', materials.bark.groundTint),
     },
+    features: materialFeaturesOf(definition),
   };
 }
 
-function draw(name: StyleName, { base, foliage, bark }: Neutral): TreeDefinition {
+function draw(name: StyleName, { base, foliage, bark, features }: Neutral): TreeDefinition {
   const look: StyleLook = LOOKS[name];
   const leaf = look.leaf(foliage.type);
   const fruit = base.fruit as TreeDefinition['fruit'];
@@ -182,7 +188,8 @@ function draw(name: StyleName, { base, foliage, bark }: Neutral): TreeDefinition
     materials: {
       shading: styleShading(name),
       bark: { type: bark.type, color: bark.color, ...look.bark(bark.type), ...present('groundTint', bark.groundTint) },
-      leaf: { ...leaf.material },
+      leaf: { ...leaf.material, ...present('crownNormals', features.crownNormals), ...present('translucency', features.translucency) },
+      ...present('occlusion', features.occlusion),
     },
   });
 }

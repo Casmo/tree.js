@@ -255,12 +255,50 @@ export interface LeafMaterialDefinition {
   map: string | null;
   /** Alpha cut-off for `map` (0..1). */
   alphaTest: number;
+  /**
+   * Crown Normals (a Material Feature, ADR 0008): how far each leaf's normal bends towards the
+   * Crown Volume's normal, 0 (each leaf lit on its own) .. 1 (the crown lit as one shape). Absent or 0 = off.
+   */
+  crownNormals?: number;
+  /** Leaf Translucency (a Material Feature, ADR 0008). Absent = off. */
+  translucency?: TranslucencyDefinition;
+}
+
+/**
+ * Leaf Translucency: light shining through the leaves towards the viewer makes them glow in their
+ * own (Season) colour, more at the thin edge of the crown. All plain numbers, 0..1.
+ */
+export interface TranslucencyDefinition {
+  /** How strongly leaves with a direct light behind them glow (0..1). */
+  strength: number;
+  /** Extra glow at the thin edge of the Crown Volume (0 = the same everywhere .. 1 = only at the edge). */
+  edge: number;
+  /** The indirect (sky) part shining through the canopy, dimmed by occlusion (0..1). */
+  ambient: number;
+}
+
+/** Structural Occlusion: ambient light darkened where the tree hides itself (wood, leaves and Fruit). */
+export interface OcclusionDefinition {
+  /** How far the baked occlusion darkens ambient and indirect light (0 = none .. 1 = fully). */
+  strength: number;
+}
+
+/**
+ * The three Material Features (GLOSSARY, ADR 0008), with the same shapes as in a Definition
+ * (`materials.leaf.crownNormals`, `materials.leaf.translucency`, `materials.occlusion`). Absent = off.
+ */
+export interface MaterialFeatures {
+  crownNormals?: number;
+  translucency?: TranslucencyDefinition;
+  occlusion?: OcclusionDefinition;
 }
 
 export interface MaterialsDefinition {
   shading: Shading;
   bark: BarkMaterialDefinition;
   leaf: LeafMaterialDefinition;
+  /** Structural Occlusion (a Material Feature, ADR 0008). Absent = off. */
+  occlusion?: OcclusionDefinition;
 }
 
 /**

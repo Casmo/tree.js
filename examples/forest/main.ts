@@ -12,6 +12,10 @@
 //   ?style=<name>&form=conifer  a built-in Style's Definition instead of the example's own
 //   ?species=<id>  that Species (loadSpecies, e.g. oak) in the ?style (default low-poly), with its Root Flare and Roots
 //   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (a third instanced mesh per Variant)
+//   Material Features (off by default; applied with withMaterialFeatures):
+//   ?features=suggested  the ?style's SUGGESTED_MATERIAL_FEATURES (low-poly without a ?style)
+//   ?crownNormals=<0..1>  Crown Normals at that amount (overrides the suggestion)
+//   ?occlusion=<0..1>  Structural Occlusion at that strength (overrides the suggestion)
 import * as THREE from 'three/webgpu';
 import {
   createForest,
@@ -20,8 +24,11 @@ import {
   loadStyle,
   sceneWind,
   SEASON_PROFILES,
+  SUGGESTED_MATERIAL_FEATURES,
+  withMaterialFeatures,
   type ForestPlacement,
   type FruitType,
+  type MaterialFeatures,
   type StyleName,
   type TreeDefinition,
   type TreeDefinitionInput,
@@ -109,8 +116,19 @@ function withFruit(definition: TreeDefinitionInput | TreeDefinition): TreeDefini
   });
 }
 
+/** Material Features from the query: the Style's suggestion (`?features=suggested`), single features on top. */
+function withFeatures(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
+  const style = (params.get('style') ?? 'low-poly') as StyleName;
+  const features: MaterialFeatures = params.get('features') === 'suggested' ? { ...SUGGESTED_MATERIAL_FEATURES[style] } : {};
+  const crownNormals = params.get('crownNormals');
+  if (crownNormals !== null) features.crownNormals = Number(crownNormals);
+  const occlusion = params.get('occlusion');
+  if (occlusion !== null) features.occlusion = { strength: Number(occlusion) };
+  return Object.keys(features).length === 0 ? definition : withMaterialFeatures(definition, features);
+}
+
 async function main(): Promise<void> {
-  const forest = createForest(withFruit(await loadDefinition()), placements, {
+  const forest = createForest(withFeatures(withFruit(await loadDefinition())), placements, {
     variants: number('variants', 4),
     seed: number('seed', 1),
     growth: number('growth', 1),

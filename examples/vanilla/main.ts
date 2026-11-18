@@ -15,17 +15,31 @@
 //   ?wind=<strength>  scene-wide Wind strength (default 0 = calm); animates unless windTime is given
 //   ?windTime=<s>  pin the Wind clock (deterministic screenshots)
 //   ?shadows=1  enable shadow mapping (sun casts, ground receives)
+//   ?backlight=1  put the sun low behind the tree, facing the camera (to see Leaf Translucency)
+//   Material Features (off by default; applied with withMaterialFeatures):
+//   ?features=suggested  the ?style's SUGGESTED_MATERIAL_FEATURES (low-poly without a ?style)
+//   ?crownNormals=<0..1>  Crown Normals at that amount (overrides the suggestion)
+//   ?translucency=<strength>,<edge>,<ambient>  Leaf Translucency (overrides the suggestion)
+//   ?occlusion=<0..1>  Structural Occlusion at that strength (overrides the suggestion)
+//   ?baked=1  show the tree as a Baked Tree: exportBakedTree, loaded back with three's GLTFLoader
+//   ?occlusionInVertexColors=1  with ?baked=1: multiply Structural Occlusion into the vertex colours
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
   createTree,
+  exportBakedTree,
   type BarkType,
   type LeafType,
   extendDefinition,
   sceneWind,
   SEASON_PROFILES,
   setTextureOptions,
+  SUGGESTED_MATERIAL_FEATURES,
+  withMaterialFeatures,
   type FruitType,
+  type MaterialFeatures,
+  type StyleName,
   type TreeDefinition,
   type TreeDefinitionInput,
   type TreeStyle,
@@ -65,6 +79,7 @@ const statusEl = document.getElementById('status')!;
 const windStrength = Number(params.get('wind') ?? 0);
 const windTime = params.get('windTime');
 const shadows = params.get('shadows') === '1';
+const backlight = params.get('backlight') === '1';
 sceneWind.set({ direction: [1, 0, -0.4], strength: windStrength });
 if (windTime !== null) sceneWind.time = Number(windTime);
 
@@ -76,12 +91,12 @@ camera.lookAt(0, 3, 0);
 
 scene.add(new THREE.HemisphereLight('#ffffff', '#6a7a4a', 1.5));
 const sun = new THREE.DirectionalLight('#ffffff', 2.5);
-sun.position.set(5, 8, 3);
+sun.position.set(...((backlight ? [-6, 3.5, -6] : [5, 8, 3]) as [number, number, number]));
 scene.add(sun);
 if (shadows) {
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
-  Object.assign(sun.shadow.camera, { left: -7, right: 7, top: 9, bottom: -3 });
+  Object.assign(sun.shadow.camera, backlight ? { left: -9, right: 9, top: 12, bottom: -4 } : { left: -7, right: 7, top: 9, bottom: -3 });
 }
 
 const ground = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(
@@ -176,13 +191,41 @@ function withCustomTextures(definition: TreeDefinitionInput | TreeDefinition): T
   });
 }
 
+/**
+ * Material Features from the query: the Style's suggestion (`?features=suggested`), with any single
+ * feature given in the query on top. Without any of these the Definition is left as it is (all off).
+ */
+function withFeatures(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
+  const style = (params.get('style') ?? 'low-poly') as StyleName;
+  const features: MaterialFeatures = params.get('features') === 'suggested' ? { ...SUGGESTED_MATERIAL_FEATURES[style] } : {};
+  const crownNormals = params.get('crownNormals');
+  if (crownNormals !== null) features.crownNormals = Number(crownNormals);
+  const translucency = params.get('translucency');
+  if (translucency) {
+    const [strength, edge, ambient] = translucency.split(',').map(Number);
+    features.translucency = { strength: strength!, edge: edge!, ambient: ambient! };
+  }
+  const occlusion = params.get('occlusion');
+  if (occlusion !== null) features.occlusion = { strength: Number(occlusion) };
+  return Object.keys(features).length === 0 ? definition : withMaterialFeatures(definition, features);
+}
+
+/** `?baked=1`: the tree as another engine gets it, a Baked Tree `.glb` loaded back with three's GLTFLoader. */
+async function baked(tree: ReturnType<typeof createTree>): Promise<THREE.Object3D> {
+  const glb = await exportBakedTree(tree, { occlusionInVertexColors: params.get('occlusionInVertexColors') === '1' });
+  const gltf = await new GLTFLoader().parseAsync(glb, '');
+  gltf.scene.traverse((object) => (object.castShadow = object.receiveShadow = true));
+  return gltf.scene;
+}
+
 async function main(): Promise<void> {
   const textureBase = params.get('textureBase');
   if (textureBase) setTextureOptions({ basePath: textureBase });
-  const tree = createTree(withFruit(withCustomTextures(await loadDefinition())), { seed, growth, season });
+  const tree = createTree(withFeatures(withFruit(withCustomTextures(await loadDefinition()))), { seed, growth, season });
   await tree.ready; // textures (realistic Style, custom maps) are loaded before the first frame
-  scene.add(tree);
-  if (params.get('style') || params.get('species')) frame(tree);
+  const shown = params.get('baked') === '1' ? await baked(tree) : tree;
+  scene.add(shown);
+  if (params.get('style') || params.get('species')) frame(shown);
 
   if (params.get('renderer') === 'classic') {
     // A classic-renderer app uses classic materials; only the tree brings TSL node materials.

@@ -10,6 +10,7 @@ import {
   type BranchLevelDefinition,
   type HexColor,
   type Keyframe,
+  type MaterialFeatures,
   type TreeDefinition,
 } from '@casmo/tree.js';
 
@@ -145,6 +146,41 @@ export const GROUND_TINT_FIELDS: Field[] = [
   { kind: 'color', path: 'materials.bark.groundTint.color', label: 'Ground Tint colour' },
   num('materials.bark.groundTint.height', 'Ground Tint height', 0.05, 5, 0.05),
   fraction('materials.bark.groundTint.strength', 'Ground Tint strength'),
+];
+
+/**
+ * The Material Features (ADR 0008) in the Materials panel's "Material features" group: a toggle per
+ * feature (on writes `path`, off removes it: absent = off) and, while it is on, its sliders.
+ */
+export const MATERIAL_FEATURES: {
+  key: keyof MaterialFeatures;
+  label: string;
+  /** Where the feature lives in the Definition (a number or a block). */
+  path: string;
+  fields: Field[];
+}[] = [
+  {
+    key: 'crownNormals',
+    label: 'Crown Normals',
+    path: 'materials.leaf.crownNormals',
+    fields: [fraction('materials.leaf.crownNormals', 'Crown Normals amount')],
+  },
+  {
+    key: 'translucency',
+    label: 'Leaf Translucency',
+    path: 'materials.leaf.translucency',
+    fields: [
+      fraction('materials.leaf.translucency.strength', 'Translucency strength'),
+      fraction('materials.leaf.translucency.edge', 'Translucency edge'),
+      fraction('materials.leaf.translucency.ambient', 'Translucency ambient'),
+    ],
+  },
+  {
+    key: 'occlusion',
+    label: 'Structural Occlusion',
+    path: 'materials.occlusion',
+    fields: [fraction('materials.occlusion.strength', 'Occlusion strength')],
+  },
 ];
 
 /** The fields of one branching level; paths relative to `branches.<i>`. */

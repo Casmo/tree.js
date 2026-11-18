@@ -1,3 +1,5 @@
+import type { CrownVolume } from './crown';
+
 export type Vec3 = [number, number, number];
 
 /** One point on a branch's centre line. */
@@ -106,6 +108,10 @@ export interface VertexAttribute {
  * Per-vertex attributes every tree mesh carries; Growth, Season and Wind (tickets #6-#8)
  * are computed from these in TSL, and may add their own entries.
  * A "part" is a branch (wood mesh) or a leaf (leaves mesh).
+ *
+ * Only when the Definition sets `materials.occlusion` (Structural Occlusion) is there also `aOcclusion`
+ * (float, 0 = occluded .. 1 = open), baked on the fully grown tree with every leaf on from the depth in the
+ * Crown Volume and the leaf cover above; independent of Season and of the strength (the material mixes that in).
  */
 export interface TreeAttributes {
   [name: string]: VertexAttribute;
@@ -178,4 +184,10 @@ export interface TreeData {
   fruit: GeometryBuffers;
   /** When each part grows (the Seed shifts it within `variation.growth`). Also in the `aGrowth` attribute. */
   growth: GrowthTiming;
+  /**
+   * The Crown Volume: one ellipsoid around all leaves of the fully grown tree (every Stem's), in tree
+   * space. Always computed, deterministic per Definition and Seed, and not part of the geometry or its
+   * hash. Measure points against it with `crownDistance` and `crownNormal`.
+   */
+  crown: CrownVolume;
 }

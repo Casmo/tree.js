@@ -11,10 +11,11 @@ import {
   type UniformNode,
 } from 'three/webgpu';
 import { uniform } from 'three/tsl';
-import type { TreeDefinition } from '../definition';
+import type { MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
 import { trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { clampGrowth, growthPosition } from '../growth';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
+import { LiveMaterialFeatures } from '../materials/material-features';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes, type SeasonUniform } from '../season';
 import { checkedSeason } from '../season/check';
@@ -107,6 +108,7 @@ export class Tree extends Group {
   /** This tree's response to the Wind, from `definition.wind`; `windResponse.set(...)` changes it live. */
   readonly windResponse: WindResponse;
   private readonly windBinding: WindBinding;
+  private readonly features: LiveMaterialFeatures;
 
   /**
    * Resolves once every texture of this tree has loaded (at once for a tree without textures);
@@ -153,6 +155,56 @@ export class Tree extends Group {
     fruit.positionNode = growthPosition(this.growthUniform, fruitSeason.position);
     applyWind(fruit, offset);
     this.season = options.season ?? 0;
+    this.features = new LiveMaterialFeatures(definition, [
+      { leaf, materials: [bark, leaf, fruit], crown: data.crown, growth: this.growthUniform },
+    ]);
+  }
+
+  /**
+   * Crown Normals amount (0..1), from the Definition's `materials.leaf.crownNormals`; null when it is off.
+   * Setting it (clamped to 0..1) only writes a uniform: no regeneration, no recompile. Throws on a
+   * tree without Crown Normals (switching the feature on needs a new tree).
+   */
+  get crownNormals(): number | null {
+    return this.features.crownNormals;
+  }
+
+  set crownNormals(value: number) {
+    this.features.crownNormals = value;
+  }
+
+  /**
+   * Leaf Translucency settings (a copy), from the Definition's `materials.leaf.translucency`; null when it
+   * is off. Setting any of them (each clamped to 0..1, the others kept) only writes uniforms: no
+   * regeneration, no recompile. Throws on a tree without Leaf Translucency.
+   */
+  get translucency(): TranslucencyDefinition | null {
+    return this.features.translucency;
+  }
+
+  set translucency(value: Partial<TranslucencyDefinition>) {
+    this.features.translucency = value;
+  }
+
+  /**
+   * The Material Features this tree shows, with their current (possibly live-tuned) values: the
+   * Definition's (see `materialFeaturesOf`), except that Crown Normals at 0 count as off.
+   */
+  get materialFeatures(): MaterialFeatures {
+    return this.features.values;
+  }
+
+  /**
+   * Structural Occlusion strength (0..1), from the Definition's `materials.occlusion`; null when it has none.
+   * Setting it (clamped to 0..1) only writes a uniform: no regeneration, no recompile. Throws on a tree
+   * without Structural Occlusion (there is no baked occlusion to show).
+   */
+  get occlusionStrength(): number | null {
+    return this.features.occlusionStrength;
+  }
+
+  set occlusionStrength(value: number) {
+    this.features.occlusionStrength = value;
   }
 
   /**

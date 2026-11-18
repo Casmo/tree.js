@@ -28,6 +28,7 @@ const JOBS = {
   'growth-season': { ...shot('growth-season', 400, 400), gif: { fps: 12, colors: 128 } },
   wind: { ...shot('wind', 640, 320), gif: { fps: 15, colors: 128 } },
   forest: shot('forest', 960, 400),
+  'material-features': { url: '/examples/material-features/?style=stylized', width: 960, height: 400, ready: 'featuresExample' },
   effects: { side: [shot('effects', 480, 360, '&effects=0'), shot('effects', 480, 360, '&effects=1')] },
   baked: { ...shot('baked', 400, 360), gif: { fps: 15, colors: 64 } },
   textures: shot('textures', 960, 400),
@@ -39,6 +40,7 @@ const JOBS = {
   'example-react': { url: '/examples/react/?scene=forest', width: 480, height: 300, ready: 'reactExample' },
   'example-forest': { url: '/examples/forest/?season=0.6', width: 480, height: 300, ready: 'forestExample' },
   'example-effects': { url: '/examples/effects/?style=stylized', width: 480, height: 300, ready: 'effectsExample' },
+  'example-material-features': { url: '/examples/material-features/?style=realistic', width: 480, height: 300, ready: 'featuresExample' },
   'example-species': { url: '/examples/species/?species=maple&style=stylized&season=0.62', width: 480, height: 300, ready: 'speciesExample' },
 };
 

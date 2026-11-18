@@ -3,8 +3,11 @@ export { createTree, Tree, type CreateTreeOptions, type TreeOptions } from './tr
 export * from './definition';
 export * from './season';
 export {
+  crownDistance,
+  crownNormal,
   hashGeometry,
   hashTreeData,
+  type CrownVolume,
   type TreeData,
   type GrowthTiming,
   type GrowthWindow,
@@ -45,12 +48,14 @@ export type {
   SpeciesRootsDefinition,
 } from './species/types';
 export { loadStyle, STYLE_NAMES, styleLabel, styleOfShading, type StyleName } from './styles/registry';
+export { materialFeaturesOf, SUGGESTED_MATERIAL_FEATURES, withMaterialFeatures } from './styles/material-features';
 export {
   bakeTree,
   disposeBakedTree,
   exportBakedTree,
   type BakeOptions,
   type ExportBakedTreeOptions,
+  type MaterialFeatureExtras,
 } from './bake';
 export {
   createForest,

@@ -1,4 +1,12 @@
-import { DEFAULT_BRANCH_LEVEL, DEFAULT_DEFINITION, DEFAULT_FRUIT, DEFAULT_GROUND_TINT, DEFAULT_ROOTS } from './defaults';
+import {
+  DEFAULT_BRANCH_LEVEL,
+  DEFAULT_DEFINITION,
+  DEFAULT_FRUIT,
+  DEFAULT_GROUND_TINT,
+  DEFAULT_OCCLUSION,
+  DEFAULT_ROOTS,
+  DEFAULT_TRANSLUCENCY,
+} from './defaults';
 import {
   BARK_TYPES,
   FRUIT_TYPES,
@@ -10,7 +18,11 @@ import {
   type DeleteSculpt,
   type FruitDefinition,
   type GroundTintDefinition,
+  type LeafMaterialDefinition,
+  type MaterialsDefinition,
+  type OcclusionDefinition,
   type RootsDefinition,
+  type TranslucencyDefinition,
   type SeasonProfileDefinition,
   type Keyframe,
   type LeavesDefinition,
@@ -235,7 +247,7 @@ const treeDefinition = obj<TreeDefinition>({
     }),
     DEFAULT_ROOTS,
   ),
-  materials: obj({
+  materials: obj<MaterialsDefinition>({
     shading: oneOf('standard', 'flat', 'toon'),
     bark: obj<BarkMaterialDefinition>({
       type: optional(oneOf(...BARK_TYPES)),
@@ -248,7 +260,18 @@ const treeDefinition = obj<TreeDefinition>({
         DEFAULT_GROUND_TINT,
       ),
     }),
-    leaf: obj({ roughness: unit, map: url, alphaTest: unit }),
+    leaf: obj<LeafMaterialDefinition>({
+      roughness: unit,
+      map: url,
+      alphaTest: unit,
+      // Material Features (ADR 0008): optional, absent = off.
+      crownNormals: optional(unit),
+      translucency: optionalBlock<TranslucencyDefinition>(
+        obj<TranslucencyDefinition>({ strength: unit, edge: unit, ambient: unit }),
+        DEFAULT_TRANSLUCENCY,
+      ),
+    }),
+    occlusion: optionalBlock<OcclusionDefinition>(obj<OcclusionDefinition>({ strength: unit }), DEFAULT_OCCLUSION),
   }),
   season: obj<SeasonProfileDefinition>({
     leafColor: track(hexColor),
