@@ -52,3 +52,7 @@ ul.sculpts li { display: flex; justify-content: space-between; align-items: cent
 .code-tabs button[aria-selected='true'] { background: #557a3a; color: #fff; border-color: #3f5c2b; }
 #export-code { display: block; width: 100%; box-sizing: border-box; margin: 4px 0; font: 11px/1.35 ui-monospace, monospace;
   background: #fff; color: #1d2a1d; border: 1px solid #c4ccbb; border-radius: 3px; resize: vertical; }
+.track-buttons { display: flex; gap: 6px; }
+.crown-shape { border-top: 1px dashed #d5dccd; margin-top: 6px; }
+.crown-shapes { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
+.crown-shapes button { font-size: 11px; padding: 1px 6px; }

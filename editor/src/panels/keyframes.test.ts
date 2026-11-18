@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addKeyframe, moveKeyframe, removeKeyframe } from './keyframes';
+import { addKeyframe, moveKeyframe, removeKeyframe, widestGap } from './keyframes';
 
 const track = [
   { t: 0, value: 0.3 },
@@ -38,5 +38,12 @@ describe('Season Profile keyframe editing', () => {
     moveKeyframe(track, 2, 0.1);
     removeKeyframe(track, 0);
     expect(track).toEqual(copy);
+  });
+
+  it('finds where a new curve keyframe has most room: the middle of the widest gap (ends included)', () => {
+    expect(widestGap([{ t: 0, value: 1 }])).toBe(0.5);
+    expect(widestGap([{ t: 0.2, value: 1 }, { t: 0.4, value: 1 }])).toBe(0.7);
+    expect(widestGap([{ t: 0.5, value: 1 }, { t: 0.9, value: 1 }])).toBe(0.25);
+    expect(widestGap([{ t: 0, value: 1 }, { t: 0.3, value: 1 }, { t: 1, value: 1 }])).toBe(0.65);
   });
 });
