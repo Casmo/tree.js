@@ -12,6 +12,7 @@ thousands at once as an instanced Forest, add opt-in Tree Effects, or design you
 - [Quick start](#quick-start)
 - [WebGPURenderer is required](#webgpurenderer-is-required)
 - [Styles](#styles)
+- [Species](#species)
 - [Tree Definitions and Seeds](#tree-definitions-and-seeds)
 - [Growth and Season](#growth-and-season)
 - [Wind](#wind)
@@ -37,6 +38,7 @@ npm install @casmo/tree.js three
 | --- | --- |
 | `@casmo/tree.js` | `createTree`, `createForest`, Definitions, Wind, Baked Tree export, `loadStyle`, ... |
 | `@casmo/tree.js/styles/low-poly` (`stylized`, `realistic`) | a built-in Style: one Tree Definition per Form (a few kB of data) |
+| `@casmo/tree.js/species` | the 28 Species (`oak`, `douglasFir`, ...), `loadSpecies`, `SPECIES_NAMES`; JSON files |
 | `@casmo/tree.js/effects` | Tree Effects (post-processing) |
 | `@casmo/tree.js/react` | `<Tree>`, `<Forest>`, `<Wind>`, `useTreeStyle` for React Three Fiber |
 
@@ -129,6 +131,51 @@ await birch.ready; // resolves once its textures have loaded (instantly for tree
 const tallPine = createTree(extendDefinition(stylized.conifer, { trunk: { length: 9 } }), { seed: 2 });
 scene.add(oak, pine, birch, tallPine);
 ```
+
+## Species
+
+[![All 28 Species, each in the low-poly, stylized and realistic Styles](docs/species/contact-sheet.jpg)](docs/species/README.md)
+
+*Every Species in `low-poly`, `stylized` and `realistic`; the [Species gallery](docs/species/README.md) has larger
+images (with Fruit or in autumn), a code example and the JSON of each.*
+
+28 real trees ship with the library, each described once by its shape (Stems, Crown Shape), Leaf Type, Bark
+Type, Fruit, colours and Season Profile, and drawn in any Style:
+
+```ts
+import { createTree, loadStyle } from '@casmo/tree.js';
+import { oak } from '@casmo/tree.js/species';
+scene.add(createTree((await loadStyle('realistic')).apply(oak), { seed: 42 }));
+```
+
+- **Broadleaf**: `almond`, `apple`, `ash`, `beech`, `birch`, `cherry`, `chestnut`, `elm`, `hickory`, `mahogany`, `maple`, `oak`, `olive`, `peach`, `pear`, `plum`, `redOak`, `teak`, `walnut`, `whiteOak`
+- **Conifer**: `cedar`, `douglasFir`, `hemlock`, `juniper`, `pine`, `redwood`, `sequoia`, `spruce`
+
+`style.apply(species, overrides?)` returns an ordinary, complete Tree Definition, so it works everywhere a
+Definition does (`createTree`, `createForest`, Baked Trees, the Tree Editor). Each Species is its own module:
+importing two doesn't bundle the other 26.
+
+```ts
+import { createForest, createTree } from '@casmo/tree.js';
+import { apple, douglasFir, loadSpecies, SPECIES_NAMES, type SpeciesName } from '@casmo/tree.js/species';
+import lowPoly from '@casmo/tree.js/styles/low-poly';
+import stylized from '@casmo/tree.js/styles/stylized';
+
+const tallFir = createTree(stylized.apply(douglasFir, { trunk: { length: 14 } }), { seed: 3 });
+const orchard = createForest(lowPoly.apply(apple), [
+  { id: 'a', position: [0, 0, 0] },
+  { id: 'b', position: [5, 0, 1] },
+]);
+
+// At runtime, e.g. from level data: a dynamic import per Species (rejects unknown ids).
+const name: SpeciesName = SPECIES_NAMES.includes('birch') ? 'birch' : 'oak';
+const birch = createTree(lowPoly.apply(await loadSpecies(name)), { season: 0.6 });
+scene.add(tallFir, orchard, birch);
+```
+
+Without a bundler, every Species is also a plain JSON file: `@casmo/tree.js/species/<id>.json` (for example
+`https://cdn.jsdelivr.net/npm/@casmo/tree.js/dist/species/douglas-fir.json`). In React:
+`<Tree species={oak} style={lowPoly} seed={7} />`. Try them all in [`examples/species`](examples/species/main.ts).
 
 ## Tree Definitions and Seeds
 
