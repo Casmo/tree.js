@@ -1,9 +1,8 @@
 import type { NodeBuilder } from 'three/webgpu';
-import { BRDF_Lambert, diffuseColor, float, mix, positionGeometry, positionViewDirection, uniform, varying, vec3 } from 'three/tsl';
+import { BRDF_Lambert, diffuseColor, float, mix, positionViewDirection, uniform } from 'three/tsl';
 import type { TranslucencyDefinition } from '../definition';
 import type { CrownVolume } from '../generator';
-import { growthPosition } from '../growth';
-import { treeScale } from '../growth/tsl';
+import { crownNodes } from './crown';
 
 // TSL node types are loosely typed in @types/three; keep our own alias.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,21 +35,17 @@ export interface LeafTranslucencyTerm {
  * Crown Volume (`TreeData.crown`, tree space, fully grown) and `growth` the Growth node the material
  * grows with (the Tree's uniform, or a Forest's per-instance Growth).
  *
- * Thinness is measured in the tree's own space, on the grown position before Wind (so Wind doesn't make it
- * flicker), against the Crown Volume scaled by the same Growth scale the vertices get. Being in tree space,
- * it is the same for every Forest instance whatever its rotation and scale. It needs no vertex attribute.
+ * Thinness is the Crown Volume distance (`crownNodes`): measured in the tree's own space on the grown
+ * position before Wind (so Wind doesn't make it flicker), against the Volume scaled by the same Growth scale
+ * the vertices get. Being in tree space, it is the same for every Forest instance whatever its rotation and
+ * scale. It needs no vertex attribute.
  */
 export function leafTranslucencyTerm(settings: TranslucencyDefinition, crown: CrownVolume, growth: Node): LeafTranslucencyTerm {
-  const scale = treeScale(float(growth).clamp(0, 1));
-  const center = vec3(...crown.center).mul(scale);
-  const radii = vec3(...crown.radii).mul(scale);
-  const grown = growthPosition(growth, positionGeometry);
-  const distance = varying(grown.sub(center).div(radii).length());
   return {
     strength: uniform(settings.strength),
     ambient: uniform(settings.ambient),
     edge: uniform(settings.edge),
-    thinness: distance.clamp(0, 1),
+    thinness: crownNodes(crown, growth).distance.clamp(0, 1),
   };
 }
 
