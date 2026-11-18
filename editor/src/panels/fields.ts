@@ -124,6 +124,19 @@ export const FRUIT_FIELDS: Field[] = [
   optionalNum('fruit.sides', 'Fruit sides', 3, 16, 1, 8),
 ];
 
+/**
+ * The fields of the optional `roots` block (shown while the Definition has Roots). Their polygon
+ * detail (`roots.sides`, `roots.sections`) is left to the Style.
+ */
+export const ROOTS_FIELDS: Field[] = [
+  num('roots.count', 'Roots per Stem', 0, 12, 1),
+  fraction('roots.length', 'Root length'),
+  fraction('roots.lengthVariation', 'Length variation'),
+  fraction('roots.radius', 'Root radius'),
+  num('roots.angle', 'Dive angle', 0, 60, 1),
+  fraction('roots.bend', 'Bend'),
+];
+
 /** The fields of one branching level; paths relative to `branches.<i>`. */
 export const BRANCH_LEVEL_FIELDS: Extract<Field, { kind: 'number' }>[] = [
   { kind: 'number', path: 'count', label: 'Count', min: 0, max: 32, step: 1 },

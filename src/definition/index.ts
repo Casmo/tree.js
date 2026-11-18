@@ -14,6 +14,7 @@ export type {
   LeavesDefinition,
   FruitType,
   FruitDefinition,
+  RootsDefinition,
   Shading,
   MaterialsDefinition,
   BarkMaterialDefinition,
@@ -28,7 +29,7 @@ export type {
   LeavesSculpt,
 } from './types';
 export { coneCurve } from './crown-shape';
-export { DEFAULT_DEFINITION, DEFAULT_BRANCH_LEVEL, DEFAULT_FRUIT, DEFAULT_FRUIT_AMOUNT, DEFAULT_FRUIT_COLOR } from './defaults';
+export { DEFAULT_DEFINITION, DEFAULT_BRANCH_LEVEL, DEFAULT_FRUIT, DEFAULT_ROOTS, DEFAULT_FRUIT_AMOUNT, DEFAULT_FRUIT_COLOR } from './defaults';
 export {
   parseDefinition,
   extendDefinition,

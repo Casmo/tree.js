@@ -242,6 +242,27 @@ const flared = createTree(oak, { seed: 3 });
 const slender = extendDefinition(oak, { trunk: { flare: 0.15 } }); // a hint of a flare, same crown
 ```
 
+**Roots** are an optional `roots` block: a few Roots grow from the Root Flare of every Stem, run outward
+and down, taper to a point and vanish below the ground. `count` is Roots per Stem (0..12), `length` a
+fraction of the Stem's length (`lengthVariation` is the Seed's ± range), `radius` a fraction of the trunk's
+base radius, `angle` how steeply they dive (degrees below horizontal, 0..60) and `bend` how much they wander
+sideways. A partial block is filled from `DEFAULT_ROOTS` (5 Roots, length 0.25, radius 0.35, angle 12°);
+absent means none. The optional `sides` and `sections` are their polygon detail, set by `Style.apply`
+(realistic 8 / 6, stylized 6 / 4, low-poly 3 / 2). Roots are part of the wood mesh, grow with the trunk from
+Growth 0, never sway in the Wind and cannot be Sculpted; adding or removing them leaves the branches,
+leaves and Fruit exactly as they were. The tree data lists them in `skeleton.roots` (branch-like entries
+with paths `0/r0`, `0/r1`, ... and their Stem as `parent`) with their Growth windows in `growth.roots`:
+
+```ts
+import { createTree, DEFAULT_ROOTS, type SkeletonBranch } from '@casmo/tree.js';
+
+const rooted = createTree({ schemaVersion: 3, trunk: { flare: 0.6 }, roots: { count: 7, angle: 10 } }, { seed: 3 });
+const roots: SkeletonBranch[] = rooted.data.skeleton.roots; // 7 Roots: '0/r0' .. '0/r6', parent '0'
+const tips = roots.map((root) => root.points.at(-1)!.position); // all below the ground (y < 0)
+const windows = rooted.data.growth.roots; // { start: 0, end: 0 }: there from Growth 0, like the trunk
+const defaults = DEFAULT_ROOTS; // { count: 5, length: 0.25, lengthVariation: 0.3, radius: 0.35, angle: 12, bend: 0.3 }
+```
+
 **Fruit** is an optional `fruit` block: `type` (`'round'`, `'pear'`, `'nut'`, `'cone'` or `'berry'`),
 `count` per outermost twig, `size`, `sizeVariation` and `hang` (0 = sits on the twig .. 1 = hangs
 straight down). A fractional `count` is a chance per twig: `0.3` puts one Fruit on about 30% of the

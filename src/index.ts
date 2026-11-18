@@ -41,6 +41,7 @@ export type {
   SpeciesFoliageDefinition,
   SpeciesBarkDefinition,
   SpeciesFruitDefinition,
+  SpeciesRootsDefinition,
 } from './species/types';
 export { loadStyle, STYLE_NAMES, styleLabel, styleOfShading, type StyleName } from './styles/registry';
 export {

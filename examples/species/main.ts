@@ -73,6 +73,7 @@ document.body.appendChild(renderer.domElement);
 /** Points the camera at the whole tree (Species differ a lot in size) and sizes the ground to it. */
 function frame(object: THREE.Object3D): void {
   const box = new THREE.Box3().setFromObject(object);
+  if (box.max.y > 0) box.min.y = Math.max(box.min.y, 0); // underground Roots don't shift the view
   const size = box.getSize(new THREE.Vector3());
   const centre = box.getCenter(new THREE.Vector3());
   const distance = (Math.max(size.y, size.x, size.z) / 2 / Math.tan((camera.fov * Math.PI) / 360)) * 1.3;

@@ -153,7 +153,7 @@ describe('Definition validation names the bad field', () => {
     ['negative trunk radius', { schemaVersion: 2, trunk: { radius: -1 } }, 'trunk.radius'],
     ['too few trunk sides', { schemaVersion: 2, trunk: { sides: 2 } }, 'trunk.sides'],
     ['unknown field (typo)', { schemaVersion: 2, trunk: { lenght: 3 } }, 'trunk.lenght'],
-    ['unknown section', { schemaVersion: 2, roots: {} }, 'roots'],
+    ['unknown section', { schemaVersion: 2, twigs: {} }, 'twigs'],
     ['section not an object', { schemaVersion: 2, leaves: 3 }, 'leaves'],
     ['unknown form (v2)', { schemaVersion: 2, form: 'palm' }, 'form'],
     ['form is no longer a v3 field', { schemaVersion: 3, form: 'conifer' }, 'form'],

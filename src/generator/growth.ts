@@ -31,7 +31,7 @@ export function growthTiming(
   seed: number,
   branches: SkeletonBranch[],
   leaves: SkeletonLeaf[],
-): Omit<GrowthTiming, 'fruit'> {
+): Omit<GrowthTiming, 'fruit' | 'roots'> {
   const raw = new Map<string, GrowthWindow>();
   const branchWindows = branches.map((branch) => {
     let window: GrowthWindow = { start: 0, end: 0 };

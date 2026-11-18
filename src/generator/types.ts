@@ -80,6 +80,12 @@ export interface TreeSkeleton {
   leaves: SkeletonLeaf[];
   /** Fruit on the outermost twigs (empty without a `fruit` block). */
   fruit: SkeletonFruit[];
+  /**
+   * Roots (ADR 0007), Stem by Stem (empty without a `roots` block): branch-like entries with paths
+   * `<stem path>/r<i>` (e.g. "0/r0", "0/r1"), `parent` = their Stem's path, level 0 and attach 0.
+   * Not in `branches`, where parentless entries are the Stems.
+   */
+  roots: SkeletonBranch[];
 }
 
 /** A custom per-vertex attribute: `itemSize` floats per vertex. */
@@ -148,13 +154,15 @@ export interface GrowthTiming {
   leaves: GrowthWindow[];
   /** Fruit grows only at the end of Growth (from about 0.9), on a fully grown twig. */
   fruit: GrowthWindow[];
+  /** Roots grow like the trunk: present from Growth 0 ({ start: 0, end: 0 }), scaled with the whole tree. */
+  roots: GrowthWindow[];
 }
 
 /** Everything the Generator produces for one Definition + Seed. Pure data, Node-safe. */
 export interface TreeData {
   seed: number;
   skeleton: TreeSkeleton;
-  /** Wood mesh: trunk and all branches. */
+  /** Wood mesh: trunk and all branches, then the Roots. */
   wood: GeometryBuffers;
   /** Leaf cards, vertex coloured. Empty buffers for a bare tree. */
   leaves: GeometryBuffers;

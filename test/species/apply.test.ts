@@ -227,6 +227,32 @@ describe('Style.apply draws the Root Flare the Style\'s way', () => {
   });
 });
 
+describe('Style.apply draws Roots the Style\'s way', () => {
+  const rooted = { ...testOak, roots: { count: 4, length: 0.2, lengthVariation: 0.2, radius: 0.3, angle: 15, bend: 0.25 } };
+
+  it('realistic gives Roots 8 sides and 6 sections, stylized 6 and 4, low-poly 3 and 2', () => {
+    const detail = (style: (typeof styles)[keyof typeof styles]) => {
+      const { sides, sections } = style.apply(rooted).roots!;
+      return [sides, sections];
+    };
+    expect(Object.fromEntries(Object.entries(styles).map(([name, style]) => [name, detail(style)]))).toEqual({
+      'low-poly': [3, 2],
+      stylized: [6, 4],
+      realistic: [8, 6],
+    });
+    for (const style of Object.values(styles)) {
+      const { skeleton } = generateTree(style.apply(rooted), 1);
+      expect(skeleton.roots.map((root) => root.points.length - 1)).toEqual([...Array(4)].map(() => style.apply(rooted).roots!.sections));
+    }
+  });
+
+  it('keeps the Species\' Roots; re-styling a Definition redraws its Roots in the new Style; no Roots, no block', () => {
+    for (const style of Object.values(styles)) expect(style.apply(rooted).roots).toMatchObject(rooted.roots);
+    expect(realistic.apply(lowPoly.apply(rooted)).roots).toEqual(realistic.apply(rooted).roots);
+    for (const style of Object.values(styles)) expect(style.apply(testOak)).not.toHaveProperty('roots');
+  });
+});
+
 describe('Style.apply on a Tree Definition re-applies only the look', () => {
   const shapeOf = (d: ReturnType<typeof parseDefinition>) => ({
     trunk: { ...d.trunk, sides: 0, sections: 0, flareSections: 0 },

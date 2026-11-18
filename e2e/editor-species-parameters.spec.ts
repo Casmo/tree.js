@@ -1,9 +1,9 @@
 // Tree Editor controls for the Species parameters (#39): Stems, Leaf/Bark Type, Crown Shape curves
-// with one-click shapes, and Fruit with its Season tracks. Every edit regenerates the preview and is undoable.
+// with one-click shapes, Fruit with its Season tracks, and Roots. Every edit regenerates the preview and is undoable.
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 import { validateBytes } from 'gltf-validator';
-import { DEFAULT_FRUIT, parseDefinition } from '../src/index';
+import { DEFAULT_FRUIT, DEFAULT_ROOTS, parseDefinition } from '../src/index';
 
 async function waitForEditor(page: Page) {
   await page.waitForFunction(() => window.treeEditor?.status !== 'loading', null, { timeout: 30_000 });
@@ -193,4 +193,44 @@ test('Fruit can be added, tuned with its Season tracks, removed, and exports', a
   await page.getByRole('button', { name: 'Undo' }).click();
   expect((await waitForEditor(page)).definition.fruit).toEqual(tuned.definition.fruit);
   await expect(byId(page, 'fruit.type')).toHaveValue('pear');
+});
+
+test('Roots can be added right after the Trunk panel, tuned, removed, and export', async ({ page }) => {
+  await page.goto('/editor/?start=low-poly/broadleaf&seed=1');
+  const initial = await waitForEditor(page);
+  expect(initial.definition).not.toHaveProperty('roots');
+  const panelIds = await page.locator('section[id^="panel-"]').evaluateAll((sections) => sections.map((section) => section.id));
+  expect(panelIds[panelIds.indexOf('panel-trunk') + 1]).toBe('panel-roots');
+
+  await page.getByRole('button', { name: 'Add Roots', exact: true }).click();
+  const added = await waitForEditor(page);
+  expect(added.definition.roots).toEqual(DEFAULT_ROOTS);
+  expect(added.woodVertices).toBeGreaterThan(initial.woodVertices);
+  // The Style's detail is not offered.
+  await expect(byId(page, 'roots.sides')).toHaveCount(0);
+
+  await fill(page, 'roots.count', '7');
+  await fill(page, 'roots.length', '0.3');
+  await fill(page, 'roots.lengthVariation', '0.1');
+  await fill(page, 'roots.radius', '0.4');
+  await fill(page, 'roots.angle', '20');
+  await fill(page, 'roots.bend', '0.5');
+  const tuned = await waitForEditor(page);
+  expect(tuned.error).toBeUndefined();
+  expect(tuned.definition.roots).toEqual({ count: 7, length: 0.3, lengthVariation: 0.1, radius: 0.4, angle: 20, bend: 0.5 });
+  expect(tuned.woodVertices).toBeGreaterThan(added.woodVertices);
+
+  const jsonDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export JSON' }).click();
+  const exported = parseDefinition(await readFile((await (await jsonDownload).path())!, 'utf8'));
+  expect(exported.roots).toEqual(tuned.definition.roots);
+
+  await page.getByRole('button', { name: 'Remove Roots', exact: true }).click();
+  const removed = await waitForEditor(page);
+  expect(removed.definition).not.toHaveProperty('roots');
+  expect(removed.woodVertices).toBe(initial.woodVertices);
+  await expect(page.getByRole('button', { name: 'Add Roots', exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  expect((await waitForEditor(page)).definition.roots).toEqual(tuned.definition.roots);
 });

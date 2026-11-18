@@ -192,6 +192,31 @@ export interface FruitDefinition {
   sides?: number;
 }
 
+/**
+ * Roots (ADR 0007): their own tree part, grown after the Sculpt pass from the Root Flare of every
+ * remaining Stem, each from its own random stream, and drawn in the wood mesh after the branches.
+ * They run outward and down, taper to a point below the ground, grow with the trunk and never sway.
+ * They are not Sculptable. Absent = no Roots.
+ */
+export interface RootsDefinition {
+  /** Roots per Stem (integer 0..12). */
+  count: number;
+  /** Root length as a fraction of its Stem's length (after Seed variation and Sculpts), 0..1. */
+  length: number;
+  /** Seed range: ± this fraction of `length` (0..1). */
+  lengthVariation: number;
+  /** Base radius as a fraction of the trunk's base radius (0..1). */
+  radius: number;
+  /** How steeply a Root dives, degrees below horizontal (0..60). Every Root still ends below the ground. */
+  angle: number;
+  /** Seed range: sideways wander per section (0..1). */
+  bend: number;
+  /** Polygon detail, set by the Style: sides around each Root (integer 3..16). Absent = derived from `trunk.sides`. */
+  sides?: number;
+  /** Polygon detail, set by the Style: sections along each Root (integer >= 1). Absent = 4. */
+  sections?: number;
+}
+
 /** Material shading model. Low-poly uses `flat`, stylized `toon`, realistic `standard`. */
 export type Shading = 'standard' | 'flat' | 'toon';
 
@@ -316,6 +341,8 @@ export interface TreeDefinition {
   leaves: LeavesDefinition;
   /** Fruit on the outermost twigs; absent = none. */
   fruit?: FruitDefinition;
+  /** Roots on every Stem; absent = none. */
+  roots?: RootsDefinition;
   materials: MaterialsDefinition;
   season: SeasonProfileDefinition;
   wind: WindResponseDefinition;

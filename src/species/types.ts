@@ -4,6 +4,7 @@ import type {
   FruitDefinition,
   HexColor,
   LeafType,
+  RootsDefinition,
   SeasonProfileDefinition,
   TreeForm,
   TrunkDefinition,
@@ -52,6 +53,9 @@ export interface SpeciesBarkDefinition {
  */
 export type SpeciesFruitDefinition = FruitDefinition;
 
+/** A Species' Roots (ADR 0007): {@link RootsDefinition} without the polygon detail (`sides`, `sections`), which the Style chooses. */
+export type SpeciesRootsDefinition = Omit<RootsDefinition, 'sides' | 'sections'>;
+
 /**
  * Species: a named kind of real tree, described once, Style-neutral (ADR 0005). Plain JSON.
  * A Style turns it into an ordinary, complete Tree Definition: `createTree(lowPoly.apply(oak), { seed })`.
@@ -71,6 +75,8 @@ export interface SpeciesDefinition {
   bark: SpeciesBarkDefinition;
   /** Optional Fruit. */
   fruit?: SpeciesFruitDefinition;
+  /** Optional Roots. */
+  roots?: SpeciesRootsDefinition;
   /** Season Profile (tracks beyond the four required ones are optional and default like in a Tree Definition). */
   season: Pick<SeasonProfileDefinition, 'leafColor' | 'leafCoverage' | 'blossom' | 'blossomColor'> & Partial<SeasonProfileDefinition>;
   wind: WindResponseDefinition;

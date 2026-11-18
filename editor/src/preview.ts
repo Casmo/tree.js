@@ -4,6 +4,7 @@
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createTree, type Tree } from '@casmo/tree.js';
+import { framingBox } from './framing';
 import type { EditorState, EditorStore } from './store';
 
 export type PreviewStatus = 'loading' | 'rendered' | 'error';
@@ -133,9 +134,9 @@ export class Preview {
     });
   }
 
-  /** Points the camera at the whole tree at its full size (the generated geometry; Growth is a shader effect). */
+  /** Points the camera at the whole tree above the ground at its full size (the generated geometry; Growth is a shader effect). */
   frame(tree: Tree): void {
-    const box = new THREE.Box3().setFromObject(tree);
+    const box = framingBox(tree);
     const size = box.getSize(new THREE.Vector3());
     const centre = box.getCenter(new THREE.Vector3());
     const distance = (Math.max(size.x, size.y, size.z) / 2 / Math.tan((this.camera.fov * Math.PI) / 360)) * 1.3;

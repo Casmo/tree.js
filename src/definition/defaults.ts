@@ -2,6 +2,7 @@ import {
   CURRENT_SCHEMA_VERSION,
   type BranchLevelDefinition,
   type FruitDefinition,
+  type RootsDefinition,
   type HexColor,
   type Keyframe,
   type TreeDefinition,
@@ -32,6 +33,16 @@ export const DEFAULT_FRUIT: FruitDefinition = {
   size: 0.12,
   sizeVariation: 0.2,
   hang: 0.7,
+};
+
+/** Defaults for the fields of a `roots` block (a Definition has no Roots unless it has the block). */
+export const DEFAULT_ROOTS: RootsDefinition = {
+  count: 5,
+  length: 0.25,
+  lengthVariation: 0.3,
+  radius: 0.35,
+  angle: 12,
+  bend: 0.3,
 };
 
 /** Fruit amount when the Season Profile has no `fruit` track: all Fruit at full size all year. */
