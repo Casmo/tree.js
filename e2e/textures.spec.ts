@@ -44,3 +44,14 @@ test('a Definition with custom textures renders them', async ({ page }) => {
   expect(await waitForExample(page)).toMatchObject({ status: 'rendered' });
   await expect(page.locator('canvas')).toHaveScreenshot('custom-bark-texture.png', { mask: [page.locator('#status')] });
 });
+
+test('a realistic tree drawn with a new Leaf Type and Bark Type loads and renders their textures', async ({ page }) => {
+  const textures: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes('/textures/realistic/')) textures.push(r.url().split('/textures/')[1]!);
+  });
+  await page.goto('/examples/vanilla/?style=realistic&form=broadleaf&seed=1&leafType=palmate&barkType=papery');
+  expect(await waitForExample(page)).toMatchObject({ status: 'rendered' });
+  expect(textures.sort()).toEqual(['realistic/bark-papery-normal.png', 'realistic/bark-papery.png', 'realistic/leaf-palmate.png']);
+  await expect(page.locator('canvas')).toHaveScreenshot('realistic-palmate-papery.png', { mask: [page.locator('#status')] });
+});
