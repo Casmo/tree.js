@@ -410,4 +410,15 @@ describe('Baked Tree: Structural Occlusion, Leaf Translucency and the treejs ext
     tree.dispose();
     only.dispose();
   });
+
+  it('says in the extras that _OCCLUSION already has the strength applied, and whether COLOR_0 carries it too', async () => {
+    const tree = createTree(withFeatures(fruity, { occlusion: { strength: 0.7 } }), { seed: 5 });
+    const occlusionOf = async (options: { occlusionInVertexColors?: boolean }) => {
+      const json = (await exportBakedTree(tree, { ...options, binary: false })) as Json;
+      return (json.materials.find((m) => m.name === 'leaves')!.extras!.treejs as { occlusion: unknown }).occlusion;
+    };
+    expect(await occlusionOf({})).toEqual({ strength: 0.7, strengthApplied: true, inVertexColors: false });
+    expect(await occlusionOf({ occlusionInVertexColors: true })).toEqual({ strength: 0.7, strengthApplied: true, inVertexColors: true });
+    tree.dispose();
+  });
 });

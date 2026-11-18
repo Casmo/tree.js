@@ -26,9 +26,9 @@ import type { Tree } from '../tree';
  * `leafSeason`, `fruitSeason`); Wind is left out (a Baked Tree stands still).
  *
  * Material Features (ADR 0008) are baked into standard glTF channels: Crown Normals blended into the normals,
- * Structural Occlusion as a `_occlusion` attribute (glTF `_OCCLUSION`; optionally also in the vertex
+ * Structural Occlusion as a `_occlusion` attribute (glTF `_OCCLUSION`, strength already applied; optionally also in the vertex
  * colours), Leaf Translucency as `KHR_materials_diffuse_transmission` (written by `exportBakedTree`),
- * and the raw settings with the Crown Volume in `userData.treejs` of the leaf and bark materials (glTF
+ * and the settings with the Crown Volume in `userData.treejs` of the leaf and bark materials (glTF
  * `extras`). With no Material Feature set, the result is exactly as without them.
  */
 
@@ -359,7 +359,7 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
   // The features as the tree shows them now (values tuned live included).
   const features = tree.materialFeatures;
   const occlusion = bakedOcclusion(features.occlusion?.strength ?? null, options.occlusionInVertexColors ?? false);
-  const extras = materialFeatureExtras(features, tree.data.crown, growth);
+  const extras = materialFeatureExtras(features, tree.data.crown, growth, options.occlusionInVertexColors ?? false);
 
   const group = new Group();
   group.name = definition.name || 'Tree';
@@ -418,19 +418,36 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
 }
 
 /**
- * The `treejs` object in the extras of the baked leaf and bark materials: the raw Material Feature
+ * The `treejs` object in the extras of the baked leaf and bark materials: the Material Feature
  * settings and the Crown Volume, for engines that rebuild the effects in their own shaders. The Crown
  * Volume is in the Baked Tree's space (scaled by its Growth, like the geometry). Null when the tree has
  * no Material Feature, so its glTF is as without them.
  */
 export interface MaterialFeatureExtras {
+  /** Crown Normals amount; the baked `NORMAL` already has them blended in. */
   crownNormals?: number;
+  /** Leaf Translucency settings (also written as `KHR_materials_diffuse_transmission`). */
   translucency?: TranslucencyDefinition;
-  occlusion?: { strength: number };
+  occlusion?: {
+    /** The Structural Occlusion strength the tree had. */
+    strength: number;
+    /**
+     * Always true: the baked `_OCCLUSION` is final, `mix(1, aOcclusion, strength)`, with the strength
+     * already applied. Use it as AO as it is; do not apply `strength` again.
+     */
+    strengthApplied: true;
+    /** Whether `COLOR_0` is also multiplied by `_OCCLUSION` (`occlusionInVertexColors`). */
+    inVertexColors: boolean;
+  };
   crown: CrownVolume;
 }
 
-function materialFeatureExtras(features: MaterialFeatures, crown: CrownVolume, growth: number): MaterialFeatureExtras | null {
+function materialFeatureExtras(
+  features: MaterialFeatures,
+  crown: CrownVolume,
+  growth: number,
+  occlusionInVertexColors: boolean,
+): MaterialFeatureExtras | null {
   const { crownNormals, translucency, occlusion } = features;
   if (!crownNormals && !translucency && !occlusion) return null;
   const scale = treeScale(growth);
@@ -438,7 +455,7 @@ function materialFeatureExtras(features: MaterialFeatures, crown: CrownVolume, g
   return {
     ...(crownNormals ? { crownNormals } : {}),
     ...(translucency ? { translucency: { ...translucency } } : {}),
-    ...(occlusion ? { occlusion: { strength: occlusion.strength } } : {}),
+    ...(occlusion ? { occlusion: { strength: occlusion.strength, strengthApplied: true, inVertexColors: occlusionInVertexColors } } : {}),
     crown: { center: [center[0] * scale, center[1] * scale, center[2] * scale], radii: [radii[0] * scale, radii[1] * scale, radii[2] * scale] },
   };
 }

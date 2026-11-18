@@ -470,6 +470,18 @@ The fields are plain numbers, so they are saved in the Definition JSON (the Tree
 can be set with `extendDefinition` too (`{ materials: { leaf: { crownNormals: 1 } } }`). Validation
 rejects values outside 0..1.
 
+**Tuning live.** A feature that is on can be retuned on a Tree or Forest without regenerating it: the
+values are uniforms, so there is no new geometry and no recompile. Values are clamped to 0..1; setting a
+feature that is off throws (switching one on or off needs a new Tree or Forest). A Baked Tree is baked
+with the values as tuned.
+
+```ts
+tree.crownNormals = 0.8;                         // number | null (null = off)
+tree.translucency = { strength: 0.6 };           // any of strength, edge, ambient; the others are kept
+tree.occlusionStrength = 0.5;                    // number | null
+tree.materialFeatures;                           // { crownNormals?, translucency?, occlusion? } as tuned now
+```
+
 **With your SSAO/GTAO.** Structural Occlusion is the materials' built-in ambient occlusion (`aoNode`),
 so it darkens ambient and indirect light only (sunlit sides stay sunlit) and three.js multiplies it
 with screen-space AO the same way it does for any material. Your SSAO pass needs no changes; trees simply
@@ -677,13 +689,17 @@ const glb = await exportBakedTree(tree, { occlusionInVertexColors: true }); // t
 
 | glTF channel | What it holds | Unity | Godot 4 | Unreal | Blender |
 | --- | --- | --- | --- | --- | --- |
-| `NORMAL` | Crown Normals already blended in (flat shading: the facet normals, blended by the same amount). Leaf cards face the crown's outside, so double-sided rendering keeps them right. | Imported as mesh normals; keep the importer from recalculating them. | Imported as mesh normals. | Imported as mesh normals; turn "Recompute Normals" off. | Imported as custom normals. |
-| `_OCCLUSION` (float, 0..1, all meshes) | Structural Occlusion as the tree shows it: `mix(1, aOcclusion, strength)`, 0 = occluded. Only when `materials.occlusion` is set. | Custom attributes are not imported by default: copy it into a UV channel or vertex colour in a custom importer, then feed it to the shader's occlusion. Or use `COLOR_0` (below). | Copy it into `CUSTOM0` with a `GLTFDocumentExtension` and read it as `AO` in a `ShaderMaterial`. Or use `COLOR_0`. | Not imported: use `COLOR_0`. | Imported as a mesh attribute `_OCCLUSION`: an Attribute node, multiplied into the indirect light or the Base Color. |
+| `NORMAL` | Crown Normals already blended in (flat shading: the facet normals, blended by the same amount). Flat leaf cards (`leaves.shape: 'card'`) are turned (normal and winding together) to face outward of the Crown Volume, so engines that flip the normal of back faces still light every card from the crown's outside. Solid leaf shapes keep their winding. | Imported as mesh normals; keep the importer from recalculating them. | Imported as mesh normals. | Imported as mesh normals; turn "Recompute Normals" off. | Imported as custom normals. |
+| `_OCCLUSION` (float, 0..1, all meshes) | Structural Occlusion as the tree shows it: `mix(1, aOcclusion, strength)`, 0 = occluded. **Final: the strength is already applied**, use it as AO as it is. Only when `materials.occlusion` is set. | Custom attributes are not imported by default: copy it into a UV channel or vertex colour in a custom importer, then feed it to the shader's occlusion. Or use `COLOR_0` (below). | Copy it into `CUSTOM0` with a `GLTFDocumentExtension` and read it as `AO` in a `ShaderMaterial`. Or use `COLOR_0`. | Not imported: use `COLOR_0`. | Imported as a mesh attribute `_OCCLUSION`: an Attribute node, multiplied into the indirect light or the Base Color. |
 | `COLOR_0` | The vertex colours (Season colour, bark shading) as without the features; times `_OCCLUSION` with `occlusionInVertexColors: true`. | A shader that multiplies vertex colour into albedo (glTFast's shaders do). | `vertex_color_use_as_albedo` on the material. | Vertex Color node into Base Color. | Color Attribute node into Base Color (the importer wires it). |
 | `KHR_materials_diffuse_transmission` (leaf material) | Leaf Translucency: `diffuseTransmissionFactor` = strength, `diffuseTransmissionColorFactor` = the leaf colour (linear, mean at the baked Season). | A foliage or translucent shader: transmission or thickness from the factor, colour from the colour factor. | `backlight_enabled`, `backlight` = colour × factor. | Shading model Two Sided Foliage, Subsurface Color = colour × factor. | Mix a Translucent BSDF (the colour) into the leaf shader by the factor. |
-| `extras.treejs` (leaf and bark materials) | The raw settings `crownNormals`, `translucency { strength, edge, ambient }`, `occlusion { strength }` (only those set) and the Crown Volume `crown { center, radii }` in the Baked Tree's space (scaled by its Growth). | Read the glTF JSON in a custom importer to rebuild the effects in your own shader. | Imported as metadata on the material (`extras`), or read in a `GLTFDocumentExtension`. | Not imported: read the glTF JSON. | Imported as custom properties of the material. |
+| `extras.treejs` (leaf and bark materials) | The settings `crownNormals`, `translucency { strength, edge, ambient }`, `occlusion { strength, strengthApplied: true, inVertexColors }` (only those set) and the Crown Volume `crown { center, radii }` in the Baked Tree's space (scaled by its Growth). `occlusion.strength` is for reference: `strengthApplied: true` says `_OCCLUSION` already has it, and `inVertexColors` whether `COLOR_0` has the occlusion too. | Read the glTF JSON in a custom importer to rebuild the effects in your own shader. | Imported as metadata on the material (`extras`), or read in a `GLTFDocumentExtension`. | Not imported: read the glTF JSON. | Imported as custom properties of the material. |
 
 Importer support differs between versions; the columns show where each value goes.
+
+**Don't apply the occlusion strength twice:** `_OCCLUSION` (and `COLOR_0` with `occlusionInVertexColors`)
+already has `materials.occlusion.strength` applied. Use `_OCCLUSION` as AO directly, and only read
+`extras.treejs.occlusion.strength` if you rebuild the effect from scratch.
 
 **`occlusionInVertexColors`** (default `false`, in `bakeTree` and `exportBakedTree`): engines that only read
 vertex colours show the occlusion without a custom shader. The trade-off: `COLOR_0` darkens all light,
