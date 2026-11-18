@@ -15,6 +15,7 @@ import {
 } from '../definition/types';
 import type { SpeciesBarkDefinition, SpeciesDefinition, SpeciesFoliageDefinition } from '../species/types';
 import { styleOfShading, styleShading, type StyleName } from './names';
+import { materialFeaturesOf } from './material-features';
 import { BARK_TEXTURES, LEAF_TEXTURES } from './realistic/textures';
 
 /** Polygon detail of one tree part. */
@@ -160,11 +161,7 @@ function fromDefinition(input: TreeDefinition | TreeDefinitionInput): Neutral {
       color: materials.bark.color,
       ...present('groundTint', materials.bark.groundTint),
     },
-    features: {
-      ...present('crownNormals', materials.leaf.crownNormals),
-      ...present('translucency', materials.leaf.translucency),
-      ...present('occlusion', materials.occlusion),
-    },
+    features: materialFeaturesOf(definition),
   };
 }
 

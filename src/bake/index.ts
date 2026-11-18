@@ -10,7 +10,7 @@ import {
   type Texture,
 } from 'three/webgpu';
 import { GLTFExporter, type GLTFExporterPlugin, type GLTFWriter } from 'three/addons/exporters/GLTFExporter.js';
-import type { TreeDefinition } from '../definition';
+import type { TranslucencyDefinition, TreeDefinition } from '../definition';
 import { crownNormal, type CrownVolume, type GeometryBuffers } from '../generator';
 import { clampGrowth, growPositions, treeScale } from '../growth';
 import { groundTintAmount } from '../materials/ground-tint';
@@ -423,7 +423,7 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
  */
 export interface MaterialFeatureExtras {
   crownNormals?: number;
-  translucency?: { strength: number; edge: number; ambient: number };
+  translucency?: TranslucencyDefinition;
   occlusion?: { strength: number };
   crown: CrownVolume;
 }
@@ -436,7 +436,7 @@ function materialFeatureExtras(tree: Tree, growth: number): MaterialFeatureExtra
   const { center, radii } = tree.data.crown;
   return {
     ...(crownNormals ? { crownNormals } : {}),
-    ...(translucency ? { translucency: { strength: translucency.strength, edge: translucency.edge, ambient: translucency.ambient } } : {}),
+    ...(translucency ? { translucency: { ...translucency } } : {}),
     ...(strength !== null ? { occlusion: { strength } } : {}),
     crown: { center: [center[0] * scale, center[1] * scale, center[2] * scale], radii: [radii[0] * scale, radii[1] * scale, radii[2] * scale] },
   };

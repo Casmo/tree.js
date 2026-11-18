@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   extendDefinition,
+  materialFeaturesOf,
   parseDefinition,
   STYLE_NAMES,
   SUGGESTED_MATERIAL_FEATURES,
@@ -17,15 +18,7 @@ import lowPoly from '../src/styles/low-poly';
 import realistic from '../src/styles/realistic';
 import stylized from '../src/styles/stylized';
 
-const featuresOf = (definition: TreeDefinition): MaterialFeatures => {
-  const { crownNormals, translucency } = definition.materials.leaf;
-  const { occlusion } = definition.materials;
-  return {
-    ...(crownNormals === undefined ? {} : { crownNormals }),
-    ...(translucency === undefined ? {} : { translucency }),
-    ...(occlusion === undefined ? {} : { occlusion }),
-  };
-};
+const featuresOf = materialFeaturesOf;
 
 /** The Definition without its Material Features, to compare everything else. */
 const withoutFeatures = (definition: TreeDefinition): unknown => {
@@ -126,6 +119,34 @@ describe('withMaterialFeatures', () => {
 function oakDefinition(): TreeDefinition {
   return realistic.apply(oak);
 }
+
+describe('materialFeaturesOf', () => {
+  it('reads the Material Features a Definition has, in the shape withMaterialFeatures takes', () => {
+    const definition = parseDefinition({
+      schemaVersion: 3,
+      materials: { leaf: { crownNormals: 0.4, translucency: { strength: 0.5, edge: 0.6, ambient: 0.2 } }, occlusion: { strength: 0.7 } },
+    });
+    expect(materialFeaturesOf(definition)).toEqual({
+      crownNormals: 0.4,
+      translucency: { strength: 0.5, edge: 0.6, ambient: 0.2 },
+      occlusion: { strength: 0.7 },
+    });
+  });
+
+  it('leaves out the features that are off', () => {
+    expect(materialFeaturesOf(stylized.broadleaf)).toEqual({});
+    const only = parseDefinition({ schemaVersion: 3, materials: { occlusion: { strength: 0.3 } } });
+    expect(materialFeaturesOf(only)).toEqual({ occlusion: { strength: 0.3 } });
+    expect(Object.keys(materialFeaturesOf(only))).toEqual(['occlusion']);
+  });
+
+  it('round-trips with withMaterialFeatures', () => {
+    for (const style of STYLE_NAMES) {
+      const features = SUGGESTED_MATERIAL_FEATURES[style];
+      expect(materialFeaturesOf(withMaterialFeatures(stylized.broadleaf, features))).toEqual(features);
+    }
+  });
+});
 
 describe('built-in Styles and Species', () => {
   const species = Object.values(allSpecies).filter((v): v is SpeciesDefinition => typeof v === 'object' && v !== null && 'bark' in v);

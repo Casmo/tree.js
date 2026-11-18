@@ -32,6 +32,21 @@ export const SUGGESTED_MATERIAL_FEATURES: Record<StyleName, MaterialFeatures> = 
 };
 
 /**
+ * The Material Features a Tree Definition has (`materials.leaf.crownNormals`, `materials.leaf.translucency`,
+ * `materials.occlusion`), in the shape {@link withMaterialFeatures} takes. A feature that is absent is left
+ * out; the values are the Definition's own (not copies).
+ */
+export function materialFeaturesOf(definition: TreeDefinition): MaterialFeatures {
+  const { crownNormals, translucency } = definition.materials.leaf;
+  const { occlusion } = definition.materials;
+  return {
+    ...(crownNormals === undefined ? {} : { crownNormals }),
+    ...(translucency === undefined ? {} : { translucency }),
+    ...(occlusion === undefined ? {} : { occlusion }),
+  };
+}
+
+/**
  * Returns a new Tree Definition whose Material Features are exactly `features`: each feature given is
  * set, each feature left out is switched off (`{}` switches them all off). Everything else is kept. The
  * input is not changed. Throws a TreeDefinitionError for an out-of-range value.

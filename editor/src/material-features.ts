@@ -4,6 +4,7 @@
 import {
   DEFAULT_OCCLUSION,
   DEFAULT_TRANSLUCENCY,
+  materialFeaturesOf,
   SUGGESTED_MATERIAL_FEATURES,
   withMaterialFeatures,
   type MaterialFeatures,
@@ -12,17 +13,6 @@ import {
 } from '@casmo/tree.js';
 import type { EditorState, EditorStore } from './store';
 import { currentStyle } from './style-switch';
-
-/** The Material Features a Definition has (absent = off). */
-export function materialFeaturesOf(definition: TreeDefinition): MaterialFeatures {
-  const { crownNormals, translucency } = definition.materials.leaf;
-  const { occlusion } = definition.materials;
-  return {
-    ...(crownNormals === undefined ? {} : { crownNormals }),
-    ...(translucency === undefined ? {} : { translucency }),
-    ...(occlusion === undefined ? {} : { occlusion }),
-  };
-}
 
 export function hasMaterialFeatures(definition: TreeDefinition): boolean {
   return Object.keys(materialFeaturesOf(definition)).length > 0;
