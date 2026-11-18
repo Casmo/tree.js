@@ -60,8 +60,18 @@ export function shots(species) {
   ]);
 }
 
+/** Roots per Stem from which a Species counts as strong-rooted (the strong Roots tier) and gets a "Roots" tag. */
+const STRONG_ROOTS = 7;
+
 const traits = (s) =>
-  [`${s.form}`, `${s.foliage.type} leaves`, `${s.bark.type} bark`, s.fruit ? `Fruit: ${s.fruit.type}` : null, (s.trunk.stems ?? 1) > 1 ? `${s.trunk.stems} Stems` : null]
+  [
+    `${s.form}`,
+    `${s.foliage.type} leaves`,
+    `${s.bark.type} bark`,
+    s.fruit ? `Fruit: ${s.fruit.type}` : null,
+    (s.roots?.count ?? 0) >= STRONG_ROOTS ? 'Roots' : null,
+    (s.trunk.stems ?? 1) > 1 ? `${s.trunk.stems} Stems` : null,
+  ]
     .filter(Boolean)
     .join(' · ');
 

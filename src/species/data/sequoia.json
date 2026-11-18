@@ -87,6 +87,14 @@
     "sizeVariation": 0.2,
     "hang": 0.4
   },
+  "roots": {
+    "count": 7,
+    "length": 0.12,
+    "lengthVariation": 0.3,
+    "radius": 0.4,
+    "angle": 10,
+    "bend": 0.35
+  },
   "season": {
     "leafColor": [
       {

@@ -136,7 +136,7 @@ const tree = createTree(lowPoly.apply(cherry), { seed: 1 });
 
 ## Chestnut
 
-`chestnut` · broadleaf · broad leaves · furrowed bark · Fruit: nut · [chestnut.json](../../src/species/data/chestnut.json)
+`chestnut` · broadleaf · broad leaves · furrowed bark · Fruit: nut · Roots · [chestnut.json](../../src/species/data/chestnut.json)
 
 | | low-poly | stylized | realistic |
 | --- | --- | --- | --- |
@@ -237,7 +237,7 @@ const tree = createTree(lowPoly.apply(juniper), { seed: 1 });
 
 ## Mahogany
 
-`mahogany` · broadleaf · compound leaves · plated bark · Fruit: pear · [mahogany.json](../../src/species/data/mahogany.json)
+`mahogany` · broadleaf · compound leaves · plated bark · Fruit: pear · Roots · [mahogany.json](../../src/species/data/mahogany.json)
 
 | | low-poly | stylized | realistic |
 | --- | --- | --- | --- |
@@ -271,7 +271,7 @@ const tree = createTree(lowPoly.apply(maple), { seed: 1 });
 
 ## Oak
 
-`oak` · broadleaf · lobed leaves · furrowed bark · Fruit: nut · [oak.json](../../src/species/data/oak.json)
+`oak` · broadleaf · lobed leaves · furrowed bark · Fruit: nut · Roots · [oak.json](../../src/species/data/oak.json)
 
 | | low-poly | stylized | realistic |
 | --- | --- | --- | --- |
@@ -376,7 +376,7 @@ const tree = createTree(lowPoly.apply(plum), { seed: 1 });
 
 ## Red Oak
 
-`redOak` · broadleaf · lobed leaves · furrowed bark · Fruit: nut · [red-oak.json](../../src/species/data/red-oak.json)
+`redOak` · broadleaf · lobed leaves · furrowed bark · Fruit: nut · Roots · [red-oak.json](../../src/species/data/red-oak.json)
 
 | | low-poly | stylized | realistic |
 | --- | --- | --- | --- |
@@ -394,7 +394,7 @@ const tree = createTree(lowPoly.apply(redOak), { seed: 1 });
 
 ## Redwood
 
-`redwood` · conifer · needle leaves · fibrous bark · Fruit: cone · [redwood.json](../../src/species/data/redwood.json)
+`redwood` · conifer · needle leaves · fibrous bark · Fruit: cone · Roots · [redwood.json](../../src/species/data/redwood.json)
 
 | | low-poly | stylized | realistic |
 | --- | --- | --- | --- |
@@ -410,7 +410,7 @@ const tree = createTree(lowPoly.apply(redwood), { seed: 1 });
 
 ## Sequoia
 
-`sequoia` · conifer · scale leaves · fibrous bark · Fruit: cone · [sequoia.json](../../src/species/data/sequoia.json)
+`sequoia` · conifer · scale leaves · fibrous bark · Fruit: cone · Roots · [sequoia.json](../../src/species/data/sequoia.json)
 
 | | low-poly | stylized | realistic |
 | --- | --- | --- | --- |
@@ -442,7 +442,7 @@ const tree = createTree(lowPoly.apply(spruce), { seed: 1 });
 
 ## Teak
 
-`teak` · broadleaf · broad leaves · fibrous bark · [teak.json](../../src/species/data/teak.json)
+`teak` · broadleaf · broad leaves · fibrous bark · Roots · [teak.json](../../src/species/data/teak.json)
 
 | | low-poly | stylized | realistic |
 | --- | --- | --- | --- |
@@ -477,7 +477,7 @@ const tree = createTree(lowPoly.apply(walnut), { seed: 1 });
 
 ## White Oak
 
-`whiteOak` · broadleaf · lobed leaves · furrowed bark · Fruit: nut · [white-oak.json](../../src/species/data/white-oak.json)
+`whiteOak` · broadleaf · lobed leaves · furrowed bark · Fruit: nut · Roots · [white-oak.json](../../src/species/data/white-oak.json)
 
 | | low-poly | stylized | realistic |
 | --- | --- | --- | --- |

@@ -70,6 +70,36 @@ describe('the Species collection', () => {
     });
   }
 
+  // Roots tiers (spec #43), the same Species as the Root Flare tiers: a strong tier has more, thicker,
+  // flatter and more gnarled Roots (at least 7, which the gallery tags as "Roots"); redwood and sequoia
+  // keep theirs short because their Stems are very long.
+  type Range = readonly [number, number];
+  const ROOT_TIERS: Record<keyof typeof FLARE_TIERS, Record<'count' | 'length' | 'radius' | 'angle' | 'bend', Range>> = {
+    strong: { count: [7, 8], length: [0.1, 0.35], radius: [0.35, 0.45], angle: [8, 12], bend: [0.3, 0.4] },
+    light: { count: [4, 6], length: [0.15, 0.25], radius: [0.25, 0.35], angle: [12, 16], bend: [0.25, 0.35] },
+    minimal: { count: [2, 4], length: [0.05, 0.15], radius: [0.18, 0.26], angle: [18, 24], bend: [0.2, 0.3] },
+  };
+
+  for (const [tier, ranges] of Object.entries(ROOT_TIERS)) {
+    it(`${tier} tier: each Species has Roots in its tier, kept by every Style`, () => {
+      for (const id of FLARE_TIERS[tier as keyof typeof FLARE_TIERS].ids) {
+        const roots = json(id).roots;
+        expect(roots, id).toBeDefined();
+        for (const [field, [min, max]] of Object.entries(ranges)) {
+          const value = roots![field as keyof typeof ranges];
+          expect(value, `${id} roots.${field}`).toBeGreaterThanOrEqual(min);
+          expect(value, `${id} roots.${field}`).toBeLessThanOrEqual(max);
+        }
+        expect(Number.isInteger(roots!.count), id).toBe(true);
+        for (const style of Object.values(styles)) expect(style.apply(json(id)).roots, id).toMatchObject(roots!);
+      }
+    });
+  }
+
+  it('redwood and sequoia have the shortest strong-tier Roots (their Stems are very long)', () => {
+    for (const id of ['redwood', 'sequoia']) expect(json(id).roots?.length, id).toBeLessThanOrEqual(0.15);
+  });
+
   it('loadSpecies rejects an unknown id, listing the known ones', async () => {
     await expect(loadSpecies('baobab' as never)).rejects.toThrow(/Unknown tree\.js Species "baobab".*oak/);
     await expect(loadSpecies('Oak' as never)).rejects.toThrow(/Unknown/);
@@ -78,14 +108,21 @@ describe('the Species collection', () => {
 
 /**
  * Per Style: triangles of its own generic broadleaf / conifer (the larger), at the test Seeds, given a
- * Root Flare like every Species has (the generic trees have none; the flare's extra trunk rings are not crown detail).
+ * Root Flare and Roots like every Species has (the generic trees have neither; the flare's extra trunk rings
+ * and the Roots are not crown detail). The Roots are a light-tier Species' (apple's), in the Style's own detail.
  */
-const withFlare = <T extends { trunk: object }>(d: T): T => ({ ...d, trunk: { ...d.trunk, flare: 0.4 } });
+const withFlareAndRoots = <T extends { trunk: object }>(d: T, style: (typeof styles)[keyof typeof styles]): T => ({
+  ...d,
+  trunk: { ...d.trunk, flare: 0.4 },
+  roots: style.apply(json('apple')).roots,
+});
 const styleTriangles = Object.fromEntries(
   Object.entries(styles).map(([name, style]) => [
     name,
     Math.max(
-      ...[style.broadleaf, style.conifer].flatMap((d) => SEEDS.map((seed) => triangles(generateTree(parseDefinition(withFlare(d)), seed)))),
+      ...[style.broadleaf, style.conifer].flatMap((d) =>
+        SEEDS.map((seed) => triangles(generateTree(parseDefinition(withFlareAndRoots(d, style)), seed))),
+      ),
     ),
   ]),
 );
