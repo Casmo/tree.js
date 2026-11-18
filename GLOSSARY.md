@@ -28,6 +28,10 @@ _Avoid_: Tree type
 The kind of leaf a Species has, such as broad, lobed, palmate, compound, needle or scale; each Style decides how to draw it.
 _Avoid_: Leaf shape, foliage style
 
+**Bark Type**:
+The kind of bark surface a Species has, such as furrowed, smooth, papery, fibrous or plated; each Style decides how to draw it.
+_Avoid_: Bark texture, bark style
+
 **Stem**:
 One of the trunks a tree grows from the ground; most trees have a single Stem, a juniper or an olive may have several.
 _Avoid_: Trunk copy, multi-trunk
