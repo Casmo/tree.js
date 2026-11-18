@@ -80,6 +80,10 @@ _Avoid_: Sway, animation
 An opt-in post-processing effect that only alters the pixels of trees, such as an outline or leaf glow.
 _Avoid_: Post preset, filter
 
+**Tree ID**:
+A number that tells which single tree (a Tree or one tree of a Forest) drew a pixel, 0 where no tree did; it is only valid for the frame it was drawn in, because a Forest may reorder its trees when one is added or removed.
+_Avoid_: Object id, instance id, pick id
+
 **Material Feature**:
 An opt-in change to how a tree's own materials are lit or shaded, such as Crown Normals, Leaf Translucency or Structural Occlusion; unlike a Tree Effect it needs no extra pass and works with the app's own lights.
 _Avoid_: Shader effect, material effect, post effect
