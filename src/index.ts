@@ -32,6 +32,15 @@ export {
 export { assertWebGPURenderer, UnsupportedRendererError } from './renderer';
 export { Wind, sceneWind, WindResponse, type WindDirection, type WindOptions } from './wind';
 export type { TreeStyle } from './styles/types';
+export type { StyleSource } from './styles/apply';
+export type {
+  SpeciesDefinition,
+  SpeciesTrunkDefinition,
+  SpeciesBranchLevelDefinition,
+  SpeciesFoliageDefinition,
+  SpeciesBarkDefinition,
+  SpeciesFruitDefinition,
+} from './species/types';
 export { loadStyle, STYLE_NAMES, type StyleName } from './styles/registry';
 export {
   bakeTree,

@@ -1,7 +1,8 @@
 // @casmo/tree.js/styles/stylized: soft toon shading, rounded leaf clumps, blossom in early spring, no image files.
-// Pure data (no library code beyond shared constants), so it stays a tiny chunk fetched only when imported.
+// Pure data plus `apply` (shared with the other Styles), fetched only when imported.
 import { CURRENT_SCHEMA_VERSION, type SeasonProfileDefinition, type TreeDefinition } from '../../definition/types';
 import { SEASON_PROFILES } from '../../season/profiles';
+import { applyStyle } from '../apply';
 import type { TreeStyle } from '../types';
 
 /**
@@ -97,5 +98,5 @@ export const conifer: TreeDefinition = {
 };
 
 /** The stylized Style. */
-const stylized: TreeStyle = { name: 'stylized', broadleaf, conifer };
+const stylized: TreeStyle = { name: 'stylized', broadleaf, conifer, apply: (source, overrides) => applyStyle('stylized', source, overrides) };
 export default stylized;

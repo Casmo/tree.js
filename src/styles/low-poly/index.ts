@@ -1,7 +1,8 @@
 // @casmo/tree.js/styles/low-poly: faceted geometry, flat vertex colours, no image files.
-// Pure data (no library code beyond shared constants), so it stays a tiny chunk fetched only when imported.
+// Pure data plus `apply` (shared with the other Styles), fetched only when imported.
 import { CURRENT_SCHEMA_VERSION, type TreeDefinition } from '../../definition/types';
 import { SEASON_PROFILES } from '../../season/profiles';
+import { applyStyle } from '../apply';
 import type { TreeStyle } from '../types';
 
 /**
@@ -54,5 +55,5 @@ export const conifer: TreeDefinition = {
 };
 
 /** The low-poly Style. */
-const lowPoly: TreeStyle = { name: 'low-poly', broadleaf, conifer };
+const lowPoly: TreeStyle = { name: 'low-poly', broadleaf, conifer, apply: (source, overrides) => applyStyle('low-poly', source, overrides) };
 export default lowPoly;
