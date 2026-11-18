@@ -1,7 +1,7 @@
 import { length, mix, normalView, select, transformNormalToView, uniform } from 'three/tsl';
 import type { MeshStandardNodeMaterial, Node } from 'three/webgpu';
 import type { CrownVolume } from '../generator';
-import { crownNodes } from './crown';
+import { crownNodes } from './crown-nodes';
 
 /**
  * Crown Normals (GLOSSARY): blends the leaf material's normal from the leaf's own normal towards the

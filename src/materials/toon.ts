@@ -41,7 +41,7 @@ export class SoftToonLightingModel extends LightingModel {
     const tone = mix(float(SHADE), float(1), smoothstep(BAND_START, BAND_END, dotNL));
     const irradiance = (lightColor as Node).mul(tone);
     (reflectedLight.directDiffuse as Node).addAssign(irradiance.mul(BRDF_Lambert({ diffuseColor: diffuseColor.rgb })));
-    if (this.translucency) (reflectedLight.directDiffuse as Node).addAssign(translucencyDirect(this.translucency, lightDirection, lightColor));
+    if (this.translucency) (reflectedLight.directDiffuse as Node).addAssign(translucencyDirect(this.translucency, lightDirection as Node, lightColor as Node));
   }
 
   override indirect(builder: NodeBuilder): void {

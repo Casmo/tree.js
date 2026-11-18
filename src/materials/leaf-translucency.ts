@@ -1,12 +1,40 @@
-import type { NodeBuilder } from 'three/webgpu';
+import type { LightingModelDirectInput, Node, NodeBuilder } from 'three/webgpu';
 import { BRDF_Lambert, diffuseColor, float, mix, positionViewDirection, uniform } from 'three/tsl';
 import type { TranslucencyDefinition } from '../definition';
 import type { CrownVolume } from '../generator';
-import { crownNodes } from './crown';
+import { crownNodes } from './crown-nodes';
 
-// TSL node types are loosely typed in @types/three; keep our own alias.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Node = any;
+/*
+ * @types/three leaves the lighting model's inputs untyped (`builder.context` is `unknown`, the light's
+ * nodes and the reflected light are plain `Node`s). These name the fields the translucent models use,
+ * with the node types three gives them.
+ */
+
+/** The diffuse parts of the reflected light a lighting model adds to (RGB). */
+export interface DiffuseLight {
+  directDiffuse: Node<'vec3'>;
+  indirectDiffuse: Node<'vec3'>;
+}
+
+/** The part of three's lighting context (`builder.context` in a lighting model) the terms read and write. */
+export interface LightingContext {
+  irradiance: Node<'vec3'>;
+  ambientOcclusion: Node<'float'>;
+  reflectedLight: DiffuseLight;
+}
+
+/** One direct light as a lighting model's `direct` gets it: view-space direction, colour (with shadow). */
+export interface DirectLight {
+  lightDirection: Node<'vec3'>;
+  lightColor: Node<'vec3'>;
+  reflectedLight: DiffuseLight;
+}
+
+/** The lighting context of a lighting model's builder, typed (see {@link LightingContext}). */
+export const lightingContext = (builder: NodeBuilder): LightingContext => builder.context as LightingContext;
+
+/** A lighting model's `direct` input, typed (see {@link DirectLight}). */
+export const directLight = (input: LightingModelDirectInput): DirectLight => input as unknown as DirectLight;
 
 /**
  * How narrow the Leaf Translucency lobe (light from behind the leaf) is: `back = saturate(dot(V, -L))^BACK_POWER`. Higher = only when
@@ -21,13 +49,13 @@ const BACK_POWER = 3;
  */
 export interface LeafTranslucencyTerm {
   /** Direct glow per light (0..1). */
-  readonly strength: Node;
+  readonly strength: Node<'float'>;
   /** Indirect (sky) glow (0..1). */
-  readonly ambient: Node;
+  readonly ambient: Node<'float'>;
   /** Extra glow at the thin edge of the Crown Volume (0..1). */
-  readonly edge: Node;
+  readonly edge: Node<'float'>;
   /** How thin the crown is at this fragment: 1 on (or outside) the Crown Volume's shell, towards 0 at its centre. */
-  readonly thinness: Node;
+  readonly thinness: Node<'float'>;
 }
 
 /**
@@ -40,7 +68,7 @@ export interface LeafTranslucencyTerm {
  * the vertices get. Being in tree space, it is the same for every Forest instance whatever its rotation and
  * scale. It needs no vertex attribute.
  */
-export function leafTranslucencyTerm(settings: TranslucencyDefinition, crown: CrownVolume, growth: Node): LeafTranslucencyTerm {
+export function leafTranslucencyTerm(settings: TranslucencyDefinition, crown: CrownVolume, growth: Node<'float'>): LeafTranslucencyTerm {
   return {
     strength: uniform(settings.strength),
     ambient: uniform(settings.ambient),
@@ -50,7 +78,7 @@ export function leafTranslucencyTerm(settings: TranslucencyDefinition, crown: Cr
 }
 
 /** `mix(1, thinness, edge)`: 1 everywhere at edge 0, only the crown's thin edge glows at edge 1. */
-const edgeBoost = (term: LeafTranslucencyTerm): Node => mix(float(1), term.thinness, term.edge);
+const edgeBoost = (term: LeafTranslucencyTerm): Node<'float'> => mix(float(1), term.thinness, term.edge);
 
 /**
  * Direct light shining through the leaf towards the viewer, for one light (add it to `directDiffuse`):
@@ -60,9 +88,9 @@ const edgeBoost = (term: LeafTranslucencyTerm): Node => mix(float(1), term.thinn
  * Unlike the lit side it has no Lambert 1/pi: like a real leaf against the sun, a strongly translucent leaf
  * glows brighter than one lit from the front.
  */
-export function translucencyDirect(term: LeafTranslucencyTerm, lightDirection: Node, lightColor: Node): Node {
-  const back = (positionViewDirection as Node).dot((lightDirection as Node).negate()).clamp(0, 1).pow(BACK_POWER);
-  return (lightColor as Node)
+export function translucencyDirect(term: LeafTranslucencyTerm, lightDirection: Node<'vec3'>, lightColor: Node<'vec3'>): Node<'vec3'> {
+  const back = positionViewDirection.dot(lightDirection.negate()).clamp(0, 1).pow(BACK_POWER);
+  return lightColor
     .mul(diffuseColor.rgb)
     .mul(term.strength)
     .mul(back)
@@ -79,10 +107,11 @@ export function translucencyDirect(term: LeafTranslucencyTerm, lightDirection: N
  * so that stands in for it. It is exact for ambient light and light probes' constant part; under a
  * hemisphere light it reads the side facing the viewer.
  */
-export function translucencyIndirect(term: LeafTranslucencyTerm, builder: NodeBuilder): Node {
-  const { ambientOcclusion, irradiance } = (builder as Node).context;
+export function translucencyIndirect(term: LeafTranslucencyTerm, builder: NodeBuilder): Node<'vec3'> {
+  const { ambientOcclusion, irradiance } = lightingContext(builder);
   return irradiance
-    .mul(BRDF_Lambert({ diffuseColor: diffuseColor.rgb }))
+    // BRDF_Lambert is declared as an untyped OperatorNode; it is the RGB diffuse / pi.
+    .mul(BRDF_Lambert({ diffuseColor: diffuseColor.rgb }) as unknown as Node<'vec3'>)
     .mul(term.ambient)
     .mul(edgeBoost(term))
     .mul(ambientOcclusion);

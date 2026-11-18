@@ -15,7 +15,7 @@ import type { TreeDefinition } from '../definition';
 import { trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { clampGrowth, growthPosition } from '../growth';
 import { applyCrownNormals, createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
-import { applyLeafTranslucency } from '../materials/translucency';
+import { applyLeafTranslucency } from '../materials/leaf-translucency-model';
 import { applyStructuralOcclusion, setOcclusionStrength, type OcclusionStrengthUniform } from '../materials/occlusion';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes, type SeasonUniform } from '../season';

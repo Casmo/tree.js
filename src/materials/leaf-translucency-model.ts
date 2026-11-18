@@ -2,16 +2,13 @@ import {
   PhysicalLightingModel,
   type LightingModelDirectInput,
   type MeshStandardNodeMaterial,
+  type Node,
   type NodeBuilder,
 } from 'three/webgpu';
 import type { TranslucencyDefinition } from '../definition';
 import type { CrownVolume } from '../generator';
-import { leafTranslucencyTerm, translucencyDirect, translucencyIndirect, type LeafTranslucencyTerm } from './leaf-translucency';
+import { directLight, leafTranslucencyTerm, lightingContext, translucencyDirect, translucencyIndirect, type LeafTranslucencyTerm } from './leaf-translucency';
 import { SoftToonLightingModel, SoftToonNodeMaterial } from './toon';
-
-// TSL node types are loosely typed in @types/three; keep our own alias.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Node = any;
 
 /**
  * three's physical lighting model plus Leaf Translucency (flat and standard leaf materials): everything
@@ -27,13 +24,14 @@ class TranslucentLightingModel extends PhysicalLightingModel {
 
   override direct(input: LightingModelDirectInput, builder: NodeBuilder): void {
     super.direct(input, builder);
-    (input.reflectedLight.directDiffuse as Node).addAssign(translucencyDirect(this.translucency, input.lightDirection, input.lightColor));
+    const { lightDirection, lightColor, reflectedLight } = directLight(input);
+    reflectedLight.directDiffuse.addAssign(translucencyDirect(this.translucency, lightDirection, lightColor));
   }
 
   override indirect(builder: NodeBuilder): void {
     // The physical model's own AO step has run by now; the term multiplies in the AO itself.
     super.indirect(builder);
-    (builder as Node).context.reflectedLight.indirectDiffuse.addAssign(translucencyIndirect(this.translucency, builder));
+    lightingContext(builder).reflectedLight.indirectDiffuse.addAssign(translucencyIndirect(this.translucency, builder));
   }
 }
 
@@ -50,7 +48,7 @@ export function applyLeafTranslucency(
   material: MeshStandardNodeMaterial,
   settings: TranslucencyDefinition,
   crown: CrownVolume,
-  growth: Node,
+  growth: Node<'float'>,
 ): void {
   const term = leafTranslucencyTerm(settings, crown, growth);
   const toon = material instanceof SoftToonNodeMaterial;

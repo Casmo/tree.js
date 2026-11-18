@@ -10,7 +10,7 @@ import { createShadedMaterial, isFlatShading } from './shading';
 
 export { createShadedMaterial } from './shading';
 export { applyCrownNormals } from './crown-normals';
-export { crownNodes, type CrownNodes } from './crown';
+export { crownNodes, type CrownNodes } from './crown-nodes';
 
 /**
  * Bark material: a TSL node material (ADR 0002). Growth/Season/Wind uniforms and
