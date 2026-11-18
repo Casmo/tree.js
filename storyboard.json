@@ -1,0 +1,24 @@
+{ "title": "28 tree Species in any Style", "kicker": "New · Species collection", "app": "tree-js",
+  "url": "http://localhost:5191/examples/species/?species=oak&style=low-poly",
+  "chapters": [
+    { "title": "Species × Style on the examples page", "steps": [
+      { "wait": 1500 },
+      { "goto": "http://localhost:5191/examples/species/?species=redwood&style=low-poly" },
+      { "goto": "http://localhost:5191/examples/species/?species=apple&style=stylized" },
+      { "goto": "http://localhost:5191/examples/species/?species=apple&style=realistic" }, { "wait": 1500 } ] },
+    { "title": "Tree Editor: start from Apple, realistic", "steps": [
+      { "goto": "http://localhost:5192/?start=apple/realistic" },
+      { "waitFor": "#start-species", "zoom": true } ] },
+    { "title": "Switch Style to low-poly: the shape is kept", "steps": [
+      { "click": "#start-style", "zoom": true }, { "press": "Home" }, { "press": "Enter" }, { "wait": 2500 } ] },
+    { "title": "Crown Shapes and Stems", "steps": [
+      { "scroll": "role=group[name=\"Crown Shapes for level 1\"]" },
+      { "click": "role=button[name=\"Cone crown, level 1\"]", "zoom": true },
+      { "click": "role=button[name=\"Vase crown, level 1\"]" },
+      { "scroll": ".control:has(label:text-is(\"Stems\"))" },
+      { "click": ".control:has(label:text-is(\"Stems\")) input[type=range]", "zoom": true } ] },
+    { "title": "Fruit panel and Fruit season tracks", "steps": [
+      { "scroll": "#panel-fruit" }, { "scroll": "#track-fruit" } ] },
+    { "title": "Copy code for three.js or React", "steps": [
+      { "scroll": "#copy-code" },
+      { "click": "role=tab[name=React]", "zoom": true } ] } ] }
