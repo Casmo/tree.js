@@ -3,12 +3,24 @@
 import type { SpeciesDefinition } from './types';
 import almondData from './data/almond.json';
 import appleData from './data/apple.json';
+import ashData from './data/ash.json';
+import beechData from './data/beech.json';
+import birchData from './data/birch.json';
 import cherryData from './data/cherry.json';
+import chestnutData from './data/chestnut.json';
+import elmData from './data/elm.json';
+import hickoryData from './data/hickory.json';
+import mahoganyData from './data/mahogany.json';
+import mapleData from './data/maple.json';
 import oakData from './data/oak.json';
 import oliveData from './data/olive.json';
 import peachData from './data/peach.json';
 import pearData from './data/pear.json';
 import plumData from './data/plum.json';
+import redOakData from './data/red-oak.json';
+import teakData from './data/teak.json';
+import walnutData from './data/walnut.json';
+import whiteOakData from './data/white-oak.json';
 
 /** Almond (broadleaf). */
 export const almond = almondData as SpeciesDefinition;
@@ -16,8 +28,32 @@ export const almond = almondData as SpeciesDefinition;
 /** Apple (broadleaf). */
 export const apple = appleData as SpeciesDefinition;
 
+/** Ash (broadleaf). */
+export const ash = ashData as SpeciesDefinition;
+
+/** Beech (broadleaf). */
+export const beech = beechData as SpeciesDefinition;
+
+/** Birch (broadleaf). */
+export const birch = birchData as SpeciesDefinition;
+
 /** Cherry (broadleaf). */
 export const cherry = cherryData as SpeciesDefinition;
+
+/** Chestnut (broadleaf). */
+export const chestnut = chestnutData as SpeciesDefinition;
+
+/** Elm (broadleaf). */
+export const elm = elmData as SpeciesDefinition;
+
+/** Hickory (broadleaf). */
+export const hickory = hickoryData as SpeciesDefinition;
+
+/** Mahogany (broadleaf). */
+export const mahogany = mahoganyData as SpeciesDefinition;
+
+/** Maple (broadleaf). */
+export const maple = mapleData as SpeciesDefinition;
 
 /** Oak (broadleaf). */
 export const oak = oakData as SpeciesDefinition;
@@ -33,3 +69,15 @@ export const pear = pearData as SpeciesDefinition;
 
 /** Plum (broadleaf). */
 export const plum = plumData as SpeciesDefinition;
+
+/** Red Oak (broadleaf). */
+export const redOak = redOakData as SpeciesDefinition;
+
+/** Teak (broadleaf). */
+export const teak = teakData as SpeciesDefinition;
+
+/** Walnut (broadleaf). */
+export const walnut = walnutData as SpeciesDefinition;
+
+/** White Oak (broadleaf). */
+export const whiteOak = whiteOakData as SpeciesDefinition;

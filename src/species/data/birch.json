@@ -1,0 +1,154 @@
+{
+  "id": "birch",
+  "name": "Birch",
+  "form": "broadleaf",
+  "trunk": {
+    "length": 7.2,
+    "radius": 0.2,
+    "taper": 0.3,
+    "lengthVariation": 0.12,
+    "bend": 0.12
+  },
+  "branches": [
+    {
+      "angleVariation": 0.3,
+      "spiral": 137.5,
+      "lengthVariation": 0.25,
+      "radius": 0.55,
+      "taper": 0.4,
+      "bend": 0.25,
+      "gravity": -0.15,
+      "count": 10,
+      "start": 0.42,
+      "end": 0.97,
+      "angle": 42,
+      "length": 0.38,
+      "lengthProfile": [
+        {
+          "t": 0.42,
+          "value": 1
+        },
+        {
+          "t": 0.65,
+          "value": 0.9
+        },
+        {
+          "t": 1,
+          "value": 0.35
+        }
+      ],
+      "angleProfile": [
+        {
+          "t": 0.42,
+          "value": 1.4
+        },
+        {
+          "t": 1,
+          "value": 0.7
+        }
+      ]
+    },
+    {
+      "angleVariation": 0.3,
+      "spiral": 137.5,
+      "lengthVariation": 0.25,
+      "radius": 0.6,
+      "taper": 0.45,
+      "bend": 0.15,
+      "gravity": -1,
+      "count": 2,
+      "start": 0.3,
+      "end": 1,
+      "angle": 28,
+      "length": 0.75
+    }
+  ],
+  "foliage": {
+    "type": "broad",
+    "density": 0.5,
+    "size": 0.38,
+    "sizeVariation": 0.25,
+    "start": 0.1,
+    "angle": 40
+  },
+  "bark": {
+    "type": "papery",
+    "color": "#efece4"
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#b4d468"
+      },
+      {
+        "t": 0.2,
+        "value": "#6a9a38"
+      },
+      {
+        "t": 0.52,
+        "value": "#6a9a38"
+      },
+      {
+        "t": 0.6,
+        "value": "#e6c83a"
+      },
+      {
+        "t": 0.7,
+        "value": "#d4a628"
+      },
+      {
+        "t": 0.97,
+        "value": "#d4a628"
+      },
+      {
+        "t": 1,
+        "value": "#b4d468"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 0.3
+      },
+      {
+        "t": 0.1,
+        "value": 1
+      },
+      {
+        "t": 0.6,
+        "value": 1
+      },
+      {
+        "t": 0.74,
+        "value": 0
+      },
+      {
+        "t": 0.96,
+        "value": 0
+      },
+      {
+        "t": 1,
+        "value": 0.3
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#d8d48a"
+  },
+  "wind": {
+    "trunk": 0.12,
+    "branches": 0.45,
+    "leaves": 0.9,
+    "frequency": 1.2
+  },
+  "variation": {
+    "color": 0.1,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}

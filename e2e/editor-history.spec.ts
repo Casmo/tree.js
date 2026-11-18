@@ -21,14 +21,14 @@ test('undo/redo every edit with the keyboard shortcuts and the buttons', async (
   await page.getByLabel('Trunk length').fill('4.2');
   await page.getByLabel('Trunk length').press('Enter');
   await page.getByLabel('Growth', { exact: true }).fill('0.4');
-  await page.getByLabel('Style / Form').selectOption('low-poly/conifer');
-  await expect.poll(async () => (await state(page)).source).toBe('low-poly/conifer');
+  await page.getByLabel('Species', { exact: true }).selectOption('conifer');
+  await expect.poll(async () => (await state(page)).source).toBe('conifer/low-poly');
 
   // Focus outside the fields, then use the shortcuts.
   await page.locator('#preview canvas').click();
   await page.keyboard.press('Control+z');
-  expect(await state(page)).toMatchObject({ source: 'low-poly/broadleaf', growth: 0.4, definition: { trunk: { length: 4.2 } } });
-  await expect(page.getByLabel('Style / Form')).toHaveValue('low-poly/broadleaf');
+  expect(await state(page)).toMatchObject({ source: 'broadleaf/low-poly', growth: 0.4, definition: { trunk: { length: 4.2 } } });
+  await expect(page.getByLabel('Species', { exact: true })).toHaveValue('broadleaf');
   await page.keyboard.press('Control+z');
   expect((await state(page)).growth).toBe(1);
   await expect(page.getByLabel('Growth', { exact: true })).toHaveValue('1');
@@ -45,10 +45,10 @@ test('undo/redo every edit with the keyboard shortcuts and the buttons', async (
   await page.keyboard.press('Control+y');
   expect((await state(page)).growth).toBe(0.4);
   await page.getByRole('button', { name: 'Redo' }).click();
-  expect((await state(page)).source).toBe('low-poly/conifer');
+  expect((await state(page)).source).toBe('conifer/low-poly');
   await expect(page.getByRole('button', { name: 'Redo' })).toBeDisabled();
   await page.getByRole('button', { name: 'Undo' }).click();
-  expect((await state(page)).source).toBe('low-poly/broadleaf');
+  expect((await state(page)).source).toBe('broadleaf/low-poly');
   expect((await waitForEditor(page)).status).toBe('rendered');
 });
 

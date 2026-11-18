@@ -75,6 +75,14 @@ describe('editor history', () => {
     expect(history.canUndo).toBe(false);
   });
 
+  it('never merges changes of starting point or Style, however quick', () => {
+    const { store, history } = setup();
+    store.loadDefinition(DEFAULT_DEFINITION, 'broadleaf/low-poly');
+    store.loadDefinition(DEFAULT_DEFINITION, 'broadleaf/stylized');
+    history.undo();
+    expect(store.state.source).toBe('broadleaf/low-poly');
+  });
+
   it('keeps separate steps for the same parameter when edits are apart in time', () => {
     const { store, history, later } = setup();
     store.set({ seed: 2 });

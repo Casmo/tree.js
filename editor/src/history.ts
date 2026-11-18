@@ -1,7 +1,7 @@
 // Undo/redo for the Tree Editor: a list of store snapshots taken around every change.
 // Every edit goes through the store, so the history only listens to it and restores snapshots
 // with `store.set`; panels need no undo-specific code. A burst of changes to the same parameter
-// (dragging a slider, typing) becomes one step.
+// (dragging a slider, typing) becomes one step; a new start or Style switch never merges.
 import type { EditorState, EditorStore } from './store';
 
 export interface EditorHistory {
@@ -41,7 +41,8 @@ export function createHistory(store: EditorStore, options: HistoryOptions = {}):
     if (restoring) return;
     const key = changeKey(previous, state);
     const time = now();
-    const merge = last !== null && last.key === key && time - last.time < mergeWithinMs && future.length === 0;
+    // A new starting point or Style (a change of `source`) is always its own step.
+    const merge = previous.source === state.source && last !== null && last.key === key && time - last.time < mergeWithinMs && future.length === 0;
     last = { key, time };
     if (merge) return;
     past.push(previous);
