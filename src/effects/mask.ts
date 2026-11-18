@@ -16,15 +16,15 @@ import { mrt, output, pass, uniform } from 'three/tsl';
 export const TREE_MASK = 'treeMask';
 
 /** The part of a tree a material draws. */
-export type TreePart = 'bark' | 'leaves';
+export type TreePart = 'bark' | 'leaves' | 'fruit';
 
 /**
- * Which tree part a material draws: 'bark' or 'leaves' for tree.js materials (and their clones),
+ * Which tree part a material draws: 'bark', 'leaves' or 'fruit' for tree.js materials (and their clones),
  * `null` for anything else. Tree Effects only change the pixels drawn by these materials.
  */
 export function treePartOf(material: Material | null | undefined): TreePart | null {
   const part: unknown = material?.userData.treePart;
-  return part === 'bark' || part === 'leaves' ? part : null;
+  return part === 'bark' || part === 'leaves' || part === 'fruit' ? part : null;
 }
 
 function isSelected(object: Object3D | null, selection: readonly Object3D[]): boolean {
@@ -34,7 +34,7 @@ function isSelected(object: Object3D | null, selection: readonly Object3D[]): bo
 
 /**
  * TSL node: the tree mask value of the object being drawn, `vec4(tree, leaves, selected, 1)`:
- * r = 1 on tree pixels, g = 1 on leaf pixels, b = 1 on pixels of selected trees (the outline's
+ * r = 1 on tree pixels (bark, leaves and Fruit), g = 1 on leaf pixels, b = 1 on pixels of selected trees (the outline's
  * selection), 0 elsewhere. A per-object uniform decided from the drawn material
  * ({@link treePartOf}), so no tree material is changed and every other object writes 0.
  *

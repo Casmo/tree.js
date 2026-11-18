@@ -108,6 +108,17 @@ describe('<Tree> (React Three Fiber)', () => {
     expect(sceneTree(renderer)).toBe(tree);
     expect(tree.wood.castShadow).toBe(true);
   });
+
+  it('renders Fruit, and passes the shadow props to the fruit mesh', async () => {
+    const fruiting = { ...definition, schemaVersion: 3, fruit: { type: 'berry' as const, count: 3 } };
+    renderer = await ReactThreeTestRenderer.create(<Tree definition={fruiting} castShadow={false} receiveShadow={false} />, { gl });
+    const tree = sceneTree(renderer);
+    expect(tree.children).toContain(tree.fruit);
+    expect(tree.fruit.geometry.getAttribute('position').count).toBeGreaterThan(0);
+    expect([tree.fruit.castShadow, tree.fruit.receiveShadow]).toEqual([false, false]);
+    await renderer.update(<Tree definition={fruiting} />);
+    expect([tree.fruit.castShadow, tree.fruit.receiveShadow]).toEqual([true, true]);
+  });
 });
 
 /** Counts the 'dispose' events of a tree and of its meshes' geometries and materials. */

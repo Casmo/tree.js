@@ -14,14 +14,14 @@ import type { GeometryBuffers } from '../generator';
 import { clampGrowth, growPositions } from '../growth';
 import { BARK_REPEAT } from '../materials/maps';
 import { isFlatShading } from '../materials/shading';
-import { leafSeason, partSeasonAt, wrapSeason } from '../season';
+import { fruitSeason, leafSeason, partSeasonAt, wrapSeason } from '../season';
 import type { Tree } from '../tree';
 
 /**
  * Baked Tree: one tree frozen at a Seed, Growth and Season as plain static geometry with
  * standard PBR materials (`MeshStandardMaterial`, no node materials, no custom attributes), for
  * glTF export and other tools. Growth and Season are evaluated on the CPU with the same models the
- * shaders run (`growPositions`, `leafSeason`); Wind is left out (a Baked Tree stands still).
+ * shaders run (`growPositions`, `leafSeason`, `fruitSeason`); Wind is left out (a Baked Tree stands still).
  */
 
 /** Growth and Season to bake at; each defaults to the tree's current value. */
@@ -131,6 +131,40 @@ function bakeLeaves(definition: TreeDefinition, leaves: GeometryBuffers, growth:
   );
 }
 
+/**
+ * Fruit: each Fruit scaled about its attachment point by the Fruit amount (dropped when not
+ * shown), then grown; the Fruit colour × the Seed's tint as vertex colours. Same order as the shader.
+ */
+function bakeFruit(definition: TreeDefinition, fruit: GeometryBuffers, growth: number, season: number): BufferGeometry | null {
+  const count = fruit.positions.length / 3;
+  if (count === 0) return null;
+  const aSeason = fruit.attributes.aSeason!.array;
+  const aOrigin = fruit.attributes.aOrigin!.array;
+  const shown = new Uint8Array(count);
+  const colors = new Float32Array(count * 3);
+  const scaled = new Float32Array(count * 3);
+  for (let v = 0; v < count; v++) {
+    const state = fruitSeason(definition.season, season, partSeasonAt(aSeason, v));
+    shown[v] = state.visible ? 1 : 0;
+    for (let c = 0; c < 3; c++) {
+      const i = v * 3 + c;
+      colors[i] = state.color[c]! * (fruit.colors?.[i] ?? 1);
+      scaled[i] = aOrigin[i]! + (fruit.positions[i]! - aOrigin[i]!) * state.scale;
+    }
+  }
+  return compact(
+    {
+      positions: growPositions({ ...fruit, positions: scaled }, growth),
+      normals: fruit.normals,
+      uvs: fruit.uvs,
+      colors,
+      visible: (v) => shown[v] === 1,
+    },
+    fruit.indices,
+    isFlatShading(definition.materials.shading),
+  );
+}
+
 /** A loaded texture for the baked material (a copy, so the tree's shared texture is untouched); null without image data. */
 function bakedMap(texture: Texture | null | undefined, repeat?: readonly [number, number]): Texture | null {
   if (!texture?.image) return null;
@@ -141,7 +175,7 @@ function bakedMap(texture: Texture | null | undefined, repeat?: readonly [number
 
 /**
  * Freezes a tree at a Growth and Season (default: the tree's own) into a static `Group` of
- * meshes `wood` and `leaves` (a mesh with nothing to show is left out) with standard PBR
+ * meshes `wood`, `leaves` and `fruit` (a mesh with nothing to show is left out) with standard PBR
  * materials: no node materials, no Growth/Season/Wind attributes, no animation. The result is
  * independent of `tree`; call `disposeBakedTree` when done with it.
  */
@@ -187,6 +221,19 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
       alphaTest: map ? definition.materials.leaf.alphaTest : 0,
     });
     group.add(bakedMesh('leaves', leafGeometry, material));
+  }
+
+  const fruitGeometry = bakeFruit(definition, data.fruit, growth, season);
+  if (fruitGeometry) {
+    const material = new MeshStandardMaterial({
+      name: 'fruit',
+      color: 0xffffff,
+      roughness: tree.fruit.material.roughness,
+      metalness: 0,
+      vertexColors: true,
+      flatShading: flat,
+    });
+    group.add(bakedMesh('fruit', fruitGeometry, material));
   }
   return group;
 }

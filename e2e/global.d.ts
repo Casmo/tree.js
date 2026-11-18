@@ -22,6 +22,8 @@ declare global {
       error?: string;
       trees?: number;
       drawCalls?: number;
+      /** Fruit instances drawn over all Variants (0 without Fruit). */
+      fruitInstances?: number;
     };
   }
 }

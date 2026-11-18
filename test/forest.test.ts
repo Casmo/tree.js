@@ -218,3 +218,51 @@ describe('createForest', () => {
     expect(draw).toThrow(UnsupportedRendererError);
   });
 });
+
+describe('Forest Fruit', () => {
+  const fruiting: TreeDefinitionInput = { ...definition, schemaVersion: 3, fruit: { type: 'round', count: 2, size: 0.15 } };
+
+  it('a Forest without Fruit has no fruit mesh', () => {
+    const forest = createForest(definition, grid(10), { variants: 2, seed: 1 });
+    for (const variant of forest.variants) expect(variant.fruit).toBeNull();
+    expect(meshes(forest)).toHaveLength(2 * 2);
+  });
+
+  it('instances a third mesh per Variant: Fruit on every tree, sharing the wood\'s instance matrices', () => {
+    const forest = createForest(fruiting, grid(40), { variants: 3, seed: 1 });
+    expect(meshes(forest)).toHaveLength(3 * 3);
+    for (const variant of forest.variants) {
+      const fruit = variant.fruit!;
+      expect(fruit).toBeInstanceOf(InstancedMesh);
+      expect(fruit.name).toBe(`forest fruit ${variant.index}`);
+      expect(fruit.geometry.getAttribute('position').count).toBe(variant.data.fruit.positions.length / 3);
+      expect(fruit.geometry.getAttribute('position').count).toBeGreaterThan(0);
+      expect(fruit.count).toBe(variant.wood.count);
+      expect(fruit.instanceMatrix).toBe(variant.wood.instanceMatrix);
+      expect(fruit.material.userData.treePart).toBe('fruit');
+      expect(fruit.material.positionNode).not.toBeNull();
+      expect(fruit.material.colorNode).not.toBeNull();
+    }
+  });
+
+  it('keeps the Fruit with its tree when a Variant grows, and finds the tree behind a Fruit instance', () => {
+    const forest = createForest(fruiting, [], { variants: 1, seed: 1 });
+    for (let i = 0; i < 40; i++) forest.addTree({ id: i, position: [i, 0, 0] });
+    const variant = forest.variants[0]!;
+    expect(variant.fruit!.count).toBe(40);
+    expect(variant.fruit!.instanceMatrix).toBe(variant.wood.instanceMatrix);
+    expect(meshes(forest)).toHaveLength(3);
+    expect(forest.treeAt({ object: variant.fruit, instanceId: 5 })).toBe(variant.trees[5]);
+  });
+
+  it('dispose() frees the fruit meshes too', () => {
+    const forest = createForest(fruiting, grid(5), { variants: 2, seed: 1 });
+    let disposed = 0;
+    for (const variant of forest.variants) {
+      variant.fruit!.geometry.addEventListener('dispose', () => disposed++);
+      variant.fruit!.material.addEventListener('dispose', () => disposed++);
+    }
+    forest.dispose();
+    expect(disposed).toBe(4);
+  });
+});

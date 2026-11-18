@@ -10,14 +10,17 @@
 //   ?wind=<strength>&windTime=<s>  scene-wide Wind; windTime pins the clock
 //   ?cut=<n>  remove every n-th tree after planting (the others must not change)
 //   ?style=<name>&form=conifer  a built-in Style's Definition instead of the example's own
+//   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (a third instanced mesh per Variant)
 import * as THREE from 'three/webgpu';
 import {
   createForest,
   createRandom,
+  extendDefinition,
   loadStyle,
   sceneWind,
   SEASON_PROFILES,
   type ForestPlacement,
+  type FruitType,
   type StyleName,
   type TreeDefinition,
   type TreeDefinitionInput,
@@ -30,8 +33,10 @@ declare global {
       backend?: string;
       error?: string;
       trees?: number;
-      /** Draw calls of the last frame (2 per Variant, plus the ground and the background). */
+      /** Draw calls of the last frame (2 per Variant, 3 with Fruit, plus the ground and the background). */
       drawCalls?: number;
+      /** Fruit instances drawn over all Variants (0 without Fruit). */
+      fruitInstances?: number;
     };
   }
 }
@@ -84,8 +89,21 @@ async function loadDefinition(): Promise<TreeDefinitionInput | TreeDefinition> {
   return (await loadStyle(style as StyleName))[params.get('form') === 'conifer' ? 'conifer' : 'broadleaf'];
 }
 
+/** `?fruit=<type>`: Fruit on the outermost twigs, ripe (red) in late summer. */
+function withFruit(definition: TreeDefinitionInput | TreeDefinition): TreeDefinitionInput | TreeDefinition {
+  const type = params.get('fruit') as FruitType | null;
+  if (!type) return definition;
+  return extendDefinition(definition, {
+    fruit: { type, count: 3, size: 0.3, hang: type === 'cone' ? 0.2 : 0.8 },
+    season: {
+      fruit: [{ t: 0.12, value: 0 }, { t: 0.32, value: 1 }, { t: 0.62, value: 1 }, { t: 0.7, value: 0 }],
+      fruitColor: [{ t: 0.25, value: '#7cb342' }, { t: 0.36, value: '#d32f2f' }],
+    },
+  });
+}
+
 async function main(): Promise<void> {
-  const forest = createForest(await loadDefinition(), placements, {
+  const forest = createForest(withFruit(await loadDefinition()), placements, {
     variants: number('variants', 4),
     seed: number('seed', 1),
     growth: number('growth', 1),
@@ -120,7 +138,8 @@ async function main(): Promise<void> {
   await renderer.renderAsync(scene, camera);
   const drawCalls = renderer.info.render.drawCalls;
   statusEl.textContent = `WebGPURenderer (${backend}) - ${forest.size} trees, ${forest.variants.length} Variants, ${drawCalls} draw calls`;
-  window.forestExample = { status: 'rendered', backend, trees: forest.size, drawCalls };
+  const fruitInstances = forest.variants.reduce((sum, v) => sum + (v.fruit?.count ?? 0), 0);
+  window.forestExample = { status: 'rendered', backend, trees: forest.size, drawCalls, fruitInstances };
   if (sceneWind.strength > 0 && windTime === null) renderer.setAnimationLoop(() => renderer.render(scene, camera));
 }
 
