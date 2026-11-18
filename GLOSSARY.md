@@ -21,8 +21,12 @@ A named kind of real tree shipped with the library, such as Oak, Birch or Dougla
 _Avoid_: Preset, tree type
 
 **Form**:
-The overall kind of tree a Tree Definition grows, such as broadleaf or conifer.
+The broad group a Species belongs to, broadleaf or conifer, used to sort Species; it does not change how a tree grows.
 _Avoid_: Tree type
+
+**Crown Shape**:
+The outline of a tree's branches, set by how branch length and branch angle change from the base to the tip of the parent they grow from, such as a cone, a ball, a column, a vase or a flat top.
+_Avoid_: Silhouette, profile
 
 **Growth**:
 How far a tree has grown, a value from 0 (sapling) to 1 (fully grown) that the app may change at any moment to animate it.
