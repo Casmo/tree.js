@@ -1,6 +1,7 @@
 import type { StyleName } from '../styles/registry';
 import type { TreeColorGradeOptions } from './grade';
 import type { LeafGlowOptions } from './glow';
+import type { TreeHighlightOptions } from './highlight';
 import type { TreeOutlineOptions } from './outline';
 import type { InnerLinesOptions } from './inner-lines';
 
@@ -10,6 +11,8 @@ export interface TreeEffectsSettings {
   glow?: LeafGlowOptions;
   outline?: TreeOutlineOptions;
   innerLines?: InnerLinesOptions;
+  /** Marks the TreeEffects' `highlighted` trees; never in a suggestion. */
+  highlight?: TreeHighlightOptions;
 }
 
 /** The suggested combination of Tree Effects for each built-in Style. */

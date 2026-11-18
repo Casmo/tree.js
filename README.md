@@ -694,6 +694,35 @@ const pipeline = new THREE.RenderPipeline(renderer);
 pipeline.outputNode = treeOutline({ ...input, color: lined });
 ```
 
+### Highlight
+
+**Highlight** marks the trees you point out, such as the one under the cursor: it brightens and tints
+them and draws a ring just outside them, optionally pulsing. It is the one Tree Effect that also
+changes pixels next to a tree (its ring). It is never on by default and in no suggestion. It needs
+the Tree ID, so `highlight` turns that channel on (and with it `pick`):
+
+```ts
+import { createTreeEffects } from '@casmo/tree.js/effects';
+
+const effects = createTreeEffects(renderer, scene, camera, {
+  effects: { outline: {}, highlight: { color: '#ffe066', tint: 0.25, brightness: 1.25, outlineColor: '#ffd23f', thickness: 2, pulse: 0 } },
+});
+renderer.domElement.addEventListener('pointermove', async (event) => {
+  const tree = await effects.pick(event.offsetX, event.offsetY);
+  effects.highlighted.splice(0, effects.highlighted.length, ...(tree ? [tree] : [])); // read every frame, no recompile
+});
+```
+
+- `highlighted` (an option, or the `effects.highlighted` list) holds Trees and Forest trees, not a
+  Forest or a group. Change it in place; it is read every frame. At most 64 trees are highlighted at
+  once (one console warning beyond that). Removed, disposed and undrawn trees are skipped.
+- Options: `color` and `tint` (0..1) of the tint, `brightness` (a multiplier), `outlineColor` and
+  `thickness` (px) of the ring, `strength` (0..1) and `pulse` (Hz, 0 = off): tint and brightness swing
+  between their value and half of it, the ring stays solid.
+- It is applied last (grade, glow, inner lines, outline, then highlight), so it is always on top. In your own
+  pipeline: `treeHighlight(input, highlighted, options)`, with the `treeId` input of
+  `treeEffectsPass(scene, camera, null, { treeId: true })`, or `applyTreeEffects(input, settings, highlighted)`.
+
 ## React Three Fiber
 
 ![Two low-poly trees rendered with React Three Fiber](docs/images/react.png)
