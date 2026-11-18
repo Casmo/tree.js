@@ -1,10 +1,12 @@
 // Live preview: one Tree on WebGPURenderer, kept in sync with the editor store.
-// A new Definition or Seed regenerates the tree; Growth and Season only write its uniforms.
+// A new Definition or Seed regenerates the tree; Growth, Season and the Structural Occlusion strength
+// only write its uniforms.
 // Rendering is on demand (one frame per change, or while the camera moves).
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createTree, type Tree } from '@casmo/tree.js';
 import { framingBox } from './framing';
+import { onlyOcclusionStrengthChanged } from './material-features';
 import type { EditorState, EditorStore } from './store';
 
 export type PreviewStatus = 'loading' | 'rendered' | 'error';
@@ -83,7 +85,12 @@ export class Preview {
   show(state: EditorState, previous: EditorState | null): void {
     try {
       const regenerate = !this.tree || !previous || state.definition !== previous.definition || state.seed !== previous.seed;
-      if (regenerate) {
+      if (regenerate && previous && this.tree && state.seed === previous.seed && onlyOcclusionStrengthChanged(previous.definition, state.definition)) {
+        // Tuning the occlusion strength needs no new tree: it is a uniform.
+        this.tree.occlusionStrength = state.definition.materials.occlusion!.strength;
+        this.tree.growth = state.growth;
+        this.tree.season = state.season;
+      } else if (regenerate) {
         const tree = createTree(state.definition, { seed: state.seed, growth: state.growth, season: state.season });
         this.tree?.dispose();
         this.tree = tree;
