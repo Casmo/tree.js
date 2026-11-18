@@ -1,0 +1,22 @@
+{ "title": "New Tree Effects: Inner Lines, outlines between trees, highlight and Tree ID",
+  "kicker": "New · Tree Effects", "app": "tree-js",
+  "url": "http://localhost:5291/examples/effects/?style=low-poly",
+  "chapters": [
+    { "title": "Low-poly and stylized suggested looks", "steps": [
+      { "wait": 2500 },
+      { "goto": "/examples/effects/?style=stylized" }, { "wait": 2500 } ] },
+    { "title": "Outline between overlapping trees vs. plain outline", "steps": [
+      { "goto": "/examples/effects/?style=low-poly&overlap=plain&effects=outline" }, { "wait": 3000 },
+      { "goto": "/examples/effects/?style=low-poly&overlap=between&effects=outline" }, { "wait": 3000 } ] },
+    { "title": "Inner Lines effect", "steps": [
+      { "goto": "/examples/effects/?effects=inner-lines" }, { "wait": 2500 } ] },
+    { "title": "Highlight a Forest tree, then hover to move it", "steps": [
+      { "goto": "/examples/effects/?highlight=f0" }, { "wait": 3500 },
+      { "hover": "canvas" }, { "wait": 2000 } ] },
+    { "title": "Tree ID debug view", "steps": [
+      { "goto": "/examples/effects/?view=treeId" }, { "wait": 3000 } ] },
+    { "title": "Tree Editor: Inner lines toggle and Apply suggestion", "steps": [
+      { "goto": "/editor/?start=low-poly/broadleaf&seed=1" }, { "wait": 2500 },
+      { "click": "role=checkbox[name=\"Inner lines\"]", "zoom": true },
+      { "click": "role=checkbox[name=\"Inner lines\"]" },
+      { "click": "role=button[name=\"Apply low-poly suggestion\"]", "zoom": true }, { "wait": 2000 } ] } ] }
