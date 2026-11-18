@@ -261,7 +261,8 @@ A swaying tree needs a render loop (`renderer.setAnimationLoop`).
 *400 trees from 4 Variants, with a per-tree Season (autumn towards the right).*
 
 A Forest draws many trees of one Definition from a few Variants (Seeds), each instanced, so 1,000 trees
-cost two draw calls per Variant. Every tree still looks its own: its Variant, rotation, Growth delay,
+cost two draw calls per Variant (three with Fruit: `variant.fruit` is a third instanced mesh, null without
+Fruit). Every tree still looks its own: its Variant, rotation, Growth delay,
 Season shift and wind phase come from a hash of the forest seed and the tree's id (or position), so adding
 or removing trees never changes the others.
 
@@ -299,7 +300,7 @@ if (hit) console.log(forest.treeAt(hit)?.key);
 
 `@casmo/tree.js/effects` has opt-in post-processing (TSL nodes for three.js `RenderPipeline`) that only
 changes the pixels of trees: an **outline**, a **leaf glow** and **colour grading**. Trees look fine
-without them. Every tree.js material (Trees and Forests) is found automatically (a per-object tree mask in
+without them. Every tree.js material (wood, leaves and Fruit, of Trees and Forests) is found automatically (a per-object tree mask in
 an MRT output), so no tree has to be registered.
 
 ```ts
@@ -438,7 +439,8 @@ Styles and the realistic textures load relative to the library's URL, so they co
 *A `.glb` from `exportBakedTree(tree, { season: 0.6 })`, loaded back with three.js' `GLTFLoader`.*
 
 A Baked Tree is a static copy of one tree at a fixed Growth and Season (no Growth, Season or Wind left), with
-classic `MeshStandardMaterial`s, for other engines or tools:
+classic `MeshStandardMaterial`s, for other engines or tools. It has meshes `wood`, `leaves` and, when Fruit
+shows at the baked Growth and Season, `fruit`:
 
 ```ts
 import { bakeTree, createTree, disposeBakedTree, exportBakedTree } from '@casmo/tree.js';

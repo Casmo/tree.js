@@ -96,7 +96,7 @@ export function Tree({
   }, [tree, season]);
 
   useLayoutEffect(() => {
-    for (const mesh of [tree.wood, tree.leaves]) {
+    for (const mesh of [tree.wood, tree.leaves, tree.fruit]) {
       mesh.castShadow = castShadow;
       mesh.receiveShadow = receiveShadow;
     }

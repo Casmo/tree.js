@@ -14,11 +14,12 @@ import {
   Vector3,
   type MeshStandardNodeMaterial,
 } from 'three/webgpu';
+import { positionGeometry } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
 import { generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
-import { createBarkMaterial, createLeafMaterial } from '../materials';
+import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
 import { assertWebGPURenderer } from '../renderer';
-import { applySeasonToLeafMaterial, createSeasonNodes } from '../season';
+import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes } from '../season';
 import { checkedSeason } from '../season/check';
 import { clampGrowth } from '../growth';
 import { textureReady, type TextureOptions } from '../textures';
@@ -162,7 +163,8 @@ function shareGeometry(source: BufferGeometry): BufferGeometry {
 
 /**
  * One Variant of a Forest: one Seed's tree, drawn once per tree that uses it with an instanced
- * wood mesh and an instanced leaf mesh (one draw call per material).
+ * wood mesh, an instanced leaf mesh and, when the Definition has Fruit, an instanced fruit mesh
+ * (one draw call per material). All three share one instance matrix buffer.
  */
 export class ForestVariant {
   readonly index: number;
@@ -172,13 +174,17 @@ export class ForestVariant {
   readonly windResponse: WindResponse;
   readonly barkMaterial: MeshStandardNodeMaterial;
   readonly leafMaterial: MeshStandardNodeMaterial;
+  /** Fruit material, null when the Definition has no Fruit. */
+  readonly fruitMaterial: MeshStandardNodeMaterial | null;
   /** The trees drawn as this Variant, in instance order. */
   readonly trees: ForestTree[] = [];
   private woodMesh!: InstancedMesh<BufferGeometry, MeshStandardNodeMaterial>;
   private leafMesh!: InstancedMesh<BufferGeometry, MeshStandardNodeMaterial>;
+  private fruitMesh: InstancedMesh<BufferGeometry, MeshStandardNodeMaterial> | null = null;
   private instanceData!: InstancedInterleavedBuffer;
   private readonly woodSource: BufferGeometry;
   private readonly leafSource: BufferGeometry;
+  private readonly fruitSource: BufferGeometry | null;
 
   constructor(
     private readonly forest: Forest,
@@ -204,6 +210,18 @@ export class ForestVariant {
 
     this.woodSource = interleavedGeometry(this.data.wood, height * WIND_BOUNDS);
     this.leafSource = interleavedGeometry(this.data.leaves, height * WIND_BOUNDS);
+
+    if (this.data.fruit.indices.length > 0) {
+      // As on a Tree: Season scales each Fruit about its attachment point, then Growth and Wind.
+      const fruitSeason = createFruitSeasonNodes(definition.season, instanceState().season, positionGeometry);
+      this.fruitMaterial = createFruitMaterial(definition);
+      this.fruitMaterial.colorNode = fruitSeason.color;
+      this.fruitMaterial.positionNode = forestPosition(wind, this.windResponse, fruitSeason.position);
+      this.fruitSource = interleavedGeometry(this.data.fruit, height * WIND_BOUNDS);
+    } else {
+      this.fruitMaterial = null;
+      this.fruitSource = null;
+    }
     this.allocate(capacity);
   }
 
@@ -215,6 +233,16 @@ export class ForestVariant {
   /** Instanced mesh of the leaves. Replaced along with {@link wood}. */
   get leaves(): InstancedMesh<BufferGeometry, MeshStandardNodeMaterial> {
     return this.leafMesh;
+  }
+
+  /** Instanced mesh of the Fruit (null when the Definition has no Fruit). Replaced along with {@link wood}. */
+  get fruit(): InstancedMesh<BufferGeometry, MeshStandardNodeMaterial> | null {
+    return this.fruitMesh;
+  }
+
+  /** The Variant's meshes: wood, leaves and (with Fruit) fruit. */
+  get meshes(): InstancedMesh<BufferGeometry, MeshStandardNodeMaterial>[] {
+    return this.fruitMesh ? [this.woodMesh, this.leafMesh, this.fruitMesh] : [this.woodMesh, this.leafMesh];
   }
 
   get capacity(): number {
@@ -270,8 +298,7 @@ export class ForestVariant {
       i * INSTANCE_STRIDE,
     );
     this.instanceData.needsUpdate = true;
-    this.woodMesh.boundingSphere = this.leafMesh.boundingSphere = null;
-    this.woodMesh.boundingBox = this.leafMesh.boundingBox = null;
+    for (const mesh of this.meshes) mesh.boundingSphere = mesh.boundingBox = null;
   }
 
   /** @internal */
@@ -286,12 +313,14 @@ export class ForestVariant {
     this.disposeMeshes();
     this.woodSource.dispose();
     this.leafSource.dispose();
+    this.fruitSource?.dispose();
     this.barkMaterial.dispose();
     this.leafMaterial.dispose();
+    this.fruitMaterial?.dispose();
   }
 
   private setCount(): void {
-    this.woodMesh.count = this.leafMesh.count = this.trees.length;
+    for (const mesh of this.meshes) mesh.count = this.trees.length;
   }
 
   /**
@@ -316,7 +345,7 @@ export class ForestVariant {
         geometry.setAttribute(attribute, new InterleavedBufferAttribute(instanceData, 4, offset));
       }
       const instanced = new InstancedMesh(geometry, material, capacity);
-      instanced.instanceMatrix = matrices; // wood and leaves share one matrix buffer
+      instanced.instanceMatrix = matrices; // wood, leaves and fruit share one matrix buffer
       instanced.name = `${name} ${this.index}`;
       instanced.castShadow = true;
       instanced.receiveShadow = true;
@@ -325,12 +354,13 @@ export class ForestVariant {
     };
     this.woodMesh = mesh('forest wood', this.woodSource, this.barkMaterial);
     this.leafMesh = mesh('forest leaves', this.leafSource, this.leafMaterial);
+    if (this.fruitSource && this.fruitMaterial) this.fruitMesh = mesh('forest fruit', this.fruitSource, this.fruitMaterial);
     this.setCount();
-    this.forest.add(this.woodMesh, this.leafMesh);
+    this.forest.add(...this.meshes);
   }
 
   private disposeMeshes(): void {
-    for (const mesh of [this.woodMesh, this.leafMesh]) {
+    for (const mesh of this.meshes) {
       mesh.removeFromParent();
       mesh.geometry.dispose();
       mesh.dispose();
@@ -444,7 +474,7 @@ export class Forest extends Group {
 
   /** The tree drawn by instance `instanceId` of a Variant mesh, e.g. from a raycast intersection. */
   treeAt(intersection: { object: unknown; instanceId?: number }): ForestTree | undefined {
-    const variant = this.variants.find((v) => v.wood === intersection.object || v.leaves === intersection.object);
+    const variant = this.variants.find((v) => v.meshes.includes(intersection.object as InstancedMesh<BufferGeometry, MeshStandardNodeMaterial>));
     return variant && intersection.instanceId !== undefined ? variant.trees[intersection.instanceId] : undefined;
   }
 

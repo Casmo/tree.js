@@ -182,6 +182,20 @@ describe('<Forest> (React Three Fiber)', () => {
     expect([variant.wood.castShadow, variant.wood.receiveShadow, variant.leaves.receiveShadow]).toEqual([true, false, false]);
   });
 
+  it('renders Fruit on every tree with a third mesh per Variant, which follows the shadow props', async () => {
+    const fruiting = { ...definition, schemaVersion: 3, fruit: { type: 'round' as const, count: 2 } };
+    const placements = Array.from({ length: 40 }, (_, i) => ({ position: [i * 2, 0, 0] as Vec3 }));
+    renderer = await ReactThreeTestRenderer.create(
+      <Forest definition={fruiting} variants={1} placements={placements} castShadow={false} />,
+      { gl },
+    );
+    const variant = sceneForest(renderer).variants[0]!;
+    const fruit = variant.fruit!;
+    expect(fruit.parent).toBe(sceneForest(renderer));
+    expect(fruit.count).toBe(40);
+    expect([fruit.castShadow, fruit.receiveShadow]).toEqual([false, true]);
+  });
+
   it('grows a Form of a Style', async () => {
     const { default: lowPoly } = await import('../../src/styles/low-poly');
     renderer = await ReactThreeTestRenderer.create(

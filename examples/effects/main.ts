@@ -2,6 +2,7 @@
 // Query parameters (used by the Playwright tests):
 //   ?style=low-poly|stylized|realistic  the tree's Style (default low-poly)
 //   ?form=conifer  conifer instead of broadleaf
+//   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (Tree Effects treat it as tree pixels)
 //   ?effects=none|outline|glow|grade|style  one effect, the Style's suggested combination (default), or none
 //   ?view=mask  show the tree mask (red = tree, green = leaves) instead of the image
 //   ?pipeline=custom  build the pipeline by hand (treeEffectsPass + applyTreeEffects) with an extra
@@ -9,7 +10,7 @@
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 import * as THREE from 'three/webgpu';
 import { float, screenUV, vec4 } from 'three/tsl';
-import { createTree, type TreeStyle } from '@casmo/tree.js';
+import { createTree, extendDefinition, type FruitType, type TreeDefinition, type TreeStyle } from '@casmo/tree.js';
 import {
   applyTreeEffects,
   createTreeEffects,
@@ -56,10 +57,20 @@ function chosenEffects(): TreeEffectsSettings {
   }
 }
 
+/** `?fruit=<type>`: big ripe Fruit on the outermost twigs, so the effects have Fruit to cover. */
+function withFruit(definition: TreeDefinition): TreeDefinition {
+  const type = params.get('fruit') as FruitType | null;
+  if (!type) return definition;
+  return extendDefinition(definition, {
+    fruit: { type, count: 3, size: 0.35, hang: type === 'cone' ? 0.2 : 0.8 },
+    season: { fruitColor: [{ t: 0, value: '#d32f2f' }] },
+  });
+}
+
 async function main(): Promise<void> {
   const load = styles[styleName];
   if (!load) throw new Error(`Unknown style "${styleName}"`);
-  const tree = createTree((await load()).default[form], { seed: 1, season: 0.37 });
+  const tree = createTree(withFruit((await load()).default[form]), { seed: 1, season: 0.37 });
   await tree.ready;
 
   const scene = new THREE.Scene();
