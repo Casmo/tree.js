@@ -24,6 +24,10 @@ _Avoid_: Preset, tree type
 The broad group a Species belongs to, broadleaf or conifer, used to sort Species; it does not change how a tree grows.
 _Avoid_: Tree type
 
+**Stem**:
+One of the trunks a tree grows from the ground; most trees have a single Stem, a juniper or an olive may have several.
+_Avoid_: Trunk copy, multi-trunk
+
 **Crown Shape**:
 The outline of a tree's branches, set by how branch length and branch angle change from the base to the tip of the parent they grow from, such as a cone, a ball, a column, a vase or a flat top.
 _Avoid_: Silhouette, profile
