@@ -168,12 +168,14 @@ function bakeWood(definition: TreeDefinition, wood: GeometryBuffers, growth: num
       for (let c = 0; c < 3; c++) colors[v * 3 + c] = bark[c]! * shade * (1 - amount) + tint[c]! * amount;
     }
   }
-  const ao = occlusion.of(wood);
-  if (ao && occlusion.inColors) colors = darken(colors ?? new Float32Array(wood.positions.length).fill(1), ao);
-  return compact({ positions, normals: wood.normals, uvs: wood.uvs, colors, occlusion: ao, visible: () => true }, wood.indices, flat);
+  return compact({ positions, normals: wood.normals, uvs: wood.uvs, ...occlusion.of(wood, colors), visible: () => true }, wood.indices, flat);
 }
 
-/** Leaves: grown positions; fallen leaves dropped; Season (or blossom) colour × the Seed's tint as vertex colours. */
+/**
+ * Leaves: grown positions; fallen leaves dropped; Season (or blossom) colour × the Seed's tint as vertex
+ * colours. Also returns the mean colour of the shown leaves (linear, before any occlusion), the colour
+ * Leaf Translucency glows in.
+ */
 function bakeLeaves(
   definition: TreeDefinition,
   leaves: GeometryBuffers,
@@ -181,7 +183,7 @@ function bakeLeaves(
   season: number,
   occlusion: BakedOcclusion,
   crown: CrownVolume,
-): BufferGeometry | null {
+): { geometry: BufferGeometry | null; meanColor: [number, number, number] } {
   const count = leaves.positions.length / 3;
   const aSeason = leaves.attributes.aSeason!.array;
   const shown = new Uint8Array(count);
@@ -191,23 +193,35 @@ function bakeLeaves(
     shown[v] = state.visible ? 1 : 0;
     for (let c = 0; c < 3; c++) colors[v * 3 + c] = state.color[c]! * (leaves.colors?.[v * 3 + c] ?? 1);
   }
-  const ao = occlusion.of(leaves);
+  const meanColor = meanShownColor(colors, shown);
   const positions = growPositions(leaves, growth);
   const amount = definition.materials.leaf.crownNormals;
   const crownNormals = amount ? bakedCrownNormals(leaves, positions, growth, crown, amount, definition.leaves.shape === 'card') : undefined;
-  return compact(
+  const geometry = compact(
     {
       positions,
       normals: crownNormals ? orient(leaves.normals, crownNormals.flipped) : leaves.normals,
       uvs: leaves.uvs,
-      colors: ao && occlusion.inColors ? darken(colors, ao) : colors,
-      occlusion: ao,
+      ...occlusion.of(leaves, colors),
       visible: (v) => shown[v] === 1,
       crownNormals,
     },
     leaves.indices,
     isFlatShading(definition.materials.shading),
   );
+  return { geometry, meanColor };
+}
+
+/** Mean of the colours of the shown vertices (each channel at most 1); black when none is shown. */
+function meanShownColor(colors: Float32Array, shown: Uint8Array): [number, number, number] {
+  const sum: [number, number, number] = [0, 0, 0];
+  let count = 0;
+  shown.forEach((on, v) => {
+    if (!on) return;
+    for (let c = 0; c < 3; c++) sum[c]! += colors[v * 3 + c]!;
+    count++;
+  });
+  return sum.map((c) => Math.min(c / Math.max(count, 1), 1)) as [number, number, number];
 }
 
 /**
@@ -253,21 +267,24 @@ function orient(normals: Float32Array, flipped: Uint8Array): Float32Array {
 }
 
 /**
- * Structural Occlusion as baked: per part, `mix(1, aOcclusion, strength)` (what the material's aoNode
- * shows), or null when the tree has none. `inColors`: also multiply it into the vertex colours.
+ * Structural Occlusion as baked, for one part with its vertex colours (null: none): `occlusion` is
+ * `mix(1, aOcclusion, strength)` per vertex (what the material's aoNode shows), null when the tree has
+ * none. With `inColors` the colours come back multiplied by it (in place; a part without colours gets
+ * the occlusion as grey ones), else unchanged.
  */
 interface BakedOcclusion {
-  of: (part: GeometryBuffers) => Float32Array | null;
-  inColors: boolean;
+  of(part: GeometryBuffers, colors: Float32Array | null): { occlusion: Float32Array | null; colors: Float32Array | null };
 }
 
 function bakedOcclusion(strength: number | null, inColors: boolean): BakedOcclusion {
   return {
-    of: (part) => {
+    of: (part, colors) => {
       const ao = part.attributes.aOcclusion?.array;
-      return strength === null || !ao ? null : Float32Array.from(ao, (a) => 1 - strength * (1 - a));
+      if (strength === null || !ao) return { occlusion: null, colors };
+      const occlusion = Float32Array.from(ao, (a) => 1 - strength * (1 - a));
+      if (!inColors) return { occlusion, colors };
+      return { occlusion, colors: darken(colors ?? new Float32Array(part.positions.length).fill(1), occlusion) };
     },
-    inColors,
   };
 }
 
@@ -304,14 +321,12 @@ function bakeFruit(
       scaled[i] = aOrigin[i]! + (fruit.positions[i]! - aOrigin[i]!) * state.scale;
     }
   }
-  const ao = occlusion.of(fruit);
   return compact(
     {
       positions: growPositions({ ...fruit, positions: scaled }, growth),
       normals: fruit.normals,
       uvs: fruit.uvs,
-      colors: ao && occlusion.inColors ? darken(colors, ao) : colors,
-      occlusion: ao,
+      ...occlusion.of(fruit, colors),
       visible: (v) => shown[v] === 1,
     },
     fruit.indices,
@@ -364,7 +379,7 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
     group.add(bakedMesh('wood', woodGeometry, material));
   }
 
-  const leafGeometry = bakeLeaves(definition, data.leaves, growth, season, occlusion, data.crown);
+  const { geometry: leafGeometry, meanColor } = bakeLeaves(definition, data.leaves, growth, season, occlusion, data.crown);
   if (leafGeometry) {
     const map = bakedMap(tree.leaves.material.map);
     const material = new MeshStandardMaterial({
@@ -380,11 +395,8 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
     });
     if (extras) material.userData = { treejs: extras };
     const { translucency } = definition.materials.leaf;
-    if (translucency) {
-      // Without the feature's occlusion in COLOR_0: the transmission colour is the leaves' own colour.
-      const colors = bakeLeaves(definition, data.leaves, growth, season, bakedOcclusion(null, false), data.crown)!;
-      diffuseTransmission.set(material, { factor: translucency.strength, color: meanColor(colors) });
-    }
+    // The transmission colour is the leaves' own colour (without the occlusion of `occlusionInVertexColors`).
+    if (translucency) diffuseTransmission.set(material, { factor: translucency.strength, color: meanColor });
     group.add(bakedMesh('leaves', leafGeometry, material));
   }
 
@@ -432,19 +444,6 @@ function materialFeatureExtras(tree: Tree, growth: number): MaterialFeatureExtra
 
 /** Leaf Translucency of a baked leaf material, written as `KHR_materials_diffuse_transmission` on export. */
 const diffuseTransmission = new WeakMap<Material, { factor: number; color: [number, number, number] }>();
-
-/** Mean vertex colour (linear) of a geometry. */
-function meanColor(geometry: BufferGeometry): [number, number, number] {
-  const color = geometry.getAttribute('color');
-  const sum: [number, number, number] = [0, 0, 0];
-  for (let v = 0; v < color.count; v++) {
-    sum[0] += color.getX(v);
-    sum[1] += color.getY(v);
-    sum[2] += color.getZ(v);
-  }
-  geometry.dispose();
-  return sum.map((c) => Math.min(c / Math.max(color.count, 1), 1)) as [number, number, number];
-}
 
 /** GLTFExporter plugin: Leaf Translucency as `KHR_materials_diffuse_transmission` (factor = strength, colour = the leaf colour). */
 class DiffuseTransmissionExtension implements GLTFExporterPlugin {
