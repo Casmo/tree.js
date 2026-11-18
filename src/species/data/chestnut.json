@@ -1,0 +1,197 @@
+{
+  "id": "chestnut",
+  "name": "Chestnut",
+  "form": "broadleaf",
+  "trunk": {
+    "length": 4,
+    "radius": 0.56,
+    "taper": 0.35,
+    "lengthVariation": 0.12,
+    "bend": 0.22
+  },
+  "branches": [
+    {
+      "angleVariation": 0.3,
+      "spiral": 137.5,
+      "lengthVariation": 0.25,
+      "radius": 0.6,
+      "taper": 0.4,
+      "bend": 0.3,
+      "gravity": 0.25,
+      "count": 7,
+      "start": 0.5,
+      "end": 0.95,
+      "angle": 56,
+      "length": 0.9,
+      "lengthProfile": [
+        {
+          "t": 0.5,
+          "value": 1
+        },
+        {
+          "t": 0.75,
+          "value": 1
+        },
+        {
+          "t": 1,
+          "value": 0.5
+        }
+      ],
+      "angleProfile": [
+        {
+          "t": 0.5,
+          "value": 1.15
+        },
+        {
+          "t": 1,
+          "value": 0.6
+        }
+      ]
+    },
+    {
+      "angleVariation": 0.3,
+      "spiral": 137.5,
+      "lengthVariation": 0.25,
+      "radius": 0.6,
+      "taper": 0.45,
+      "bend": 0.3,
+      "gravity": 0.3,
+      "count": 3,
+      "start": 0.3,
+      "end": 1,
+      "angle": 42,
+      "length": 0.65
+    }
+  ],
+  "foliage": {
+    "type": "broad",
+    "density": 0.6,
+    "size": 0.62,
+    "sizeVariation": 0.2,
+    "start": 0.05,
+    "angle": 50
+  },
+  "bark": {
+    "type": "furrowed",
+    "color": "#8e8272"
+  },
+  "fruit": {
+    "type": "nut",
+    "count": 1,
+    "size": 0.12,
+    "sizeVariation": 0.2,
+    "hang": 0.25
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#a5c45a"
+      },
+      {
+        "t": 0.2,
+        "value": "#33602a"
+      },
+      {
+        "t": 0.52,
+        "value": "#33602a"
+      },
+      {
+        "t": 0.6,
+        "value": "#bf9c38"
+      },
+      {
+        "t": 0.7,
+        "value": "#8c6a2c"
+      },
+      {
+        "t": 0.97,
+        "value": "#8c6a2c"
+      },
+      {
+        "t": 1,
+        "value": "#a5c45a"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 0.3
+      },
+      {
+        "t": 0.1,
+        "value": 1
+      },
+      {
+        "t": 0.62,
+        "value": 1
+      },
+      {
+        "t": 0.78,
+        "value": 0
+      },
+      {
+        "t": 0.96,
+        "value": 0
+      },
+      {
+        "t": 1,
+        "value": 0.3
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0.18,
+        "value": 0
+      },
+      {
+        "t": 0.24,
+        "value": 0.35
+      },
+      {
+        "t": 0.3,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#e8dc8a",
+    "fruit": [
+      {
+        "t": 0.25,
+        "value": 0
+      },
+      {
+        "t": 0.42,
+        "value": 1
+      },
+      {
+        "t": 0.64,
+        "value": 1
+      },
+      {
+        "t": 0.72,
+        "value": 0
+      }
+    ],
+    "fruitColor": [
+      {
+        "t": 0.38,
+        "value": "#9ab83a"
+      },
+      {
+        "t": 0.6,
+        "value": "#8a6a2a"
+      }
+    ]
+  },
+  "wind": {
+    "trunk": 0.08,
+    "branches": 0.3,
+    "leaves": 0.6,
+    "frequency": 0.9
+  },
+  "variation": {
+    "color": 0.1,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}

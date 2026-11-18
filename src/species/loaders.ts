@@ -2,25 +2,49 @@
 
 /** Id of a Species in the collection (kebab-case), e.g. `'oak'`. */
 export type SpeciesName =
+  | 'ash'
+  | 'beech'
+  | 'birch'
   | 'cedar'
+  | 'chestnut'
   | 'douglas-fir'
+  | 'elm'
   | 'hemlock'
+  | 'hickory'
   | 'juniper'
+  | 'mahogany'
+  | 'maple'
   | 'oak'
   | 'pine'
+  | 'red-oak'
   | 'redwood'
   | 'sequoia'
-  | 'spruce';
+  | 'spruce'
+  | 'teak'
+  | 'walnut'
+  | 'white-oak';
 
 /** Dynamic import of each Species (its own chunk in the build), by id. */
 export const SPECIES_LOADERS: Record<SpeciesName, () => Promise<{ default: unknown }>> = {
+  'ash': () => import('./data/ash.json'),
+  'beech': () => import('./data/beech.json'),
+  'birch': () => import('./data/birch.json'),
   'cedar': () => import('./data/cedar.json'),
+  'chestnut': () => import('./data/chestnut.json'),
   'douglas-fir': () => import('./data/douglas-fir.json'),
+  'elm': () => import('./data/elm.json'),
   'hemlock': () => import('./data/hemlock.json'),
+  'hickory': () => import('./data/hickory.json'),
   'juniper': () => import('./data/juniper.json'),
+  'mahogany': () => import('./data/mahogany.json'),
+  'maple': () => import('./data/maple.json'),
   'oak': () => import('./data/oak.json'),
   'pine': () => import('./data/pine.json'),
+  'red-oak': () => import('./data/red-oak.json'),
   'redwood': () => import('./data/redwood.json'),
   'sequoia': () => import('./data/sequoia.json'),
   'spruce': () => import('./data/spruce.json'),
+  'teak': () => import('./data/teak.json'),
+  'walnut': () => import('./data/walnut.json'),
+  'white-oak': () => import('./data/white-oak.json'),
 };
