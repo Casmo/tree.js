@@ -22,11 +22,11 @@ function parameterPaths(node: unknown, prefix = ''): string[] {
   return [prefix];
 }
 
-/** A Definition with every optional field and block present (Stems, Crown Shape curves, Leaf/Bark Type, Fruit). */
+/** A Definition with every optional field and block present (Stems, Root Flare, Crown Shape curves, Leaf/Bark Type, Fruit). */
 const FULL_DEFINITION = parseDefinition({
   ...DEFAULT_DEFINITION,
   species: 'test-oak',
-  trunk: { ...DEFAULT_DEFINITION.trunk, stems: 3, spread: 20, gravity: -0.2 },
+  trunk: { ...DEFAULT_DEFINITION.trunk, stems: 3, spread: 20, gravity: -0.2, flare: 0.5, flareSections: 2 },
   branches: DEFAULT_DEFINITION.branches.map((level) => ({
     ...level,
     lengthProfile: [{ t: 0, value: 1 }],
@@ -55,6 +55,8 @@ describe('parameter panels', () => {
     expect(paths).toContain('branches.*.gravity');
     expect(paths).toContain('branches.*.angleProfile');
     expect(paths).toContain('trunk.stems');
+    expect(paths).toContain('trunk.flare');
+    expect(paths).toContain('trunk.flareSections');
     expect(paths).toContain('fruit.hang');
     expect(paths).toContain('season.fruitColor');
     expect([...editable].sort()).toEqual([...paths].sort());
@@ -66,6 +68,8 @@ describe('parameter panels', () => {
       'trunk.stems': 1,
       'trunk.spread': 0,
       'trunk.gravity': 0,
+      'trunk.flare': 0,
+      'trunk.flareSections': 3,
       'leaves.type': '',
       'materials.bark.type': '',
       'fruit.sides': 8,

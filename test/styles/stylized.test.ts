@@ -40,6 +40,10 @@ describe('stylized Style (dynamic import of the /styles/stylized subpath)', () =
       expect(parseDefinition(definition)).toEqual(definition);
     });
 
+    it(`${form}: puts 3 extra rings in a Root Flare, like the Style draws a Species`, () => {
+      expect(definition.trunk.flareSections).toBe(3);
+    });
+
     it(`${form}: needs no image files and uses toon shading`, () => {
       const { bark, leaf, shading } = definition.materials;
       expect([bark.map, bark.normalMap, leaf.map]).toEqual([null, null, null]);

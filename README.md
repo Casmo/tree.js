@@ -226,6 +226,22 @@ trunks (each with the whole branch structure) in a small ring, leaning out about
 Seed varies each lean). `trunk.gravity` (−1..1) bends only the leader, the top third of each Stem: −1 makes
 it nod like a hemlock's. Absent, a tree has one upright Stem without gravity.
 
+A **Root Flare** widens each Stem towards the ground: `trunk.flare` (0..1) eases the bottom ~12% of the
+Stem's length out to (1 + 0.8 × `flare`) × the trunk radius at the base, so the trunk grows into the soil
+instead of standing on it like a post. It is geometry only: branches, leaves, Fruit, Growth, Wind and Sculpts
+stay exactly where they were. The optional `flareSections` (integer ≥ 1) is how many extra rings the flare
+gets, set by `Style.apply` (2 in low-poly, 3 in the others; absent = 3). Absent `flare` means none. Every
+trunk's base ring sits a tenth of its radius below the ground (also without flare), so no seam shows on
+uneven terrain:
+
+```ts
+import { createTree, extendDefinition, type TreeDefinitionInput } from '@casmo/tree.js';
+
+const oak: TreeDefinitionInput = { schemaVersion: 3, trunk: { length: 5, radius: 0.35, flare: 0.8 } };
+const flared = createTree(oak, { seed: 3 });
+const slender = extendDefinition(oak, { trunk: { flare: 0.15 } }); // a hint of a flare, same crown
+```
+
 **Fruit** is an optional `fruit` block: `type` (`'round'`, `'pear'`, `'nut'`, `'cone'` or `'berry'`),
 `count` per outermost twig, `size`, `sizeVariation` and `hang` (0 = sits on the twig .. 1 = hangs
 straight down). A fractional `count` is a chance per twig: `0.3` puts one Fruit on about 30% of the

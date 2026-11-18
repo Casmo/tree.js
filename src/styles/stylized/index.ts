@@ -55,7 +55,7 @@ const evergreen: SeasonProfileDefinition = {
 export const broadleaf: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: 'Stylized broadleaf',
-  trunk: { length: 3.2, radius: 0.24, taper: 0.55, sides: 10, sections: 8, lengthVariation: 0.15, bend: 0.25 },
+  trunk: { length: 3.2, radius: 0.24, taper: 0.55, sides: 10, sections: 8, lengthVariation: 0.15, bend: 0.25, flareSections: 3 },
   branches: [
     { count: 6, start: 0.45, end: 0.9, angle: 48, angleVariation: 0.2, spiral: 137.5, length: 0.5, lengthVariation: 0.2, radius: 0.55, taper: 0.5, sides: 8, sections: 5, bend: 0.25, gravity: 0.05 },
     { count: 3, start: 0.4, end: 1, angle: 40, angleVariation: 0.25, spiral: 120, length: 0.5, lengthVariation: 0.25, radius: 0.6, taper: 0.45, sides: 6, sections: 3, bend: 0.2, gravity: 0 },
@@ -80,7 +80,7 @@ export const broadleaf: TreeDefinition = {
 export const conifer: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: 'Stylized conifer',
-  trunk: { length: 5, radius: 0.2, taper: 0.2, sides: 8, sections: 6, lengthVariation: 0.15, bend: 0.05 },
+  trunk: { length: 5, radius: 0.2, taper: 0.2, sides: 8, sections: 6, lengthVariation: 0.15, bend: 0.05, flareSections: 3 },
   branches: [
     { count: 18, start: 0.15, end: 0.97, angle: 85, angleVariation: 0.1, spiral: 137.5, length: 0.5, lengthVariation: 0.1, radius: 0.4, taper: 0.35, sides: 5, sections: 3, bend: 0.1, gravity: 0.05,
       // Crown Shape: a cone, full length at the lowest whorl, a tenth of it at the top.

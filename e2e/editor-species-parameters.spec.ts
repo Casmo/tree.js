@@ -17,6 +17,7 @@ async function waitForEditor(page: Page) {
       definition: store!.state.definition,
       treeId: preview?.tree?.id,
       fruitVertices: preview?.tree?.fruit.geometry.getAttribute('position')?.count ?? 0,
+      woodVertices: preview?.tree?.wood.geometry.getAttribute('position')?.count ?? 0,
     };
   });
 }
@@ -63,6 +64,33 @@ test('Stems, Stem spread, trunk gravity, Leaf Type and Bark Type edit the Defini
   expect((await waitForEditor(page)).definition).toEqual(initial.definition);
   await expect(byId(page, 'trunk.stems')).toHaveValue('1');
   await expect(byId(page, 'materials.bark.type')).toHaveValue('');
+});
+
+test('the Flare slider widens the trunk into the ground, exports in the JSON and undoes', async ({ page }) => {
+  await page.goto('/editor/?start=low-poly/broadleaf&seed=1');
+  const initial = await waitForEditor(page);
+  expect(initial.definition.trunk).not.toHaveProperty('flare');
+  // Absent, the flare shows what it means: none.
+  await expect(byId(page, 'trunk.flare')).toHaveValue('0');
+
+  const slider = page.locator('.control.slider', { has: byId(page, 'trunk.flare') }).locator('input[type="range"]');
+  await slider.fill('0.6');
+  await expect.poll(async () => (await waitForEditor(page)).definition.trunk.flare).toBe(0.6);
+  const flared = await waitForEditor(page);
+  expect(flared.error).toBeUndefined();
+  await expect(byId(page, 'trunk.flare')).toHaveValue('0.6');
+  // The low-poly Style puts 2 extra rings in the flare: the trunk's wood gains 2 rings of (sides + 1) vertices.
+  expect(flared.woodVertices - initial.woodVertices).toBe(2 * (initial.definition.trunk.sides + 1));
+  expect(flared.treeId).not.toBe(initial.treeId);
+
+  const jsonDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export JSON' }).click();
+  const exported = parseDefinition(await readFile((await (await jsonDownload).path())!, 'utf8'));
+  expect(exported.trunk.flare).toBe(0.6);
+
+  await undoAll(page);
+  expect((await waitForEditor(page)).definition).toEqual(initial.definition);
+  await expect(byId(page, 'trunk.flare')).toHaveValue('0');
 });
 
 test('one-click Crown Shapes write curves the editor shows and lets you fine-tune', async ({ page }) => {
