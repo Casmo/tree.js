@@ -80,6 +80,26 @@ _Avoid_: Sway, animation
 An opt-in post-processing effect that only alters the pixels of trees, such as an outline or leaf glow.
 _Avoid_: Post preset, filter
 
+**Material Feature**:
+An opt-in change to how a tree's own materials are lit or shaded, such as Crown Normals, Leaf Translucency or Structural Occlusion; unlike a Tree Effect it needs no extra pass and works with the app's own lights.
+_Avoid_: Shader effect, material effect, post effect
+
+**Crown Volume**:
+The single smooth ellipsoid that encloses a tree's leaves when fully grown, used to light and shade the crown as one shape.
+_Avoid_: Crown hull, crown sphere, bounding volume
+
+**Crown Normals**:
+A Material Feature that bends each leaf's lighting direction towards the surface of the Crown Volume, from 0 (each leaf lit on its own) to 1 (the crown lit as one soft shape).
+_Avoid_: Spherical normals, bent normals, foliage normals
+
+**Leaf Translucency**:
+A Material Feature where light shining through the leaves towards the viewer makes them glow in their own colour, more at the thin edge of the crown.
+_Avoid_: Subsurface, back-lighting, leaf glow
+
+**Structural Occlusion**:
+A Material Feature that darkens the ambient light on parts of a tree hidden by the tree itself, such as leaves deep in the crown and the trunk under it, worked out once from the tree's shape.
+_Avoid_: Structural AO, baked AO, vertex AO
+
 **Baked Tree**:
 A static export of one tree at a fixed Seed, Growth and Season, with no Growth, Season or Wind left to change.
 _Avoid_: Static mesh, snapshot
