@@ -8,7 +8,8 @@
     "taper": 0.12,
     "lengthVariation": 0.12,
     "bend": 0.05,
-    "gravity": -0.45
+    "gravity": -0.45,
+    "flare": 0.15
   },
   "branches": [
     {

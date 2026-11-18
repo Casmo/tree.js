@@ -9,7 +9,8 @@
     "lengthVariation": 0.12,
     "bend": 0.06,
     "stems": 2,
-    "spread": 8
+    "spread": 8,
+    "flare": 0.15
   },
   "branches": [
     {

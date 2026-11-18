@@ -7,7 +7,8 @@
     "radius": 0.36,
     "taper": 0.32,
     "lengthVariation": 0.1,
-    "bend": 0.1
+    "bend": 0.1,
+    "flare": 0.4
   },
   "branches": [
     {

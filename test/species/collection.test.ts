@@ -43,17 +43,50 @@ describe('the Species collection', () => {
     });
   }
 
+  // Root Flare tiers (spec #43): heavy-based trees flare strongly, fruit trees and most broadleaves
+  // lightly, birch and the conifers minimally. Tuned within a tier by looking at renders.
+  const FLARE_TIERS = {
+    strong: { range: [0.6, 1], ids: ['oak', 'white-oak', 'red-oak', 'chestnut', 'mahogany', 'teak', 'redwood', 'sequoia'] },
+    light: {
+      range: [0.25, 0.55],
+      ids: ['apple', 'pear', 'cherry', 'plum', 'peach', 'almond', 'olive', 'walnut', 'hickory', 'beech', 'elm', 'ash', 'maple'],
+    },
+    minimal: { range: [0.05, 0.25], ids: ['birch', 'cedar', 'douglas-fir', 'hemlock', 'juniper', 'pine', 'spruce'] },
+  } as const;
+
+  it('puts every Species in exactly one Root Flare tier', () => {
+    const tiered = Object.values(FLARE_TIERS).flatMap((tier) => [...tier.ids]);
+    expect(tiered.sort()).toEqual([...SPECIES_NAMES]);
+  });
+
+  for (const [tier, { range, ids }] of Object.entries(FLARE_TIERS)) {
+    it(`${tier} tier: each Species has a Root Flare in ${range[0]}..${range[1]}, kept by every Style`, () => {
+      for (const id of ids) {
+        const flare = json(id).trunk.flare;
+        expect(flare, id).toBeGreaterThanOrEqual(range[0]);
+        expect(flare, id).toBeLessThanOrEqual(range[1]);
+        for (const style of Object.values(styles)) expect(style.apply(json(id)).trunk.flare, id).toBe(flare);
+      }
+    });
+  }
+
   it('loadSpecies rejects an unknown id, listing the known ones', async () => {
     await expect(loadSpecies('baobab' as never)).rejects.toThrow(/Unknown tree\.js Species "baobab".*oak/);
     await expect(loadSpecies('Oak' as never)).rejects.toThrow(/Unknown/);
   });
 });
 
-/** Per Style: triangles of its own generic broadleaf / conifer (the larger), at the test Seeds. */
+/**
+ * Per Style: triangles of its own generic broadleaf / conifer (the larger), at the test Seeds, given a
+ * Root Flare like every Species has (the generic trees have none; the flare's extra trunk rings are not crown detail).
+ */
+const withFlare = <T extends { trunk: object }>(d: T): T => ({ ...d, trunk: { ...d.trunk, flare: 0.4 } });
 const styleTriangles = Object.fromEntries(
   Object.entries(styles).map(([name, style]) => [
     name,
-    Math.max(...[style.broadleaf, style.conifer].flatMap((d) => SEEDS.map((seed) => triangles(generateTree(parseDefinition(d), seed))))),
+    Math.max(
+      ...[style.broadleaf, style.conifer].flatMap((d) => SEEDS.map((seed) => triangles(generateTree(parseDefinition(withFlare(d)), seed)))),
+    ),
   ]),
 );
 

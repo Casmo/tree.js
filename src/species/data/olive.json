@@ -10,7 +10,8 @@
     "bend": 0.35,
     "stems": 3,
     "spread": 20,
-    "gravity": 0.1
+    "gravity": 0.1,
+    "flare": 0.4
   },
   "branches": [
     {
