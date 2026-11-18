@@ -21,6 +21,22 @@ describe('picking parts of the tree', () => {
     }
   });
 
+  it('a point on the bark of a Root picks nothing: Roots cannot be Sculpted, and their Stem is not picked through them', () => {
+    const rooted = parseDefinition({ schemaVersion: 3, roots: { count: 5 } });
+    const { branches: wood, roots } = treeData(rooted, 3).skeleton;
+    expect(roots.length).toBe(5);
+    for (const root of roots) {
+      const [a, b] = [root.points[1]!, root.points[2]!];
+      const mid = new Vector3(...a.position).lerp(new Vector3(...b.position), 0.5);
+      const up = new Vector3(0, a.radius * 0.9, 0);
+      expect(nearestBranch(wood, mid.add(up).toArray(), roots)).toBeNull();
+    }
+    // The Stem's own bark, above the Roots, still picks the Stem.
+    const stem = wood.find((b) => b.path === '0')!;
+    const high = new Vector3(...stem.points[2]!.position).add(new Vector3(stem.points[2]!.radius, 0, 0));
+    expect(nearestBranch(wood, high.toArray(), roots)).toBe('0');
+  });
+
   it('the leaf brush reaches the leaf-bearing branches near the point', () => {
     const twig = branches.find((b) => b.level === def.branches.length)!;
     const tip = twig.points.at(-1)!.position;

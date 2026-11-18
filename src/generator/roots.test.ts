@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ROOTS, extendDefinition, parseDefinition, TreeDefinitionError } from '../definition';
+import { DEFAULT_ROOTS, extendDefinition, type DefinitionPatch, parseDefinition, TreeDefinitionError } from '../definition';
 import { generateTree, hashGeometry, hashTreeData, type GeometryBuffers, type TreeData } from './index';
 
 const plain = parseDefinition({
@@ -175,5 +175,100 @@ describe('the roots block of a Tree Definition', () => {
   ])('rejects an out-of-range or unknown roots.%s', (field, roots) => {
     expect(() => parseDefinition({ schemaVersion: 3, roots })).toThrow(TreeDefinitionError);
     expect(() => parseDefinition({ schemaVersion: 3, roots })).toThrow(`roots.${field}`);
+  });
+});
+
+describe('Roots with several Stems and Sculpts', () => {
+  const ring = extendDefinition(rooted, { trunk: { stems: 3, spread: 15 }, roots: { count: 6, bend: 0 } });
+  /** Horizontal unit vector from the ring centre (the origin) out to the Stem's base. */
+  const outward = (stem: TreeData['skeleton']['branches'][number]) => {
+    const [x, , z] = stem.points[0]!.position;
+    const d = Math.hypot(x, z);
+    return [x / d, z / d] as const;
+  };
+  /** Horizontal unit vector a Root runs in, from its start to its tip. */
+  const heading = (root: TreeData['skeleton']['roots'][number]) => {
+    const [a, b] = [root.points[0]!.position, root.points.at(-1)!.position];
+    const d = Math.hypot(b[0] - a[0], b[2] - a[2]);
+    return [(b[0] - a[0]) / d, (b[2] - a[2]) / d] as const;
+  };
+
+  it('each Stem\'s Roots cover only the outward-facing half-circle, away from the ring centre', () => {
+    for (const seed of [7, 42, 99]) {
+      const data = generateTree(ring, seed);
+      const stems = stemsOf(data);
+      expect(stems.length).toBe(3);
+      for (const stem of stems) {
+        const roots = data.skeleton.roots.filter((r) => r.parent === stem.path);
+        expect(roots.length).toBe(6);
+        const [ox, oz] = outward(stem);
+        const turns = roots.map((root) => {
+          const [hx, hz] = heading(root);
+          expect(hx * ox + hz * oz).toBeGreaterThan(0); // never towards the ring centre
+          return Math.atan2(hx * oz - hz * ox, hx * ox + hz * oz) * (180 / Math.PI);
+        });
+        // Spread over the half-circle, not bunched straight out.
+        expect(Math.max(...turns) - Math.min(...turns)).toBeGreaterThan(90);
+      }
+    }
+  });
+
+  const sculpt = (sculpts: NonNullable<DefinitionPatch['sculpts']>) => extendDefinition(ring, { sculpts });
+  const rootsOf = (data: TreeData, stem: string) => data.skeleton.roots.filter((r) => r.parent === stem);
+
+  it('a deleted Stem has no Roots; the other Stems keep theirs, unchanged', () => {
+    const plainTree = generateTree(ring, 7);
+    const data = generateTree(sculpt([{ seed: 7, path: '1', action: 'delete' }]), 7);
+    expect(rootsOf(data, '1')).toEqual([]);
+    expect(data.skeleton.roots.every((r) => data.skeleton.branches.some((b) => b.path === r.parent))).toBe(true);
+    expect(data.skeleton.roots).toEqual(plainTree.skeleton.roots.filter((r) => r.parent !== '1'));
+  });
+
+  it('a rotated Stem keeps its Roots on the ground at its unchanged base: they never tilt into the air', () => {
+    const plainTree = generateTree(ring, 7);
+    const data = generateTree(sculpt([{ seed: 7, path: '1', action: 'move', rotation: [0.5, 0, 0.6], scale: 1 }]), 7);
+    const stem = stemsOf(data).find((s) => s.path === '1')!;
+    expect(stem.points.at(-1)).not.toEqual(stemsOf(plainTree).find((s) => s.path === '1')!.points.at(-1));
+    // Exactly where they were before the turn (up to rounding: the turned Stem's length is summed anew).
+    const roots = rootsOf(data, '1');
+    const before = rootsOf(plainTree, '1');
+    expect(roots.map((r) => r.path)).toEqual(before.map((r) => r.path));
+    roots.forEach((root, i) =>
+      root.points.forEach((p, j) => p.position.forEach((x, k) => expect(x).toBeCloseTo(before[i]!.points[j]!.position[k]!, 9))),
+    );
+    const [cx, , cz] = stem.points[0]!.position;
+    for (const root of roots) {
+      const start = root.points[0]!.position;
+      expect(start[1]).toBeGreaterThan(0);
+      expect(start[1]).toBeLessThan(stem.points[0]!.radius);
+      expect(Math.hypot(start[0] - cx, start[2] - cz)).toBeLessThan(stem.points[0]!.radius);
+      expect(root.points.at(-1)!.position[1]).toBeLessThan(0);
+    }
+  });
+
+  it('a scaled Stem\'s Roots scale with its new length (their thickness follows the trunk radius, which stays)', () => {
+    const run = (root: TreeData['skeleton']['roots'][number]) =>
+      root.points.slice(1).reduce((n, p, i) => n + Math.hypot(...(p.position.map((x, k) => x - root.points[i]!.position[k]!) as [number, number, number])), 0);
+    const plainTree = generateTree(extendDefinition(ring, { roots: { angle: 30 } }), 7);
+    const data = generateTree(extendDefinition(ring, { roots: { angle: 30 }, sculpts: [{ seed: 7, path: '1', action: 'move', rotation: [0, 0, 0], scale: 1.5 }] }), 7);
+    const before = rootsOf(plainTree, '1');
+    const after = rootsOf(data, '1');
+    expect(after.length).toBe(before.length);
+    after.forEach((root, i) => {
+      expect(run(root)).toBeCloseTo(1.5 * run(before[i]!), 6);
+      expect(root.points[0]!.radius).toBe(before[i]!.points[0]!.radius);
+    });
+  });
+
+  it('one Stem\'s Sculpts never change another Stem\'s Roots', () => {
+    const plainTree = generateTree(ring, 7);
+    for (const sculpts of [
+      [{ seed: 7, path: '1', action: 'move' as const, rotation: [0.3, 0.2, -0.4] as [number, number, number], scale: 0.7 }],
+      [{ seed: 7, path: '1', action: 'delete' as const }],
+      [{ seed: 7, path: '1.2', action: 'delete' as const }],
+    ]) {
+      const data = generateTree(sculpt(sculpts), 7);
+      for (const other of ['0', '2']) expect(rootsOf(data, other)).toEqual(rootsOf(plainTree, other));
+    }
   });
 });

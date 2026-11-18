@@ -1,4 +1,4 @@
-import { cos, pow, sin } from '../math';
+import { cos, hypot3, pow, sin } from '../math';
 import type { RootsDefinition, TreeDefinition } from '../definition';
 import type { Random } from '../random';
 import { pathLength } from './frames';
@@ -24,12 +24,32 @@ const ROOT_TIP_DEPTH = 1;
 export const rootSides = (definition: TreeDefinition): number =>
   definition.roots?.sides ?? Math.max(3, Math.round((definition.trunk.sides * 2) / 3));
 
+/** Where around a Stem its Roots go (see `rootArc`). */
+interface RootArc {
+  out: readonly [number, number];
+  from: number;
+  width: number;
+}
+
 /**
- * The part of the circle around a Stem its Roots are spread evenly over: from azimuth `from`, `width`
- * radians. A single Stem's Roots go all the way round, starting at the Seed's `turn`.
+ * The part of the circle around a Stem its Roots are spread evenly over: azimuths `from` .. `from` +
+ * `width` radians, measured from the horizontal unit vector `out` ([x, z]) round towards +z. A single
+ * Stem's Roots go all the way round, starting at the Seed's `turn`. Of several Stems (standing in a
+ * ring round the origin), each one's Roots cover only the half-circle facing `out`, away from the ring
+ * centre, so they don't pile up between the Stems.
  */
-function rootArc(turn: number): { from: number; width: number } {
-  return { from: turn, width: Math.PI * 2 };
+function rootArc(definition: TreeDefinition, stem: SkeletonBranch, turn: number): RootArc {
+  const [x, , z] = stem.points[0]!.position;
+  const away = hypot3(x, 0, z);
+  if ((definition.trunk.stems ?? 1) <= 1 || away === 0) return { out: [1, 0], from: turn, width: Math.PI * 2 };
+  return { out: [x / away, z / away], from: -Math.PI / 2, width: Math.PI };
+}
+
+/** The horizontal unit vector ([x, z]) at `azimuth` in `arc`. */
+function toward(arc: RootArc, azimuth: number): [number, number] {
+  const [c, s] = [cos(azimuth), sin(azimuth)];
+  const [ox, oz] = arc.out;
+  return [ox * c - oz * s, oz * c + ox * s];
 }
 
 /**
@@ -44,21 +64,21 @@ export function growRoots(definition: TreeDefinition, stems: SkeletonBranch[], r
   if (!roots) return [];
   return stems.flatMap((stem) => {
     const turn = random.fork(`roots/${stem.path}`).range(0, Math.PI * 2);
-    const arc = rootArc(turn);
+    const arc = rootArc(definition, stem, turn);
     return Array.from({ length: roots.count }, (_, i) => {
       const r = random.fork(`roots/${stem.path}/${i}`);
       const azimuth = arc.from + ((i + 0.5 + r.range(-ROOT_JITTER, ROOT_JITTER)) / roots.count) * arc.width;
-      return growRoot(`${stem.path}/r${i}`, stem, roots, azimuth, r);
+      return growRoot(`${stem.path}/r${i}`, stem, roots, arc, azimuth, r);
     });
   });
 }
 
 /**
  * One Root: from just inside the Stem's Root Flare, slightly above the ground, it runs out towards
- * `azimuth` and down at `angle`, turns sideways by up to `bend` per section, and tapers to a point.
+ * `azimuth` (in `arc`) and down at `angle`, turns sideways by up to `bend` per section, and tapers to a point.
  * If the dive alone would not take its tip below the ground, it curves down (more towards the tip) until it does.
  */
-function growRoot(path: string, stem: SkeletonBranch, roots: RootsDefinition, azimuth: number, r: Random): SkeletonBranch {
+function growRoot(path: string, stem: SkeletonBranch, roots: RootsDefinition, arc: RootArc, azimuth: number, r: Random): SkeletonBranch {
   const base = stem.points[0]!;
   const sections = roots.sections ?? ROOT_SECTIONS;
   const length = pathLength(stem) * roots.length * (1 + r.range(-roots.lengthVariation, roots.lengthVariation));
@@ -66,19 +86,17 @@ function growRoot(path: string, stem: SkeletonBranch, roots: RootsDefinition, az
   const step = length / sections;
   const pitch = roots.angle * DEG;
 
+  const [outX, outZ] = toward(arc, azimuth);
   let heading = azimuth;
   let position: Vec3 = [
-    base.position[0] + cos(azimuth) * base.radius * ROOT_START_OUT,
+    base.position[0] + outX * base.radius * ROOT_START_OUT,
     radius * ROOT_START_UP,
-    base.position[2] + sin(azimuth) * base.radius * ROOT_START_OUT,
+    base.position[2] + outZ * base.radius * ROOT_START_OUT,
   ];
   const positions: Vec3[] = [position];
   for (let s = 0; s < sections; s++) {
-    position = [
-      position[0] + step * cos(pitch) * cos(heading),
-      position[1] - step * sin(pitch),
-      position[2] + step * cos(pitch) * sin(heading),
-    ];
+    const [x, z] = toward(arc, heading);
+    position = [position[0] + step * cos(pitch) * x, position[1] - step * sin(pitch), position[2] + step * cos(pitch) * z];
     positions.push(position);
     heading += r.range(-1, 1) * roots.bend * ROOT_BEND_TURN;
   }
@@ -88,6 +106,6 @@ function growRoot(path: string, stem: SkeletonBranch, roots: RootsDefinition, az
     const t = s / sections;
     return { position: [x, y - drop * t * t, z] as Vec3, radius: radius * pow(1 - t, ROOT_TAPER) };
   });
-  const direction: Vec3 = [cos(pitch) * cos(azimuth), -sin(pitch), cos(pitch) * sin(azimuth)];
+  const direction: Vec3 = [cos(pitch) * outX, -sin(pitch), cos(pitch) * outZ];
   return { path, parent: stem.path, level: 0, attach: 0, direction, points };
 }

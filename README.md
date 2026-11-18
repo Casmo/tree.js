@@ -247,7 +247,10 @@ and down, taper to a point and vanish below the ground. `count` is Roots per Ste
 fraction of the Stem's length (`lengthVariation` is the Seed's ± range), `radius` a fraction of the trunk's
 base radius, `angle` how steeply they dive (degrees below horizontal, 0..60) and `bend` how much they wander
 sideways. A partial block is filled from `DEFAULT_ROOTS` (5 Roots, length 0.25, radius 0.35, angle 12°);
-absent means none. The optional `sides` and `sections` are their polygon detail, set by `Style.apply`
+absent means none. A single Stem's Roots spread all round it; with several Stems each Stem's Roots cover
+only the half-circle facing away from the others. Roots follow the Sculpts of their Stem: a deleted Stem has
+none, a turned Stem keeps them on the ground at its base, a scaled one scales them with its length, and
+another Stem's Roots never change. The optional `sides` and `sections` are their polygon detail, set by `Style.apply`
 (realistic 8 / 6, stylized 6 / 4, low-poly 3 / 2). Roots are part of the wood mesh, grow with the trunk from
 Growth 0, never sway in the Wind and cannot be Sculpted; adding or removing them leaves the branches,
 leaves and Fruit exactly as they were. The tree data lists them in `skeleton.roots` (branch-like entries
