@@ -588,12 +588,17 @@ renderer.domElement.addEventListener('click', async (event) => {
 ```
 
 - **Encoding:** `r32uint`, 0 = not a tree. A Forest Variant reserves a block of IDs the size of its
-  capacity, and its trees write block start + instance index. An integer target cannot be
-  multisampled, so `treeIdTexture` makes the scene pass render without MSAA (`samples: 0`), also with
-  an `antialias: true` renderer.
-- **Limits:** IDs are handed out by one registry for the whole page, the first time a tree is drawn
-  with the channel (or asked for with `treeIdOf(tree)`), and are never reused: about 4.29 billion per
-  session. The registry keeps no tree alive. The ID ignores the outline's `selection`.
+  capacity, and its trees write block start + instance index.
+- **No MSAA:** an integer target cannot be multisampled, so turning on the Tree ID turns MSAA off on
+  that scene pass: `treeIdTexture` sets `samples: 0`, also with an `antialias: true` renderer. This
+  applies wherever the ID channel is on: `treeIdTexture`, `treeEffectsPass(..., { treeId: true })`,
+  and in `TreeEffects` the `treeId: true` option, `outline.betweenTrees`, `highlight` and the
+  `low-poly` suggestion (which uses `betweenTrees`). Add FXAA or SMAA after the pass if you need
+  smooth edges there.
+- **Limits:** IDs are handed out by one registry for the whole page on first use: the first time a
+  tree is drawn with the channel or asked for with `treeIdOf(tree)`, whichever comes first. They are
+  never reused: about 4.29 billion per session. The registry keeps no tree alive. The ID ignores the
+  outline's `selection`.
 - **Frame-relative:** a Forest tree's ID follows its instance slot. Removing a tree (the last tree
   moves into its slot) or a Variant growing past its capacity can change the IDs of other trees. So
   resolve an ID with `treeFromId` in the frame it was read, and ask `treeIdOf(tree)` for a tree's
@@ -601,6 +606,10 @@ renderer.domElement.addEventListener('click', async (event) => {
 - `readTreeId` reads the pixel under a point of the canvas from the last render of the pass (it
   handles the target's index, the y flip and the device pixel ratio). It works on WebGPU and on the
   WebGL2 fallback.
+- **WebGL2 fallback:** three clears every target there as floats, which is invalid for an integer
+  target, so `treeIdTexture` makes the pass clear the ID target itself right before every render (a
+  frame with nothing drawn reads 0). three's own clear still logs a GL warning
+  (a `GL_INVALID_OPERATION` from `clearBufferfv`) in the console each frame; it is harmless.
 
 #### Picking with `TreeEffects` and the opt-in channels
 
@@ -621,7 +630,9 @@ renderer.domElement.addEventListener('pointermove', async (event) => {
 `pick` reads the ID from the last render and resolves it right away (IDs are frame-relative). Without
 the Tree ID channel it throws an error that names the `treeId` option. The scene pass's MRT (and with
 it the compiled materials of your scene) only changes when `set()` needs a different set of channels;
-switching between settings that need the same channels keeps it. In your own pipeline,
+switching between settings that need the same channels keeps it. When the channels do change,
+`effects.scenePass` is a new pass (three cannot remove a target from a pass, nor turn MSAA back on
+for it), so read `effects.scenePass` again after such a `set()` instead of keeping the old one. In your own pipeline,
 `treeEffectsPass(scene, camera, selection, { treeId: true })` adds the channel and fills in the
 effects' `treeId` input.
 
@@ -641,7 +652,8 @@ const effects = createTreeEffects(renderer, scene, camera, {
 
 The line is drawn on a selected tree pixel when the pixel `thickness` px away is another tree (a
 different Tree ID) that is further away, so it lies on the front tree's side, with the outline's own
-colour, thickness and strength. It is off by default (the outline stays as it was). It needs the Tree
+colour, thickness and strength (with a standard, reversed or logarithmic depth buffer). It is off by
+default (the outline stays as it was). It needs the Tree
 ID: `TreeEffects` turns the channel on for it, and switching `betweenTrees` on or off builds a new
 graph. In your own pipeline, use `treeEffectsPass(scene, camera, selection, { treeId: true })`, which
 also fills in the `depth` input; `treeOutline` throws when the `treeId` or `depth` input is missing.
@@ -652,7 +664,8 @@ also fills in the `depth` input; `treeOutline` throws when the `treeId` or `dept
 such as around each leaf clump, on top of the outline around the tree. They come from depth edges
 (a relative step `|Δz| / z`, so they look the same near and far) and normal edges (`1 − dot`), are
 only drawn on tree pixels of every tree (whatever the `selection`) and only from neighbours that are
-tree pixels too: the silhouette is left to the outline.
+tree pixels too: the silhouette is left to the outline. They work with a standard, reversed
+(`reversedDepthBuffer`) or logarithmic (`logarithmicDepthBuffer`) depth buffer.
 
 ```ts
 import { createTreeEffects } from '@casmo/tree.js/effects';

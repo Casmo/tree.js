@@ -15,3 +15,10 @@ IDs are handed out by one module-wide registry the first time a tree is drawn wi
 ## Consequences
 
 Limits: about 4.29 billion IDs per session. Each Variant reserves a block the size of its capacity, and a growing Variant reserves a new block. An ID read from an earlier frame can point at another tree, or at none, after a Forest changes. The ID texture is integer: effects read it with exact texel loads, never filtered.
+
+## Amendment: when IDs are handed out, depth buffers, the WebGL2 clear
+
+- IDs are handed out on **first use**, not only on first draw: `treeIdOf(tree)` hands one out (for a Forest tree, its Variant's block) if the tree has none yet, and so does the first draw with the ID channel, whichever comes first. The rest is unchanged: one registry, no strong references, no reuse within a session.
+- Effects that compare depths (`betweenTrees`, Inner Lines) follow the renderer's depth buffer: standard, reversed (`reversedDepthBuffer`) or logarithmic (`logarithmicDepthBuffer`).
+- three's WebGL2 fallback clears every colour attachment with `clearBufferfv`, which is invalid for the `r32uint` target. `treeIdTexture` therefore makes the scene pass clear the ID target itself (with `clearBufferuiv`, through three's internal `backend.gl`) right before every render, so a frame with nothing drawn reads 0 everywhere. three's own invalid clear still logs a GL warning per frame there.
+- `TreeEffects` replaces its whole scene pass (not just the MRT of the same PassNode) when the set of channels changes: a PassNode cannot drop a target, and the Tree ID sets the pass's sample count to 0 (no MSAA). Materials recompile either way, since the MRT changes.

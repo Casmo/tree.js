@@ -7,7 +7,8 @@ import { treePartOf } from './mask';
 /** Name of the Tree ID output in a pass's MRT (`scenePass.getTextureNode(TREE_ID)`), see {@link treeIdMRT}. */
 export const TREE_ID = 'treeId';
 
-// The module-wide Tree ID registry (ADR 0009). Holds no strong references to trees.
+// The module-wide Tree ID registry (ADR 0009). Holds no strong references to trees. IDs are handed
+// out on first use: by treeIdOf() or by the first draw with the Tree ID channel.
 const MAX_ID = 0xffffffff;
 let nextId = 1;
 const treeIds = new WeakMap<Tree, number>();
@@ -79,9 +80,11 @@ function blockAt(id: number): Block | undefined {
 }
 
 /**
- * The current Tree ID of a Tree or a Forest tree (handing one out if it has none yet), or
- * `undefined` for a Forest tree that was removed. A Forest tree's ID is frame-relative (see
- * {@link treeFromId}).
+ * The current Tree ID of a Tree or a Forest tree, or `undefined` for a Forest tree that was removed.
+ * IDs are handed out lazily, on first use: by this function or by the first draw with the Tree ID
+ * channel, whichever comes first. So asking for a Tree's ID before it is drawn reserves it then
+ * (and for a Forest tree the block of its Variant's current meshes). A Forest tree's ID is
+ * frame-relative (see {@link treeFromId}).
  */
 export function treeIdOf(tree: Tree | ForestTree): number | undefined {
   if ('isTree' in tree) return idOfTree(tree);

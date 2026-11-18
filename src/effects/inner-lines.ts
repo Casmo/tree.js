@@ -38,6 +38,8 @@ export interface InnerLinesOptions {
  * every tree, regardless of the outline's `selection`), and only from neighbours that are tree
  * pixels too: the silhouette is left to the outline. Needs the `depth`, `camera` and `normal` inputs
  * (`treeEffectsPass(scene, camera, null, { normal: true })` has them) and throws without them.
+ * Works with a standard, reversed (`reversedDepthBuffer`) or logarithmic (`logarithmicDepthBuffer`)
+ * depth buffer, and with perspective and orthographic cameras.
  */
 export function innerLines(input: TreeEffectInput, options: InnerLinesOptions = {}): Node<'vec4'> {
   return liveInnerLines(input, options).node;

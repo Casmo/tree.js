@@ -15,8 +15,9 @@ export interface TreeOutlineOptions {
   /**
    * Also draw the line between overlapping trees (Tree–Tree, Forest tree–Forest tree, Tree–Forest
    * tree): on a selected tree pixel next to another tree that is further away, so the line lies on
-   * the front tree's side, as thick as the outer outline. Needs the `treeId` and `depth` inputs (see
-   * `treeEffectsPass`). Default false. Changing it builds a new graph.
+   * the front tree's side, as thick as the outer outline (with a standard, reversed or logarithmic
+   * depth buffer). Needs the `treeId` and `depth` inputs (see `treeEffectsPass`). Default false.
+   * Changing it builds a new graph.
    */
   betweenTrees?: boolean;
 }

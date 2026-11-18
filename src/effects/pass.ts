@@ -9,7 +9,10 @@ import { TREE_NORMAL, treeNormalMRT } from './inner-lines';
  * there). Each one adds an MRT target, so leave them off unless an effect (or picking) needs them.
  */
 export interface TreeEffectsChannels {
-  /** The Tree ID target (`treeIdMRT`), for effects that tell trees apart and for picking. */
+  /**
+   * The Tree ID target (`treeIdMRT`), for effects that tell trees apart and for picking. Turns MSAA
+   * off on the scene pass (see `treeIdTexture`).
+   */
   treeId?: boolean;
   /** The view normal target (`treeNormalMRT`, RGBA8, the 'color' encoding), for Inner Lines. */
   normal?: boolean;

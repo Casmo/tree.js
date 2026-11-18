@@ -29,9 +29,14 @@ export function applyTreeEffects(input: TreeEffectInput, settings: TreeEffectsSe
  * shape only differ in uniforms.
  */
 function shapeOf(settings: TreeEffectsSettings, input: TreeEffectInput): string {
-  const outline = settings.outline ? (settings.outline.betweenTrees === true ? 'between' : 'outline') : null;
+  const outline = settings.outline ? (drawsBetweenTrees(settings) ? 'between' : 'outline') : null;
   const innerLines = settings.innerLines ? (input.normalEncoding ?? 'color') : null;
   return JSON.stringify([!!settings.grade, settings.glow ? glowRadius(settings.glow) : null, outline, innerLines, !!settings.highlight]);
+}
+
+/** Whether the outline is also drawn between trees: part of the shape, and it needs the Tree ID channel. */
+function drawsBetweenTrees(settings: TreeEffectsSettings): boolean {
+  return settings.outline?.betweenTrees === true;
 }
 
 /** {@link applyTreeEffects} with every colour and number as a uniform; `update()` needs the same shape. */
@@ -92,7 +97,9 @@ export interface TreeEffectsOptions {
   selection?: Object3D[];
   /**
    * Keeps the Tree ID channel on even when no effect needs it, for {@link TreeEffects.pick}.
-   * Default: false (the channel is only rendered when an effect needs it).
+   * Default: false (the channel is only rendered when an effect needs it). Whenever the Tree ID
+   * channel is on (this option, `outline.betweenTrees`, `highlight`, or the low-poly suggestion),
+   * the scene pass renders without MSAA: an integer target cannot be multisampled.
    */
   treeId?: boolean;
   /**
@@ -109,7 +116,7 @@ export interface TreeEffectsOptions {
  */
 function channelsFor(settings: TreeEffectsSettings, options: TreeEffectsOptions): TreeEffectsChannels {
   return {
-    treeId: options.treeId === true || settings.outline?.betweenTrees === true || !!settings.highlight,
+    treeId: options.treeId === true || drawsBetweenTrees(settings) || !!settings.highlight,
     normal: !!settings.innerLines,
   };
 }
@@ -151,7 +158,14 @@ export class TreeEffects {
 
   /**
    * The scene pass (colour + tree mask, plus the channels the settings need, such as the Tree ID).
-   * It is only replaced when {@link set} needs other channels.
+   *
+   * It is replaced by a new one (a new object, the old one disposed) when {@link set} needs another
+   * set of channels, and only then; read it again after such a `set()` rather than keeping it.
+   * Swapping only the MRT of one PassNode is not feasible with three: a PassNode can add targets
+   * (`getTexture`) but has no way to remove one, and its sample count is fixed per target, so
+   * turning a channel off (or the Tree ID off, which brings MSAA back) needs a new pass. Either way
+   * the scene's materials recompile, because the MRT changes; settings that need the same channels
+   * keep this pass and its MRT.
    */
   get scenePass(): TreeEffectsPass {
     return this.input.pass;
