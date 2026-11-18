@@ -1,6 +1,6 @@
 import { uniform } from 'three/tsl';
 import type { MeshStandardNodeMaterial, Node, NodeMaterial, UniformNode } from 'three/webgpu';
-import type { MaterialFeatures, TreeDefinition } from '../definition';
+import type { MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
 import type { CrownVolume } from '../generator';
 import { materialFeaturesOf } from '../styles/material-features';
 import { applyCrownNormals } from './crown-normals';
@@ -65,6 +65,35 @@ export class LiveMaterialFeatures {
         : {}),
       ...(this.occlusion ? { occlusion: { strength: this.occlusion.value } } : {}),
     };
+  }
+
+  /** Crown Normals amount, null when off. */
+  get crownNormals(): number | null {
+    return this.crown?.value ?? null;
+  }
+
+  /** Sets the Crown Normals amount (clamped to 0..1); throws when the feature is off. */
+  set crownNormals(value: number) {
+    if (!this.crown) {
+      throw new Error('This tree has no Crown Normals: set `materials.leaf.crownNormals` in its Tree Definition to tune the amount');
+    }
+    this.crown.value = clamp01(value);
+  }
+
+  /** Leaf Translucency settings (a copy), null when off. */
+  get translucency(): TranslucencyDefinition | null {
+    return this.values.translucency ?? null;
+  }
+
+  /** Sets any of the Leaf Translucency settings (each clamped to 0..1; the others kept); throws when the feature is off. */
+  set translucency(value: Partial<TranslucencyDefinition>) {
+    if (!this.translucencyValues) {
+      throw new Error('This tree has no Leaf Translucency: set `materials.leaf.translucency` in its Tree Definition to tune it');
+    }
+    for (const key of ['strength', 'edge', 'ambient'] as const) {
+      const v = value[key];
+      if (v !== undefined) this.translucencyValues[key].value = clamp01(v);
+    }
   }
 
   /** Structural Occlusion strength, null when off. */

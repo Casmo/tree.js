@@ -10,7 +10,7 @@ import {
   type Texture,
 } from 'three/webgpu';
 import { GLTFExporter, type GLTFExporterPlugin, type GLTFWriter } from 'three/addons/exporters/GLTFExporter.js';
-import type { TranslucencyDefinition, TreeDefinition } from '../definition';
+import type { MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
 import { crownNormal, type CrownVolume, type GeometryBuffers } from '../generator';
 import { clampGrowth, growPositions, treeScale } from '../growth';
 import { groundTintAmount } from '../materials/ground-tint';
@@ -183,6 +183,7 @@ function bakeLeaves(
   season: number,
   occlusion: BakedOcclusion,
   crown: CrownVolume,
+  amount: number | undefined,
 ): { geometry: BufferGeometry | null; meanColor: [number, number, number] } {
   const count = leaves.positions.length / 3;
   const aSeason = leaves.attributes.aSeason!.array;
@@ -195,7 +196,6 @@ function bakeLeaves(
   }
   const meanColor = meanShownColor(colors, shown);
   const positions = growPositions(leaves, growth);
-  const amount = definition.materials.leaf.crownNormals;
   const crownNormals = amount ? bakedCrownNormals(leaves, positions, growth, crown, amount, definition.leaves.shape === 'card') : undefined;
   const geometry = compact(
     {
@@ -356,8 +356,10 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
   const season = wrapSeason(options.season ?? tree.season);
   const bark = definition.materials.bark;
   const flat = isFlatShading(definition.materials.shading);
-  const occlusion = bakedOcclusion(tree.occlusionStrength, options.occlusionInVertexColors ?? false);
-  const extras = materialFeatureExtras(tree, growth);
+  // The features as the tree shows them now (values tuned live included).
+  const features = tree.materialFeatures;
+  const occlusion = bakedOcclusion(features.occlusion?.strength ?? null, options.occlusionInVertexColors ?? false);
+  const extras = materialFeatureExtras(features, tree.data.crown, growth);
 
   const group = new Group();
   group.name = definition.name || 'Tree';
@@ -379,7 +381,7 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
     group.add(bakedMesh('wood', woodGeometry, material));
   }
 
-  const { geometry: leafGeometry, meanColor } = bakeLeaves(definition, data.leaves, growth, season, occlusion, data.crown);
+  const { geometry: leafGeometry, meanColor } = bakeLeaves(definition, data.leaves, growth, season, occlusion, data.crown, features.crownNormals);
   if (leafGeometry) {
     const map = bakedMap(tree.leaves.material.map);
     const material = new MeshStandardMaterial({
@@ -394,7 +396,7 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
       alphaTest: map ? definition.materials.leaf.alphaTest : 0,
     });
     if (extras) material.userData = { treejs: extras };
-    const { translucency } = definition.materials.leaf;
+    const { translucency } = features;
     // The transmission colour is the leaves' own colour (without the occlusion of `occlusionInVertexColors`).
     if (translucency) diffuseTransmission.set(material, { factor: translucency.strength, color: meanColor });
     group.add(bakedMesh('leaves', leafGeometry, material));
@@ -428,16 +430,15 @@ export interface MaterialFeatureExtras {
   crown: CrownVolume;
 }
 
-function materialFeatureExtras(tree: Tree, growth: number): MaterialFeatureExtras | null {
-  const { crownNormals, translucency } = tree.definition.materials.leaf;
-  const strength = tree.occlusionStrength;
-  if (!crownNormals && !translucency && strength === null) return null;
+function materialFeatureExtras(features: MaterialFeatures, crown: CrownVolume, growth: number): MaterialFeatureExtras | null {
+  const { crownNormals, translucency, occlusion } = features;
+  if (!crownNormals && !translucency && !occlusion) return null;
   const scale = treeScale(growth);
-  const { center, radii } = tree.data.crown;
+  const { center, radii } = crown;
   return {
     ...(crownNormals ? { crownNormals } : {}),
     ...(translucency ? { translucency: { ...translucency } } : {}),
-    ...(strength !== null ? { occlusion: { strength } } : {}),
+    ...(occlusion ? { occlusion: { strength: occlusion.strength } } : {}),
     crown: { center: [center[0] * scale, center[1] * scale, center[2] * scale], radii: [radii[0] * scale, radii[1] * scale, radii[2] * scale] },
   };
 }

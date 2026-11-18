@@ -15,7 +15,7 @@ import {
   type MeshStandardNodeMaterial,
 } from 'three/webgpu';
 import { positionGeometry } from 'three/tsl';
-import type { TreeDefinition } from '../definition';
+import type { MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
 import { generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
 import { LiveMaterialFeatures, type MaterialFeatureTarget } from '../materials/material-features';
@@ -518,6 +518,40 @@ export class Forest extends Group {
   set season(value: number) {
     this.seasonValue = checkedSeason(value);
     for (const tree of this.byKey.values()) tree.season = this.seasonValue;
+  }
+
+  /**
+   * Crown Normals amount (0..1), from the Definition's `materials.leaf.crownNormals`; null when it is off.
+   * Setting it (clamped to 0..1) only writes a uniform: no regeneration, no recompile. Throws on a
+   * forest without Crown Normals (switching the feature on needs a new forest).
+   */
+  get crownNormals(): number | null {
+    return this.features.crownNormals;
+  }
+
+  set crownNormals(value: number) {
+    this.features.crownNormals = value;
+  }
+
+  /**
+   * Leaf Translucency settings (a copy), from the Definition's `materials.leaf.translucency`; null when it
+   * is off. Setting any of them (each clamped to 0..1, the others kept) only writes uniforms: no
+   * regeneration, no recompile. Throws on a forest without Leaf Translucency.
+   */
+  get translucency(): TranslucencyDefinition | null {
+    return this.features.translucency;
+  }
+
+  set translucency(value: Partial<TranslucencyDefinition>) {
+    this.features.translucency = value;
+  }
+
+  /**
+   * The Material Features this forest shows, with their current (possibly live-tuned) values: the
+   * Definition's (see `materialFeaturesOf`), except that Crown Normals at 0 count as off.
+   */
+  get materialFeatures(): MaterialFeatures {
+    return this.features.values;
   }
 
   /**
