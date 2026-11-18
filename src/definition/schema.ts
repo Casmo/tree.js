@@ -1,10 +1,14 @@
 import { DEFAULT_BRANCH_LEVEL, DEFAULT_DEFINITION } from './defaults';
 import {
+  BARK_TYPES,
   CURRENT_SCHEMA_VERSION,
+  LEAF_TYPES,
   MAX_BRANCH_LEVELS,
+  type BarkMaterialDefinition,
   type BranchLevelDefinition,
   type DeleteSculpt,
   type Keyframe,
+  type LeavesDefinition,
   type LeavesSculpt,
   type MoveSculpt,
   type Sculpt,
@@ -167,6 +171,7 @@ const sculpt = tagged<Sculpt>('action', {
 const treeDefinition = obj<TreeDefinition>({
   schemaVersion: literal(CURRENT_SCHEMA_VERSION),
   name: text,
+  species: optional(text),
   trunk: obj({
     length: positive,
     radius: positive,
@@ -177,7 +182,8 @@ const treeDefinition = obj<TreeDefinition>({
     bend: unit,
   }),
   branches: arr(branchLevel, { max: MAX_BRANCH_LEVELS, itemFallback: DEFAULT_BRANCH_LEVEL }),
-  leaves: obj({
+  leaves: obj<LeavesDefinition>({
+    type: optional(oneOf(...LEAF_TYPES)),
     count: intAtLeast(0),
     shape: oneOf('card', 'clump', 'needle', 'puff'),
     size: positive,
@@ -187,7 +193,7 @@ const treeDefinition = obj<TreeDefinition>({
   }),
   materials: obj({
     shading: oneOf('standard', 'flat', 'toon'),
-    bark: obj({ color: hexColor, roughness: unit, map: url, normalMap: url }),
+    bark: obj<BarkMaterialDefinition>({ type: optional(oneOf(...BARK_TYPES)), color: hexColor, roughness: unit, map: url, normalMap: url }),
     leaf: obj({ roughness: unit, map: url, alphaTest: unit }),
   }),
   season: obj({

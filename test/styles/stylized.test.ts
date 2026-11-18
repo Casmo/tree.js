@@ -31,7 +31,8 @@ describe('stylized Style (dynamic import of the /styles/stylized subpath)', () =
   it('exports a broadleaf and a conifer Definition, also as one Style object', () => {
     expect(stylized.broadleaf.name).toMatch(/broadleaf/);
     expect(stylized.conifer.name).toMatch(/conifer/);
-    expect(stylized.default).toEqual({ name: 'stylized', broadleaf: stylized.broadleaf, conifer: stylized.conifer });
+    expect(stylized.default).toMatchObject({ name: 'stylized', broadleaf: stylized.broadleaf, conifer: stylized.conifer });
+    expect(stylized.default.apply).toBeTypeOf('function');
   });
 
   for (const [form, definition] of Object.entries(forms)) {

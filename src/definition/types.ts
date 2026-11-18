@@ -97,8 +97,26 @@ export const MAX_BRANCH_LEVELS = 4;
  */
 export type LeafShape = 'card' | 'clump' | 'needle' | 'puff';
 
+/**
+ * Leaf Type: the kind of leaf a Species has. Each Style decides how to draw it (leaf shape,
+ * count, size, texture); in a Tree Definition it is a label that never changes geometry by itself.
+ */
+export type LeafType = 'broad' | 'lobed' | 'palmate' | 'compound' | 'needle' | 'scale';
+/** All Leaf Types. */
+export const LEAF_TYPES: readonly LeafType[] = ['broad', 'lobed', 'palmate', 'compound', 'needle', 'scale'];
+
+/**
+ * Bark Type: the kind of bark surface a Species has. Each Style decides how to draw it (colour
+ * only, or a texture); in a Tree Definition it is a label that never changes geometry by itself.
+ */
+export type BarkType = 'furrowed' | 'smooth' | 'papery' | 'fibrous' | 'plated';
+/** All Bark Types. */
+export const BARK_TYPES: readonly BarkType[] = ['furrowed', 'smooth', 'papery', 'fibrous', 'plated'];
+
 /** Leaves, placed on the last branching level (or the trunk if there are no branches). */
 export interface LeavesDefinition {
+  /** Leaf Type the leaves were drawn from (set by `Style.apply`), so a Style can be re-applied. Optional. */
+  type?: LeafType;
   /** Leaves per terminal branch (integer >= 0; 0 = no leaves). */
   count: number;
   /** Leaf shape. */
@@ -117,6 +135,8 @@ export interface LeavesDefinition {
 export type Shading = 'standard' | 'flat' | 'toon';
 
 export interface BarkMaterialDefinition {
+  /** Bark Type the bark was drawn from (set by `Style.apply`), so a Style can be re-applied. Optional. */
+  type?: BarkType;
   /** Base bark colour. */
   color: HexColor;
   /** PBR roughness (0..1). */
@@ -220,6 +240,8 @@ export interface TreeDefinition {
   schemaVersion: typeof CURRENT_SCHEMA_VERSION;
   /** Optional human-readable name. */
   name: string;
+  /** Id of the Species this Definition was made from by `Style.apply` (e.g. `'oak'`). Optional; never changes geometry. */
+  species?: string;
   trunk: TrunkDefinition;
   /** Branching levels below the trunk (0..{@link MAX_BRANCH_LEVELS} entries). */
   branches: BranchLevelDefinition[];

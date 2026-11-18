@@ -1,19 +1,15 @@
 // @casmo/tree.js/styles/realistic: smooth PBR shading, textured bark and alpha-cut leaf cards.
-// Pure data (no library code beyond shared constants), so it stays a tiny chunk fetched only when imported.
+// Pure data plus `apply` (shared with the other Styles), fetched only when imported.
 // The textures are separate files (dist/textures/realistic/*.png, made by scripts/generate-textures.mjs),
 // referenced by relative URLs that resolve against the texture base path (`setTextureOptions`,
 // or `createTree(definition, { textures: { basePath } })`), so an app can host them on its own CDN.
 import { CURRENT_SCHEMA_VERSION, type TreeDefinition } from '../../definition/types';
 import { SEASON_PROFILES } from '../../season/profiles';
+import { applyStyle } from '../apply';
 import type { TreeStyle } from '../types';
+import { TEXTURES } from './textures';
 
-/** The realistic Style's texture files, as relative URLs (resolved against the texture base path). */
-export const TEXTURES = {
-  bark: 'realistic/bark.png',
-  barkNormal: 'realistic/bark-normal.png',
-  leaf: 'realistic/leaf.png',
-  needles: 'realistic/needles.png',
-} as const;
+export { TEXTURES };
 
 /**
  * Realistic broadleaf: a tall, slightly leaning trunk with three branching levels and many
@@ -67,5 +63,5 @@ export const conifer: TreeDefinition = {
 };
 
 /** The realistic Style. */
-const realistic: TreeStyle = { name: 'realistic', broadleaf, conifer };
+const realistic: TreeStyle = { name: 'realistic', broadleaf, conifer, apply: (source, overrides) => applyStyle('realistic', source, overrides) };
 export default realistic;
