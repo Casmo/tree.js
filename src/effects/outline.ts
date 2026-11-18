@@ -1,7 +1,8 @@
 import { Color, type ColorRepresentation, type Node } from 'three/webgpu';
-import { float, ivec2, max, mix, screenCoordinate, select, textureSize, uint, uniform, uv, vec2, vec4 } from 'three/tsl';
+import { float, max, mix, select, uint, uniform, uv, vec2, vec4 } from 'three/tsl';
 import type { LiveTreeEffect } from './live';
 import type { TreeEffectInput } from './mask';
+import { EIGHT_DIRECTIONS, isFurther, requireInput, sizeOf, texelAt, treeIdAt } from './screen';
 
 /** Tree outline settings. */
 export interface TreeOutlineOptions {
@@ -19,10 +20,6 @@ export interface TreeOutlineOptions {
    */
   betweenTrees?: boolean;
 }
-
-// Eight sample directions around a pixel (unit length).
-const D = Math.SQRT1_2;
-const DIRECTIONS: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [D, D], [D, -D], [-D, D], [-D, -D]];
 
 /**
  * Tree Effect: an outline along the silhouettes of the selected trees (the `selection` of the
@@ -47,40 +44,37 @@ export function liveTreeOutline(input: TreeEffectInput, options: TreeOutlineOpti
   update(options);
 
   const { mask } = input;
-  const step = vec2(thickness).div(vec2(textureSize(mask) as unknown as Node<'ivec2'>));
+  const step = vec2(thickness).div(sizeOf(mask));
   const centre = uv();
   // Fraction of neighbours (at `thickness` px) that are not selected tree pixels.
   // With betweenTrees, a neighbour of another tree that is further away counts as outside too.
   const behind = options.betweenTrees === true ? otherTreeBehind(input, thickness) : null;
   let outside: Node<'float'> = float(0);
-  for (const [x, y] of DIRECTIONS) {
+  for (const [x, y] of EIGHT_DIRECTIONS) {
     const notSelected = float(1).sub(mask.sample(centre.add(step.mul(vec2(x, y)))).b);
     outside = outside.add(behind ? max(notSelected, behind(x, y)) : notSelected);
   }
-  const edge = outside.mul(3 / DIRECTIONS.length).clamp(0, 1).mul(mask.sample(centre).b).mul(strength);
+  const edge = outside.mul(3 / EIGHT_DIRECTIONS.length).clamp(0, 1).mul(mask.sample(centre).b).mul(strength);
   return { node: vec4(mix(input.color.rgb, color, edge), input.color.a), update };
 }
 
 /**
  * For `betweenTrees`: a function giving, per direction, 1 where the neighbour at `thickness` px is a
- * different tree (another nonzero Tree ID) that is further away than this pixel, 0 elsewhere. IDs
- * and depths are read with exact texel loads.
+ * different tree (another nonzero Tree ID) that is further from the camera than this pixel, 0
+ * elsewhere, so the line lies on the front tree's side. IDs and depths are read with exact texel
+ * loads; "further" follows the renderer's depth buffer (standard, reversed or logarithmic).
  */
 function otherTreeBehind(input: TreeEffectInput, thickness: Node<'float'>): (x: number, y: number) => Node<'float'> {
-  const { treeId, depth } = input;
-  if (!treeId || !depth) {
-    throw new Error(
-      'treeOutline: betweenTrees needs the treeId and depth inputs; use treeEffectsPass(scene, camera, selection, { treeId: true })',
-    );
-  }
-  const last = vec2(textureSize(treeId) as unknown as Node<'ivec2'>).sub(1);
-  const here = screenCoordinate.xy;
-  const id = uint(treeId.load(ivec2(here)).x);
-  const z = depth.load(ivec2(here)).x;
+  const how = 'use treeEffectsPass(scene, camera, selection, { treeId: true }), which has both';
+  const treeId = requireInput('treeOutline with betweenTrees', input.treeId, 'treeId', how);
+  const depth = requireInput('treeOutline with betweenTrees', input.depth, 'depth', how);
+  const here = texelAt(treeId, vec2(0));
+  const id = treeIdAt(treeId, here);
+  const z = depth.load(here).x;
   return (x, y) => {
-    const at = ivec2(here.add(vec2(x, y).mul(thickness)).clamp(vec2(0, 0), last));
-    const other = uint(treeId.load(at).x);
-    const further = depth.load(at).x.greaterThan(z);
+    const there = texelAt(treeId, vec2(x, y).mul(thickness));
+    const other = treeIdAt(treeId, there);
+    const further = isFurther(depth.load(there).x, z);
     return select(other.notEqual(uint(0)).and(other.notEqual(id)).and(further), float(1), float(0));
   };
 }

@@ -1,9 +1,10 @@
-import { Color, type ColorRepresentation, type Node, type TextureNode } from 'three/webgpu';
-import { Break, float, Fn, If, ivec2, Loop, max, mix, screenCoordinate, select, textureSize, time, uint, uniform, uniformArray, vec2, vec4 } from 'three/tsl';
+import { Color, type ColorRepresentation, type Node } from 'three/webgpu';
+import { Break, float, Fn, If, Loop, max, mix, select, time, uint, uniform, uniformArray, vec2, vec4 } from 'three/tsl';
 import type { ForestTree } from '../forest';
 import type { Tree } from '../tree';
 import type { LiveTreeEffect } from './live';
 import type { TreeEffectInput } from './mask';
+import { EIGHT_DIRECTIONS, requireInput, texelAt, treeIdAt } from './screen';
 import { treeIdOf } from './tree-id';
 
 /** Highlight settings. */
@@ -29,10 +30,6 @@ export interface TreeHighlightOptions {
 
 /** The most trees highlighted at once; the rest of the list is ignored (with one console warning). */
 const MAX_HIGHLIGHTED = 64;
-
-// Eight sample directions around a pixel (unit length), as the outline.
-const D = Math.SQRT1_2;
-const DIRECTIONS: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [D, D], [D, -D], [-D, D], [-D, -D]];
 
 /**
  * The current Tree ID of a highlighted entry, or `undefined` to skip it: a removed or undrawn
@@ -61,8 +58,12 @@ export function liveTreeHighlight(
   highlighted: readonly (Tree | ForestTree)[],
   options: TreeHighlightOptions = {},
 ): LiveTreeEffect<TreeHighlightOptions> {
-  const treeId = input.treeId;
-  if (!treeId) throw new Error('Highlight needs the Tree ID input: use treeEffectsPass(..., { treeId: true }) or merge treeIdMRT() and pass `treeId`');
+  const treeId = requireInput(
+    'treeHighlight',
+    input.treeId,
+    'treeId',
+    'use treeEffectsPass(scene, camera, selection, { treeId: true }), or merge treeIdMRT() into your scene pass and pass its texture node',
+  );
 
   const color = uniform(new Color());
   const outlineColor = uniform(new Color());
@@ -111,11 +112,9 @@ export function liveTreeHighlight(
   });
   ids.onRenderUpdate((frame) => refresh(frame.renderId));
 
-  const last = vec2(textureSize(treeId) as unknown as Node<'ivec2'>).sub(1);
   /** 1 where the tree drawn at `offset` px from this pixel is highlighted, else 0. */
   const isHighlighted = Fn(([offset]: [Node<'vec2'>]) => {
-    const at = ivec2(screenCoordinate.xy.add(offset).floor().clamp(vec2(0), last));
-    const id = uint((treeId as TextureNode).load(at).x);
+    const id = treeIdAt(treeId, texelAt(treeId, offset));
     const hit = float(0).toVar();
     If(id.notEqual(uint(0)), () => {
       Loop({ start: uint(0), end: count, type: 'uint', condition: '<' }, ({ i }) => {
@@ -128,16 +127,17 @@ export function liveTreeHighlight(
     return hit;
   });
 
-  const self = isHighlighted(vec2(0));
-  let near: Node<'float'> = float(0);
-  for (const [x, y] of DIRECTIONS) near = max(near, isHighlighted(vec2(x, y).mul(thickness).round()));
-  const ring = near.mul(float(1).sub(self));
+  // The ring: pixels that are not highlighted themselves next to (at `thickness` px) one that is.
+  const onHighlighted = isHighlighted(vec2(0));
+  let besideHighlighted: Node<'float'> = float(0);
+  for (const [x, y] of EIGHT_DIRECTIONS) besideHighlighted = max(besideHighlighted, isHighlighted(vec2(x, y).mul(thickness).round()));
+  const ring = besideHighlighted.mul(float(1).sub(onHighlighted));
 
   // 1 without a pulse, else swinging between 1 and 0.5 with a sine.
   const swing = float(0.75).add(float(0.25).mul(time.mul(pulse).mul(2 * Math.PI).cos()));
   const lifted = input.color.rgb.mul(float(1).add(brightness.sub(1).mul(swing)));
   const marked = mix(lifted, color, tint.mul(swing).clamp(0, 1));
-  const rgb = mix(input.color.rgb, marked, self.mul(strength));
+  const rgb = mix(input.color.rgb, marked, onHighlighted.mul(strength));
   const node = vec4(mix(rgb, outlineColor, ring.mul(strength)), input.color.a);
   // Nothing highlighted: the colour as it is.
   return { node: select(count.equal(uint(0)), input.color, node), update };

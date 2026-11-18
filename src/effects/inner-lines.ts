@@ -1,25 +1,8 @@
-import { Color, type Camera, type ColorRepresentation, type MRTNode, type Node } from 'three/webgpu';
-import {
-  abs,
-  dot,
-  float,
-  max,
-  mix,
-  mrt,
-  normalView,
-  orthographicDepthToViewZ,
-  packNormalToRGB,
-  perspectiveDepthToViewZ,
-  smoothstep,
-  textureSize,
-  uniform,
-  unpackRGBToNormal,
-  uv,
-  vec2,
-  vec4,
-} from 'three/tsl';
+import { Color, type ColorRepresentation, type MRTNode, type Node } from 'three/webgpu';
+import { abs, dot, float, max, mix, mrt, normalView, packNormalToRGB, smoothstep, uniform, unpackRGBToNormal, uv, vec2, vec4 } from 'three/tsl';
 import type { LiveTreeEffect } from './live';
 import type { TreeEffectInput } from './mask';
+import { FOUR_DIRECTIONS, requireInput, sizeOf, viewZFromDepth } from './screen';
 
 /** Name of the view normal output in a pass's MRT (`scenePass.getTextureNode('normal')`), see {@link treeNormalMRT}. */
 export const TREE_NORMAL = 'normal';
@@ -49,9 +32,6 @@ export interface InnerLinesOptions {
   depthThreshold?: number;
 }
 
-// Four sample directions around a pixel.
-const DIRECTIONS: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-
 /**
  * Tree Effect: ink lines inside the trees where the surface folds (normal edges) or steps away
  * from the viewer (depth edges), such as around each leaf clump. Only drawn on tree pixels (of
@@ -63,16 +43,11 @@ export function innerLines(input: TreeEffectInput, options: InnerLinesOptions = 
   return liveInnerLines(input, options).node;
 }
 
-function required<T>(value: T | undefined, name: string, hint: string): T {
-  if (value === undefined) throw new Error(`innerLines needs the \`${name}\` input: ${hint}`);
-  return value;
-}
-
 /** {@link innerLines} with its settings as uniforms; the normal encoding is fixed when built. */
 export function liveInnerLines(input: TreeEffectInput, options: InnerLinesOptions = {}): LiveTreeEffect<InnerLinesOptions> {
-  const normal = required(input.normal, 'normal', "view normals, e.g. treeNormalMRT() or your own normal MRT (with `normalEncoding`)");
-  const depth = required(input.depth, 'depth', "the scene pass's depth, scenePass.getTextureNode('depth')");
-  const camera = required(input.camera, 'camera', 'the camera the scene pass renders with');
+  const normal = requireInput('innerLines', input.normal, 'normal', "view normals, e.g. treeNormalMRT() or your own normal MRT (with `normalEncoding`)");
+  const depth = requireInput('innerLines', input.depth, 'depth', "the scene pass's depth, scenePass.getTextureNode('depth')");
+  const camera = requireInput('innerLines', input.camera, 'camera', 'the camera the scene pass renders with');
 
   const color = uniform(new Color());
   const thickness = uniform(0);
@@ -95,19 +70,9 @@ export function liveInnerLines(input: TreeEffectInput, options: InnerLinesOption
   };
   update(options);
 
-  const near = uniform(0).onRenderUpdate((_, self) => {
-    self.value = (camera as Camera & { near: number }).near;
-    return undefined;
-  });
-  const far = uniform(0).onRenderUpdate((_, self) => {
-    self.value = (camera as Camera & { far: number }).far;
-    return undefined;
-  });
-  const ortho = (camera as Camera & { isOrthographicCamera?: boolean }).isOrthographicCamera === true;
-  const viewZ = (at: Node<'vec2'>): Node<'float'> => {
-    const d = depth.sample(at).r;
-    return (ortho ? orthographicDepthToViewZ(d, near, far) : perspectiveDepthToViewZ(d, near, far)) as Node<'float'>;
-  };
+  // View Z for the relative depth step; follows a standard, reversed or logarithmic depth buffer.
+  const toViewZ = viewZFromDepth(camera);
+  const viewZ = (at: Node<'vec2'>): Node<'float'> => toViewZ(depth.sample(at).r);
   const direction = input.normalEncoding === 'direction';
   const normalAt = (at: Node<'vec2'>): Node<'vec3'> => {
     const n = normal.sample(at).rgb;
@@ -115,12 +80,12 @@ export function liveInnerLines(input: TreeEffectInput, options: InnerLinesOption
   };
 
   const { mask } = input;
-  const step = vec2(thickness).div(vec2(textureSize(mask) as unknown as Node<'ivec2'>));
+  const step = vec2(thickness).div(sizeOf(mask));
   const centre = uv();
   const n0 = normalAt(centre);
   const z0 = viewZ(centre);
   let edge: Node<'float'> = float(0);
-  for (const [x, y] of DIRECTIONS) {
+  for (const [x, y] of FOUR_DIRECTIONS) {
     const at = centre.add(step.mul(vec2(x, y)));
     const normalEdge = smoothstep(normalLow, normalHigh, float(1).sub(dot(n0, normalAt(at))));
     const depthEdge = smoothstep(depthLow, depthHigh, abs(viewZ(at).sub(z0)).div(abs(z0)));
