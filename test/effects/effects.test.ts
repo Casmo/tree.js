@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { texture, vec4 } from 'three/tsl';
 import { createTree } from '../../src/index';
-import { MeshStandardNodeMaterial, PerspectiveCamera, Scene, Texture, type Renderer } from 'three/webgpu';
+import { MeshStandardNodeMaterial, PerspectiveCamera, Scene, Texture, type Node, type Renderer } from 'three/webgpu';
 import { applyTreeEffects, createTreeEffects, SUGGESTED_TREE_EFFECTS, treePartOf } from '../../src/effects';
 
 describe('Tree Effects', () => {
@@ -44,7 +44,64 @@ describe('Tree Effects', () => {
     expect(effects.pipeline.outputNode).toBe(effects.scenePass.color);
     expect(() => effects.set('unknown' as never)).toThrow(/unknown/);
   });
+
+  it('keeps the graph when set() changes only colours and numbers of the same effects', () => {
+    const renderer = { isWebGPURenderer: true } as unknown as Renderer;
+    const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'stylized' });
+    const before = effects.pipeline.outputNode;
+    const tweaked = {
+      grade: { saturation: 1.4, contrast: 0.9, exposure: 1.2, tint: '#ddeeff' },
+      glow: { color: '#ff0000', intensity: 1, threshold: 0.05, radius: SUGGESTED_TREE_EFFECTS.stylized.glow!.radius },
+      outline: { color: '#ff00ff', thickness: 4, strength: 0.3 },
+    };
+    effects.set(tweaked);
+    expect(effects.settings).toBe(tweaked);
+    expect(effects.pipeline.outputNode).toBe(before);
+    effects.set('stylized');
+    expect(effects.pipeline.outputNode).toBe(before);
+  });
+
+  it('builds a new graph when set() switches an effect on or off or changes the glow radius', () => {
+    const renderer = { isWebGPURenderer: true } as unknown as Renderer;
+    const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'stylized' });
+    const { grade, glow, outline } = SUGGESTED_TREE_EFFECTS.stylized;
+    const outputs = new Set([effects.pipeline.outputNode]);
+    effects.set({ grade, glow }); // outline off
+    outputs.add(effects.pipeline.outputNode);
+    effects.set({ grade, glow: { ...glow, radius: 3 } }); // other blur radius
+    outputs.add(effects.pipeline.outputNode);
+    effects.set({ grade, glow: { ...glow, radius: 3 }, outline }); // outline on again
+    outputs.add(effects.pipeline.outputNode);
+    expect(outputs.size).toBe(4);
+  });
+
+  it('frees the blur of the old graph when the shape changes, not when only values change', () => {
+    const renderer = { isWebGPURenderer: true } as unknown as Renderer;
+    const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: { glow: { radius: 4 } } });
+    const blurs = findNodes(effects.pipeline.outputNode, (node) => 'isGaussianBlurNode' in node);
+    expect(blurs.length).toBeGreaterThan(0);
+    const disposed = vi.fn();
+    for (const blur of blurs) blur.addEventListener('dispose', disposed);
+    effects.set({ glow: { radius: 4, intensity: 2 } });
+    expect(disposed).not.toHaveBeenCalled();
+    effects.set({ glow: { radius: 5 } });
+    expect(disposed).toHaveBeenCalledTimes(blurs.length);
+  });
 });
+
+/** Every node in a graph that passes `test`. */
+function findNodes(root: Node, test: (node: Node) => boolean): Node[] {
+  const seen = new Set<Node>();
+  const found: Node[] = [];
+  const visit = (node: Node): void => {
+    if (seen.has(node)) return;
+    seen.add(node);
+    if (test(node)) found.push(node);
+    for (const child of node.getChildren()) visit(child as Node);
+  };
+  visit(root);
+  return found;
+}
 
 describe('/effects packaging', () => {
   const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');

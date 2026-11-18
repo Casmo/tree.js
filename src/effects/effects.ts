@@ -1,9 +1,10 @@
 import { RenderPipeline, type Camera, type Node, type Object3D, type Renderer, type Scene } from 'three/webgpu';
 import type { StyleName } from '../styles/registry';
-import { leafGlow } from './glow';
-import { treeColorGrade } from './grade';
+import { glowRadius, liveLeafGlow } from './glow';
+import { liveTreeColorGrade } from './grade';
+import type { LiveTreeEffect } from './live';
 import { treeEffectsPass, type TreeEffectInput, type TreeEffectsPass } from './mask';
-import { treeOutline } from './outline';
+import { liveTreeOutline } from './outline';
 import { SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from './suggested';
 
 /**
@@ -12,11 +13,37 @@ import { SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from './suggested';
  * more effects). Order: colour grade, leaf glow, outline. Empty settings return `input.color`.
  */
 export function applyTreeEffects(input: TreeEffectInput, settings: TreeEffectsSettings): Node<'vec4'> {
+  return liveTreeEffects(input, settings).node;
+}
+
+/**
+ * The shape of a combination: what its graph is built from (the effects that are on and the glow
+ * radius). Settings of the same shape only differ in uniforms.
+ */
+function shapeOf(settings: TreeEffectsSettings): string {
+  return JSON.stringify([!!settings.grade, settings.glow ? glowRadius(settings.glow) : null, !!settings.outline]);
+}
+
+/** {@link applyTreeEffects} with every colour and number as a uniform; `update()` needs the same shape. */
+function liveTreeEffects(input: TreeEffectInput, settings: TreeEffectsSettings): LiveTreeEffect<TreeEffectsSettings> {
+  const updates: ((settings: TreeEffectsSettings) => void)[] = [];
   let color = input.color;
-  if (settings.grade) color = treeColorGrade({ color, mask: input.mask }, settings.grade);
-  if (settings.glow) color = leafGlow({ color, mask: input.mask }, settings.glow);
-  if (settings.outline) color = treeOutline({ color, mask: input.mask }, settings.outline);
-  return color;
+  if (settings.grade) {
+    const grade = liveTreeColorGrade({ color, mask: input.mask }, settings.grade);
+    updates.push((s) => grade.update(s.grade!));
+    color = grade.node;
+  }
+  if (settings.glow) {
+    const glow = liveLeafGlow({ color, mask: input.mask }, settings.glow);
+    updates.push((s) => glow.update(s.glow!));
+    color = glow.node;
+  }
+  if (settings.outline) {
+    const outline = liveTreeOutline({ color, mask: input.mask }, settings.outline);
+    updates.push((s) => outline.update(s.outline!));
+    color = outline.node;
+  }
+  return { node: color, update: (s) => updates.forEach((update) => update(s)) };
 }
 
 /** The suggested combination of a built-in Style, or the settings themselves; `null` = no effects. */
@@ -52,6 +79,7 @@ export class TreeEffects {
   readonly scenePass: TreeEffectsPass;
   private nodes: Node[] = [];
   private current: TreeEffectsSettings = {};
+  private graph: { shape: string; effects: LiveTreeEffect<TreeEffectsSettings> } | null = null;
 
   constructor(renderer: Renderer, scene: Scene, camera: Camera, options: TreeEffectsOptions = {}) {
     this.pipeline = new RenderPipeline(renderer);
@@ -64,13 +92,23 @@ export class TreeEffects {
     return this.current;
   }
 
-  /** Switches to a Style's suggested combination, custom settings, or none (`null`). */
+  /**
+   * Switches to a Style's suggested combination, custom settings, or none (`null`). With the same
+   * effects on (and the same glow radius) only the colours and numbers change, without a recompile;
+   * otherwise a new graph is built and the old one freed.
+   */
   set(effects: TreeEffectsChoice): void {
     this.current = resolveEffects(effects);
+    const shape = shapeOf(this.current);
+    if (this.graph?.shape === shape) {
+      this.graph.effects.update(this.current);
+      return;
+    }
     this.disposeNodes();
-    const output = applyTreeEffects(this.scenePass, this.current);
-    this.nodes = collectEffectNodes(output, this.scenePass.color);
-    this.pipeline.outputNode = output;
+    const live = liveTreeEffects(this.scenePass, this.current);
+    this.graph = { shape, effects: live };
+    this.nodes = collectEffectNodes(live.node, this.scenePass.color);
+    this.pipeline.outputNode = live.node;
     this.pipeline.needsUpdate = true;
   }
 

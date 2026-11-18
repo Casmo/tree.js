@@ -10,6 +10,8 @@
 //   ?pipeline=custom  build the pipeline by hand (treeEffectsPass + applyTreeEffects) with an extra
 //                     user effect (vignette) on top, to show the effects compose with other effects
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
+//   ?from=tweaked  start with other colours and numbers for the same effects and switch to the
+//                  chosen ones with `effects.set()` (no new graph), to show `set()` updates the look
 import * as THREE from 'three/webgpu';
 import { float, ivec2, mrt, output, pass, screenCoordinate, select, uint, vec3, vec4 } from 'three/tsl';
 import { screenUV } from 'three/tsl';
@@ -42,6 +44,7 @@ declare global {
       status: 'loading' | 'rendered' | 'error';
       backend?: string;
       error?: string;
+      rebuilt?: boolean;
       /** `?view=treeId`: the Tree ID read under each tree's trunk, its expected ID and the tree it resolves to. */
       readTreeIds?: () => Promise<{ name: string; id: number; expected: number | undefined; resolved: string | null }[]>;
       /** `?view=treeId`: hides the main tree and the ground (sky behind its trunk) and renders once more. */
@@ -74,6 +77,15 @@ function chosenEffects(): TreeEffectsSettings {
     default:
       throw new Error(`Unknown effects "${effectsParam}"`);
   }
+}
+
+/** The same effects as `settings` with every colour and number changed (the same shape). */
+function tweaked(settings: TreeEffectsSettings): TreeEffectsSettings {
+  return {
+    ...(settings.grade && { grade: { exposure: 1.3, saturation: 0.2, contrast: 1.5, tint: '#88aaff' } }),
+    ...(settings.glow && { glow: { color: '#ff0000', intensity: 2, threshold: 0.01, radius: settings.glow.radius } }),
+    ...(settings.outline && { outline: { color: '#ff00ff', thickness: 5, strength: 0.4 } }),
+  };
 }
 
 /** `?fruit=<type>`: big ripe Fruit on the outermost twigs, so the effects have Fruit to cover. */
@@ -153,6 +165,7 @@ async function main(): Promise<void> {
   const settings = chosenEffects();
 
   let render: () => void;
+  let rebuilt: boolean | undefined;
   if (treeIdView) {
     // The Tree ID building block in a hand-built scene pass: one colour per ID (black = no tree).
     const pipeline = new THREE.RenderPipeline(renderer);
@@ -197,6 +210,16 @@ async function main(): Promise<void> {
       pipeline.outputNode = vec4(treeColor.rgb.mul(vignette), 1);
     }
     render = () => pipeline.render();
+  } else if (params.get('from') === 'tweaked') {
+    const effects = createTreeEffects(renderer, scene, camera, { effects: tweaked(settings) });
+    for (let i = 0; i < 2; i++) {
+      effects.render();
+      await new Promise(requestAnimationFrame);
+    }
+    const before = effects.pipeline.outputNode;
+    effects.set(settings);
+    rebuilt = effects.pipeline.outputNode !== before;
+    render = () => effects.render();
   } else {
     const effects = createTreeEffects(renderer, scene, camera, { effects: settings });
     render = () => effects.render();
@@ -207,7 +230,7 @@ async function main(): Promise<void> {
     render();
     await new Promise(requestAnimationFrame);
   }
-  window.effectsExample = { ...window.effectsExample, status: 'rendered', backend };
+  window.effectsExample = { ...window.effectsExample, status: 'rendered', backend, rebuilt };
 }
 
 main().catch((error: unknown) => {

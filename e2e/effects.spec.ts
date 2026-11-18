@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-type EffectsExample = { status: string; backend?: string; error?: string };
+type EffectsExample = { status: string; backend?: string; error?: string; rebuilt?: boolean };
 
 /** Loads the effects example and returns a screenshot of the canvas (status text hidden). */
 async function shot(page: Page, query: string): Promise<Buffer> {
@@ -72,6 +72,16 @@ for (const backend of backends) {
       }
     });
   }
+}
+
+for (const style of styles) {
+  test(`set() with other colours and numbers for the same effects updates the look without a new graph (${style})`, async ({ page }) => {
+    await shot(page, `style=${style}&from=tweaked`);
+    const example = await page.evaluate(() => (window as unknown as { effectsExample: EffectsExample }).effectsExample);
+    expect(example.rebuilt, 'the same output node').toBe(false);
+    // Pixel-identical to the pipeline built with these settings from the start.
+    await expect(page.locator('canvas')).toHaveScreenshot(`${style}-style-webgpu.png`);
+  });
 }
 
 test('Tree Effects compose with a hand-built pipeline and the user\'s own effects', async ({ page }) => {

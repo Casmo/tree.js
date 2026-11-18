@@ -1,5 +1,6 @@
 import { Color, type ColorRepresentation, type Node } from 'three/webgpu';
-import { color as tslColor, float, mix, textureSize, uv, vec2, vec4 } from 'three/tsl';
+import { float, mix, textureSize, uniform, uv, vec2, vec4 } from 'three/tsl';
+import type { LiveTreeEffect } from './live';
 import type { TreeEffectInput } from './mask';
 
 /** Tree outline settings. */
@@ -22,7 +23,21 @@ const DIRECTIONS: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [D, D]
  * the gaps in it. The line is drawn on the inside of the silhouette, so only tree pixels change.
  */
 export function treeOutline(input: TreeEffectInput, options: TreeOutlineOptions = {}): Node<'vec4'> {
-  const { color = '#1d2a14', thickness = 2, strength = 1 } = options;
+  return liveTreeOutline(input, options).node;
+}
+
+/** {@link treeOutline} with its settings as uniforms. */
+export function liveTreeOutline(input: TreeEffectInput, options: TreeOutlineOptions = {}): LiveTreeEffect<TreeOutlineOptions> {
+  const color = uniform(new Color());
+  const thickness = uniform(0);
+  const strength = uniform(0);
+  const update = (o: TreeOutlineOptions): void => {
+    color.value.set(o.color ?? '#1d2a14');
+    thickness.value = o.thickness ?? 2;
+    strength.value = o.strength ?? 1;
+  };
+  update(options);
+
   const { mask } = input;
   const step = vec2(thickness).div(vec2(textureSize(mask) as unknown as Node<'ivec2'>));
   const centre = uv();
@@ -32,5 +47,5 @@ export function treeOutline(input: TreeEffectInput, options: TreeOutlineOptions 
     outside = outside.add(float(1).sub(mask.sample(centre.add(step.mul(vec2(x, y)))).b));
   }
   const edge = outside.mul(3 / DIRECTIONS.length).clamp(0, 1).mul(mask.sample(centre).b).mul(strength);
-  return vec4(mix(input.color.rgb, tslColor(new Color(color)), edge), input.color.a);
+  return { node: vec4(mix(input.color.rgb, color, edge), input.color.a), update };
 }
