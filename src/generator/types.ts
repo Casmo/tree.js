@@ -1,3 +1,5 @@
+import type { CrownVolume } from './crown';
+
 export type Vec3 = [number, number, number];
 
 /** One point on a branch's centre line. */
@@ -178,4 +180,10 @@ export interface TreeData {
   fruit: GeometryBuffers;
   /** When each part grows (the Seed shifts it within `variation.growth`). Also in the `aGrowth` attribute. */
   growth: GrowthTiming;
+  /**
+   * The Crown Volume: one ellipsoid around all leaves of the fully grown tree (every Stem's), in tree
+   * space. Always computed, deterministic per Definition and Seed, and not part of the geometry or its
+   * hash. Measure points against it with `crownDistance` and `crownNormal`.
+   */
+  crown: CrownVolume;
 }

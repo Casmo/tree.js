@@ -3,8 +3,11 @@ export { createTree, Tree, type CreateTreeOptions, type TreeOptions } from './tr
 export * from './definition';
 export * from './season';
 export {
+  crownDistance,
+  crownNormal,
   hashGeometry,
   hashTreeData,
+  type CrownVolume,
   type TreeData,
   type GrowthTiming,
   type GrowthWindow,

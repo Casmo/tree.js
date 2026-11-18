@@ -2,6 +2,7 @@ import type { TreeDefinition } from '../definition';
 import { createRandom, hashBytes, seedRandom } from '../random';
 import { woodSeasonAttribute } from '../season/profile';
 import { buildBranches } from './branches';
+import { crownVolume } from './crown';
 import { fruitGeometry, fruitGrowth, placeFruit } from './fruit';
 import { growthTiming } from './growth';
 import { solidLeafGeometry } from './leaf-shapes';
@@ -14,6 +15,7 @@ import { branchSway, writeTrunkSway } from './wind';
 import type { GeometryBuffers, TreeData, TreeSkeleton } from './types';
 
 export { growthTiming } from './growth';
+export { crownDistance, crownNormal, type CrownVolume } from './crown';
 export type { GrowthTiming, GrowthWindow, GeometryBuffers, TreeAttributes, VertexAttribute, SkeletonBranch, SkeletonFruit, SkeletonRoot, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
 
 /**
@@ -80,7 +82,9 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
   writeTrunkSway(wood, trunkHeight(skeleton));
   writeTrunkSway(leafBuffers, trunkHeight(skeleton));
   writeTrunkSway(fruitBuffers, trunkHeight(skeleton));
-  return { seed, skeleton, wood, leaves: leafBuffers, fruit: fruitBuffers, growth };
+  // The Crown Volume sits next to the geometry, not in it: the buffers and their hash are unchanged.
+  const crown = crownVolume(leafBuffers.positions, branches);
+  return { seed, skeleton, wood, leaves: leafBuffers, fruit: fruitBuffers, growth, crown };
 }
 
 /**

@@ -287,6 +287,22 @@ const wet = extendDefinition(mossy, { materials: { bark: { groundTint: { color: 
 const defaults = DEFAULT_GROUND_TINT; // { color: '#3f4a2a', height: 0.5, strength: 0.6 }
 ```
 
+The **Crown Volume** is one smooth ellipsoid around all leaves of the fully grown tree (every Stem's
+together), fitted as tightly as an axis-aligned ellipsoid can be. The Generator always computes it,
+deterministically per Definition and Seed, and keeps it next to the geometry as `data.crown = { center, radii }`
+(tree space, metres), so the meshes and `hashTreeData` are unchanged. Use it in your own shaders or
+gameplay: `crownDistance` is 0 at its centre, 1 on its shell and more outside, and `crownNormal` is the
+ellipsoid's outward normal through a point. A tree without leaves gets a Volume around its branches.
+
+```ts
+import { createTree, crownDistance, crownNormal, type CrownVolume } from '@casmo/tree.js';
+
+const tree = createTree({ schemaVersion: 3 }, { seed: 3 });
+const crown: CrownVolume = tree.data.crown; // { center: [x, y, z], radii: [rx, ry, rz] }
+const inside = crownDistance(crown, [0, 4, 0]) <= 1; // is this point within the crown?
+const outward = crownNormal(crown, [0, 4, 0]); // unit normal of the ellipsoid through the point
+```
+
 **Fruit** is an optional `fruit` block: `type` (`'round'`, `'pear'`, `'nut'`, `'cone'` or `'berry'`),
 `count` per outermost twig, `size`, `sizeVariation` and `hang` (0 = sits on the twig .. 1 = hangs
 straight down). A fractional `count` is a chance per twig: `0.3` puts one Fruit on about 30% of the
