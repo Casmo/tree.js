@@ -44,6 +44,18 @@ _Avoid_: Fruit shape
 One of the trunks a tree grows from the ground; most trees have a single Stem, a juniper or an olive may have several.
 _Avoid_: Trunk copy, multi-trunk
 
+**Root Flare**:
+The widening of a Stem towards the ground, where it sinks into the soil instead of standing on it like a post pushed into the ground.
+_Avoid_: Buttress, trunk foot, base flare
+
+**Root**:
+A woody part growing from the Root Flare of a Stem, outwards and slightly down, that tapers to a point below the ground; it grows with its Stem, never sways in the Wind and cannot be Sculpted.
+_Avoid_: Surface root, root branch
+
+**Ground Tint**:
+A darker or mossy colour of the bark close to the ground, fading out a short way up the Stem.
+_Avoid_: Moss, dirt, base colour
+
 **Crown Shape**:
 The outline of a tree's branches, set by how branch length and branch angle change from the base to the tip of the parent they grow from, such as a cone, a ball, a column, a vase or a flat top.
 _Avoid_: Silhouette, profile
