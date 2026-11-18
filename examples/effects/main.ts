@@ -10,6 +10,8 @@
 //   ?pick=tree|second|f0|f1  the scene of ?view=treeId through TreeEffects with `treeId: true`: after
 //                 rendering, `effects.pick()` at that tree's trunk (a fixed point); the result is in
 //                 `effectsExample.picked` (the name of the picked tree, null for none)
+//   ?overlap=plain|between  the scene of ?view=treeId (a second Tree and a small Forest, overlapping
+//                 on screen); `between` adds the ID outline: `outline.betweenTrees` on the outline
 //   ?pipeline=custom  build the pipeline by hand (treeEffectsPass + applyTreeEffects) with an extra
 //                     user effect (vignette) on top, to show the effects compose with other effects
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
@@ -84,6 +86,12 @@ function chosenEffects(): TreeEffectsSettings {
   }
 }
 
+/** `?overlap=between`: the outline also between overlapping trees (the Tree ID channel comes with it). */
+function withBetweenTrees(settings: TreeEffectsSettings): TreeEffectsSettings {
+  if (params.get('overlap') !== 'between' || !settings.outline) return settings;
+  return { ...settings, outline: { ...settings.outline, betweenTrees: true } };
+}
+
 /** The same effects as `settings` with every colour and number changed (the same shape). */
 function tweaked(settings: TreeEffectsSettings): TreeEffectsSettings {
   return {
@@ -138,10 +146,11 @@ async function main(): Promise<void> {
   // `?view=treeId`: more trees to tell apart, a second Tree and a Forest, overlapping on screen.
   const treeIdView = params.get('view') === 'treeId';
   const pickName = params.get('pick');
+  const overlap = params.has('overlap');
   // Each tree with a point on its trunk (a little above the ground), to read its ID under.
   const trunk = (x: number, z: number) => new THREE.Vector3(x, size.y * 0.12, z);
   const named = new Map<string, { tree: Parameters<typeof treeIdOf>[0]; at: THREE.Vector3 }>([['tree', { tree, at: trunk(0, 0) }]]);
-  if (treeIdView || pickName) {
+  if (treeIdView || pickName || overlap) {
     const back = new THREE.Vector3(-direction.x, 0, -direction.z).normalize();
     const side = new THREE.Vector3(back.z, 0, -back.x);
     const second = createTree(definition, { seed: 2, season: 0.37 });
@@ -168,7 +177,7 @@ async function main(): Promise<void> {
   const backend = (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'webgpu' : 'webgl2';
   statusEl.textContent = `Tree Effects (${backend}) - ${styleName} ${form} - ${effectsParam}`;
 
-  const settings = chosenEffects();
+  const settings = withBetweenTrees(chosenEffects());
 
   let render: () => void;
   let rebuilt: boolean | undefined;

@@ -22,10 +22,11 @@ export function applyTreeEffects(input: TreeEffectInput, settings: TreeEffectsSe
 
 /**
  * The shape of a combination: what its graph is built from (the effects that are on and the glow
- * radius). Settings of the same shape only differ in uniforms.
+ * radius, the outline's `betweenTrees`). Settings of the same shape only differ in uniforms.
  */
 function shapeOf(settings: TreeEffectsSettings): string {
-  return JSON.stringify([!!settings.grade, settings.glow ? glowRadius(settings.glow) : null, !!settings.outline]);
+  const outline = settings.outline ? (settings.outline.betweenTrees === true ? 'between' : 'outline') : null;
+  return JSON.stringify([!!settings.grade, settings.glow ? glowRadius(settings.glow) : null, outline]);
 }
 
 /** {@link applyTreeEffects} with every colour and number as a uniform; `update()` needs the same shape. */
@@ -43,7 +44,7 @@ function liveTreeEffects(input: TreeEffectInput, settings: TreeEffectsSettings):
     color = glow.node;
   }
   if (settings.outline) {
-    const outline = liveTreeOutline({ color, mask: input.mask }, settings.outline);
+    const outline = liveTreeOutline({ ...input, color }, settings.outline);
     updates.push((s) => outline.update(s.outline!));
     color = outline.node;
   }
@@ -80,8 +81,8 @@ export interface TreeEffectsOptions {
  * The extra channels the scene pass needs for `settings` (with the `treeId` option). Only this
  * set decides the scene pass's MRT: settings that need the same channels keep it.
  */
-function channelsFor(_settings: TreeEffectsSettings, options: TreeEffectsOptions): TreeEffectsChannels {
-  return { treeId: options.treeId === true };
+function channelsFor(settings: TreeEffectsSettings, options: TreeEffectsOptions): TreeEffectsChannels {
+  return { treeId: options.treeId === true || settings.outline?.betweenTrees === true };
 }
 
 /** A key that is equal for equal sets of channels. */

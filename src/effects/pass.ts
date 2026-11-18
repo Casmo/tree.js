@@ -19,7 +19,7 @@ export interface TreeEffectsPass extends TreeEffectInput {
 
 /**
  * Creates `pass(scene, camera)` with MRT `{ output, treeMask }` (plus the opt-in `channels`, e.g.
- * `{ treeId: true }`) and returns it with the texture nodes of every target as the effects' inputs.
+ * `{ treeId: true }`) and returns it with the texture nodes of every target (and the depth) as the effects' inputs.
  * `selection`: the trees to outline (default `null` = all trees), see `createTreeMask`. If your
  * pipeline already has a scene pass, merge `treeMaskMRT` (and `treeIdMRT`) into it instead.
  */
@@ -34,7 +34,12 @@ export function treeEffectsPass(
   if (channels.treeId) outputs = outputs.merge(treeIdMRT());
   scenePass.setMRT(outputs);
   scenePass.getTexture(TREE_MASK).type = UnsignedByteType;
-  const input: TreeEffectsPass = { pass: scenePass, color: scenePass.getTextureNode('output'), mask: scenePass.getTextureNode(TREE_MASK) };
+  const input: TreeEffectsPass = {
+    pass: scenePass,
+    color: scenePass.getTextureNode('output'),
+    mask: scenePass.getTextureNode(TREE_MASK),
+    depth: scenePass.getTextureNode('depth'),
+  };
   if (channels.treeId) {
     treeIdTexture(scenePass);
     input.treeId = scenePass.getTextureNode(TREE_ID);

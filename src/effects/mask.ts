@@ -61,4 +61,9 @@ export interface TreeEffectInput {
    * needed by effects that tell trees apart. Read it with exact texel loads, never filtered.
    */
   treeId?: TextureNode;
+  /**
+   * Scene depth texture, e.g. `scenePass.getTextureNode('depth')`; only needed by effects that
+   * compare distances (the outline's `betweenTrees`).
+   */
+  depth?: TextureNode;
 }
