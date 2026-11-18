@@ -4,12 +4,15 @@
 //   ?form=conifer  conifer instead of broadleaf
 //   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (Tree Effects treat it as tree pixels)
 //   ?effects=none|outline|glow|grade|style  one effect, the Style's suggested combination (default), or none
+//   ?effects=inner-lines  Inner Lines (from depth and normal edges, the normal channel turned on)
 //   ?view=mask  show the tree mask (red = tree, green = leaves) instead of the image
 //   ?view=treeId  add a second Tree and a small Forest, and show the Tree ID channel (one colour per
 //                 ID, black = 0); exposes `effectsExample.readTreeIds()` for the Playwright tests
 //   ?pick=tree|second|f0|f1  the scene of ?view=treeId through TreeEffects with `treeId: true`: after
 //                 rendering, `effects.pick()` at that tree's trunk (a fixed point); the result is in
 //                 `effectsExample.picked` (the name of the picked tree, null for none)
+//   ?overlap=plain|between  the scene of ?view=treeId (a second Tree and a small Forest, overlapping
+//                 on screen); `between` adds the ID outline: `outline.betweenTrees` on the outline
 //   ?highlight=tree|second|f0|f1  the scene of ?view=treeId through TreeEffects with a Highlight:
 //                 hover a tree to highlight it (`effects.pick`). After rendering, that tree is picked
 //                 at its trunk and highlighted; the result is in `effectsExample.picked`
@@ -80,11 +83,19 @@ function chosenEffects(): TreeEffectsSettings {
       return { glow: settings.glow ?? { intensity: 0.8 } };
     case 'grade':
       return { grade: settings.grade ?? { saturation: 1.3 } };
+    case 'inner-lines':
+      return { innerLines: settings.innerLines ?? {} };
     case 'style':
       return settings;
     default:
       throw new Error(`Unknown effects "${effectsParam}"`);
   }
+}
+
+/** `?overlap=between`: the outline also between overlapping trees (the Tree ID channel comes with it). */
+function withBetweenTrees(settings: TreeEffectsSettings): TreeEffectsSettings {
+  if (params.get('overlap') !== 'between' || !settings.outline) return settings;
+  return { ...settings, outline: { ...settings.outline, betweenTrees: true } };
 }
 
 /** The same effects as `settings` with every colour and number changed (the same shape). */
@@ -142,10 +153,11 @@ async function main(): Promise<void> {
   const treeIdView = params.get('view') === 'treeId';
   const highlightName = params.get('highlight');
   const pickName = params.get('pick') ?? highlightName;
+  const overlap = params.has('overlap');
   // Each tree with a point on its trunk (a little above the ground), to read its ID under.
   const trunk = (x: number, z: number) => new THREE.Vector3(x, size.y * 0.12, z);
   const named = new Map<string, { tree: Parameters<typeof treeIdOf>[0]; at: THREE.Vector3 }>([['tree', { tree, at: trunk(0, 0) }]]);
-  if (treeIdView || pickName) {
+  if (treeIdView || pickName || overlap) {
     const back = new THREE.Vector3(-direction.x, 0, -direction.z).normalize();
     const side = new THREE.Vector3(back.z, 0, -back.x);
     const second = createTree(definition, { seed: 2, season: 0.37 });
@@ -172,7 +184,7 @@ async function main(): Promise<void> {
   const backend = (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'webgpu' : 'webgl2';
   statusEl.textContent = `Tree Effects (${backend}) - ${styleName} ${form} - ${effectsParam}`;
 
-  const settings = chosenEffects();
+  const settings = withBetweenTrees(chosenEffects());
 
   let render: () => void;
   let rebuilt: boolean | undefined;

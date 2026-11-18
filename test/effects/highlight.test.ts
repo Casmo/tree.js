@@ -34,7 +34,7 @@ describe('Highlight', () => {
   it('turns on the Tree ID channel in TreeEffects', () => {
     const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: { highlight: {} } });
     expect(outputsOf(effects)).toEqual(['output', TREE_MASK, TREE_ID]);
-    effects.set('low-poly');
+    effects.set('realistic');
     expect(outputsOf(effects)).toEqual(['output', TREE_MASK]);
   });
 
