@@ -1,0 +1,191 @@
+{
+  "id": "plum",
+  "name": "Plum",
+  "form": "broadleaf",
+  "trunk": {
+    "length": 4.4,
+    "radius": 0.2,
+    "taper": 0.38,
+    "lengthVariation": 0.12,
+    "bend": 0.18
+  },
+  "branches": [
+    {
+      "count": 7,
+      "start": 0.35,
+      "end": 0.92,
+      "angle": 45,
+      "angleVariation": 0.3,
+      "spiral": 137.5,
+      "length": 0.7,
+      "lengthVariation": 0.25,
+      "radius": 0.55,
+      "taper": 0.4,
+      "bend": 0.3,
+      "gravity": 0.08,
+      "lengthProfile": [
+        {
+          "t": 0.35,
+          "value": 1
+        },
+        {
+          "t": 0.7,
+          "value": 0.95
+        },
+        {
+          "t": 1,
+          "value": 0.5
+        }
+      ]
+    },
+    {
+      "count": 3,
+      "start": 0.25,
+      "end": 1,
+      "angle": 40,
+      "angleVariation": 0.35,
+      "spiral": 140,
+      "length": 0.6,
+      "lengthVariation": 0.3,
+      "radius": 0.6,
+      "taper": 0.45,
+      "bend": 0.3,
+      "gravity": 0.3
+    }
+  ],
+  "foliage": {
+    "type": "broad",
+    "density": 0.62,
+    "size": 0.4,
+    "sizeVariation": 0.25,
+    "start": 0.05,
+    "angle": 45
+  },
+  "bark": {
+    "type": "furrowed",
+    "color": "#8a766c"
+  },
+  "fruit": {
+    "type": "round",
+    "count": 1,
+    "size": 0.26,
+    "sizeVariation": 0.15,
+    "hang": 1
+  },
+  "season": {
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#a9c95e"
+      },
+      {
+        "t": 0.2,
+        "value": "#365f2a"
+      },
+      {
+        "t": 0.54,
+        "value": "#365f2a"
+      },
+      {
+        "t": 0.6,
+        "value": "#9a7a30"
+      },
+      {
+        "t": 0.7,
+        "value": "#7a4a2a"
+      },
+      {
+        "t": 1,
+        "value": "#7a4a2a"
+      }
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 0
+      },
+      {
+        "t": 0.03,
+        "value": 0
+      },
+      {
+        "t": 0.15,
+        "value": 1
+      },
+      {
+        "t": 0.6,
+        "value": 1
+      },
+      {
+        "t": 0.72,
+        "value": 0
+      }
+    ],
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0
+      },
+      {
+        "t": 0.01,
+        "value": 0
+      },
+      {
+        "t": 0.06,
+        "value": 1
+      },
+      {
+        "t": 0.092,
+        "value": 0.9
+      },
+      {
+        "t": 0.14,
+        "value": 0
+      }
+    ],
+    "blossomColor": "#fbf6f0",
+    "fruit": [
+      {
+        "t": 0.16,
+        "value": 0
+      },
+      {
+        "t": 0.32,
+        "value": 1
+      },
+      {
+        "t": 0.56,
+        "value": 1
+      },
+      {
+        "t": 0.64,
+        "value": 0
+      }
+    ],
+    "fruitColor": [
+      {
+        "t": 0.26,
+        "value": "#8db33a"
+      },
+      {
+        "t": 0.38,
+        "value": "#8a3a5a"
+      },
+      {
+        "t": 0.48,
+        "value": "#4a2160"
+      }
+    ]
+  },
+  "wind": {
+    "trunk": 0.06,
+    "branches": 0.32,
+    "leaves": 0.65,
+    "frequency": 1
+  },
+  "variation": {
+    "color": 0.1,
+    "growth": 0.1,
+    "season": 0.05
+  }
+}

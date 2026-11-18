@@ -2,9 +2,23 @@
 
 /** Id of a Species in the collection (kebab-case), e.g. `'oak'`. */
 export type SpeciesName =
-  | 'oak';
+  | 'almond'
+  | 'apple'
+  | 'cherry'
+  | 'oak'
+  | 'olive'
+  | 'peach'
+  | 'pear'
+  | 'plum';
 
 /** Dynamic import of each Species (its own chunk in the build), by id. */
 export const SPECIES_LOADERS: Record<SpeciesName, () => Promise<{ default: unknown }>> = {
+  'almond': () => import('./data/almond.json'),
+  'apple': () => import('./data/apple.json'),
+  'cherry': () => import('./data/cherry.json'),
   'oak': () => import('./data/oak.json'),
+  'olive': () => import('./data/olive.json'),
+  'peach': () => import('./data/peach.json'),
+  'pear': () => import('./data/pear.json'),
+  'plum': () => import('./data/plum.json'),
 };
