@@ -7,6 +7,9 @@
 //   ?view=mask  show the tree mask (red = tree, green = leaves) instead of the image
 //   ?view=treeId  add a second Tree and a small Forest, and show the Tree ID channel (one colour per
 //                 ID, black = 0); exposes `effectsExample.readTreeIds()` for the Playwright tests
+//   ?pick=tree|second|f0|f1  the scene of ?view=treeId through TreeEffects with `treeId: true`: after
+//                 rendering, `effects.pick()` at that tree's trunk (a fixed point); the result is in
+//                 `effectsExample.picked` (the name of the picked tree, null for none)
 //   ?pipeline=custom  build the pipeline by hand (treeEffectsPass + applyTreeEffects) with an extra
 //                     user effect (vignette) on top, to show the effects compose with other effects
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
@@ -45,6 +48,8 @@ declare global {
       backend?: string;
       error?: string;
       rebuilt?: boolean;
+      /** `?pick=<name>`: the point picked (CSS pixels) and the name of the tree `effects.pick()` resolved to. */
+      picked?: { name: string | null; x: number; y: number };
       /** `?view=treeId`: the Tree ID read under each tree's trunk, its expected ID and the tree it resolves to. */
       readTreeIds?: () => Promise<{ name: string; id: number; expected: number | undefined; resolved: string | null }[]>;
       /** `?view=treeId`: hides the main tree and the ground (sky behind its trunk) and renders once more. */
@@ -132,10 +137,11 @@ async function main(): Promise<void> {
 
   // `?view=treeId`: more trees to tell apart, a second Tree and a Forest, overlapping on screen.
   const treeIdView = params.get('view') === 'treeId';
+  const pickName = params.get('pick');
   // Each tree with a point on its trunk (a little above the ground), to read its ID under.
   const trunk = (x: number, z: number) => new THREE.Vector3(x, size.y * 0.12, z);
   const named = new Map<string, { tree: Parameters<typeof treeIdOf>[0]; at: THREE.Vector3 }>([['tree', { tree, at: trunk(0, 0) }]]);
-  if (treeIdView) {
+  if (treeIdView || pickName) {
     const back = new THREE.Vector3(-direction.x, 0, -direction.z).normalize();
     const side = new THREE.Vector3(back.z, 0, -back.x);
     const second = createTree(definition, { seed: 2, season: 0.37 });
@@ -166,6 +172,14 @@ async function main(): Promise<void> {
 
   let render: () => void;
   let rebuilt: boolean | undefined;
+  let pick: (() => Promise<NonNullable<typeof window.effectsExample.picked>>) | undefined;
+  /** A tree's trunk point in CSS pixels on the canvas. */
+  const onScreen = (at: THREE.Vector3) => {
+    const ndc = at.clone().project(camera);
+    return { x: ((ndc.x + 1) / 2) * renderer.domElement.clientWidth, y: ((1 - ndc.y) / 2) * renderer.domElement.clientHeight };
+  };
+  /** The name of a tree in the scene, `null` for none. */
+  const nameOf = (found: ReturnType<typeof treeFromId>) => (found === undefined ? null : ([...named].find(([, v]) => v.tree === found)?.[0] ?? 'other'));
   if (treeIdView) {
     // The Tree ID building block in a hand-built scene pass: one colour per ID (black = no tree).
     const pipeline = new THREE.RenderPipeline(renderer);
@@ -182,12 +196,9 @@ async function main(): Promise<void> {
     window.effectsExample.readTreeIds = async () => {
       const result = [];
       for (const [name, { tree: t, at }] of named) {
-        const ndc = at.clone().project(camera);
-        const x = ((ndc.x + 1) / 2) * renderer.domElement.clientWidth;
-        const y = ((1 - ndc.y) / 2) * renderer.domElement.clientHeight;
+        const { x, y } = onScreen(at);
         const read = await readTreeId(renderer, scenePass, x, y);
-        const found = treeFromId(read);
-        const resolved = found === undefined ? null : ([...named].find(([, v]) => v.tree === found)?.[0] ?? 'other');
+        const resolved = nameOf(treeFromId(read));
         result.push({ name, id: read, expected: treeIdOf(t), resolved });
       }
       return result;
@@ -210,6 +221,16 @@ async function main(): Promise<void> {
       pipeline.outputNode = vec4(treeColor.rgb.mul(vignette), 1);
     }
     render = () => pipeline.render();
+  } else if (pickName) {
+    // GPU picking through the ready-made pipeline: the Tree ID channel on without an effect needing it.
+    const target = named.get(pickName);
+    if (!target) throw new Error(`Unknown tree to pick "${pickName}"`);
+    const effects = createTreeEffects(renderer, scene, camera, { effects: settings, treeId: true });
+    render = () => effects.render();
+    pick = async () => {
+      const { x, y } = onScreen(target.at);
+      return { name: nameOf(await effects.pick(x, y)), x, y };
+    };
   } else if (params.get('from') === 'tweaked') {
     const effects = createTreeEffects(renderer, scene, camera, { effects: tweaked(settings) });
     for (let i = 0; i < 2; i++) {
@@ -230,7 +251,8 @@ async function main(): Promise<void> {
     render();
     await new Promise(requestAnimationFrame);
   }
-  window.effectsExample = { ...window.effectsExample, status: 'rendered', backend, rebuilt };
+  const picked = await pick?.();
+  window.effectsExample = { ...window.effectsExample, status: 'rendered', backend, rebuilt, picked };
 }
 
 main().catch((error: unknown) => {

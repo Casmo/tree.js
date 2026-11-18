@@ -2,8 +2,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { texture, vec4 } from 'three/tsl';
 import { createTree } from '../../src/index';
-import { MeshStandardNodeMaterial, PerspectiveCamera, Scene, Texture, type Node, type Renderer } from 'three/webgpu';
-import { applyTreeEffects, createTreeEffects, SUGGESTED_TREE_EFFECTS, treePartOf } from '../../src/effects';
+import { MeshStandardNodeMaterial, PerspectiveCamera, Scene, Texture, UnsignedByteType, UnsignedIntType, type Node, type Renderer } from 'three/webgpu';
+import {
+  applyTreeEffects,
+  createTreeEffects,
+  SUGGESTED_TREE_EFFECTS,
+  TREE_ID,
+  TREE_MASK,
+  treeEffectsPass,
+  treePartOf,
+  type TreeEffects,
+} from '../../src/effects';
 
 describe('Tree Effects', () => {
   it('suggests a combination of effects for each built-in Style', () => {
@@ -86,6 +95,50 @@ describe('Tree Effects', () => {
     expect(disposed).not.toHaveBeenCalled();
     effects.set({ glow: { radius: 5 } });
     expect(disposed).toHaveBeenCalledTimes(blurs.length);
+  });
+});
+
+describe('TreeEffects channels', () => {
+  const renderer = { isWebGPURenderer: true } as unknown as Renderer;
+  const outputsOf = (effects: TreeEffects) => Object.keys(effects.scenePass.pass.getMRT()!.outputNodes);
+
+  it('renders exactly { output, treeMask } with an 8-bit mask without new settings', () => {
+    for (const choice of [null, 'low-poly', 'stylized', 'realistic', { grade: {}, glow: {}, outline: {} }] as const) {
+      const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: choice });
+      expect(outputsOf(effects)).toEqual(['output', TREE_MASK]);
+      expect(effects.scenePass.pass.getTexture(TREE_MASK).type).toBe(UnsignedByteType);
+      expect(effects.scenePass.treeId).toBeUndefined();
+    }
+    expect(Object.keys(treeEffectsPass(new Scene(), new PerspectiveCamera()).pass.getMRT()!.outputNodes)).toEqual(['output', TREE_MASK]);
+  });
+
+  it('adds the Tree ID channel with treeId: true, and gives the effects its texture as input', () => {
+    const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'stylized', treeId: true });
+    expect(outputsOf(effects)).toEqual(['output', TREE_MASK, TREE_ID]);
+    expect(effects.scenePass.pass.getTexture(TREE_MASK).type).toBe(UnsignedByteType);
+    expect(effects.scenePass.pass.getTexture(TREE_ID).type).toBe(UnsignedIntType);
+    expect(effects.scenePass.treeId).toBeDefined();
+    const input = treeEffectsPass(new Scene(), new PerspectiveCamera(), null, { treeId: true });
+    expect(Object.keys(input.pass.getMRT()!.outputNodes)).toEqual(['output', TREE_MASK, TREE_ID]);
+    expect(input.treeId?.value).toBe(input.pass.getTexture(TREE_ID));
+  });
+
+  it('keeps the MRT when set() needs the same channels', () => {
+    for (const treeId of [false, true]) {
+      const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'stylized', treeId });
+      const scenePass = effects.scenePass;
+      const before = scenePass.pass.getMRT();
+      effects.set(null);
+      effects.set('low-poly');
+      effects.set({ glow: { radius: 2 } });
+      expect(effects.scenePass).toBe(scenePass);
+      expect(effects.scenePass.pass.getMRT()).toBe(before);
+    }
+  });
+
+  it('pick() throws without the Tree ID channel, naming the treeId option', () => {
+    const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: 'stylized' });
+    expect(() => effects.pick(0, 0)).toThrow(/treeId/);
   });
 });
 

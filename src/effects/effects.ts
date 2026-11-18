@@ -3,9 +3,13 @@ import type { StyleName } from '../styles/registry';
 import { glowRadius, liveLeafGlow } from './glow';
 import { liveTreeColorGrade } from './grade';
 import type { LiveTreeEffect } from './live';
-import { treeEffectsPass, type TreeEffectInput, type TreeEffectsPass } from './mask';
+import type { TreeEffectInput } from './mask';
 import { liveTreeOutline } from './outline';
+import { treeEffectsPass, type TreeEffectsChannels, type TreeEffectsPass } from './pass';
 import { SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from './suggested';
+import { readTreeId, treeFromId } from './tree-id';
+import type { ForestTree } from '../forest';
+import type { Tree } from '../tree';
 
 /**
  * Applies a combination of Tree Effects to `input` and returns the resulting colour node, for use in
@@ -65,6 +69,28 @@ export interface TreeEffectsOptions {
    * Default: every tree in the scene.
    */
   selection?: Object3D[];
+  /**
+   * Keeps the Tree ID channel on even when no effect needs it, for {@link TreeEffects.pick}.
+   * Default: false (the channel is only rendered when an effect needs it).
+   */
+  treeId?: boolean;
+}
+
+/**
+ * The extra channels the scene pass needs for `settings` (with the `treeId` option). Only this
+ * set decides the scene pass's MRT: settings that need the same channels keep it.
+ */
+function channelsFor(_settings: TreeEffectsSettings, options: TreeEffectsOptions): TreeEffectsChannels {
+  return { treeId: options.treeId === true };
+}
+
+/** A key that is equal for equal sets of channels. */
+function channelsKey(channels: TreeEffectsChannels): string {
+  return Object.entries(channels)
+    .filter(([, on]) => on === true)
+    .map(([name]) => name)
+    .sort()
+    .join();
 }
 
 /**
@@ -75,16 +101,27 @@ export interface TreeEffectsOptions {
  */
 export class TreeEffects {
   readonly pipeline: RenderPipeline;
-  /** The scene pass (colour + tree mask). */
-  readonly scenePass: TreeEffectsPass;
   private nodes: Node[] = [];
   private current: TreeEffectsSettings = {};
   private graph: { shape: string; effects: LiveTreeEffect<TreeEffectsSettings> } | null = null;
+  private input!: { channels: string; pass: TreeEffectsPass };
 
-  constructor(renderer: Renderer, scene: Scene, camera: Camera, options: TreeEffectsOptions = {}) {
+  constructor(
+    private readonly renderer: Renderer,
+    private readonly scene: Scene,
+    private readonly camera: Camera,
+    private readonly options: TreeEffectsOptions = {},
+  ) {
     this.pipeline = new RenderPipeline(renderer);
-    this.scenePass = treeEffectsPass(scene, camera, options.selection ?? null);
     this.set(options.effects ?? null);
+  }
+
+  /**
+   * The scene pass (colour + tree mask, plus the channels the settings need, such as the Tree ID).
+   * It is only replaced when {@link set} needs other channels.
+   */
+  get scenePass(): TreeEffectsPass {
+    return this.input.pass;
   }
 
   /** The active combination (`{}` = none). */
@@ -99,6 +136,15 @@ export class TreeEffects {
    */
   set(effects: TreeEffectsChoice): void {
     this.current = resolveEffects(effects);
+    const channels = channelsFor(this.current, this.options);
+    const key = channelsKey(channels);
+    if (this.input?.channels !== key) {
+      // Other channels: a new scene pass (new MRT), and a new graph that reads it.
+      this.disposeNodes();
+      this.input?.pass.pass.dispose();
+      this.input = { channels: key, pass: treeEffectsPass(this.scene, this.camera, this.options.selection ?? null, channels) };
+      this.graph = null;
+    }
     const shape = shapeOf(this.current);
     if (this.graph?.shape === shape) {
       this.graph.effects.update(this.current);
@@ -110,6 +156,17 @@ export class TreeEffects {
     this.nodes = collectEffectNodes(live.node, this.scenePass.color);
     this.pipeline.outputNode = live.node;
     this.pipeline.needsUpdate = true;
+  }
+
+  /**
+   * GPU picking: the Tree or Forest tree under a point of the canvas (CSS pixels from its top left
+   * corner, as `event.offsetX/offsetY`) in the last render, or `undefined` where no tree is drawn.
+   * Needs the Tree ID channel: throws when it is off (create the effects with `treeId: true`).
+   */
+  pick(x: number, y: number): Promise<Tree | ForestTree | undefined> {
+    const { pass, treeId } = this.scenePass;
+    if (!treeId) throw new Error('TreeEffects.pick() needs the Tree ID channel: create the effects with the `treeId: true` option');
+    return readTreeId(this.renderer, pass, x, y).then(treeFromId);
   }
 
   /** Renders the scene with the effects (call instead of `renderer.render(scene, camera)`). */

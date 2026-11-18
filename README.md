@@ -586,6 +586,29 @@ renderer.domElement.addEventListener('click', async (event) => {
   handles the target's index, the y flip and the device pixel ratio). It works on WebGPU and on the
   WebGL2 fallback.
 
+#### Picking with `TreeEffects` and the opt-in channels
+
+The ready-made pipeline only renders the channels its settings need. Without them (`effects: null`,
+or grade, glow and outline) the scene pass is exactly `{ output, treeMask }` with the 8-bit mask, as
+always. Pass `treeId: true` to keep the Tree ID channel on without any effect needing it, then pick
+with one call:
+
+```ts
+import { createTreeEffects } from '@casmo/tree.js/effects';
+
+const effects = createTreeEffects(renderer, scene, camera, { effects: 'stylized', treeId: true });
+renderer.domElement.addEventListener('pointermove', async (event) => {
+  const tree = await effects.pick(event.offsetX, event.offsetY); // Tree, ForestTree or undefined
+});
+```
+
+`pick` reads the ID from the last render and resolves it right away (IDs are frame-relative). Without
+the Tree ID channel it throws an error that names the `treeId` option. The scene pass's MRT (and with
+it the compiled materials of your scene) only changes when `set()` needs a different set of channels;
+switching between settings that need the same channels keeps it. In your own pipeline,
+`treeEffectsPass(scene, camera, selection, { treeId: true })` adds the channel and fills in the
+effects' `treeId` input.
+
 ## React Three Fiber
 
 ![Two low-poly trees rendered with React Three Fiber](docs/images/react.png)

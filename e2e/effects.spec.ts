@@ -163,3 +163,13 @@ for (const backend of backends) {
     expect(after.slice(1)).toEqual(reads.slice(1));
   });
 }
+
+for (const backend of backends) {
+  test(`effects.pick() resolves the Tree or Forest tree under a point (${backend.name})`, async ({ page }) => {
+    for (const name of ['f0', 'f1', 'second']) {
+      await shot(page, `style=low-poly&pick=${name}${backend.query}`);
+      const picked = await page.evaluate(() => window.effectsExample.picked);
+      expect(picked?.name, `the tree under ${name}'s trunk`).toBe(name);
+    }
+  });
+}
