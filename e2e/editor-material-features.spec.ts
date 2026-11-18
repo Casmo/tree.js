@@ -10,7 +10,16 @@ async function waitForEditor(page: Page) {
   await page.waitForFunction(() => window.treeEditor?.status !== 'loading', null, { timeout: 30_000 });
   return page.evaluate(() => {
     const { status, error, store, preview } = window.treeEditor;
-    return { status, error, definition: store!.state.definition, tree: preview!.tree!.uuid, occlusionStrength: preview!.tree!.occlusionStrength };
+    const tree = preview!.tree!;
+    return {
+      status,
+      error,
+      definition: store!.state.definition,
+      tree: tree.uuid,
+      crownNormals: tree.crownNormals,
+      translucency: tree.translucency,
+      occlusionStrength: tree.occlusionStrength,
+    };
   });
 }
 
@@ -52,7 +61,7 @@ function difference(a: number[], b: number[]): number {
   return sum / a.length;
 }
 
-test('each feature toggle and slider changes the tree; the occlusion strength without a new tree', async ({ page }) => {
+test('each feature toggle and slider changes the tree; the sliders without a new tree', async ({ page }) => {
   test.setTimeout(120_000); // many renders on the CPU (SwiftShader)
   await page.goto('/editor/?start=oak/stylized&seed=1');
   const initial = await waitForEditor(page);
@@ -78,15 +87,23 @@ test('each feature toggle and slider changes the tree; the occlusion strength wi
 
   // Sliders: each tunes the tree on show.
   await page.getByLabel('Crown Normals', { exact: true }).check();
+  const crownOn = await waitForEditor(page);
   const crown1 = await pixels(page);
   await fill(page, 'materials.leaf.crownNormals', '0.2');
-  expect((await waitForEditor(page)).definition.materials.leaf.crownNormals).toBe(0.2);
+  const crownTuned = await waitForEditor(page);
+  expect(crownTuned.definition.materials.leaf.crownNormals).toBe(0.2);
+  expect(crownTuned.crownNormals).toBeCloseTo(0.2);
+  expect(crownTuned.tree).toBe(crownOn.tree); // a uniform, not a new tree
   expect(difference(crown1, await pixels(page))).toBeGreaterThan(0.1);
 
   await page.getByLabel('Leaf Translucency', { exact: true }).check();
+  const glowOn = await waitForEditor(page);
   const glow = await pixels(page);
   for (const [id, value] of [['strength', '1'], ['edge', '0'], ['ambient', '1']] as const) await fill(page, `materials.leaf.translucency.${id}`, value);
-  expect((await waitForEditor(page)).definition.materials.leaf.translucency).toEqual({ strength: 1, edge: 0, ambient: 1 });
+  const glowTuned = await waitForEditor(page);
+  expect(glowTuned.definition.materials.leaf.translucency).toEqual({ strength: 1, edge: 0, ambient: 1 });
+  expect(glowTuned.translucency).toEqual({ strength: 1, edge: 0, ambient: 1 });
+  expect(glowTuned.tree).toBe(glowOn.tree);
   expect(difference(glow, await pixels(page))).toBeGreaterThan(0.1);
 
   await page.getByLabel('Structural Occlusion', { exact: true }).check();

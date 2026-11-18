@@ -49,18 +49,38 @@ export function setMaterialFeature(store: EditorStore, key: keyof MaterialFeatur
 }
 
 /**
- * True when `next` differs from `previous` only in the Structural Occlusion strength (both with the
- * feature on): the tree on show can take the new strength without being generated again.
+ * When `next` differs from `previous` only in the values of Material Features that are on in both, the
+ * tree on show can take them as uniforms (`tree.crownNormals`, `tree.translucency`,
+ * `tree.occlusionStrength`) without being generated again: returns those features with their new
+ * values. Null when anything else changed, a feature was switched on or off (Crown Normals at 0 count
+ * as off), or nothing changed.
  */
-export function onlyOcclusionStrengthChanged(previous: TreeDefinition, next: TreeDefinition): boolean {
-  const before = previous.materials.occlusion;
-  const after = next.materials.occlusion;
-  if (!before || !after || before.strength === after.strength) return false;
-  const withStrength = (definition: TreeDefinition): TreeDefinition => ({
+export function liveMaterialFeatureChange(previous: TreeDefinition, next: TreeDefinition): MaterialFeatures | null {
+  if (sameJson(previous, next)) return null;
+  const before = materialFeaturesOf(previous);
+  const after = materialFeaturesOf(next);
+  const crownNormals = !!before.crownNormals && !!after.crownNormals;
+  const translucency = !!before.translucency && !!after.translucency;
+  const occlusion = !!before.occlusion && !!after.occlusion;
+  // Both with the live values blanked out (in place, so the key order stays): equal = nothing else changed.
+  const blank = (definition: TreeDefinition): TreeDefinition => ({
     ...definition,
-    materials: { ...definition.materials, occlusion: { strength: 0 } },
+    materials: {
+      ...definition.materials,
+      leaf: {
+        ...definition.materials.leaf,
+        ...(crownNormals ? { crownNormals: 1 } : {}),
+        ...(translucency ? { translucency: { strength: 0, edge: 0, ambient: 0 } } : {}),
+      },
+      ...(occlusion ? { occlusion: { strength: 0 } } : {}),
+    },
   });
-  return sameJson(withStrength(previous), withStrength(next));
+  if (!sameJson(blank(previous), blank(next))) return null;
+  return {
+    ...(crownNormals ? { crownNormals: after.crownNormals } : {}),
+    ...(translucency ? { translucency: after.translucency } : {}),
+    ...(occlusion ? { occlusion: after.occlusion } : {}),
+  };
 }
 
 function sameJson(a: unknown, b: unknown): boolean {

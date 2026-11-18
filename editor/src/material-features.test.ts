@@ -3,7 +3,7 @@ import { createHistory } from './history';
 import {
   applyMaterialFeatures,
   hasMaterialFeatures,
-  onlyOcclusionStrengthChanged,
+  liveMaterialFeatureChange,
   setMaterialFeature,
   suggestedMaterialFeatures,
 } from './material-features';
@@ -110,20 +110,40 @@ describe('Material features in the editor', () => {
     expect(store.state).toBe(once);
   });
 
-  it('tells when an edit only changed the occlusion strength (the preview then needs no new tree)', async () => {
+  it('tells when an edit only retuned Material Features that stay on (the preview then needs no new tree)', async () => {
     const { store } = await editor('oak/stylized');
     const off = store.state.definition;
-    setMaterialFeature(store, 'occlusion', true);
+    applyMaterialFeatures(store, { crownNormals: 0.5, translucency: { strength: 0.3, edge: 0.8, ambient: 0.2 }, occlusion: { strength: 0.9 } });
     const on = store.state.definition;
     store.editDefinition({ materials: { occlusion: { strength: 0.3 } } });
-    const tuned = store.state.definition;
+    const occlusion = store.state.definition;
     store.editDefinition({ materials: { leaf: { crownNormals: 0.4 } } });
     const crown = store.state.definition;
+    store.editDefinition({ materials: { leaf: { translucency: { edge: 0.1 } } } });
+    const translucency = store.state.definition;
+    store.editDefinition({ materials: { leaf: { roughness: 0.2 } } });
+    const other = store.state.definition;
+    setMaterialFeature(store, 'translucency', false);
+    const switchedOff = store.state.definition;
 
-    expect(onlyOcclusionStrengthChanged(on, tuned)).toBe(true);
-    expect(onlyOcclusionStrengthChanged(off, on)).toBe(false); // switched on: a new bake
-    expect(onlyOcclusionStrengthChanged(on, off)).toBe(false);
-    expect(onlyOcclusionStrengthChanged(tuned, crown)).toBe(false);
-    expect(onlyOcclusionStrengthChanged(tuned, tuned)).toBe(false); // nothing changed
+    const tuned = { crownNormals: 0.4, translucency: { strength: 0.3, edge: 0.1, ambient: 0.2 }, occlusion: { strength: 0.3 } };
+    expect(liveMaterialFeatureChange(on, occlusion)).toEqual({ ...tuned, crownNormals: 0.5, translucency: { ...tuned.translucency, edge: 0.8 } });
+    expect(liveMaterialFeatureChange(occlusion, crown)).toEqual({ ...tuned, translucency: { ...tuned.translucency, edge: 0.8 } });
+    expect(liveMaterialFeatureChange(crown, translucency)).toEqual(tuned);
+    expect(liveMaterialFeatureChange(on, translucency)).toEqual(tuned); // several values at once (undo/redo)
+    expect(liveMaterialFeatureChange(off, on)).toBeNull(); // switched on: a new tree
+    expect(liveMaterialFeatureChange(translucency, switchedOff)).toBeNull(); // switched off
+    expect(liveMaterialFeatureChange(translucency, other)).toBeNull(); // another parameter changed
+    expect(liveMaterialFeatureChange(translucency, translucency)).toBeNull(); // nothing changed
+  });
+
+  it('treats Crown Normals going to or from 0 as switching them (a new tree)', async () => {
+    const { store } = await editor('oak/stylized');
+    applyMaterialFeatures(store, { crownNormals: 0.5 });
+    const on = store.state.definition;
+    store.editDefinition({ materials: { leaf: { crownNormals: 0 } } });
+    const zero = store.state.definition;
+    expect(liveMaterialFeatureChange(on, zero)).toBeNull();
+    expect(liveMaterialFeatureChange(zero, on)).toBeNull();
   });
 });
