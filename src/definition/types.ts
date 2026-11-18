@@ -231,6 +231,21 @@ export interface BarkMaterialDefinition {
   map: string | null;
   /** Normal map URL, or null for none. */
   normalMap: string | null;
+  /** Ground Tint: a darker or mossy bark colour near the ground. Optional; absent = none. */
+  groundTint?: GroundTintDefinition;
+}
+
+/**
+ * Ground Tint: at and below the ground (tree-space height <= 0, measured on the grown tree) the
+ * bark colour blends towards `color` by `strength`; the blend fades smoothly to nothing at `height`.
+ */
+export interface GroundTintDefinition {
+  /** The colour the bark blends towards near the ground. */
+  color: HexColor;
+  /** Metres above the ground where the tint has faded out (> 0). */
+  height: number;
+  /** How far the bark blends towards `color` at the ground (0..1). */
+  strength: number;
 }
 
 export interface LeafMaterialDefinition {

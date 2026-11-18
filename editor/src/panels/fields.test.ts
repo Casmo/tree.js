@@ -4,6 +4,7 @@ import {
   BRANCH_LEVEL_CURVES,
   BRANCH_LEVEL_FIELDS,
   FRUIT_FIELDS,
+  GROUND_TINT_FIELDS,
   PARAMETER_GROUPS,
   ROOTS_FIELDS,
   SEASON_FIELDS,
@@ -23,7 +24,7 @@ function parameterPaths(node: unknown, prefix = ''): string[] {
   return [prefix];
 }
 
-/** A Definition with every optional field and block present (Stems, Root Flare, Crown Shape curves, Leaf/Bark Type, Fruit, Roots). */
+/** A Definition with every optional field and block present (Stems, Root Flare, Crown Shape curves, Leaf/Bark Type, Ground Tint, Fruit, Roots). */
 const FULL_DEFINITION = parseDefinition({
   ...DEFAULT_DEFINITION,
   species: 'test-oak',
@@ -34,13 +35,13 @@ const FULL_DEFINITION = parseDefinition({
     angleProfile: [{ t: 0, value: 1 }],
   })),
   leaves: { ...DEFAULT_DEFINITION.leaves, type: 'lobed' },
-  materials: { ...DEFAULT_DEFINITION.materials, bark: { ...DEFAULT_DEFINITION.materials.bark, type: 'smooth' } },
+  materials: { ...DEFAULT_DEFINITION.materials, bark: { ...DEFAULT_DEFINITION.materials.bark, type: 'smooth', groundTint: {} } },
   fruit: { type: 'pear', sides: 6 },
   roots: { count: 4, sides: 6, sections: 4 },
   season: { ...DEFAULT_DEFINITION.season, fruit: [{ t: 0, value: 1 }], fruitColor: [{ t: 0, value: '#ff0000' }] },
 });
 
-const allFields = (): Field[] => [...PARAMETER_GROUPS.flatMap((group) => group.fields), ...FRUIT_FIELDS, ...ROOTS_FIELDS];
+const allFields = (): Field[] => [...PARAMETER_GROUPS.flatMap((group) => group.fields), ...FRUIT_FIELDS, ...ROOTS_FIELDS, ...GROUND_TINT_FIELDS];
 
 /** Polygon detail of the Roots: always the Style's choice, so no control (ADR 0007, #46). */
 const STYLE_ONLY = ['roots.sides', 'roots.sections'];
@@ -63,6 +64,7 @@ describe('parameter panels', () => {
     expect(paths).toContain('trunk.flare');
     expect(paths).toContain('trunk.flareSections');
     expect(paths).toContain('fruit.hang');
+    for (const key of ['color', 'height', 'strength']) expect(paths).toContain(`materials.bark.groundTint.${key}`);
     for (const key of ['count', 'length', 'lengthVariation', 'radius', 'angle', 'bend']) expect(paths).toContain(`roots.${key}`);
     expect(paths).toContain('season.fruitColor');
     expect([...editable].sort()).toEqual([...paths].sort());

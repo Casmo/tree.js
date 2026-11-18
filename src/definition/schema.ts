@@ -1,4 +1,4 @@
-import { DEFAULT_BRANCH_LEVEL, DEFAULT_DEFINITION, DEFAULT_FRUIT, DEFAULT_ROOTS } from './defaults';
+import { DEFAULT_BRANCH_LEVEL, DEFAULT_DEFINITION, DEFAULT_FRUIT, DEFAULT_GROUND_TINT, DEFAULT_ROOTS } from './defaults';
 import {
   BARK_TYPES,
   FRUIT_TYPES,
@@ -9,6 +9,7 @@ import {
   type BranchLevelDefinition,
   type DeleteSculpt,
   type FruitDefinition,
+  type GroundTintDefinition,
   type RootsDefinition,
   type SeasonProfileDefinition,
   type Keyframe,
@@ -236,7 +237,17 @@ const treeDefinition = obj<TreeDefinition>({
   ),
   materials: obj({
     shading: oneOf('standard', 'flat', 'toon'),
-    bark: obj<BarkMaterialDefinition>({ type: optional(oneOf(...BARK_TYPES)), color: hexColor, roughness: unit, map: url, normalMap: url }),
+    bark: obj<BarkMaterialDefinition>({
+      type: optional(oneOf(...BARK_TYPES)),
+      color: hexColor,
+      roughness: unit,
+      map: url,
+      normalMap: url,
+      groundTint: optionalBlock<GroundTintDefinition>(
+        obj<GroundTintDefinition>({ color: hexColor, height: positive, strength: unit }),
+        DEFAULT_GROUND_TINT,
+      ),
+    }),
     leaf: obj({ roughness: unit, map: url, alphaTest: unit }),
   }),
   season: obj<SeasonProfileDefinition>({

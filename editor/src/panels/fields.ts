@@ -137,6 +137,16 @@ export const ROOTS_FIELDS: Field[] = [
   fraction('roots.bend', 'Bend'),
 ];
 
+/**
+ * The fields of the optional Ground Tint block `materials.bark.groundTint` (shown in the Materials
+ * panel while the Ground Tint toggle is on).
+ */
+export const GROUND_TINT_FIELDS: Field[] = [
+  { kind: 'color', path: 'materials.bark.groundTint.color', label: 'Ground Tint colour' },
+  num('materials.bark.groundTint.height', 'Ground Tint height', 0.05, 5, 0.05),
+  fraction('materials.bark.groundTint.strength', 'Ground Tint strength'),
+];
+
 /** The fields of one branching level; paths relative to `branches.<i>`. */
 export const BRANCH_LEVEL_FIELDS: Extract<Field, { kind: 'number' }>[] = [
   { kind: 'number', path: 'count', label: 'Count', min: 0, max: 32, step: 1 },

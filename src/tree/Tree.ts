@@ -122,7 +122,7 @@ export class Tree extends Group {
     this.data = data;
 
     this.growthUniform = uniform(clampGrowth(options.growth ?? 1));
-    const bark = createBarkMaterial(definition, options.textures);
+    const bark = createBarkMaterial(definition, options.textures, this.growthUniform);
     const leaf = createLeafMaterial(definition, options.textures);
     bark.positionNode = growthPosition(this.growthUniform);
     leaf.positionNode = growthPosition(this.growthUniform);

@@ -1,8 +1,10 @@
 import { DoubleSide, type MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, mix, uv, float } from 'three/tsl';
+import type { Node } from 'three/webgpu';
 import type { TreeDefinition } from '../definition';
 import { fruitTracks } from '../season/profile';
 import type { TextureOptions } from '../textures';
+import { applyGroundTint } from './ground-tint';
 import { applyBarkMaps, applyLeafMap } from './maps';
 import { createShadedMaterial, isFlatShading } from './shading';
 
@@ -12,8 +14,15 @@ export { createShadedMaterial } from './shading';
  * Bark material: a TSL node material (ADR 0002). Growth/Season/Wind uniforms and
  * per-Style variants hook in here in later tickets (#5-#10). `materials.bark.map` / `.normalMap`
  * load through `textures` (base path / URL overrides, see `TextureOptions`).
+ *
+ * `growth`: the Growth node the material's `positionNode` grows the tree with (default: fully grown).
+ * A Ground Tint (`materials.bark.groundTint`) is measured on that grown position; without one it is unused.
  */
-export function createBarkMaterial(definition: TreeDefinition, textures?: TextureOptions): MeshStandardNodeMaterial {
+export function createBarkMaterial(
+  definition: TreeDefinition,
+  textures?: TextureOptions,
+  growth: Node<'float'> = float(1),
+): MeshStandardNodeMaterial {
   const material = createShadedMaterial(definition.materials.shading);
   material.name = 'tree.js bark';
   material.userData.treePart = 'bark'; // Tree Effects (`/effects`) find tree pixels by it
@@ -22,7 +31,9 @@ export function createBarkMaterial(definition: TreeDefinition, textures?: Textur
   const shaded = isFlatShading(definition.materials.shading)
     ? base
     : mix(base.mul(0.75), base, uv().y.clamp(0, 1).pow(float(0.5)));
-  material.colorNode = applyBarkMaps(material, definition.materials.bark, shaded, textures);
+  const { groundTint } = definition.materials.bark;
+  const tinted = groundTint ? applyGroundTint(shaded, groundTint, growth) : shaded;
+  material.colorNode = applyBarkMaps(material, definition.materials.bark, tinted, textures);
   material.roughness = definition.materials.bark.roughness;
   material.metalness = 0;
   return material;

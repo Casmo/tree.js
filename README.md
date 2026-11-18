@@ -266,6 +266,27 @@ const windows = rooted.data.growth.roots; // { start: 0, end: 0 }: there from Gr
 const defaults = DEFAULT_ROOTS; // { count: 5, length: 0.25, lengthVariation: 0.3, radius: 0.35, angle: 12, bend: 0.3 }
 ```
 
+A **Ground Tint** darkens the bark or turns it mossy near the soil: the optional
+`materials.bark.groundTint = { color, height, strength }`. At and below the ground the bark colour blends
+towards `color` by `strength` (0..1); the blend fades smoothly to nothing `height` metres (> 0) up the Stem.
+It works in every shading model (standard, flat, toon), is measured on the grown tree (a sapling's tint
+reaches as high, in metres, as a grown tree's) and is baked into the wood's vertex colours of a Baked Tree.
+A partial block is filled from `DEFAULT_GROUND_TINT` (height 0.5 m); absent means none, and no Species sets
+one. It is not part of a Style's look, so `Style.apply` on a Definition keeps it:
+
+```ts
+import { createTree, DEFAULT_GROUND_TINT, extendDefinition } from '@casmo/tree.js';
+import realistic from '@casmo/tree.js/styles/realistic';
+import { oak } from '@casmo/tree.js/species';
+
+const mossy = extendDefinition(realistic.apply(oak), {
+  materials: { bark: { groundTint: { color: '#4d6a26', height: 0.8, strength: 0.7 } } },
+});
+const tree = createTree(mossy, { seed: 3 });
+const wet = extendDefinition(mossy, { materials: { bark: { groundTint: { color: '#1e1610' } } } }); // dark wet bark
+const defaults = DEFAULT_GROUND_TINT; // { color: '#3f4a2a', height: 0.5, strength: 0.6 }
+```
+
 **Fruit** is an optional `fruit` block: `type` (`'round'`, `'pear'`, `'nut'`, `'cone'` or `'berry'`),
 `count` per outermost twig, `size`, `sizeVariation` and `hang` (0 = sits on the twig .. 1 = hangs
 straight down). A fractional `count` is a chance per twig: `0.3` puts one Fruit on about 30% of the

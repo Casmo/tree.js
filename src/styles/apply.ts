@@ -105,7 +105,8 @@ interface Neutral {
   /** Definition fields that pass through (shape, Season, Wind, Sculpts, Fruit, Roots, ...). */
   base: Record<string, unknown> & { trunk: object; branches: object[] };
   foliage: SpeciesFoliageDefinition;
-  bark: SpeciesBarkDefinition;
+  /** A Definition's Ground Tint passes through too: it is not part of a Style's look. */
+  bark: SpeciesBarkDefinition & Pick<BarkMaterialDefinition, 'groundTint'>;
 }
 
 function fromSpecies(species: SpeciesDefinition): Neutral {
@@ -145,7 +146,11 @@ function fromDefinition(input: TreeDefinition | TreeDefinitionInput): Neutral {
       start: leaves.start,
       angle: leaves.angle,
     },
-    bark: { type: materials.bark.type ?? 'furrowed', color: materials.bark.color },
+    bark: {
+      type: materials.bark.type ?? 'furrowed',
+      color: materials.bark.color,
+      ...(materials.bark.groundTint ? { groundTint: materials.bark.groundTint } : {}),
+    },
   };
 }
 
@@ -171,7 +176,7 @@ function draw(name: StyleName, { base, foliage, bark }: Neutral): TreeDefinition
     },
     materials: {
       shading: styleShading(name),
-      bark: { type: bark.type, color: bark.color, ...look.bark(bark.type) },
+      bark: { type: bark.type, color: bark.color, ...look.bark(bark.type), ...(bark.groundTint ? { groundTint: bark.groundTint } : {}) },
       leaf: { ...leaf.material },
     },
   });
