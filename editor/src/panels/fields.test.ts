@@ -34,7 +34,7 @@ const FULL_DEFINITION = parseDefinition({
   })),
   leaves: { ...DEFAULT_DEFINITION.leaves, type: 'lobed' },
   materials: { ...DEFAULT_DEFINITION.materials, bark: { ...DEFAULT_DEFINITION.materials.bark, type: 'smooth' } },
-  fruit: { type: 'pear' },
+  fruit: { type: 'pear', sides: 6 },
   season: { ...DEFAULT_DEFINITION.season, fruit: [{ t: 0, value: 1 }], fruitColor: [{ t: 0, value: '#ff0000' }] },
 });
 
@@ -68,6 +68,7 @@ describe('parameter panels', () => {
       'trunk.gravity': 0,
       'leaves.type': '',
       'materials.bark.type': '',
+      'fruit.sides': 8,
     });
     expect(SEASON_TRACKS.find((track) => track.key === 'fruit')?.absent).toEqual([{ t: 0, value: 1 }]);
     expect(SEASON_TRACKS.find((track) => track.key === 'fruitColor')?.absent).toEqual([{ t: 0, value: '#b8322a' }]);

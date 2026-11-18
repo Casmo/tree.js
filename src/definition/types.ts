@@ -163,7 +163,10 @@ export const FRUIT_TYPES: readonly FruitType[] = ['round', 'pear', 'nut', 'cone'
 export interface FruitDefinition {
   /** Fruit Type (shape). */
   type: FruitType;
-  /** Fruit per outermost twig (integer >= 0). */
+  /**
+   * Fruit per outermost twig (>= 0). A fraction is a chance: 0.3 = one Fruit on about 30% of the
+   * twigs, 1.5 = one on every twig and a second on about half (which twigs comes from the Seed).
+   */
   count: number;
   /** Fruit length (and about its diameter), metres (> 0). */
   size: number;
@@ -171,6 +174,11 @@ export interface FruitDefinition {
   sizeVariation: number;
   /** How far the Fruit dangles below its twig (0 = sits on the twig pointing outward .. 1 = hangs straight down). */
   hang: number;
+  /**
+   * Polygon detail, set by the Style: faces around each Fruit (3..16). 5 or fewer also gives a coarse
+   * profile (a few flat facets, low-poly). Absent = the Fruit Type's own smooth template.
+   */
+  sides?: number;
 }
 
 /** Material shading model. Low-poly uses `flat`, stylized `toon`, realistic `standard`. */

@@ -166,6 +166,40 @@ describe('Style.apply: each Style draws the Leaf Type and Bark Type its own way'
   });
 });
 
+describe('Style.apply draws Fruit the Style\'s way', () => {
+  const withFruit = (type: 'round' | 'pear' | 'nut' | 'cone' | 'berry'): SpeciesDefinition => ({
+    ...testOak,
+    fruit: { type, count: 1, size: 0.2, sizeVariation: 0.1, hang: 0.8 },
+  });
+  const trianglesPerFruit = (definition: ReturnType<typeof parseDefinition>) => {
+    const data = generateTree(definition, 1);
+    return data.fruit.indices.length / 3 / data.skeleton.fruit.length;
+  };
+
+  it('low-poly: a few flat facets; stylized smoother; realistic smoothest', () => {
+    for (const type of ['round', 'pear', 'nut', 'cone', 'berry'] as const) {
+      const [low, toon, pbr] = [lowPoly, stylized, realistic].map((style) => trianglesPerFruit(style.apply(withFruit(type))));
+      expect(low, type).toBeLessThanOrEqual(24);
+      expect(low, type).toBeLessThan(toon!);
+      expect(toon, type).toBeLessThanOrEqual(pbr!);
+    }
+  });
+
+  it('keeps the Species\' Fruit (type, count, size, hang) and a fractional count', () => {
+    const species = { ...withFruit('cone'), fruit: { type: 'cone' as const, count: 0.35, size: 0.2, sizeVariation: 0.1, hang: 0.8 } };
+    for (const style of Object.values(styles)) expect(style.apply(species).fruit).toMatchObject(species.fruit);
+  });
+
+  it('re-styling a Definition with Fruit redraws its Fruit in the new Style', () => {
+    const definition = lowPoly.apply(withFruit('round'));
+    expect(realistic.apply(definition).fruit).toEqual(realistic.apply(withFruit('round')).fruit);
+  });
+
+  it('a Species without Fruit gets no Fruit block', () => {
+    for (const style of Object.values(styles)) expect(style.apply(testOak)).not.toHaveProperty('fruit');
+  });
+});
+
 describe('Style.apply on a Tree Definition re-applies only the look', () => {
   const shapeOf = (d: ReturnType<typeof parseDefinition>) => ({
     trunk: { ...d.trunk, sides: 0, sections: 0 },

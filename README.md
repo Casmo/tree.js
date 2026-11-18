@@ -227,8 +227,11 @@ it nod like a hemlock's. Absent, a tree has one upright Stem without gravity.
 
 **Fruit** is an optional `fruit` block: `type` (`'round'`, `'pear'`, `'nut'`, `'cone'` or `'berry'`),
 `count` per outermost twig, `size`, `sizeVariation` and `hang` (0 = sits on the twig .. 1 = hangs
-straight down). It is drawn in its own mesh in the Definition's shading, only on a fully grown tree,
-and sways with its twig:
+straight down). A fractional `count` is a chance per twig: `0.3` puts one Fruit on about 30% of the
+twigs, `1.5` one on every twig and a second on about half (the Seed picks which). The optional `sides`
+(3..16) is its polygon detail, set by `Style.apply`: low-poly draws a few flat facets (5 or fewer sides
+also coarsen the profile), stylized and realistic smoother shapes; absent = each Fruit Type's own detail.
+It is drawn in its own mesh in the Definition's shading, only on a fully grown tree, and sways with its twig:
 
 ```ts
 import { createTree } from '@casmo/tree.js';

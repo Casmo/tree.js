@@ -114,10 +114,12 @@ export const PARAMETER_GROUPS: FieldGroup[] = [
 /** The fields of the optional `fruit` block (shown while the Definition has Fruit). */
 export const FRUIT_FIELDS: Field[] = [
   { kind: 'choice', path: 'fruit.type', label: 'Fruit Type', options: FRUIT_TYPES },
-  num('fruit.count', 'Fruit per twig', 0, 16, 1),
+  // A fraction is a chance per twig (0.3 = Fruit on about 30% of the twigs).
+  num('fruit.count', 'Fruit per twig', 0, 8, 0.05),
   num('fruit.size', 'Fruit size', 0.01, 0.5, 0.01),
   fraction('fruit.sizeVariation', 'Size variation'),
   fraction('fruit.hang', 'Hang'),
+  optionalNum('fruit.sides', 'Fruit sides', 3, 16, 1, 8),
 ];
 
 /** The fields of one branching level; paths relative to `branches.<i>`. */

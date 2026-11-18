@@ -39,6 +39,8 @@ interface StyleLook {
   branches: Detail[];
   bark(type: BarkType): Omit<BarkMaterialDefinition, 'type' | 'color'>;
   leaf(type: LeafType): LeafLook;
+  /** Faces around each Fruit (`fruit.sides`): few flat facets in low-poly, smooth in the others. */
+  fruitSides: number;
 }
 
 const isNeedleLike = (type: LeafType) => type === 'needle' || type === 'scale';
@@ -54,6 +56,7 @@ const LOOKS = {
     trunk: { sides: 5, sections: 4 },
     branches: [{ sides: 4, sections: 2 }, { sides: 3, sections: 1 }],
     bark: untexturedBark,
+    fruitSides: 4,
     leaf: (type) =>
       isNeedleLike(type)
         ? { shape: 'needle', perDensity: 14, sizeScale: 1.86, material: untexturedLeaf }
@@ -63,6 +66,7 @@ const LOOKS = {
     trunk: { sides: 10, sections: 8 },
     branches: [{ sides: 8, sections: 5 }, { sides: 6, sections: 3 }, { sides: 4, sections: 2 }, { sides: 3, sections: 1 }],
     bark: untexturedBark,
+    fruitSides: 6,
     // All puffs; smaller and denser for needle / scale foliage.
     leaf: (type) =>
       isNeedleLike(type)
@@ -74,6 +78,7 @@ const LOOKS = {
     branches: [{ sides: 8, sections: 6 }, { sides: 5, sections: 4 }, { sides: 3, sections: 2 }],
     // A texture per Bark Type and per Leaf Type (scripts/generate-textures.mjs).
     bark: (type) => ({ roughness: 0.95, ...BARK_TEXTURES[type] }),
+    fruitSides: 9,
     leaf: (type) =>
       isNeedleLike(type)
         ? { shape: 'card', perDensity: 16, sizeScale: 2.3, material: { roughness: 0.7, map: LEAF_TEXTURES[type], alphaTest: 0.4 } }
@@ -135,8 +140,10 @@ function fromDefinition(input: TreeDefinition | TreeDefinitionInput): Neutral {
 function draw(name: StyleName, { base, foliage, bark }: Neutral): TreeDefinition {
   const look: StyleLook = LOOKS[name];
   const leaf = look.leaf(foliage.type);
+  const fruit = base.fruit as TreeDefinition['fruit'];
   return parseDefinition({
     ...base,
+    ...(fruit ? { fruit: { ...fruit, sides: look.fruitSides } } : {}),
     trunk: { ...base.trunk, ...look.trunk },
     branches: base.branches.map((level, i) => ({ ...level, ...look.branches[Math.min(i, look.branches.length - 1)] })),
     leaves: {

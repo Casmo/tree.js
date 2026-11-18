@@ -19,6 +19,42 @@ describe('Fruit placement', () => {
     for (const twig of twigs) expect(skeleton.fruit.filter((f) => f.branch === twig.path)).toHaveLength(2);
   });
 
+  it('a fractional count is a chance per twig: count 0.4 puts one Fruit on about 40% of the twigs, the same ones every time', () => {
+    const many = extendDefinition(fruiting, { branches: [{ count: 12 }, { count: 6, start: 0.2 }], fruit: { count: 0.4 } });
+    const { skeleton } = generateTree(many, 7);
+    const twigs = skeleton.branches.filter((b) => b.level === 2);
+    const bearing = new Set(skeleton.fruit.map((f) => f.branch));
+    for (const twig of twigs) expect(skeleton.fruit.filter((f) => f.branch === twig.path).length).toBeLessThanOrEqual(1);
+    expect(bearing.size / twigs.length).toBeGreaterThan(0.25);
+    expect(bearing.size / twigs.length).toBeLessThan(0.55);
+    expect(generateTree(many, 7).skeleton.fruit).toEqual(skeleton.fruit);
+    // A higher chance keeps the Fruit a lower one had (it only adds).
+    const more = generateTree(extendDefinition(many, { fruit: { count: 0.7 } }), 7).skeleton.fruit.map((f) => f.branch);
+    for (const branch of bearing) expect(more).toContain(branch);
+  });
+
+  it('count 1.5: every twig bears one Fruit, about half of them a second', () => {
+    const { skeleton } = generateTree(extendDefinition(fruiting, { fruit: { count: 1.5 } }), 7);
+    const twigs = skeleton.branches.filter((b) => b.level === 2);
+    const perTwig = twigs.map((twig) => skeleton.fruit.filter((f) => f.branch === twig.path).length);
+    expect(Math.min(...perTwig)).toBe(1);
+    expect(Math.max(...perTwig)).toBe(2);
+  });
+
+  it('whole counts grow exactly the Fruit they always did (geometry hashes recorded before fractional counts)', () => {
+    const golden = {
+      round: ['ecc9c2af', '92926766', '3a86c9c1'],
+      pear: ['cce68946', '5bd721da', '696d526e'],
+      nut: ['336d52ec', '3e0b8f65', '37b5224c'],
+      cone: ['0e75bb6d', '0094b511', '967da706'],
+      berry: ['4bfe3b6f', 'f9722ea0', '8306ffc1'],
+    } as const;
+    for (const [type, hashes] of Object.entries(golden)) {
+      const definition = extendDefinition(fruiting, { fruit: { type: type as keyof typeof golden } });
+      expect([1, 7, 42].map((seed) => hashTreeData(generateTree(definition, seed))), type).toEqual(hashes);
+    }
+  });
+
   it('a Definition without Fruit grows none and has an empty fruit mesh', () => {
     const data = generateTree(plain, 7);
     expect(data.skeleton.fruit).toEqual([]);
@@ -87,6 +123,20 @@ describe('Fruit is its own tree part', () => {
       expect(fruit.indices.length % 3).toBe(0);
       for (const i of fruit.indices) expect(i).toBeLessThan(vertexCount);
       expect(fruit.colors!.length).toBe(fruit.positions.length);
+    }
+  });
+
+  it('fewer `sides` draw every Fruit Type with fewer, flat-faceted triangles (low-poly Fruit)', () => {
+    const perFruit = (fruit: Partial<NonNullable<typeof fruiting.fruit>>) => {
+      const data = generateTree(extendDefinition(fruiting, { fruit }), 3);
+      return data.fruit.indices.length / 3 / data.skeleton.fruit.length;
+    };
+    for (const type of ['round', 'pear', 'nut', 'cone', 'berry'] as const) {
+      expect(perFruit({ type, sides: 4 }), type).toBeLessThanOrEqual(24);
+      expect(perFruit({ type, sides: 4 }), type).toBeLessThan(perFruit({ type, sides: 6 }));
+      expect(perFruit({ type, sides: 6 }), type).toBeLessThanOrEqual(perFruit({ type, sides: 10 }));
+      const { fruit } = generateTree(extendDefinition(fruiting, { fruit: { type, sides: 4 } }), 3);
+      for (const i of fruit.indices) expect(i).toBeLessThan(fruit.positions.length / 3);
     }
   });
 

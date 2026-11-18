@@ -54,6 +54,11 @@ describe('the fruit block of a Tree Definition', () => {
     expect('fruitColor' in parsed.season).toBe(false);
   });
 
+  it('takes a fractional count (a chance per twig) and optional sides (Fruit detail, set by the Style)', () => {
+    expect(parseDefinition({ schemaVersion: 3, fruit: { count: 0.35 } }).fruit?.count).toBe(0.35);
+    expect(parseDefinition({ schemaVersion: 3, fruit: { sides: 5 } }).fruit?.sides).toBe(5);
+  });
+
   it('fills the missing fields of a given block from the defaults', () => {
     expect(parseDefinition({ schemaVersion: 3, fruit: { type: 'cone' } }).fruit).toEqual({
       type: 'cone',
@@ -66,7 +71,8 @@ describe('the fruit block of a Tree Definition', () => {
 
   it.each([
     ['fruit type', { fruit: { type: 'banana' } }, 'fruit.type'],
-    ['fruit count', { fruit: { count: 1.5 } }, 'fruit.count'],
+    ['fruit count', { fruit: { count: -0.5 } }, 'fruit.count'],
+    ['fruit sides', { fruit: { sides: 2 } }, 'fruit.sides'],
     ['fruit size', { fruit: { size: 0 } }, 'fruit.size'],
     ['fruit hang', { fruit: { hang: 2 } }, 'fruit.hang'],
     ['unknown fruit field', { fruit: { colour: '#ff0000' } }, 'fruit.colour'],

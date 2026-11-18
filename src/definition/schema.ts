@@ -60,6 +60,8 @@ const nonNegative = leaf<number>('a number >= 0', (v) => isNum(v) && v >= 0);
 const positive = leaf<number>('a number > 0', (v) => isNum(v) && v > 0);
 const finite = leaf<number>('a finite number', isNum);
 const intAtLeast = (min: number) => leaf<number>(`an integer >= ${min}`, (v) => Number.isInteger(v) && (v as number) >= min);
+/** Faces around a Fruit (its polygon detail). */
+const fruitSides = leaf<number>('an integer from 3 to 16', (v) => Number.isInteger(v) && (v as number) >= 3 && (v as number) <= 16);
 const hexColor = leaf<string>('a colour like "#6b4a2b"', (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v));
 const text = leaf<string>('a string', (v) => typeof v === 'string');
 const url = leaf<string | null>('a URL string or null', (v) => v === null || (typeof v === 'string' && v.length > 0));
@@ -206,10 +208,11 @@ const treeDefinition = obj<TreeDefinition>({
   fruit: optionalBlock<FruitDefinition>(
     obj({
       type: oneOf(...FRUIT_TYPES),
-      count: intAtLeast(0),
+      count: nonNegative,
       size: positive,
       sizeVariation: unit,
       hang: unit,
+      sides: optional(fruitSides),
     }),
     DEFAULT_FRUIT,
   ),

@@ -54,7 +54,7 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
       : solidLeafGeometry(leaves, definition.leaves.shape, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway);
   const fruitBuffers = fruitGeometry(
     fruit,
-    definition.fruit?.type ?? 'round',
+    definition.fruit ?? { type: 'round' },
     definition.branches.length + 2,
     seed,
     definition.variation,

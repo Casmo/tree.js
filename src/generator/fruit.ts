@@ -22,7 +22,7 @@ const FRUIT_GROWTH_JITTER = 0.05;
 
 /**
  * Places Fruit on the outermost branches (the trunk if there are no branch levels), `fruit.count`
- * per branch. `random` is the Generator's `fork('fruit')`: each Fruit draws from its own
+ * per branch (a fraction = a chance of one more). `random` is the Generator's `fork('fruit')`: each Fruit draws from its own
  * `random.fork(fruitId)`, so Fruit never shifts the branches or leaves (ADR 0006).
  */
 export function placeFruit(definition: TreeDefinition, branches: SkeletonBranch[], random: Random): SkeletonFruit[] {
@@ -35,14 +35,20 @@ export function placeFruit(definition: TreeDefinition, branches: SkeletonBranch[
   const tilt = FRUIT_TILT * DEG;
   const down: Vec3 = [0, -1, 0];
 
+  // A fractional count is a chance of one more Fruit per twig, drawn from the twig's own fork (so a
+  // higher chance keeps the Fruit a lower one had, and whole counts draw nothing extra).
+  const whole = Math.floor(fruit.count);
+  const chance = fruit.count - whole;
   const out: SkeletonFruit[] = [];
   for (const branch of branches) {
     if (branch.level !== outermost) continue;
+    const count = whole + (chance > 0 && random.fork(`${branch.path}/chance`).next() < chance ? 1 : 0);
+    if (count === 0) continue;
     const frames = branchFrames(branch);
-    for (let i = 0; i < fruit.count; i++) {
+    for (let i = 0; i < count; i++) {
       const id = `${branch.path}/${i}`;
       const r = random.fork(id);
-      const t = FRUIT_START + ((1 - FRUIT_START) * (i + r.range(0.1, 0.9))) / fruit.count;
+      const t = FRUIT_START + ((1 - FRUIT_START) * (i + r.range(0.1, 0.9))) / count;
       const at = sampleBranch(branch, frames, t);
       const azimuth = r.range(0, Math.PI * 2);
       const across = add(scale(at.normal, cos(azimuth)), scale(at.binormal, sin(azimuth)));
@@ -79,7 +85,7 @@ export function fruitGrowth(seed: number, fruit: SkeletonFruit[], twigGrowth: Re
  */
 export function fruitGeometry(
   fruit: SkeletonFruit[],
-  type: FruitType,
+  { type, sides }: { type: FruitType; sides?: number | undefined },
   level: number,
   seed: number,
   variation: Pick<VariationDefinition, 'season'>,
@@ -87,7 +93,7 @@ export function fruitGeometry(
   branchSway: ReadonlyMap<string, PartSway>,
 ): GeometryBuffers {
   if (fruit.length === 0) return emptyGeometry();
-  return solidGeometry(TEMPLATES[type], fruit, (f, i) => {
+  return solidGeometry(fruitTemplate(type, sides), fruit, (f, i) => {
     const twig = branchSway.get(f.branch) ?? NO_SWAY;
     return {
       level,
@@ -163,11 +169,50 @@ function nutTemplate(): SolidTemplate {
   return orient({ positions, normals: directions, triangles });
 }
 
-const TEMPLATES: Record<FruitType, SolidTemplate> = {
-  round: lathe([[0.04, 0.22], [0.2, 0.44], [0.45, 0.5], [0.7, 0.45], [0.9, 0.28]], 8, [0.1, 1]),
-  pear: lathe([[0.08, 0.1], [0.25, 0.18], [0.45, 0.3], [0.65, 0.4], [0.82, 0.38], [0.95, 0.2]], 8, [0, 1]),
-  nut: nutTemplate(),
+/** Each Fruit Type's smooth profile (z, radius) along its axis, and its end points. */
+const PROFILES: Record<Exclude<FruitType, 'nut'>, { rings: [number, number][]; ends: [number, number]; twist?: number }> = {
+  round: { rings: [[0.04, 0.22], [0.2, 0.44], [0.45, 0.5], [0.7, 0.45], [0.9, 0.28]], ends: [0.1, 1] },
+  pear: { rings: [[0.08, 0.1], [0.25, 0.18], [0.45, 0.3], [0.65, 0.4], [0.82, 0.38], [0.95, 0.2]], ends: [0, 1] },
   // Staggered rings (half a side per ring) give the cone its scales.
-  cone: lathe([[0.08, 0.2], [0.22, 0.32], [0.38, 0.36], [0.54, 0.34], [0.7, 0.28], [0.86, 0.18]], 7, [0, 1], 0.5),
-  berry: lathe([[0.15, 0.36], [0.5, 0.5], [0.85, 0.36]], 6, [0, 1]),
+  cone: { rings: [[0.08, 0.2], [0.22, 0.32], [0.38, 0.36], [0.54, 0.34], [0.7, 0.28], [0.86, 0.18]], ends: [0, 1], twist: 0.5 },
+  berry: { rings: [[0.15, 0.36], [0.5, 0.5], [0.85, 0.36]], ends: [0, 1] },
 };
+
+/** Coarse profiles (low detail): two rings (berry one), a few flat facets. */
+const COARSE: Record<Exclude<FruitType, 'nut'>, [number, number][]> = {
+  round: [[0.28, 0.48], [0.72, 0.42]],
+  pear: [[0.3, 0.2], [0.75, 0.4]],
+  cone: [[0.25, 0.32], [0.65, 0.28]],
+  berry: [[0.5, 0.5]],
+};
+
+/** At or below this many sides, Fruit uses the coarse profiles (and the nut a plain icosahedron). */
+const COARSE_SIDES = 5;
+
+/** The default templates: each Fruit Type's own sides (Definitions without `fruit.sides`). */
+const DEFAULT_SIDES: Record<Exclude<FruitType, 'nut'>, number> = { round: 8, pear: 8, cone: 7, berry: 6 };
+
+const templates = new Map<string, SolidTemplate>();
+
+/** The template of a Fruit Type drawn with `sides` faces around (absent = the Type's own detail), cached. */
+function fruitTemplate(type: FruitType, sides?: number): SolidTemplate {
+  const key = `${type}/${sides ?? ''}`;
+  let template = templates.get(key);
+  if (!template) {
+    const coarse = sides !== undefined && sides <= COARSE_SIDES;
+    if (type === 'nut') template = coarse ? coarseNutTemplate() : nutTemplate();
+    else {
+      const { rings, ends, twist } = PROFILES[type];
+      template = lathe(coarse ? COARSE[type] : rings, sides ?? DEFAULT_SIDES[type], ends, twist);
+    }
+    templates.set(key, template);
+  }
+  return template;
+}
+
+/** Low-detail chestnut husk: an icosahedron (its corners are the spikes). */
+function coarseNutTemplate(): SolidTemplate {
+  const ico = clumpTemplate();
+  const directions = ico.positions.map((p) => normalize([p[0], p[1], p[2] - 0.5]));
+  return orient({ positions: directions.map((d) => add([0, 0, 0.5], scale(d, 0.45))), normals: directions, triangles: ico.triangles });
+}
