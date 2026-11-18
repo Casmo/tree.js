@@ -13,11 +13,11 @@ import type {
 
 /**
  * A Species' trunk: the shape fields of {@link TrunkDefinition}, without the polygon detail
- * (`sides`, `sections`), which the Style chooses. Fields beyond the five required ones (e.g. Stems)
+ * (`sides`, `sections`, `flareSections`), which the Style chooses. Fields beyond the five required ones (e.g. Stems)
  * are optional and default like in a Tree Definition.
  */
 export type SpeciesTrunkDefinition = Pick<TrunkDefinition, 'length' | 'radius' | 'taper' | 'lengthVariation' | 'bend'> &
-  Partial<Omit<TrunkDefinition, 'sides' | 'sections'>>;
+  Partial<Omit<TrunkDefinition, 'sides' | 'sections' | 'flareSections'>>;
 
 /** A Species' branch level: {@link BranchLevelDefinition} (with its Crown Shape curves) without `sides` / `sections`. */
 export type SpeciesBranchLevelDefinition = Omit<BranchLevelDefinition, 'sides' | 'sections'>;

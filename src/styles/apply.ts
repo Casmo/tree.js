@@ -32,9 +32,14 @@ interface LeafLook {
   material: LeafMaterialDefinition;
 }
 
+/** The trunk's detail, plus the extra rings in its Root Flare (`trunk.flareSections`). */
+interface TrunkDetail extends Detail {
+  flareSections: number;
+}
+
 /** Everything a Style decides about a tree: its look (its shading is in names.ts). */
 interface StyleLook {
-  trunk: Detail;
+  trunk: TrunkDetail;
   /** Detail per branch level; deeper levels reuse the last entry. */
   branches: Detail[];
   bark(type: BarkType): Omit<BarkMaterialDefinition, 'type' | 'color'>;
@@ -54,7 +59,7 @@ const untexturedBark = () => ({ roughness: 1, map: null, normalMap: null });
 // have to fill the crown. Deeper branch levels get little detail (twigs are thin and many).
 const LOOKS = {
   'low-poly': {
-    trunk: { sides: 5, sections: 4 },
+    trunk: { sides: 5, sections: 4, flareSections: 2 },
     branches: [{ sides: 4, sections: 2 }, { sides: 3, sections: 1 }],
     bark: untexturedBark,
     fruitSides: 4,
@@ -64,7 +69,7 @@ const LOOKS = {
         : { shape: 'clump', perDensity: 4, sizeScale: 2.86, material: untexturedLeaf },
   },
   stylized: {
-    trunk: { sides: 10, sections: 8 },
+    trunk: { sides: 10, sections: 8, flareSections: 3 },
     branches: [{ sides: 6, sections: 3 }, { sides: 4, sections: 1 }, { sides: 3, sections: 1 }],
     bark: untexturedBark,
     fruitSides: 6,
@@ -75,7 +80,7 @@ const LOOKS = {
         : { shape: 'puff', perDensity: 4, sizeScale: 3.14, material: untexturedLeaf },
   },
   realistic: {
-    trunk: { sides: 12, sections: 10 },
+    trunk: { sides: 12, sections: 10, flareSections: 3 },
     branches: [{ sides: 8, sections: 6 }, { sides: 5, sections: 4 }, { sides: 3, sections: 2 }],
     // A texture per Bark Type and per Leaf Type (scripts/generate-textures.mjs).
     bark: (type) => ({ roughness: 0.95, ...BARK_TEXTURES[type] }),
