@@ -4,7 +4,7 @@
   "form": "conifer",
   "trunk": {
     "length": 10,
-    "radius": 0.85,
+    "radius": 0.9,
     "taper": 0.15,
     "lengthVariation": 0.1,
     "bend": 0.02
@@ -13,50 +13,64 @@
     {
       "angleVariation": 0.15,
       "spiral": 137.5,
-      "lengthVariation": 0.2,
+      "lengthVariation": 0.15,
       "taper": 0.3,
-      "bend": 0.15,
-      "gravity": -0.05,
-      "count": 16,
-      "start": 0.35,
-      "end": 0.97,
-      "angle": 75,
-      "length": 0.4,
-      "radius": 0.2,
+      "bend": 0.1,
+      "gravity": 0.18,
       "lengthProfile": [
         {
-          "t": 0.35,
-          "value": 0.8
+          "t": 0.38,
+          "value": 0.75
         },
         {
           "t": 0.55,
-          "value": 1
+          "value": 1.0
         },
         {
           "t": 0.85,
-          "value": 0.6
+          "value": 0.8
         },
         {
-          "t": 1,
-          "value": 0.3
+          "t": 1.0,
+          "value": 0.45
         }
       ],
       "angleProfile": [
         {
-          "t": 0.35,
-          "value": 1.15
+          "t": 0.38,
+          "value": 1.2
         },
         {
-          "t": 1,
-          "value": 0.6
+          "t": 1.0,
+          "value": 0.55
         }
-      ]
+      ],
+      "count": 16,
+      "start": 0.38,
+      "end": 0.98,
+      "angle": 70,
+      "length": 0.26,
+      "radius": 0.2
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.3,
+      "bend": 0.1,
+      "gravity": 0.2,
+      "count": 4,
+      "start": 0.3,
+      "end": 1,
+      "angle": 40,
+      "length": 0.4,
+      "radius": 0.5
     }
   ],
   "foliage": {
     "type": "scale",
-    "density": 0.55,
-    "size": 0.65,
+    "density": 0.18,
+    "size": 1.0,
     "sizeVariation": 0.2,
     "start": 0.1,
     "angle": 40
@@ -67,8 +81,8 @@
   },
   "fruit": {
     "type": "cone",
-    "count": 1,
-    "size": 0.14,
+    "count": 0.15,
+    "size": 0.15,
     "sizeVariation": 0.2,
     "hang": 0.4
   },

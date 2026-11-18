@@ -47,10 +47,11 @@ const isNeedleLike = (type: LeafType) => type === 'needle' || type === 'scale';
 const untexturedLeaf: LeafMaterialDefinition = { roughness: 1, map: null, alphaTest: 0.5 };
 const untexturedBark = () => ({ roughness: 1, map: null, normalMap: null });
 
-// Calibrated so a Species with density 0.5 and leaf-spray size 0.35 m comes out close to each
-// Style's own broadleaf / conifer Definitions, except realistic broad-leaved cards: a Species has far
-// fewer twigs than the realistic broadleaf (the low-poly and stylized triangle budgets cap them at
-// about 20-40), so realistic draws twice as many (cheap) cards per twig to keep the crown full.
+// Low-poly and stylized are calibrated so a Species with density 0.5 and leaf-spray size 0.35 m comes
+// out close to each Style's own broadleaf / conifer Definitions. Realistic draws far more (cheap, 2
+// triangle) cards per twig than its own Definitions: a Species has fewer twigs than the realistic
+// generic trees (the low-poly and stylized triangle budgets cap them at about 40-90), so the cards
+// have to fill the crown. Deeper branch levels get little detail (twigs are thin and many).
 const LOOKS = {
   'low-poly': {
     trunk: { sides: 5, sections: 4 },
@@ -64,7 +65,7 @@ const LOOKS = {
   },
   stylized: {
     trunk: { sides: 10, sections: 8 },
-    branches: [{ sides: 8, sections: 5 }, { sides: 6, sections: 3 }, { sides: 4, sections: 2 }, { sides: 3, sections: 1 }],
+    branches: [{ sides: 6, sections: 3 }, { sides: 4, sections: 1 }, { sides: 3, sections: 1 }],
     bark: untexturedBark,
     fruitSides: 6,
     // All puffs; smaller and denser for needle / scale foliage.
@@ -75,14 +76,14 @@ const LOOKS = {
   },
   realistic: {
     trunk: { sides: 12, sections: 10 },
-    branches: [{ sides: 8, sections: 6 }, { sides: 5, sections: 4 }, { sides: 3, sections: 2 }],
+    branches: [{ sides: 7, sections: 5 }, { sides: 4, sections: 3 }, { sides: 3, sections: 2 }],
     // A texture per Bark Type and per Leaf Type (scripts/generate-textures.mjs).
     bark: (type) => ({ roughness: 0.95, ...BARK_TEXTURES[type] }),
     fruitSides: 9,
     leaf: (type) =>
       isNeedleLike(type)
-        ? { shape: 'card', perDensity: 16, sizeScale: 2.3, material: { roughness: 0.7, map: LEAF_TEXTURES[type], alphaTest: 0.4 } }
-        : { shape: 'card', perDensity: 24, sizeScale: 2, material: { roughness: 0.65, map: LEAF_TEXTURES[type], alphaTest: 0.4 } },
+        ? { shape: 'card', perDensity: 120, sizeScale: 1.7, material: { roughness: 0.7, map: LEAF_TEXTURES[type], alphaTest: 0.4 } }
+        : { shape: 'card', perDensity: 80, sizeScale: 2.2, material: { roughness: 0.65, map: LEAF_TEXTURES[type], alphaTest: 0.4 } },
   },
 } satisfies Record<StyleName, StyleLook>;
 

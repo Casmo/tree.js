@@ -3,72 +3,72 @@
   "name": "Pine",
   "form": "conifer",
   "trunk": {
-    "length": 8,
+    "length": 9,
     "radius": 0.3,
-    "taper": 0.3,
+    "taper": 0.35,
     "lengthVariation": 0.12,
-    "bend": 0.1
+    "bend": 0.12
   },
   "branches": [
     {
       "angleVariation": 0.2,
       "spiral": 137.5,
       "lengthVariation": 0.15,
-      "taper": 0.3,
-      "bend": 0.2,
+      "taper": 0.35,
+      "bend": 0.18,
       "gravity": 0.05,
-      "count": 6,
-      "start": 0.62,
-      "end": 0.98,
-      "angle": 72,
-      "length": 0.38,
-      "radius": 0.5,
       "lengthProfile": [
         {
-          "t": 0.62,
-          "value": 0.85
-        },
-        {
-          "t": 0.85,
-          "value": 1
-        },
-        {
-          "t": 1,
+          "t": 0.58,
           "value": 0.8
+        },
+        {
+          "t": 0.8,
+          "value": 1.0
+        },
+        {
+          "t": 1.0,
+          "value": 0.85
         }
       ],
       "angleProfile": [
         {
-          "t": 0.62,
-          "value": 1.15
+          "t": 0.58,
+          "value": 1.25
         },
         {
-          "t": 1,
-          "value": 0.65
+          "t": 1.0,
+          "value": 0.9
         }
-      ]
+      ],
+      "count": 11,
+      "start": 0.58,
+      "end": 0.98,
+      "angle": 72,
+      "length": 0.3,
+      "radius": 0.45
     },
     {
-      "angleVariation": 0.25,
-      "spiral": 140,
-      "lengthVariation": 0.25,
-      "taper": 0.4,
-      "bend": 0.1,
-      "gravity": -0.15,
-      "count": 3,
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.35,
+      "bend": 0.15,
+      "gravity": 0.25,
+      "count": 4,
       "start": 0.3,
       "end": 1,
       "angle": 45,
-      "length": 0.45,
+      "length": 0.42,
       "radius": 0.5
     }
   ],
   "foliage": {
     "type": "needle",
-    "density": 0.5,
-    "size": 0.65,
+    "density": 0.3,
+    "size": 1.0,
     "sizeVariation": 0.2,
-    "start": 0.45,
+    "start": 0.4,
     "angle": 40
   },
   "bark": {
@@ -77,7 +77,7 @@
   },
   "fruit": {
     "type": "cone",
-    "count": 1,
+    "count": 0.25,
     "size": 0.16,
     "sizeVariation": 0.2,
     "hang": 0.2

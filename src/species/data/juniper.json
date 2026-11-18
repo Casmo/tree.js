@@ -3,8 +3,8 @@
   "name": "Juniper",
   "form": "conifer",
   "trunk": {
-    "length": 3.2,
-    "radius": 0.14,
+    "length": 3.4,
+    "radius": 0.15,
     "taper": 0.4,
     "lengthVariation": 0.15,
     "bend": 0.25,
@@ -13,40 +13,54 @@
   },
   "branches": [
     {
-      "angleVariation": 0.25,
+      "angleVariation": 0.2,
       "spiral": 137.5,
-      "lengthVariation": 0.25,
-      "taper": 0.3,
+      "lengthVariation": 0.15,
+      "taper": 0.4,
       "bend": 0.2,
       "gravity": 0.05,
-      "count": 6,
-      "start": 0.25,
-      "end": 0.95,
-      "angle": 45,
-      "length": 0.45,
-      "radius": 0.5,
       "lengthProfile": [
         {
-          "t": 0.25,
-          "value": 1
+          "t": 0.2,
+          "value": 1.0
         },
         {
           "t": 0.7,
           "value": 0.85
         },
         {
-          "t": 1,
-          "value": 0.4
+          "t": 1.0,
+          "value": 0.45
         }
-      ]
+      ],
+      "count": 6,
+      "start": 0.2,
+      "end": 0.95,
+      "angle": 48,
+      "length": 0.45,
+      "radius": 0.5
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.4,
+      "bend": 0.15,
+      "gravity": 0.1,
+      "count": 3,
+      "start": 0.25,
+      "end": 1,
+      "angle": 45,
+      "length": 0.5,
+      "radius": 0.5
     }
   ],
   "foliage": {
     "type": "scale",
-    "density": 0.5,
-    "size": 0.5,
+    "density": 0.18,
+    "size": 0.7,
     "sizeVariation": 0.25,
-    "start": 0.15,
+    "start": 0.1,
     "angle": 45
   },
   "bark": {
@@ -55,8 +69,8 @@
   },
   "fruit": {
     "type": "berry",
-    "count": 1,
-    "size": 0.08,
+    "count": 0.35,
+    "size": 0.1,
     "sizeVariation": 0.2,
     "hang": 0.3
   },

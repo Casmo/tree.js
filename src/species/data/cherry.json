@@ -3,60 +3,84 @@
   "name": "Cherry",
   "form": "broadleaf",
   "trunk": {
-    "length": 5.2,
-    "radius": 0.24,
+    "length": 5,
+    "radius": 0.26,
     "taper": 0.35,
     "lengthVariation": 0.12,
-    "bend": 0.12
+    "bend": 0.1
   },
   "branches": [
     {
-      "count": 7,
-      "start": 0.35,
-      "end": 0.92,
-      "angle": 42,
-      "angleVariation": 0.25,
+      "angleVariation": 0.15,
       "spiral": 137.5,
-      "length": 0.62,
-      "lengthVariation": 0.2,
-      "radius": 0.55,
+      "lengthVariation": 0.15,
       "taper": 0.4,
-      "bend": 0.22,
-      "gravity": 0.05,
+      "bend": 0.12,
+      "gravity": 0.08,
       "lengthProfile": [
         {
-          "t": 0.35,
+          "t": 0.38,
           "value": 0.95
         },
         {
           "t": 0.65,
-          "value": 1
+          "value": 1.0
         },
         {
-          "t": 1,
+          "t": 1.0,
           "value": 0.45
         }
-      ]
+      ],
+      "angleProfile": [
+        {
+          "t": 0.38,
+          "value": 1.1
+        },
+        {
+          "t": 1.0,
+          "value": 0.7
+        }
+      ],
+      "count": 7,
+      "start": 0.38,
+      "end": 0.94,
+      "angle": 48,
+      "length": 0.55,
+      "radius": 0.55
     },
     {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.12,
+      "gravity": 0.1,
       "count": 3,
       "start": 0.3,
       "end": 1,
-      "angle": 38,
-      "angleVariation": 0.35,
-      "spiral": 140,
-      "length": 0.6,
-      "lengthVariation": 0.3,
-      "radius": 0.6,
+      "angle": 40,
+      "length": 0.55,
+      "radius": 0.6
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
       "taper": 0.45,
-      "bend": 0.25,
-      "gravity": 0.25
+      "bend": 0.1,
+      "gravity": -0.1,
+      "count": 2,
+      "start": 0.35,
+      "end": 1,
+      "angle": 38,
+      "length": 0.5,
+      "radius": 0.6
     }
   ],
   "foliage": {
     "type": "broad",
-    "density": 0.62,
-    "size": 0.4,
+    "density": 0.45,
+    "size": 0.45,
     "sizeVariation": 0.25,
     "start": 0.05,
     "angle": 45
@@ -67,7 +91,7 @@
   },
   "fruit": {
     "type": "round",
-    "count": 1,
+    "count": 0.7,
     "size": 0.18,
     "sizeVariation": 0.15,
     "hang": 1

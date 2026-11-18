@@ -3,59 +3,73 @@
   "name": "Olive",
   "form": "broadleaf",
   "trunk": {
-    "length": 3,
-    "radius": 0.2,
+    "length": 2.6,
+    "radius": 0.22,
     "taper": 0.45,
     "lengthVariation": 0.12,
     "bend": 0.35,
     "stems": 3,
-    "spread": 18,
+    "spread": 20,
     "gravity": 0.1
   },
   "branches": [
     {
-      "count": 3,
-      "start": 0.4,
-      "end": 0.92,
-      "angle": 55,
-      "angleVariation": 0.3,
+      "angleVariation": 0.15,
       "spiral": 137.5,
-      "length": 0.7,
-      "lengthVariation": 0.25,
-      "radius": 0.6,
-      "taper": 0.4,
-      "bend": 0.45,
-      "gravity": 0.1,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.3,
+      "gravity": 0.12,
       "angleProfile": [
         {
           "t": 0.4,
           "value": 1.1
         },
         {
-          "t": 1,
+          "t": 1.0,
           "value": 0.6
         }
-      ]
+      ],
+      "count": 3,
+      "start": 0.4,
+      "end": 0.95,
+      "angle": 55,
+      "length": 0.9,
+      "radius": 0.6
     },
     {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.3,
+      "gravity": 0.25,
       "count": 2,
       "start": 0.3,
       "end": 1,
       "angle": 45,
-      "angleVariation": 0.35,
-      "spiral": 140,
-      "length": 0.65,
-      "lengthVariation": 0.3,
-      "radius": 0.6,
+      "length": 0.55,
+      "radius": 0.6
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
       "taper": 0.45,
-      "bend": 0.35,
-      "gravity": 0.35
+      "bend": 0.2,
+      "gravity": 0.3,
+      "count": 2,
+      "start": 0.35,
+      "end": 1,
+      "angle": 45,
+      "length": 0.5,
+      "radius": 0.6
     }
   ],
   "foliage": {
     "type": "broad",
-    "density": 0.62,
-    "size": 0.5,
+    "density": 0.45,
+    "size": 0.45,
     "sizeVariation": 0.25,
     "start": 0.05,
     "angle": 50
@@ -66,7 +80,7 @@
   },
   "fruit": {
     "type": "round",
-    "count": 1,
+    "count": 0.6,
     "size": 0.16,
     "sizeVariation": 0.15,
     "hang": 0.9

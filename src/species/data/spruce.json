@@ -3,60 +3,74 @@
   "name": "Spruce",
   "form": "conifer",
   "trunk": {
-    "length": 7,
-    "radius": 0.22,
+    "length": 8,
+    "radius": 0.24,
     "taper": 0.1,
     "lengthVariation": 0.12,
     "bend": 0.02
   },
   "branches": [
     {
-      "angleVariation": 0.1,
+      "angleVariation": 0.06,
       "spiral": 137.5,
       "lengthVariation": 0.15,
       "taper": 0.3,
-      "bend": 0.05,
-      "gravity": 0.08,
-      "count": 16,
-      "start": 0.08,
-      "end": 0.98,
-      "angle": 100,
-      "length": 0.42,
-      "radius": 0.3,
+      "bend": 0.04,
+      "gravity": -0.08,
       "lengthProfile": [
         {
-          "t": 0.08,
-          "value": 1
+          "t": 0.04,
+          "value": 1.0
         },
         {
-          "t": 0.85,
-          "value": 0.15
+          "t": 0.93,
+          "value": 0.1
         },
         {
-          "t": 1,
-          "value": 0.05
+          "t": 1.0,
+          "value": 0.08
         }
       ],
       "angleProfile": [
         {
-          "t": 0.08,
-          "value": 1
+          "t": 0.04,
+          "value": 1.05
         },
         {
           "t": 0.7,
-          "value": 0.85
+          "value": 0.9
         },
         {
-          "t": 1,
-          "value": 0.4
+          "t": 1.0,
+          "value": 0.45
         }
-      ]
+      ],
+      "count": 20,
+      "start": 0.04,
+      "end": 0.93,
+      "angle": 90,
+      "length": 0.32,
+      "radius": 0.3
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 120,
+      "lengthVariation": 0.15,
+      "taper": 0.3,
+      "bend": 0.05,
+      "gravity": -0.25,
+      "count": 3,
+      "start": 0.3,
+      "end": 1,
+      "angle": 45,
+      "length": 0.45,
+      "radius": 0.5
     }
   ],
   "foliage": {
     "type": "needle",
-    "density": 0.55,
-    "size": 0.5,
+    "density": 0.18,
+    "size": 0.92,
     "sizeVariation": 0.2,
     "start": 0,
     "angle": 35
@@ -67,10 +81,10 @@
   },
   "fruit": {
     "type": "cone",
-    "count": 1,
-    "size": 0.22,
+    "count": 0.12,
+    "size": 0.24,
     "sizeVariation": 0.2,
-    "hang": 0.9
+    "hang": 1
   },
   "season": {
     "leafColor": [

@@ -3,46 +3,78 @@
   "name": "Redwood",
   "form": "conifer",
   "trunk": {
-    "length": 14,
-    "radius": 0.42,
+    "length": 15,
+    "radius": 0.45,
     "taper": 0.12,
     "lengthVariation": 0.1,
     "bend": 0.02
   },
   "branches": [
     {
-      "angleVariation": 0.15,
+      "angleVariation": 0.12,
       "spiral": 137.5,
-      "lengthVariation": 0.2,
+      "lengthVariation": 0.15,
       "taper": 0.3,
-      "bend": 0.1,
-      "gravity": 0.3,
-      "count": 16,
-      "start": 0.4,
-      "end": 0.98,
-      "angle": 95,
-      "length": 0.2,
-      "radius": 0.25,
+      "bend": 0.06,
+      "gravity": -0.2,
       "lengthProfile": [
         {
-          "t": 0.4,
-          "value": 1
+          "t": 0.28,
+          "value": 1.0
         },
         {
-          "t": 0.8,
+          "t": 0.75,
           "value": 0.85
         },
         {
-          "t": 1,
-          "value": 0.25
+          "t": 0.97,
+          "value": 0.3
+        },
+        {
+          "t": 1.0,
+          "value": 0.2
         }
-      ]
+      ],
+      "angleProfile": [
+        {
+          "t": 0.28,
+          "value": 1.05
+        },
+        {
+          "t": 0.8,
+          "value": 0.95
+        },
+        {
+          "t": 1.0,
+          "value": 0.5
+        }
+      ],
+      "count": 21,
+      "start": 0.28,
+      "end": 0.985,
+      "angle": 92,
+      "length": 0.13,
+      "radius": 0.25
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 180,
+      "lengthVariation": 0.15,
+      "taper": 0.3,
+      "bend": 0.08,
+      "gravity": -0.4,
+      "count": 3,
+      "start": 0.2,
+      "end": 1,
+      "angle": 50,
+      "length": 0.5,
+      "radius": 0.5
     }
   ],
   "foliage": {
     "type": "needle",
-    "density": 0.55,
-    "size": 0.7,
+    "density": 0.18,
+    "size": 0.95,
     "sizeVariation": 0.2,
     "start": 0,
     "angle": 45
@@ -53,8 +85,8 @@
   },
   "fruit": {
     "type": "cone",
-    "count": 1,
-    "size": 0.1,
+    "count": 0.12,
+    "size": 0.12,
     "sizeVariation": 0.2,
     "hang": 0.6
   },

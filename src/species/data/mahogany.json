@@ -11,58 +11,72 @@
   },
   "branches": [
     {
-      "angleVariation": 0.3,
+      "angleVariation": 0.15,
       "spiral": 137.5,
-      "lengthVariation": 0.25,
-      "radius": 0.62,
-      "taper": 0.4,
-      "bend": 0.25,
-      "gravity": 0.15,
-      "count": 6,
-      "start": 0.68,
-      "end": 0.97,
-      "angle": 68,
-      "length": 0.6,
+      "lengthVariation": 0.15,
+      "taper": 0.42,
+      "bend": 0.1,
+      "gravity": 0.12,
       "lengthProfile": [
         {
-          "t": 0.68,
-          "value": 1
+          "t": 0.66,
+          "value": 1.0
         },
         {
-          "t": 1,
+          "t": 1.0,
           "value": 0.55
         }
       ],
       "angleProfile": [
         {
-          "t": 0.68,
+          "t": 0.66,
           "value": 1.05
         },
         {
-          "t": 1,
+          "t": 1.0,
           "value": 0.6
         }
-      ]
+      ],
+      "count": 6,
+      "start": 0.66,
+      "end": 0.97,
+      "angle": 62,
+      "length": 0.5,
+      "radius": 0.62
     },
     {
-      "angleVariation": 0.3,
+      "angleVariation": 0.15,
       "spiral": 137.5,
-      "lengthVariation": 0.25,
-      "radius": 0.6,
+      "lengthVariation": 0.15,
       "taper": 0.45,
-      "bend": 0.3,
-      "gravity": 0.3,
+      "bend": 0.12,
+      "gravity": 0.18,
       "count": 3,
       "start": 0.3,
       "end": 1,
-      "angle": 45,
-      "length": 0.6
+      "angle": 48,
+      "length": 0.55,
+      "radius": 0.6
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.1,
+      "gravity": 0.15,
+      "count": 2,
+      "start": 0.4,
+      "end": 1,
+      "angle": 40,
+      "length": 0.5,
+      "radius": 0.6
     }
   ],
   "foliage": {
     "type": "compound",
-    "density": 0.6,
-    "size": 0.68,
+    "density": 0.5,
+    "size": 0.7,
     "sizeVariation": 0.2,
     "start": 0.15,
     "angle": 50
@@ -73,8 +87,8 @@
   },
   "fruit": {
     "type": "pear",
-    "count": 1,
-    "size": 0.16,
+    "count": 0.3,
+    "size": 0.18,
     "sizeVariation": 0.15,
     "hang": 0
   },

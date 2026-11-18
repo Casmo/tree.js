@@ -3,74 +3,74 @@
   "name": "Beech",
   "form": "broadleaf",
   "trunk": {
-    "length": 4,
-    "radius": 0.46,
+    "length": 3.6,
+    "radius": 0.48,
     "taper": 0.42,
     "lengthVariation": 0.1,
-    "bend": 0.06
+    "bend": 0.05
   },
   "branches": [
     {
-      "angleVariation": 0.3,
+      "angleVariation": 0.15,
       "spiral": 137.5,
-      "lengthVariation": 0.25,
-      "radius": 0.55,
+      "lengthVariation": 0.15,
       "taper": 0.4,
-      "bend": 0.2,
-      "gravity": 0.1,
-      "count": 9,
-      "start": 0.4,
-      "end": 0.95,
-      "angle": 60,
-      "length": 0.75,
+      "bend": 0.08,
+      "gravity": 0.12,
       "lengthProfile": [
         {
-          "t": 0.4,
+          "t": 0.32,
           "value": 0.95
         },
         {
           "t": 0.6,
-          "value": 1
+          "value": 1.0
         },
         {
           "t": 0.85,
           "value": 0.8
         },
         {
-          "t": 1,
+          "t": 1.0,
           "value": 0.4
         }
       ],
       "angleProfile": [
         {
-          "t": 0.4,
+          "t": 0.32,
           "value": 1.25
         },
         {
-          "t": 1,
-          "value": 0.55
+          "t": 1.0,
+          "value": 0.5
         }
-      ]
+      ],
+      "count": 9,
+      "start": 0.32,
+      "end": 0.95,
+      "angle": 62,
+      "length": 0.8,
+      "radius": 0.55
     },
     {
-      "angleVariation": 0.3,
+      "angleVariation": 0.15,
       "spiral": 137.5,
-      "lengthVariation": 0.25,
-      "radius": 0.6,
+      "lengthVariation": 0.15,
       "taper": 0.45,
-      "bend": 0.3,
+      "bend": 0.08,
       "gravity": 0.05,
-      "count": 3,
-      "start": 0.3,
+      "count": 5,
+      "start": 0.25,
       "end": 1,
       "angle": 45,
-      "length": 0.55
+      "length": 0.5,
+      "radius": 0.6
     }
   ],
   "foliage": {
     "type": "broad",
-    "density": 0.8,
-    "size": 0.45,
+    "density": 0.6,
+    "size": 0.5,
     "sizeVariation": 0.2,
     "start": 0.05,
     "angle": 55

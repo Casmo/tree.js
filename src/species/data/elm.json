@@ -11,48 +11,62 @@
   },
   "branches": [
     {
-      "angleVariation": 0.15,
+      "angleVariation": 0.12,
       "spiral": 137.5,
-      "lengthVariation": 0.25,
-      "radius": 0.7,
+      "lengthVariation": 0.15,
       "taper": 0.4,
-      "bend": 0.1,
+      "bend": 0.08,
       "gravity": 0,
-      "count": 5,
-      "start": 0.8,
-      "end": 1,
-      "angle": 30,
-      "length": 2.3,
       "lengthProfile": [
         {
-          "t": 0.8,
-          "value": 1
+          "t": 0.82,
+          "value": 1.0
         },
         {
-          "t": 1,
-          "value": 0.8
+          "t": 1.0,
+          "value": 0.85
         }
-      ]
+      ],
+      "count": 5,
+      "start": 0.82,
+      "end": 1,
+      "angle": 28,
+      "length": 2.4,
+      "radius": 0.7
     },
     {
-      "angleVariation": 0.3,
+      "angleVariation": 0.15,
       "spiral": 137.5,
-      "lengthVariation": 0.25,
-      "radius": 0.6,
+      "lengthVariation": 0.15,
       "taper": 0.45,
-      "bend": 0.25,
-      "gravity": -0.6,
-      "count": 4,
-      "start": 0.5,
+      "bend": 0.1,
+      "gravity": -0.25,
+      "count": 3,
+      "start": 0.4,
       "end": 1,
-      "angle": 55,
-      "length": 0.42
+      "angle": 40,
+      "length": 0.4,
+      "radius": 0.6
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.1,
+      "gravity": -0.7,
+      "count": 3,
+      "start": 0.3,
+      "end": 1,
+      "angle": 40,
+      "length": 0.6,
+      "radius": 0.6
     }
   ],
   "foliage": {
     "type": "broad",
-    "density": 0.55,
-    "size": 0.48,
+    "density": 0.45,
+    "size": 0.5,
     "sizeVariation": 0.25,
     "start": 0.1,
     "angle": 50

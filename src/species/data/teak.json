@@ -3,59 +3,59 @@
   "name": "Teak",
   "form": "broadleaf",
   "trunk": {
-    "length": 7,
+    "length": 7.5,
     "radius": 0.4,
     "taper": 0.36,
     "lengthVariation": 0.1,
-    "bend": 0.1
+    "bend": 0.08
   },
   "branches": [
     {
-      "angleVariation": 0.3,
+      "angleVariation": 0.15,
       "spiral": 137.5,
-      "lengthVariation": 0.25,
-      "radius": 0.6,
-      "taper": 0.4,
-      "bend": 0.25,
-      "gravity": 0.12,
-      "count": 6,
-      "start": 0.58,
-      "end": 0.95,
-      "angle": 52,
-      "length": 0.7,
+      "lengthVariation": 0.15,
+      "taper": 0.42,
+      "bend": 0.12,
+      "gravity": 0.1,
       "lengthProfile": [
         {
-          "t": 0.58,
-          "value": 1
+          "t": 0.62,
+          "value": 1.0
         },
         {
-          "t": 1,
+          "t": 1.0,
           "value": 0.55
         }
-      ]
+      ],
+      "count": 7,
+      "start": 0.62,
+      "end": 0.96,
+      "angle": 50,
+      "length": 0.4,
+      "radius": 0.6
     },
     {
-      "angleVariation": 0.3,
+      "angleVariation": 0.15,
       "spiral": 137.5,
-      "lengthVariation": 0.25,
-      "radius": 0.6,
+      "lengthVariation": 0.15,
       "taper": 0.45,
-      "bend": 0.3,
-      "gravity": 0.2,
-      "count": 3,
-      "start": 0.3,
+      "bend": 0.12,
+      "gravity": 0.15,
+      "count": 4,
+      "start": 0.35,
       "end": 1,
       "angle": 45,
-      "length": 0.6
+      "length": 0.6,
+      "radius": 0.6
     }
   ],
   "foliage": {
     "type": "broad",
-    "density": 0.42,
-    "size": 0.85,
+    "density": 0.3,
+    "size": 1.25,
     "sizeVariation": 0.25,
-    "start": 0.2,
-    "angle": 55
+    "start": 0.3,
+    "angle": 60
   },
   "bark": {
     "type": "fibrous",

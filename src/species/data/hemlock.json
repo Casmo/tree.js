@@ -3,8 +3,8 @@
   "name": "Hemlock",
   "form": "conifer",
   "trunk": {
-    "length": 7,
-    "radius": 0.24,
+    "length": 8,
+    "radius": 0.26,
     "taper": 0.12,
     "lengthVariation": 0.12,
     "bend": 0.05,
@@ -16,52 +16,66 @@
       "spiral": 137.5,
       "lengthVariation": 0.15,
       "taper": 0.3,
-      "bend": 0.15,
-      "gravity": 0.35,
-      "count": 16,
-      "start": 0.1,
-      "end": 0.97,
-      "angle": 92,
-      "length": 0.45,
-      "radius": 0.28,
+      "bend": 0.1,
+      "gravity": -0.18,
       "lengthProfile": [
         {
-          "t": 0.1,
-          "value": 1
+          "t": 0.08,
+          "value": 0.9
         },
         {
-          "t": 0.6,
-          "value": 0.7
+          "t": 0.25,
+          "value": 1.0
         },
         {
-          "t": 0.95,
+          "t": 0.93,
           "value": 0.15
         },
         {
-          "t": 1,
+          "t": 1.0,
           "value": 0.1
         }
       ],
       "angleProfile": [
         {
-          "t": 0.1,
-          "value": 1
+          "t": 0.08,
+          "value": 1.05
         },
         {
           "t": 0.7,
-          "value": 0.9
+          "value": 0.95
         },
         {
-          "t": 1,
-          "value": 0.5
+          "t": 1.0,
+          "value": 0.65
         }
-      ]
+      ],
+      "count": 20,
+      "start": 0.08,
+      "end": 0.93,
+      "angle": 86,
+      "length": 0.38,
+      "radius": 0.28
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 180,
+      "lengthVariation": 0.15,
+      "taper": 0.3,
+      "bend": 0.12,
+      "gravity": -0.4,
+      "count": 3,
+      "start": 0.25,
+      "end": 1,
+      "angle": 55,
+      "length": 0.45,
+      "radius": 0.5
     }
   ],
   "foliage": {
     "type": "needle",
-    "density": 0.55,
-    "size": 0.5,
+    "density": 0.18,
+    "size": 0.9,
     "sizeVariation": 0.2,
     "start": 0,
     "angle": 30
@@ -72,10 +86,10 @@
   },
   "fruit": {
     "type": "cone",
-    "count": 1,
-    "size": 0.12,
+    "count": 0.2,
+    "size": 0.1,
     "sizeVariation": 0.2,
-    "hang": 0.85
+    "hang": 0.9
   },
   "season": {
     "leafColor": [
@@ -85,11 +99,11 @@
       },
       {
         "t": 0.25,
-        "value": "#4a7a3e"
+        "value": "#55863e"
       },
       {
         "t": 0.55,
-        "value": "#4a7a3e"
+        "value": "#55863e"
       },
       {
         "t": 0.75,

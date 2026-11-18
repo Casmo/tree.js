@@ -3,70 +3,84 @@
   "name": "Chestnut",
   "form": "broadleaf",
   "trunk": {
-    "length": 4,
-    "radius": 0.56,
-    "taper": 0.35,
+    "length": 4.4,
+    "radius": 0.6,
+    "taper": 0.38,
     "lengthVariation": 0.12,
     "bend": 0.22
   },
   "branches": [
     {
-      "angleVariation": 0.3,
+      "angleVariation": 0.15,
       "spiral": 137.5,
-      "lengthVariation": 0.25,
-      "radius": 0.6,
-      "taper": 0.4,
-      "bend": 0.3,
-      "gravity": 0.25,
-      "count": 7,
-      "start": 0.5,
-      "end": 0.95,
-      "angle": 56,
-      "length": 0.9,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.2,
+      "gravity": 0.18,
       "lengthProfile": [
         {
-          "t": 0.5,
-          "value": 1
+          "t": 0.45,
+          "value": 1.0
         },
         {
           "t": 0.75,
-          "value": 1
+          "value": 1.0
         },
         {
-          "t": 1,
-          "value": 0.5
+          "t": 1.0,
+          "value": 0.55
         }
       ],
       "angleProfile": [
         {
-          "t": 0.5,
-          "value": 1.15
+          "t": 0.45,
+          "value": 1.2
         },
         {
-          "t": 1,
-          "value": 0.6
+          "t": 1.0,
+          "value": 0.55
         }
-      ]
+      ],
+      "count": 7,
+      "start": 0.45,
+      "end": 0.95,
+      "angle": 55,
+      "length": 0.9,
+      "radius": 0.6
     },
     {
-      "angleVariation": 0.3,
+      "angleVariation": 0.15,
       "spiral": 137.5,
-      "lengthVariation": 0.25,
-      "radius": 0.6,
+      "lengthVariation": 0.15,
       "taper": 0.45,
-      "bend": 0.3,
-      "gravity": 0.3,
+      "bend": 0.18,
+      "gravity": 0.2,
       "count": 3,
       "start": 0.3,
       "end": 1,
-      "angle": 42,
-      "length": 0.65
+      "angle": 45,
+      "length": 0.55,
+      "radius": 0.6
+    },
+    {
+      "angleVariation": 0.15,
+      "spiral": 137.5,
+      "lengthVariation": 0.15,
+      "taper": 0.45,
+      "bend": 0.15,
+      "gravity": 0.2,
+      "count": 2,
+      "start": 0.4,
+      "end": 1,
+      "angle": 40,
+      "length": 0.5,
+      "radius": 0.6
     }
   ],
   "foliage": {
     "type": "broad",
     "density": 0.6,
-    "size": 0.62,
+    "size": 0.72,
     "sizeVariation": 0.2,
     "start": 0.05,
     "angle": 50
@@ -77,8 +91,8 @@
   },
   "fruit": {
     "type": "nut",
-    "count": 1,
-    "size": 0.12,
+    "count": 0.3,
+    "size": 0.14,
     "sizeVariation": 0.2,
     "hang": 0.25
   },

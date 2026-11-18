@@ -3,7 +3,7 @@
   "name": "Hickory",
   "form": "broadleaf",
   "trunk": {
-    "length": 6.6,
+    "length": 7,
     "radius": 0.36,
     "taper": 0.32,
     "lengthVariation": 0.1,
@@ -11,18 +11,12 @@
   },
   "branches": [
     {
-      "angleVariation": 0.3,
+      "angleVariation": 0.15,
       "spiral": 137.5,
-      "lengthVariation": 0.25,
-      "radius": 0.6,
-      "taper": 0.45,
-      "bend": 0.2,
-      "gravity": 0.15,
-      "count": 7,
-      "start": 0.42,
-      "end": 0.97,
-      "angle": 34,
-      "length": 0.38,
+      "lengthVariation": 0.15,
+      "taper": 0.4,
+      "bend": 0.12,
+      "gravity": 0.12,
       "lengthProfile": [
         {
           "t": 0.42,
@@ -30,36 +24,42 @@
         },
         {
           "t": 0.6,
-          "value": 1
+          "value": 1.0
         },
         {
           "t": 0.85,
           "value": 0.9
         },
         {
-          "t": 1,
+          "t": 1.0,
           "value": 0.6
         }
-      ]
+      ],
+      "count": 11,
+      "start": 0.42,
+      "end": 0.97,
+      "angle": 30,
+      "length": 0.3,
+      "radius": 0.6
     },
     {
-      "angleVariation": 0.3,
+      "angleVariation": 0.15,
       "spiral": 137.5,
-      "lengthVariation": 0.25,
-      "radius": 0.6,
+      "lengthVariation": 0.15,
       "taper": 0.45,
-      "bend": 0.3,
+      "bend": 0.12,
       "gravity": 0.15,
-      "count": 3,
+      "count": 4,
       "start": 0.3,
       "end": 1,
-      "angle": 40,
-      "length": 0.6
+      "angle": 38,
+      "length": 0.6,
+      "radius": 0.6
     }
   ],
   "foliage": {
     "type": "compound",
-    "density": 0.56,
+    "density": 0.5,
     "size": 0.55,
     "sizeVariation": 0.25,
     "start": 0.15,
@@ -71,8 +71,8 @@
   },
   "fruit": {
     "type": "nut",
-    "count": 1,
-    "size": 0.07,
+    "count": 0.3,
+    "size": 0.1,
     "sizeVariation": 0.2,
     "hang": 0.3
   },
