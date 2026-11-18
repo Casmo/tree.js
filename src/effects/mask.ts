@@ -62,8 +62,8 @@ export interface TreeEffectInput {
    */
   treeId?: TextureNode;
   /**
-   * Scene depth texture, e.g. `scenePass.getTextureNode('depth')`; with `camera`, only needed by
-   * effects that read depth (Inner Lines).
+   * Scene depth texture, e.g. `scenePass.getTextureNode('depth')`; only needed by effects that
+   * compare distances (the outline's `betweenTrees`, and Inner Lines with `camera`).
    */
   depth?: TextureNode;
   /** The camera the scene pass renders with (its near and far turn `depth` into view Z). */

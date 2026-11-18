@@ -10,6 +10,7 @@ import {
   TREE_ID,
   TREE_MASK,
   treeEffectsPass,
+  treeOutline,
   treePartOf,
   type TreeEffects,
 } from '../../src/effects';
@@ -134,6 +135,41 @@ describe('TreeEffects channels', () => {
       expect(effects.scenePass).toBe(scenePass);
       expect(effects.scenePass.pass.getMRT()).toBe(before);
     }
+  });
+
+  it('adds the Tree ID channel for outline.betweenTrees, and toggling it rebuilds the graph', () => {
+    const outline = { color: '#18230f', thickness: 2 };
+    const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: { outline } });
+    const plain = effects.pipeline.outputNode;
+    effects.set({ outline: { ...outline, betweenTrees: true } });
+    expect(outputsOf(effects)).toEqual(['output', TREE_MASK, TREE_ID]);
+    const between = effects.pipeline.outputNode;
+    expect(between).not.toBe(plain);
+    // Other colours and numbers with betweenTrees still on: the same graph.
+    effects.set({ outline: { color: '#ff00ff', thickness: 3, strength: 0.5, betweenTrees: true } });
+    expect(effects.pipeline.outputNode).toBe(between);
+    effects.set({ outline: { ...outline, betweenTrees: false } });
+    expect(outputsOf(effects)).toEqual(['output', TREE_MASK]);
+    expect(effects.pipeline.outputNode).not.toBe(between);
+  });
+
+  it('rebuilds the graph for betweenTrees even when the Tree ID channel stays on (treeId: true)', () => {
+    const effects = createTreeEffects(renderer, new Scene(), new PerspectiveCamera(), { effects: { outline: {} }, treeId: true });
+    const scenePass = effects.scenePass;
+    const plain = effects.pipeline.outputNode;
+    effects.set({ outline: { betweenTrees: true } });
+    expect(effects.scenePass).toBe(scenePass);
+    expect(effects.pipeline.outputNode).not.toBe(plain);
+  });
+
+  it('gives the effects the depth of the scene pass, and betweenTrees needs it and the Tree ID', () => {
+    const input = treeEffectsPass(new Scene(), new PerspectiveCamera());
+    expect(input.depth?.value).toBe(input.pass.getTexture('depth'));
+    expect(() => treeOutline(input, { betweenTrees: true })).toThrow(/treeId/);
+    expect(() => applyTreeEffects({ color: input.color, mask: input.mask }, { outline: { betweenTrees: true } })).toThrow(/treeId/);
+    const withId = treeEffectsPass(new Scene(), new PerspectiveCamera(), null, { treeId: true });
+    expect(treeOutline(withId, { betweenTrees: true })).not.toBe(withId.color);
+    expect(() => treeOutline({ ...withId, depth: undefined }, { betweenTrees: true })).toThrow(/depth/);
   });
 
   it('pick() throws without the Tree ID channel, naming the treeId option', () => {

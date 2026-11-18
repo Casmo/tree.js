@@ -174,6 +174,16 @@ for (const backend of backends) {
   });
 }
 
+test('outline.betweenTrees draws the outline between overlapping Trees and Forest trees', async ({ page }) => {
+  const mask = await shot(page, 'style=low-poly&overlap=plain&view=mask');
+  const plain = await shot(page, 'style=low-poly&overlap=plain&effects=outline');
+  const between = await shot(page, 'style=low-poly&overlap=between&effects=outline');
+  const result = await compare(page, plain, between, mask);
+  expect(result, 'only tree pixels change').toMatchObject({ otherChanged: 0 });
+  expect(result.treeChanged, 'lines where the trees overlap').toBeGreaterThan(300);
+  await expect(page.locator('canvas')).toHaveScreenshot('low-poly-between-trees-webgpu.png');
+});
+
 for (const style of styles) {
   test(`Inner Lines draw inside the tree from depth and normal edges, only on tree pixels (${style})`, async ({ page }) => {
     const mask = await shot(page, `style=${style}&view=mask`);
