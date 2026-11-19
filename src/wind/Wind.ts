@@ -68,7 +68,7 @@ export class Wind {
     this.uniforms = {
       direction: uniform(new Vector3(1, 0, 0)),
       strength: uniform(0),
-      time: uniform(0).onRenderUpdate((frame) => this.render(frame.time)),
+      time: uniform(0).onRenderUpdate((frame) => this.timeAt(frame.time)),
       bursts: burstUniforms(() => this),
     };
     this.set(options);
@@ -147,7 +147,7 @@ export class Wind {
    * @internal The Wind time of a render at renderer time `frameTime` (called once per render by
    * the Wind's own and its bindings' time uniforms): the pinned time, or that clock, which it keeps.
    */
-  render(frameTime: number): number {
+  timeAt(frameTime: number): number {
     this.clock = frameTime;
     return this.now;
   }
@@ -187,7 +187,7 @@ export class WindBinding {
     this.uniforms = {
       direction: uniform(direction).onRenderUpdate(() => direction.copy(this.wind.uniforms.direction.value)),
       strength: uniform(wind.strength).onRenderUpdate(() => this.wind.strength),
-      time: uniform(0).onRenderUpdate((frame) => this.wind.render(frame.time)),
+      time: uniform(0).onRenderUpdate((frame) => this.wind.timeAt(frame.time)),
       bursts: burstUniforms(() => this.wind),
     };
   }
