@@ -11,6 +11,10 @@ declare global {
       fruitVertices?: number;
       /** Sets `tree.season` and re-renders (status goes 'loading' -> 'rendered'). */
       setSeason?: (season: number) => void;
+      /** Sets the magenta Tree Shader Hook on these parts only (none: removes them) and re-renders. */
+      setShaderHooks?: (parts: string[]) => void;
+      /** Shows or hides one part's mesh ('wood', 'leaves', 'fruit') and re-renders. */
+      setVisible?: (mesh: string, visible: boolean) => void;
     };
   }
 }

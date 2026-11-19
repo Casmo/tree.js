@@ -18,6 +18,7 @@ thousands at once as an instanced Forest, add opt-in Tree Effects, or design you
 - [Wind](#wind)
 - [Forests](#forests)
 - [Material Features](#material-features)
+- [Tree Shader Hook](#tree-shader-hook)
 - [Tree Effects](#tree-effects)
 - [React Three Fiber](#react-three-fiber)
 - [Without a bundler: import map (CDN)](#without-a-bundler-import-map-cdn)
@@ -577,6 +578,48 @@ renderer.setAnimationLoop(() => pipeline.render());
 Material Features are a different thing from [Tree Effects](#tree-effects): those are post-processing
 (the "leaf glow" effect is a screen-space bloom, not Leaf Translucency). See them side by side per Style in
 [`examples/material-features`](examples/material-features/main.ts).
+
+## Tree Shader Hook
+
+A Tree Shader Hook is the one supported way to change how a tree's surface is shaded (snow, rain, drought
+colour, a painterly foliage look) without touching its materials. You hand the library a
+[TSL](https://threejs.org/docs/#api/en/nodes/TSL) function per tree part (`bark`, `leaves` or `fruit`),
+and it applies it inside that part's node materials, which it keeps building and rewiring itself for
+Growth, Season and Wind. Don't patch `tree.leaves.material` yourself; set a hook instead.
+
+The hook gets TSL nodes for the fragment it shades and returns a colour (lit as before), or a colour and a
+roughness:
+
+| Input | What it is |
+| --- | --- |
+| `color` | The base colour (linear rgb): after Season, Ground Tint, textures and the Seed's tint, before lighting |
+| `roughness` | The part's roughness before the hook |
+| `normal` | The world-space normal the fragment is lit with, after Wind and Growth (and Crown Normals, the bark normal map) |
+| `position`, `treePosition` | The fragment's world position, and the tree's own (the foot of its trunk) |
+| `season`, `growth` | The tree's Season and Growth (0..1) |
+| `part`, `shading` | The tree part, and the Style's shading (`'flat'`, `'toon'` or `'standard'`) |
+
+```ts
+import { createTree, type TreeShaderHook } from '@casmo/tree.js';
+import stylized from '@casmo/tree.js/styles/stylized';
+import { mix, smoothstep, uniform, vec3 } from 'three/tsl';
+
+const frost = uniform(0.5); // animate the hook with uniforms: no rebuild
+const frosty: TreeShaderHook = ({ color, normal, roughness }) => ({
+  color: mix(color, vec3(0.9, 0.95, 1), smoothstep(0.3, 0.8, normal.y).mul(frost)),
+  roughness: roughness.mul(0.8),
+});
+
+const tree = createTree(stylized.broadleaf, { seed: 3, shaderHooks: { leaves: frosty } });
+tree.shaderHooks = { leaves: frosty, bark: frosty }; // set or change at runtime
+tree.shaderHooks = {};                               // remove: the tree is drawn exactly as before
+```
+
+`tree.shaderHooks` holds one hook per part of a `Tree`; a part you leave out has none, and a part whose
+hook didn't change is left alone. A hook is called once when it is set, to build the node graph, not per frame. Setting, changing
+or removing it rebuilds the node graph of that part's material once (a shader recompile) and never the
+geometry. With no hook nothing changes: same geometry, attributes and materials as before. It works on
+WebGPU and on the WebGL2 fallback.
 
 ## Tree Effects
 
