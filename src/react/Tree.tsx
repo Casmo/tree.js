@@ -6,6 +6,7 @@ import type { TreeStyle } from '../styles/types';
 import type { StyleName } from '../styles/registry';
 import { createTree, type Tree as TreeObject } from '../tree';
 import { sceneWind, type Wind as WindObject } from '../wind';
+import type { TreeShaderHooks } from '../materials/shader-hooks';
 import { useTreeStyle } from './useTreeStyle';
 
 type GroupProps = Omit<ThreeElements['group'], 'args' | 'object' | 'children' | 'ref' | 'castShadow' | 'receiveShadow' | 'dispose'>;
@@ -30,6 +31,12 @@ export interface TreeProps extends GroupProps {
   season?: number;
   /** The Wind this tree sways with. Default: the scene-wide `sceneWind` (what `<Wind>` sets). */
   wind?: WindObject;
+  /**
+   * The tree's own Tree Shader Hooks (as `tree.shaderHooks`), which stack after the scene-wide ones
+   * (`<SceneShaderHooks>`, `<SnowCover>`, `<Wetness>`). Only the parts whose hooks change rebuild their
+   * node graph; keep hooks stable (module scope or `useMemo`), as a new function is a new hook. Unset: none.
+   */
+  shaderHooks?: TreeShaderHooks;
   /** Whether the tree casts shadows. Default true. */
   castShadow?: boolean;
   /** Whether the tree receives shadows. Default true. */
@@ -42,7 +49,7 @@ export interface TreeProps extends GroupProps {
 const disposed = new WeakSet<TreeObject>();
 
 /**
- * A procedural tree. Growth, Season, Wind and shadow props only update the existing tree; a new
+ * A procedural tree. Growth, Season, Wind, Tree Shader Hook and shadow props only update the existing tree; a new
  * `seed`, `definition` (by value) or `style`/`form`/`species` regenerates it. The tree is disposed
  * of on unmount.
  */
@@ -55,6 +62,7 @@ export function Tree({
   growth = 1,
   season = 0,
   wind,
+  shaderHooks,
   castShadow = true,
   receiveShadow = true,
   ref,
@@ -70,8 +78,8 @@ export function Tree({
   // Bumped when StrictMode disposed the memoised tree, to grow a fresh one.
   const [generation, setGeneration] = useState(0);
   const tree = useMemo(
-    () => createTree(JSON.parse(key) as TreeDefinitionInput, { seed, wind, growth, season }),
-    // growth/season/wind are only the starting values; the effects below keep them in sync.
+    () => createTree(JSON.parse(key) as TreeDefinitionInput, { seed, wind, growth, season, shaderHooks }),
+    // growth/season/wind/shaderHooks are only the starting values; the effects below keep them in sync.
     [key, seed, generation],
   );
 
@@ -86,6 +94,10 @@ export function Tree({
   useLayoutEffect(() => {
     tree.wind = wind ?? sceneWind;
   }, [tree, wind]);
+
+  useLayoutEffect(() => {
+    tree.shaderHooks = shaderHooks ?? {};
+  }, [tree, shaderHooks]);
 
   useLayoutEffect(() => {
     tree.growth = growth;

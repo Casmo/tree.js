@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRef } from 'react';
-import { float } from 'three/tsl';
+import { float, vec4 } from 'three/tsl';
 import { DirectionalLight, PerspectiveCamera, type Node, type Scene } from 'three/webgpu';
 import { useThree, type RootState } from '@react-three/fiber';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
-import { SUGGESTED_TREE_EFFECTS } from '../../src/effects';
+import { SUGGESTED_TREE_EFFECTS, type CustomTreeEffect } from '../../src/effects';
 import { ScenePipeline as ScenePipelineObject, SUGGESTED_SCENE_EFFECTS } from '../../src/scene';
-import { ScenePipeline, useScenePipeline } from '../../src/react';
+import { ScenePipeline, TreeEffect, useScenePipeline } from '../../src/react';
 
 const fog = (density: number) => float(density) as unknown as Node;
 
@@ -179,3 +179,76 @@ function godraysIn(root: Node): Node[] {
   visit(root);
   return found;
 }
+
+describe('<TreeEffect> (a custom Tree Effect in <ScenePipeline>)', () => {
+  const passThrough = (before?: CustomTreeEffect<{ strength: number }>['before']): CustomTreeEffect<{ strength: number }> & { update: ReturnType<typeof vi.fn> } => {
+    const update = vi.fn();
+    return { before, update, build: (input) => ({ node: vec4(input.color.rgb, input.color.a), update }) };
+  };
+
+  it('adds the effect while mounted, updates its options live and removes it again', async () => {
+    const ref = createRef<ScenePipelineObject>();
+    const foliage = passThrough('outline');
+    renderer = await ReactThreeTestRenderer.create(
+      <ScenePipeline ref={ref} style="stylized">
+        <TreeEffect effect={foliage} options={{ strength: 1 }} />
+      </ScenePipeline>,
+      { gl },
+    );
+    const pipeline = ref.current!;
+    expect(pipeline.customEffects).toEqual([foliage]);
+
+    const add = vi.spyOn(pipeline, 'addEffect');
+    await renderer.update(
+      <ScenePipeline ref={ref} style="stylized">
+        <TreeEffect effect={foliage} options={{ strength: 1 }} />
+      </ScenePipeline>,
+    );
+    expect(foliage.update).not.toHaveBeenCalled(); // the same options by value
+
+    await renderer.update(
+      <ScenePipeline ref={ref} style="realistic">
+        <TreeEffect effect={foliage} options={{ strength: 0.5 }} />
+      </ScenePipeline>,
+    );
+    expect(foliage.update).toHaveBeenLastCalledWith({ strength: 0.5 });
+    expect(add).not.toHaveBeenCalled(); // no new graph for new options, and kept through set()
+    expect(pipeline.customEffects).toEqual([foliage]);
+
+    await renderer.update(<ScenePipeline ref={ref} style="realistic" />);
+    expect(ref.current).toBe(pipeline);
+    expect(pipeline.customEffects).toEqual([]);
+  });
+
+  it('several run in the order they were mounted', async () => {
+    const ref = createRef<ScenePipelineObject>();
+    const [a, b] = [passThrough(), passThrough()];
+    renderer = await ReactThreeTestRenderer.create(
+      <ScenePipeline ref={ref} style="low-poly">
+        <TreeEffect effect={a} options={{ strength: 1 }} />
+        <TreeEffect effect={b} options={{ strength: 1 }} />
+      </ScenePipeline>,
+      { gl },
+    );
+    expect(ref.current!.customEffects).toEqual([a, b]);
+  });
+
+  it('goes into the new pipeline when the pipeline is rebuilt', async () => {
+    const ref = createRef<ScenePipelineObject>();
+    const foliage = passThrough();
+    renderer = await ReactThreeTestRenderer.create(
+      <ScenePipeline ref={ref} style="low-poly">
+        <TreeEffect effect={foliage} options={{ strength: 1 }} />
+      </ScenePipeline>,
+      { gl },
+    );
+    const first = ref.current!;
+    await renderer.update(
+      <ScenePipeline ref={ref} style="low-poly" treeId>
+        <TreeEffect effect={foliage} options={{ strength: 1 }} />
+      </ScenePipeline>,
+    );
+    expect(ref.current).not.toBe(first);
+    expect(ref.current!.customEffects).toEqual([foliage]);
+  });
+});

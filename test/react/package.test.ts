@@ -26,6 +26,14 @@ describe('/react packaging', () => {
     expect(read('src/react/ScenePipeline.tsx')).toMatch(/import\('\.\.\/scene'\)/);
   });
 
+  it('loads the weather (Snow Cover, Wetness) only when <SnowCover> or <Wetness> renders', () => {
+    for (const file of readdirSync(new URL('../../src/react/', import.meta.url))) {
+      // Type imports and the dynamic `import('../weather')` only: apps without weather never bundle it.
+      expect(read(`src/react/${file}`), file).not.toMatch(/^import (?!type )[^;]*from '\.\.\/weather[/']/m);
+    }
+    expect(read('src/react/Weather.tsx')).toMatch(/import\('\.\.\/weather'\)/);
+  });
+
   it('is not pulled in by the core entry, so vanilla users never load react', () => {
     expect(read('src/index.ts')).not.toMatch(/['"]\.\/react|from 'react'|@react-three/);
   });

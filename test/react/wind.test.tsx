@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
-import { sceneWind, Wind as WindObject } from '../../src/index';
-import { Tree, Wind } from '../../src/react';
+import { sceneWind, Wind as WindObject, type WindBurstOptions } from '../../src/index';
+import { Tree, Wind, useWindBurst } from '../../src/react';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -47,6 +47,36 @@ describe('<Wind>', () => {
     expect(tree.wind).toBe(gusts);
     expect(gusts.strength).toBe(2);
     expect(sceneWind.strength).toBe(0);
+    await renderer.unmount();
+  });
+});
+
+describe('useWindBurst', () => {
+  let burst: ((options: WindBurstOptions) => void) | undefined;
+  function Placer({ wind }: { wind?: WindObject }) {
+    burst = useWindBurst(wind);
+    return null;
+  }
+
+  it('triggers a Wind Burst on the scene-wide Wind', async () => {
+    sceneWind.time = 2;
+    const renderer = await ReactThreeTestRenderer.create(<Placer />, { gl });
+    const first = burst!;
+    first({ x: 3, z: -1, strength: 0.5, radius: 6 });
+    expect(sceneWind.bursts).toEqual([{ x: 3, z: -1, strength: 0.5, radius: 6, start: 2 }]);
+
+    await renderer.update(<Placer />);
+    expect(burst).toBe(first); // a stable function, safe in effect deps
+    await renderer.unmount();
+  });
+
+  it('triggers it on another Wind when given one', async () => {
+    const gusts = new WindObject();
+    gusts.time = 1;
+    const renderer = await ReactThreeTestRenderer.create(<Placer wind={gusts} />, { gl });
+    burst!({ x: 0, z: 0 });
+    expect(gusts.bursts).toHaveLength(1);
+    expect(sceneWind.bursts).toHaveLength(0);
     await renderer.unmount();
   });
 });
