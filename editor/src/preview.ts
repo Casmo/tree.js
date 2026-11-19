@@ -36,6 +36,11 @@ export class Preview {
   /** Renders completed so far (handy for tests). */
   renders = 0;
   /**
+   * Frames every {@link requestRender} draws at least (default 1). Temporal effects raise it: TRAA
+   * keeps drawing until it has converged after a camera, Wind or tree change.
+   */
+  settleFrames = 1;
+  /**
    * Draws one frame. Effects preview (#18) can replace this with a RenderPipeline's render.
    * May return a promise (the status turns 'rendered' once it resolves).
    */
@@ -141,13 +146,18 @@ export class Preview {
   }
 
   /**
-   * Schedules `frames` frames in a row (default one; several requests in the same tick draw once).
-   * The status turns 'rendered' after the last.
+   * Schedules `frames` frames in a row (default one, at least {@link settleFrames}; several requests
+   * in the same tick draw once). The status turns 'rendered' after the last.
    */
   requestRender(frames = 1): void {
     if (!this.ready) return;
     this.options.onStatus?.('loading');
-    this.framesLeft = Math.max(this.framesLeft, frames);
+    this.framesLeft = Math.max(this.framesLeft, frames, this.settleFrames);
+    this.scheduleFrame();
+  }
+
+  /** Draws the next of the frames left (one per animation frame). */
+  private scheduleFrame(): void {
     if (this.frameRequested) return;
     this.frameRequested = true;
     requestAnimationFrame(() => {
@@ -158,7 +168,7 @@ export class Preview {
         .then(
           () => {
             this.renders++;
-            if (this.framesLeft > 0) this.requestRender(0);
+            if (this.framesLeft > 0) this.scheduleFrame();
             else if (!this.frameRequested && this.pendingTextures === 0) this.options.onStatus?.('rendered');
           },
           (error: unknown) => this.options.onStatus?.('error', error instanceof Error ? error : new Error(String(error))),

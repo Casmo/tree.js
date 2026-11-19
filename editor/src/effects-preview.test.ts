@@ -3,7 +3,7 @@ import { DEFAULT_DEFINITION } from '@casmo/tree.js';
 import { SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from '@casmo/tree.js/effects';
 import { SUGGESTED_SCENE_EFFECTS, type SceneEffectsSettings } from '@casmo/tree.js/scene';
 import { createEditorStore } from './store';
-import { createEffectsPreview, FOG_REFERENCE_DISTANCE, SETTLE_FRAMES, type EffectsPreviewTarget } from './effects-preview';
+import { createEffectsPreview, FOG_REFERENCE_DISTANCE, framesFor, SETTLE_FRAMES, TRAA_FRAMES, type EffectsPreviewTarget } from './effects-preview';
 
 /** A stand-in for the Preview and the Tree Effects pipeline: records what gets drawn how. */
 function setup(source = 'stylized/broadleaf') {
@@ -18,6 +18,7 @@ function setup(source = 'stylized/broadleaf') {
     camera: {} as never,
     sun: {} as never,
     framingDistance: FOG_REFERENCE_DISTANCE,
+    settleFrames: 1,
     onFramed: (listener) => (framed.add(listener), () => void framed.delete(listener)),
     setSunShadows: (on) => void (sun.shadows = on),
     renderFrame: () => void drawn.push('plain'),
@@ -84,7 +85,7 @@ describe('Tree Effects preview', () => {
     expect(effects.style).toBe('low-poly');
     effects.applySuggested();
     expect(effects.toggles).toEqual({ grade: true, glow: false, innerLines: true, outline: true });
-    expect(effects.scene).toEqual({ toggles: { toneMapping: true, ao: true, bloom: false, fog: true, godrays: false }, antialias: 'smaa' });
+    expect(effects.scene).toEqual({ toggles: { toneMapping: true, ao: true, bloom: false, fog: true, godrays: false, motionBlur: false }, antialias: 'smaa' });
     expect(draw()).toBe('effects:grade+innerLines+outline|scene:toneMapping+ao+fog+antialias');
     expect(pipelines.at(-1)!.settings).toEqual(SUGGESTED_TREE_EFFECTS['low-poly']);
     // At the reference framing the fog is the suggestion's own.
@@ -134,7 +135,7 @@ describe('Tree Effects preview', () => {
 describe('Scene Effects preview', () => {
   it('starts with every Scene Effect and AA off', () => {
     const { effects, draw } = setup();
-    expect(effects.scene).toEqual({ toggles: { toneMapping: false, ao: false, bloom: false, fog: false, godrays: false }, antialias: null });
+    expect(effects.scene).toEqual({ toggles: { toneMapping: false, ao: false, bloom: false, fog: false, godrays: false, motionBlur: false }, antialias: null });
     expect(effects.sceneSettings).toBeNull();
     expect(draw()).toBe('plain');
   });
@@ -170,6 +171,43 @@ describe('Scene Effects preview', () => {
     effects.setAntialias(null);
     expect(SETTLE_FRAMES).toBeGreaterThan(1);
     expect(renders.frames).toEqual([SETTLE_FRAMES, 1]);
+  });
+
+  it('keeps drawing with TRAA until it has converged: after every change, also camera, Wind and tree changes', () => {
+    const { effects, renders, preview } = setup();
+    // TRAA's jitter repeats every 32 frames: whole cycles give the most repeatable image, and it
+    // needs several of them to converge.
+    expect(TRAA_FRAMES % 32).toBe(0);
+    expect(TRAA_FRAMES).toBeGreaterThan(32);
+    effects.setAntialias('traa');
+    expect(renders.frames.at(-1)).toBe(TRAA_FRAMES);
+    expect(preview.settleFrames).toBe(TRAA_FRAMES);
+    effects.toggleScene('bloom', true);
+    expect(renders.frames.at(-1)).toBe(TRAA_FRAMES);
+    effects.setAntialias('smaa');
+    expect(renders.frames.at(-1)).toBe(SETTLE_FRAMES);
+    expect(preview.settleFrames).toBe(1);
+    effects.setAntialias('traa');
+    effects.dispose();
+    expect(preview.settleFrames).toBe(1);
+  });
+
+  it('draws one more frame after any change with motion blur, so the blur of a camera move clears when it stops', () => {
+    const { effects, renders, preview } = setup();
+    effects.toggleScene('motionBlur', true);
+    expect(preview.settleFrames).toBe(2);
+    expect(renders.frames.at(-1)).toBe(SETTLE_FRAMES);
+    effects.toggleScene('motionBlur', false);
+    expect(preview.settleFrames).toBe(1);
+    expect(renders.frames.at(-1)).toBe(1);
+  });
+
+  it('counts the frames each part of the stack needs', () => {
+    expect(framesFor(null)).toEqual({ change: 1, every: 1 });
+    expect(framesFor({ bloom: {} })).toEqual({ change: SETTLE_FRAMES, every: 1 });
+    expect(framesFor({ antialias: 'smaa' })).toEqual({ change: SETTLE_FRAMES, every: 1 });
+    expect(framesFor({ motionBlur: {} })).toEqual({ change: SETTLE_FRAMES, every: 2 });
+    expect(framesFor({ antialias: 'traa', motionBlur: {} })).toEqual({ change: TRAA_FRAMES, every: TRAA_FRAMES });
   });
 
   it("uses an effect's defaults where the Style does not suggest it", () => {

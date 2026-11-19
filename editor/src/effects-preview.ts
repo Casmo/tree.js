@@ -27,14 +27,34 @@ export const FOG_REFERENCE_DISTANCE = 20;
 
 /**
  * Frames the preview draws after each change while the pipeline is on: some effects need more than
- * one (SMAA's lookup textures load a moment after it is built). A TRAA convergence count goes here.
+ * one (SMAA's lookup textures load a moment after it is built).
  */
 export const SETTLE_FRAMES = 4;
+
+/**
+ * Frames TRAA needs to converge: its jitter repeats every 32 frames, so a whole number of cycles
+ * gives the most repeatable image, and it blends only ~5% of each new frame into its history, so it
+ * takes a few cycles: after 96 frames (3 cycles) more frames no longer change the image (32 still
+ * leave visible edge differences).
+ */
+export const TRAA_FRAMES = 96;
+
+/**
+ * How many frames the preview draws for the Scene Effects `settings`: `change` after a change of the
+ * effects themselves, `every` (at least) for every other request (camera, Wind, tree changes).
+ * TRAA keeps drawing until it has converged; motion blur draws one more frame, which has no camera
+ * motion, so the blur of an orbit clears once the camera stops.
+ */
+export function framesFor(settings: SceneEffectsSettings | null): { change: number; every: number } {
+  if (!settings) return { change: 1, every: 1 };
+  if (settings.antialias === 'traa') return { change: TRAA_FRAMES, every: TRAA_FRAMES };
+  return { change: SETTLE_FRAMES, every: settings.motionBlur ? 2 : 1 };
+}
 
 /** The parts of the Preview the effects need. */
 export type EffectsPreviewTarget = Pick<
   Preview,
-  'renderer' | 'scene' | 'camera' | 'sun' | 'framingDistance' | 'onFramed' | 'setSunShadows' | 'renderFrame' | 'requestRender'
+  'renderer' | 'scene' | 'camera' | 'sun' | 'framingDistance' | 'settleFrames' | 'onFramed' | 'setSunShadows' | 'renderFrame' | 'requestRender'
 >;
 
 /** A post-processing pipeline drawing Tree Effects and Scene Effects (a ScenePipeline from the library). */
@@ -94,7 +114,9 @@ export function createEffectsPreview(preview: EffectsPreviewTarget, store: Edito
     pipeline?.set({ treeEffects: settings, sceneEffects: scened });
     const active = settings || scened ? pipeline : null;
     preview.renderFrame = active ? () => active.render() : plainFrame;
-    preview.requestRender(active ? SETTLE_FRAMES : 1);
+    const frames = framesFor(active ? (scened ?? {}) : null);
+    preview.settleFrames = frames.every;
+    preview.requestRender(frames.change);
   };
 
   const update = (nextStyle: StyleName, nextToggles: EffectToggles, nextScene: SceneChoice): void => {
@@ -146,6 +168,7 @@ export function createEffectsPreview(preview: EffectsPreviewTarget, store: Edito
       unframed();
       listeners.clear();
       preview.renderFrame = plainFrame;
+      preview.settleFrames = 1;
       preview.setSunShadows(false);
       pipeline?.dispose();
       pipeline = null;

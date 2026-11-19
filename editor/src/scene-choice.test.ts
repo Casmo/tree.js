@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { SUGGESTED_SCENE_EFFECTS } from '@casmo/tree.js/scene';
-import { NO_SCENE_EFFECTS, sceneSettings, scaleFog, suggestedScene } from './scene-choice';
+import { ANTIALIAS_CHOICES, ANTIALIAS_LABELS, NO_SCENE_EFFECTS, SCENE_EFFECT_LABELS, sceneSettings, scaleFog, suggestedScene } from './scene-choice';
 
 describe('suggestedScene', () => {
   it("switches on exactly the Scene Effects in the Style's suggestion, with its AA choice", () => {
     expect(suggestedScene('low-poly')).toEqual({
-      toggles: { toneMapping: true, ao: true, bloom: false, fog: true, godrays: false },
+      toggles: { toneMapping: true, ao: true, bloom: false, fog: true, godrays: false, motionBlur: false },
       antialias: 'smaa',
     });
-    expect(suggestedScene('stylized').toggles).toEqual({ toneMapping: true, ao: true, bloom: true, fog: true, godrays: false });
+    expect(suggestedScene('stylized').toggles).toEqual({ toneMapping: true, ao: true, bloom: true, fog: true, godrays: false, motionBlur: false });
     expect(suggestedScene('realistic')).toEqual({
-      toggles: { toneMapping: true, ao: true, bloom: true, fog: true, godrays: true },
+      toggles: { toneMapping: true, ao: true, bloom: true, fog: true, godrays: true, motionBlur: false },
       antialias: 'smaa',
     });
   });
@@ -31,6 +31,18 @@ describe('sceneSettings', () => {
   });
   it('takes the AA choice on its own', () => {
     expect(sceneSettings('low-poly', { ...NO_SCENE_EFFECTS, antialias: 'fxaa' }, 1)).toEqual({ antialias: 'fxaa' });
+    expect(sceneSettings('realistic', { ...NO_SCENE_EFFECTS, antialias: 'traa' }, 1)).toEqual({ antialias: 'traa' });
+  });
+  it("offers TRAA and motion blur (never suggested) with the effects' defaults", () => {
+    expect(ANTIALIAS_CHOICES).toEqual([null, 'smaa', 'fxaa', 'traa']);
+    expect(ANTIALIAS_LABELS.traa).toBe('TRAA');
+    expect(SCENE_EFFECT_LABELS.motionBlur).toBe('Motion blur');
+    const choice = { toggles: { ...NO_SCENE_EFFECTS.toggles, motionBlur: true }, antialias: null };
+    expect(sceneSettings('realistic', choice, 1)).toEqual({ motionBlur: {} });
+    for (const style of ['low-poly', 'stylized', 'realistic'] as const) {
+      expect(suggestedScene(style).toggles.motionBlur).toBe(false);
+      expect(suggestedScene(style).antialias).not.toBe('traa');
+    }
   });
   it("is the Style's suggestion when it is applied (fog unscaled at scale 1)", () => {
     for (const style of ['low-poly', 'stylized', 'realistic'] as const) {

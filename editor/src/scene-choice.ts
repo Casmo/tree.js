@@ -1,12 +1,13 @@
 // Which Scene Effects the preview shows: a toggle per Scene Effect plus an anti-aliasing choice, with
 // the settings of a Style's suggestion (SUGGESTED_SCENE_EFFECTS). Pure logic; the panel and preview
 // wiring live in panels/effects-panel.ts and effects-preview.ts.
-// To add an option (e.g. motion blur, TRAA): add the name to SCENE_EFFECT_NAMES / ANTIALIAS_CHOICES.
+// To add an option: add the name to SCENE_EFFECT_NAMES / ANTIALIAS_CHOICES. Motion blur and TRAA are
+// offered but never part of a suggestion (suggestedScene leaves them off).
 import type { StyleName } from '@casmo/tree.js';
 import { SUGGESTED_SCENE_EFFECTS, type SceneAntialiasMode, type SceneEffectsSettings, type SceneFogOptions } from '@casmo/tree.js/scene';
 
 /** The Scene Effects with an on/off toggle (anti-aliasing is a choice of its own), in panel order. */
-export const SCENE_EFFECT_NAMES = ['toneMapping', 'ao', 'bloom', 'fog', 'godrays'] as const;
+export const SCENE_EFFECT_NAMES = ['toneMapping', 'ao', 'bloom', 'fog', 'godrays', 'motionBlur'] as const;
 export type SceneEffectName = (typeof SCENE_EFFECT_NAMES)[number];
 
 export const SCENE_EFFECT_LABELS: Record<SceneEffectName, string> = {
@@ -15,13 +16,14 @@ export const SCENE_EFFECT_LABELS: Record<SceneEffectName, string> = {
   bloom: 'Bloom',
   fog: 'Fog',
   godrays: 'God rays',
+  motionBlur: 'Motion blur',
 };
 
 /** The anti-aliasing choices the panel offers (`null` = off), in order. */
-export const ANTIALIAS_CHOICES = [null, 'smaa', 'fxaa'] as const satisfies readonly (SceneAntialiasMode | null)[];
+export const ANTIALIAS_CHOICES = [null, 'smaa', 'fxaa', 'traa'] as const satisfies readonly (SceneAntialiasMode | null)[];
 export type AntialiasChoice = (typeof ANTIALIAS_CHOICES)[number];
 
-export const ANTIALIAS_LABELS: Record<string, string> = { off: 'Off', smaa: 'SMAA', fxaa: 'FXAA' };
+export const ANTIALIAS_LABELS: Record<string, string> = { off: 'Off', smaa: 'SMAA', fxaa: 'FXAA', traa: 'TRAA' };
 
 /** Which Scene Effects are on, and the anti-aliasing. */
 export interface SceneChoice {
@@ -30,7 +32,7 @@ export interface SceneChoice {
 }
 
 export const NO_SCENE_EFFECTS: SceneChoice = {
-  toggles: { toneMapping: false, ao: false, bloom: false, fog: false, godrays: false },
+  toggles: { toneMapping: false, ao: false, bloom: false, fog: false, godrays: false, motionBlur: false },
   antialias: null,
 };
 

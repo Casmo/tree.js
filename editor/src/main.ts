@@ -3,6 +3,7 @@
 // Query parameters: ?start=<species>/<style>, e.g. oak/realistic or conifer/low-poly (old <style>/<form>
 // ids still work) (default: the autosaved work, else the first Style), ?seed=,
 // ?growth=, ?season=, ?backend=webgl (WebGPURenderer's WebGL2 fallback).
+import { sceneWind, type Wind } from '@casmo/tree.js';
 import { loadAutosave, startAutosave } from './autosave';
 import type { EffectsPreview } from './effects-preview';
 import { createHistory, type EditorHistory } from './history';
@@ -24,6 +25,8 @@ declare global {
       preview?: Preview;
       /** Tree Effects shown in the preview. */
       effects?: EffectsPreview;
+      /** The preview's Wind (tests pin its time for deterministic sway). */
+      wind?: Wind;
     };
   }
 }
@@ -75,7 +78,7 @@ async function main(): Promise<void> {
     },
   });
   const backend = await preview.init();
-  window.treeEditor = { ...window.treeEditor, backend, store, history, preview };
+  window.treeEditor = { ...window.treeEditor, backend, store, history, preview, wind: sceneWind };
 
   const context: PanelContext = { store, preview, report: (message) => report(message) };
   const panels = document.getElementById('panels')!;
