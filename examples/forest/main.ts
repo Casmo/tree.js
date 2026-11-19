@@ -26,7 +26,11 @@
 //   ?plant=<n>  (with lod) plant n more trees in a row in front after Detail Levels are on, then cut every 4th
 //   ?unplant=1  (with ?plant) then cut every planted tree again: the forest must look as before
 //   ?cutLater=1  (with lod and ?cut) cut the trees after Detail Levels are on instead of right after planting
+//   ?hook=leaves|bark[,...]  a Tree Shader Hook on those parts of the forest that tints them magenta
+//   ?sceneHook=leaves|bark[,...]  the same hook as the scene-wide default (setSceneShaderHooks)
+//   ?hookInputs=1  the hook paints from its inputs instead: red by each tree's position, green by the world normal
 import * as THREE from 'three/webgpu';
+import { fract, mix, uniform, vec3 } from 'three/tsl';
 import {
   createForest,
   createRandom,
@@ -35,6 +39,7 @@ import {
   sceneWind,
   SEASON_PROFILES,
   selectDetailLevel,
+  setSceneShaderHooks,
   SUGGESTED_MATERIAL_FEATURES,
   withMaterialFeatures,
   type Forest,
@@ -46,6 +51,8 @@ import {
   type TreeDefinition,
   type TranslucencyDefinition,
   type TreeDefinitionInput,
+  type TreeShaderHook,
+  type TreeShaderHooks,
   type WindBurstOptions,
 } from '@casmo/tree.js';
 import { loadSpecies, type SpeciesName } from '@casmo/tree.js/species';
@@ -73,6 +80,11 @@ declare global {
       setGrowth?: (growth: number) => Promise<void>;
       /** Tunes the forest's live Material Features (only those that are on), then draws the frame again. */
       setMaterialFeatures?: (features: { crownNormals?: number; translucency?: Partial<TranslucencyDefinition>; occlusionStrength?: number }) => Promise<void>;
+      /**
+       * Sets the magenta Tree Shader Hook on these parts of the forest (`scene`: as the scene-wide default
+       * instead) and how strongly it tints (a uniform: no rebuild), then draws the frame again.
+       */
+      setShaderHooks?: (options: { parts?: string[]; sceneParts?: string[]; amount?: number }) => Promise<void>;
       /** Starts a Wind Burst on the scene-wide Wind (at its current time) and draws the frame again. */
       burst?: (options: WindBurstOptions) => Promise<void>;
       /** Pins the scene-wide Wind clock to `seconds` and draws the frame again. */
@@ -196,6 +208,16 @@ function expectedLevels(forest: Forest): { full: number; light: number; impostor
   return { full: counts[0]!, light: counts[1]!, impostor: counts[2]! };
 }
 
+// ?hook= / ?sceneHook=: a Tree Shader Hook that tints a part magenta, by a live amount.
+const hookAmount = uniform(0.8);
+const magenta: TreeShaderHook =
+  params.get('hookInputs') === '1'
+    ? ({ color, normal, treePosition }) => mix(color, vec3(fract(treePosition.x.mul(0.37)), normal.y.mul(0.5).add(0.5), 1), hookAmount)
+    : ({ color }) => mix(color, vec3(1, 0, 1), hookAmount);
+const hooksFor = (parts: string[]): TreeShaderHooks => Object.fromEntries(parts.map((part) => [part, magenta]));
+const partsParam = (name: string) => params.get(name)?.split(',').filter(Boolean) ?? [];
+setSceneShaderHooks(hooksFor(partsParam('sceneHook')));
+
 async function main(): Promise<void> {
   const lod = lodOption();
   const forest = createForest(withFeatures(withFruit(await loadDefinition())), placements, {
@@ -204,6 +226,7 @@ async function main(): Promise<void> {
     growth: number('growth', 1),
     season: number('season', 0.37),
     lod,
+    shaderHooks: hooksFor(partsParam('hook')),
   });
   const cut = number('cut', 0);
   const cutTrees = () => {
@@ -281,6 +304,12 @@ async function main(): Promise<void> {
       if (crownNormals !== undefined) forest.crownNormals = crownNormals;
       if (translucency !== undefined) forest.translucency = translucency;
       if (occlusionStrength !== undefined) forest.occlusionStrength = occlusionStrength;
+      await renderer.renderAsync(scene, camera);
+    },
+    setShaderHooks: async ({ parts, sceneParts, amount }) => {
+      if (parts !== undefined) forest.shaderHooks = hooksFor(parts);
+      if (sceneParts !== undefined) setSceneShaderHooks(hooksFor(sceneParts));
+      if (amount !== undefined) hookAmount.value = amount;
       await renderer.renderAsync(scene, camera);
     },
     burst: async (options) => {

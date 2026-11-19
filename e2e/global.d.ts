@@ -52,6 +52,8 @@ declare global {
         translucency?: { strength?: number; edge?: number; ambient?: number };
         occlusionStrength?: number;
       }) => Promise<void>;
+      /** Sets the magenta Tree Shader Hook on the forest's / the scene-wide parts and its amount, then draws again. */
+      setShaderHooks?: (options: { parts?: string[]; sceneParts?: string[]; amount?: number }) => Promise<void>;
       /** Starts a Wind Burst on the scene-wide Wind (at its current time) and draws the frame again. */
       burst?: (options: { x: number; z: number; strength?: number; radius?: number }) => Promise<void>;
       /** Pins the scene-wide Wind clock to `seconds` and draws the frame again. */

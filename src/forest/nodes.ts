@@ -100,6 +100,17 @@ export function levelTreePosition(): Node<'vec3'> {
   );
 }
 
+/**
+ * The tree's base in forest space, in the vertex stage before `positionNode` runs: from the instance
+ * matrix three applied to `positionLocal` on the instanced meshes, the tree's data on a Detail Level mesh.
+ */
+export function instanceTreeBase(): Node<'vec3'> {
+  return perInstance(
+    () => positionLocal.sub(rotateByQuaternion(instanceRotation(), positionGeometry).mul(instanceState().scale)),
+    (instance) => instance.position,
+  );
+}
+
 /** Rotates `v` by the quaternion `q` (`inverse` = by its conjugate). */
 export function rotateByQuaternion(q: Node<'vec4'>, v: Node<'vec3'>, inverse = false): Node<'vec3'> {
   const u = inverse ? q.xyz.negate() : q.xyz;
@@ -176,6 +187,10 @@ export function forestPosition(wind: WindSource, response: WindResponse, base: N
   const position = placedPosition().add(instanceRotate(displacement).mul(scale));
   // Wind-aware velocity (ADR 0011): each instance's own phase at the previous Wind time. Detail Level
   // meshes draw with these same materials (and per-tree nodes), so they get it too.
-  setWindMotion(position, { source: wind, shift: (previous) => instanceRotate(offsetAt(previous).sub(offset)).mul(scale) });
+  setWindMotion(position, {
+    source: wind,
+    shift: (previous) => instanceRotate(offsetAt(previous).sub(offset)).mul(scale),
+    offset: instanceRotate(offset).mul(scale),
+  });
   return position;
 }
