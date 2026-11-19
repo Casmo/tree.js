@@ -16,6 +16,7 @@ import { branchSway, writeTrunkSway } from './wind';
 import type { GeometryBuffers, TreeData, TreeSkeleton } from './types';
 
 export { growthTiming } from './growth';
+export { generateLightTree, lightDefinition } from './light';
 export { crownDistance, crownNormal, type CrownVolume } from './crown';
 export type { GrowthTiming, GrowthWindow, GeometryBuffers, TreeAttributes, VertexAttribute, SkeletonBranch, SkeletonFruit, SkeletonRoot, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
 
