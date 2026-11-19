@@ -453,12 +453,14 @@ forest.lod = { impostor: 120 }; // distances, fade and the LOD camera are live: 
   changes: no extra meshes, buffers or bake.
 - One camera picks every tree's level: the first non-shadow camera that draws the Forest in a frame, or
   `lod.camera`. Shadow passes and other cameras reuse its levels.
-- Raycasting, `forest.treeAt` and `addTree`/`removeTree` work as without `lod`.
-- **Memory**: the Impostors are baked into atlases, per Variant, of `impostorAtlas.size`² pixels
-  (default 2048, `frames` 12 × 12 directions). Each atlas is RGBA8 with mipmaps, about 21 MiB at 2048,
-  and a Variant has one per baked channel (colour, normals, Season data, plus Material Feature inputs when
-  the Definition sets them) and a depth buffer of the same size: roughly 60 to 120 MiB of GPU memory per
-  Variant, so 240 to 480 MiB for 4 Variants. Halving `size` quarters it: `lod: { light: 30, impostor: 90, impostorAtlas: { size: 1024 } }`.
+- Raycasting, `forest.treeAt`, `addTree`/`removeTree`, live Material Features and Tree Effects work as
+  without `lod`, at every Detail Level.
+- **Memory**: the Impostors are baked into atlases of `impostorAtlas.size`² pixels (default 2048, with
+  `frames` 12 × 12 directions), one per baked channel and Variant: colour, normals, Season data, and Material
+  Feature inputs when the Definition sets them. Each atlas is RGBA8 with mipmaps, about 21 MiB at 2048, plus
+  one depth buffer of the same size (16 MiB) per Variant: about 80 MiB of GPU memory per Variant with three
+  atlases, 320 MiB for 4 Variants. Halving `size` quarters it (`impostorAtlas: { size: 1024 }`); fewer
+  `frames` keep the memory and give each direction more pixels.
   `forest.dispose()` frees them.
 
 [`examples/large-forest`](examples/large-forest/main.ts) draws 10,000 trees under an orbiting camera and
@@ -467,15 +469,15 @@ rebuilds the Forest with Detail Levels on or off, measuring both runs side by si
 
 | 10,000 trees, 4 Variants | Detail Levels off | Detail Levels on (`lod: true`) |
 | --- | --- | --- |
-| frame time, average / p95 | 3,812 / 9,774 ms | 245 / 387 ms |
+| frame time, average / p95 | 2,988 / 6,207 ms | 264 / 441 ms |
 | draw calls | 10 | 22 |
 | triangles drawn | 12,520,003 | 450,869 |
 | trees Full / Light / Impostor | 10,000 / 0 / 0 | 40 / 1,639 / 8,630 |
 
-*Measured with `?orbit=30` (camera pinned), 120 frames at 640 × 480, in headless Chromium whose WebGPU
-runs on SwiftShader, a CPU rasterizer, on an AMD Ryzen 9 7900 that was also running other jobs. That is why
-the frames take seconds; on a GPU every number is far lower, and the ratio differs. The extra draw calls are
-the indirect draws of every Variant and level, drawn even when a level is empty.*
+*Measured with `?orbit=30` (camera pinned), 120 frames at 640 × 480, in headless Chromium (Playwright 1.65)
+whose WebGPU runs on SwiftShader, a CPU rasterizer, on an AMD Ryzen 9 7900 that was also running other jobs.
+That is why a frame takes seconds; on a GPU the frames are far faster and the ratio differs. The extra draw
+calls are the indirect draws of every Variant and level, issued even when a level is empty.*
 
 ## Material Features
 
