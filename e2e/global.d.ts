@@ -1,8 +1,10 @@
+import type { WindBurstOptions } from "@casmo/tree.js";
+
 export {};
 declare global {
   interface Window {
     treeExample: {
-      status: 'loading' | 'rendered' | 'error';
+      status: "loading" | "rendered" | "error";
       backend?: string;
       error?: string;
       /** id of the leaf BufferGeometry, to check that Season does not regenerate. */
@@ -11,6 +13,12 @@ declare global {
       fruitVertices?: number;
       /** Sets `tree.season` and re-renders (status goes 'loading' -> 'rendered'). */
       setSeason?: (season: number) => void;
+      /** With ?burst=1: world-space ground points of the near (left) and far (right) tree. */
+      trees?: { near: [number, number]; far: [number, number] };
+      /** Starts a Wind Burst on the scene-wide Wind (at its current time) and draws the frame again. */
+      burst?: (options: WindBurstOptions) => Promise<void>;
+      /** Pins the scene-wide Wind clock to `seconds` and draws the frame again. */
+      setWindTime?: (seconds: number) => Promise<void>;
       /** Sets the magenta Tree Shader Hook on these parts only (none: removes them) and re-renders. */
       setShaderHooks?: (parts: string[]) => void;
       /** Shows or hides one part's mesh ('wood', 'leaves', 'fruit') and re-renders. */
@@ -21,7 +29,7 @@ declare global {
 declare global {
   interface Window {
     forestExample: {
-      status: 'loading' | 'rendered' | 'error';
+      status: "loading" | "rendered" | "error";
       backend?: string;
       error?: string;
       trees?: number;
@@ -51,7 +59,7 @@ declare global {
   interface Window {
     largeForestExample: {
       /** 'loading' while the Forest is built, baked or measured. */
-      status: 'loading' | 'rendered' | 'error';
+      status: "loading" | "rendered" | "error";
       backend?: string;
       error?: string;
       trees?: number;

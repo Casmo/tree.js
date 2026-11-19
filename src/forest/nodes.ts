@@ -144,7 +144,8 @@ export function forestPosition(wind: WindSource, response: WindResponse, base: N
   const { scale, growth, windPhase } = instanceState();
   const grown = growthPosition(growth, base);
   const offsetAt = (time?: Node<'float'>) =>
-    windOffset(wind, response, { direction: instanceRotate(objectWindDirection(wind), true), phase: windPhase, time });
+    // Wind Bursts on Forest instances are not wired up yet: their materials stay as they are.
+    windOffset(wind, response, { direction: instanceRotate(objectWindDirection(wind), true), phase: windPhase, time, burst: false });
   const offset = offsetAt();
   const displacement = grown.add(offset).sub(positionGeometry);
   const position = placedPosition().add(instanceRotate(displacement).mul(scale));

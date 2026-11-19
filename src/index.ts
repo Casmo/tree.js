@@ -36,7 +36,18 @@ export {
   type TextureOptions,
 } from './textures';
 export { assertWebGPURenderer, UnsupportedRendererError } from './renderer';
-export { Wind, sceneWind, WindResponse, type WindDirection, type WindOptions } from './wind';
+export {
+  Wind,
+  sceneWind,
+  WindResponse,
+  MAX_WIND_BURSTS,
+  WIND_BURST_LIFETIME,
+  WIND_BURST_REACH,
+  type WindBurst,
+  type WindBurstOptions,
+  type WindDirection,
+  type WindOptions,
+} from './wind';
 export type { TreeStyle } from './styles/types';
 export type { StyleSource } from './styles/apply';
 export type {
