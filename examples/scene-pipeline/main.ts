@@ -46,10 +46,14 @@
 //   ?pick=tree|f0|f1  the Tree ID channel on (`treeId: true`): after rendering, pick() at that tree's
 //                     trunk; the result is in `scenePipelineExample.picked`
 //   ?highlight=1  with ?pick: the Highlight added to the Tree Effects, marking the picked tree (`highlighted`)
+//   ?custom=on|pass-through  with ?scene=none|style: a foliage-only custom Tree Effect added to the
+//                            Scene Pipeline (addEffect), with a demo look (a warm tint) or the bare
+//                            pass-through (the colour itself); it runs before the outline
+//   ?view=mask  with ?scene=none|style: show the Scene Pipeline's tree mask (red = tree, green = leaves)
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?wind=<strength>&windTime=<s>  scene-wide Wind; windTime pins its clock (default: no Wind)
 import * as THREE from 'three/webgpu';
-import { abs, color, fog, mrt, output, pass, rangeFogFactor, renderOutput, vec4 } from 'three/tsl';
+import { abs, color, fog, mix, mrt, output, pass, rangeFogFactor, renderOutput, uniform, vec4 } from 'three/tsl';
 import {
   createForest,
   createTree,
@@ -61,7 +65,7 @@ import {
   type StyleName,
   type Tree,
 } from '@casmo/tree.js';
-import { createTreeEffects, SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from '@casmo/tree.js/effects';
+import { createTreeEffects, SUGGESTED_TREE_EFFECTS, type CustomTreeEffect, type TreeEffectsSettings } from '@casmo/tree.js/effects';
 import {
   createScenePipeline,
   sceneAO,
@@ -114,6 +118,22 @@ const statusEl = document.getElementById('status')!;
 sceneWind.set({ direction: [1, 0, -0.4], strength: Number(params.get('wind') ?? 0) });
 const windTime = params.get('windTime');
 if (windTime !== null) sceneWind.time = Number(windTime);
+
+/**
+ * A foliage-only custom Tree Effect (see examples/custom-effect): the tree mask's `g` is 1 on leaf
+ * pixels only, so the look (a warm tint, or the colour itself for the pass-through) touches nothing else.
+ */
+function foliageOnly(demo: boolean): CustomTreeEffect<{ strength: number }> {
+  return {
+    before: 'outline',
+    build(input, options) {
+      const strength = uniform(options.strength);
+      const look = demo ? input.color.rgb.mul(color('#ffb347')).mul(1.6) : input.color.rgb;
+      const node = vec4(mix(input.color.rgb, look, input.mask.g.mul(strength)), input.color.a);
+      return { node, update: (next) => (strength.value = next.strength) };
+    },
+  };
+}
 
 async function main(): Promise<void> {
   const style = await loadStyle(styleName);
@@ -313,6 +333,17 @@ async function main(): Promise<void> {
       if (treeEffects) options.treeEffects = treeEffects;
       const pipeline = createScenePipeline(renderer, scene, camera, options);
       render = () => pipeline.render();
+      const custom = params.get('custom');
+      if (custom !== null) {
+        if (custom !== 'on' && custom !== 'pass-through') throw new Error(`Unknown custom effect "${custom}"`);
+        pipeline.addEffect(foliageOnly(custom === 'on'), { strength: 0.8 });
+      }
+      if (params.get('view') === 'mask') {
+        const maskPipeline = new THREE.RenderPipeline(renderer);
+        maskPipeline.outputColorTransform = false;
+        maskPipeline.outputNode = vec4(pipeline.scenePass.mask.rgb, 1);
+        render = () => maskPipeline.render();
+      }
       pick = (x, y) => pipeline.pick(x, y);
       highlighted = pipeline.highlighted;
       switchAntialias = (antialias) => pipeline.set({ style: styleName, sceneEffects: { ...SUGGESTED_SCENE_EFFECTS[styleName], antialias } });
