@@ -37,3 +37,28 @@ declare global {
     };
   }
 }
+declare global {
+  interface Window {
+    largeForestExample: {
+      /** 'loading' while the Forest is built, baked or measured. */
+      status: 'loading' | 'rendered' | 'error';
+      backend?: string;
+      error?: string;
+      trees?: number;
+      /** Whether the current Forest has Detail Levels. */
+      lod?: boolean;
+      /** The last run of each kind. */
+      runs?: { off?: LargeForestRun; on?: LargeForestRun };
+      /** Rebuilds the Forest with or without Detail Levels and measures it (status 'loading' until done). */
+      setLod?: (lod: boolean) => Promise<void>;
+    };
+  }
+}
+/** One measured run of examples/large-forest (the same shape as its `Run`). */
+interface LargeForestRun {
+  lod: boolean;
+  frameTime: { frames: number; average: number; p95: number };
+  drawCalls: number;
+  triangles: number;
+  levels: { full: number; light: number; impostor: number };
+}
