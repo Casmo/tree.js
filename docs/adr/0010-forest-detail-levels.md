@@ -15,4 +15,4 @@ The Light level is the same Definition and Variant Seed regenerated with fixed r
 
 ## Consequences
 
-A tree's Tree ID stays `block base + slot`: the instance shaders read the slot through the per-level index list, not from `instanceIndex`. Shadow passes and extra cameras reuse the levels the LOD camera chose. Until the bake finishes, far trees draw at the Light level. Impostor atlases cost GPU memory per Variant (colour, normals and Season data).
+A tree's Tree ID stays `block base + slot`: the instance shaders read the slot through the per-level index list, not from `instanceIndex`. Shadow passes and extra cameras reuse the levels the LOD camera chose. Until the bake finishes, far trees draw at the Light level. Impostor atlases cost GPU memory per Variant (colour, normals and Season data, plus the wood alone in colour and normals, shown where leaves have dropped).
