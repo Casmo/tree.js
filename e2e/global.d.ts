@@ -32,6 +32,8 @@ declare global {
       expectedLevels?: { full: number; light: number; impostor: number };
       /** Draws the frame again (the page is otherwise still), resolving once it is drawn. */
       renderAgain?: () => Promise<void>;
+      /** With ?lod: sets the Growth of the whole forest, draws it and updates `levels` and `expectedLevels`. */
+      setGrowth?: (growth: number) => Promise<void>;
     };
   }
 }
