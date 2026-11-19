@@ -7,7 +7,9 @@ type SceneExample = {
   error?: string;
   renderer?: { before: RendererState; after: RendererState };
   picked?: { name: string | null; x: number; y: number };
+  regions?: Record<'crown' | 'ground', Rect>;
 };
+type Rect = { x0: number; y0: number; x1: number; y1: number };
 
 /** Loads the Scene Pipeline example and returns its status and a screenshot of the canvas (status text hidden). */
 async function load(page: Page, query: string): Promise<{ example: SceneExample; image: Buffer }> {
@@ -103,5 +105,63 @@ test.describe('the Scene Pipeline behaves as TreeEffects for its Tree Effects pa
     const marked = await load(page, 'style=stylized&scene=style&pick=tree&highlight=1');
     expect(marked.example.picked?.name).toBe('tree');
     expect((await difference(page, plain.image, marked.image)).changed).toBeGreaterThan(300);
+  });
+});
+
+/** Per region (CSS pixels): the share of pixels with any red or green (a velocity view's |x|, |y|), and the largest value. */
+async function moving(page: Page, image: Buffer, regions: Record<string, Rect>): Promise<Record<string, { share: number; max: number }>> {
+  return page.evaluate(
+    async ([png, rects]) => {
+      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const context = canvas.getContext('2d')!;
+      context.drawImage(bitmap, 0, 0);
+      const { data, width } = context.getImageData(0, 0, bitmap.width, bitmap.height);
+      const out: Record<string, { share: number; max: number }> = {};
+      for (const [name, r] of Object.entries(rects)) {
+        let count = 0;
+        let hits = 0;
+        let max = 0;
+        for (let y = Math.max(0, Math.floor(r.y0)); y < Math.min(bitmap.height, Math.ceil(r.y1)); y++) {
+          for (let x = Math.max(0, Math.floor(r.x0)); x < Math.min(width, Math.ceil(r.x1)); x++) {
+            const i = (y * width + x) * 4;
+            const v = Math.max(data[i]!, data[i + 1]!);
+            count++;
+            if (v > 0) hits++;
+            max = Math.max(max, v);
+          }
+        }
+        out[name] = { share: hits / Math.max(1, count), max };
+      }
+      return out;
+    },
+    [image.toString('base64'), regions] as const,
+  );
+}
+
+test.describe('Wind-aware velocity (ADR 0011)', () => {
+  const views = [
+    { name: 'windVelocityMRT in a hand-made pipeline', query: 'scene=velocity' },
+    { name: "the Scene Pipeline's velocity channel", query: 'scene=velocity&via=scene-pipeline' },
+    { name: 'windVelocityMRT on WebGL2', query: 'scene=velocity&backend=webgl' },
+  ];
+  for (const { name, query } of views) {
+    test(`with Wind pinned at a fixed strength, velocity is non-zero on leaves and zero on the ground (${name})`, async ({ page }) => {
+      const windy = await load(page, `style=realistic&${query}&wind=1.5&windTime=3`);
+      const regions = windy.example.regions!;
+      const blowing = await moving(page, windy.image, regions);
+      expect(blowing.crown!.share, 'leaves move').toBeGreaterThan(0.05);
+      expect(blowing.crown!.max).toBeGreaterThan(20);
+      expect(blowing.ground, 'the ground stands still').toEqual({ share: 0, max: 0 });
+
+      const calm = await load(page, `style=realistic&${query}&wind=0&windTime=3`);
+      expect(await moving(page, calm.image, regions), 'no Wind, no motion').toEqual({ crown: { share: 0, max: 0 }, ground: { share: 0, max: 0 } });
+    });
+  }
+
+  test('the velocity channel does not change the rendered frame', async ({ page }) => {
+    const without = await load(page, 'style=realistic&scene=style&wind=1.5&windTime=3');
+    const withVelocity = await load(page, 'style=realistic&scene=style&wind=1.5&windTime=3&velocity=1');
+    expect(await difference(page, without.image, withVelocity.image)).toEqual({ changed: 0, maxDiff: 0 });
   });
 });

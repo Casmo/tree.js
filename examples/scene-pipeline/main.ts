@@ -9,6 +9,12 @@
 //   ?scene=plain  no pipeline at all: renderer.render(scene, camera)
 //   ?scene=tone-mapping  one Scene Effect alone, through its stand-alone builder (sceneToneMapping)
 //                        in a hand-made RenderPipeline, with the Style's suggested settings
+//   ?scene=velocity  the Wind-aware velocity channel, shown as colours (red = |x|, green = |y|, NDC
+//                    per frame x 200): windVelocityMRT on a hand-made scene pass, or with
+//                    ?via=scene-pipeline the channel of createScenePipeline(..., { velocity: true })
+//                    (scenePass.velocity); `scenePipelineExample.regions` has the front tree's crown and
+//                    a strip of ground to check it in
+//   ?velocity=1  with ?scene=none|style: the Scene Pipeline's velocity option (the frame must not change)
 //   ?treeEffects=style  with ?scene=none: the Style's suggested Tree Effects only (no Scene Effects)
 //   ?via=tree-effects  render ?scene=none&treeEffects=... through createTreeEffects instead (the
 //                      Scene Pipeline must give the same image, the same pick and the same highlight)
@@ -19,7 +25,7 @@
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?wind=<strength>&windTime=<s>  scene-wide Wind; windTime pins its clock (default: no Wind)
 import * as THREE from 'three/webgpu';
-import { pass } from 'three/tsl';
+import { abs, mrt, output, pass, vec4 } from 'three/tsl';
 import {
   createForest,
   createTree,
@@ -32,7 +38,14 @@ import {
   type Tree,
 } from '@casmo/tree.js';
 import { createTreeEffects, SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from '@casmo/tree.js/effects';
-import { createScenePipeline, sceneToneMapping, SUGGESTED_SCENE_EFFECTS, type ScenePipelineOptions } from '@casmo/tree.js/scene';
+import {
+  createScenePipeline,
+  sceneToneMapping,
+  SUGGESTED_SCENE_EFFECTS,
+  WIND_VELOCITY,
+  windVelocityMRT,
+  type ScenePipelineOptions,
+} from '@casmo/tree.js/scene';
 import { framingBox } from '../framing';
 
 /** The renderer settings the pipeline must never change. */
@@ -52,6 +65,8 @@ declare global {
       renderer?: { before: RendererState; after: RendererState };
       /** `?pick=<name>`: the point picked (CSS pixels) and the name of the tree pick() resolved to. */
       picked?: { name: string | null; x: number; y: number };
+      /** `?scene=velocity`: where to check the velocity (CSS pixels): the front tree's crown, a strip of ground. */
+      regions?: Record<'crown' | 'ground', { x0: number; y0: number; x1: number; y1: number }>;
     };
   }
 }
@@ -139,6 +154,19 @@ async function main(): Promise<void> {
   };
   const nameOf = (found: object | undefined) => (found === undefined ? null : ([...named].find(([, v]) => v.tree === found)?.[0] ?? 'other'));
 
+  /** The front tree's crown (its leaves' bounds on screen) and a strip of ground at the bottom. */
+  const regions = () => {
+    const leaves = tree.leaves.geometry.boundingBox ?? (tree.leaves.geometry.computeBoundingBox(), tree.leaves.geometry.boundingBox!);
+    const corners = [0, 1, 2, 3, 4, 5, 6, 7].map((i) =>
+      onScreen(new THREE.Vector3(i & 1 ? leaves.max.x : leaves.min.x, i & 2 ? leaves.max.y : leaves.min.y, i & 4 ? leaves.max.z : leaves.min.z)),
+    );
+    const { clientWidth: w, clientHeight: h } = renderer.domElement;
+    return {
+      crown: { x0: Math.min(...corners.map((c) => c.x)), y0: Math.min(...corners.map((c) => c.y)), x1: Math.max(...corners.map((c) => c.x)), y1: Math.max(...corners.map((c) => c.y)) },
+      ground: { x0: 0, y0: h * 0.93, x1: w * 0.6, y1: h }, // left of the rock
+    };
+  };
+
   const pickName = params.get('pick');
   const highlight = pickName !== null && params.get('highlight') === '1';
   const selection = params.get('selection') === 'tree' ? [tree] : undefined;
@@ -154,6 +182,20 @@ async function main(): Promise<void> {
     pipeline.outputNode = sceneToneMapping(pass(scene, camera).getTextureNode(), SUGGESTED_SCENE_EFFECTS[styleName].toneMapping);
     pipeline.outputColorTransform = false; // the builder outputs display colours
     render = () => pipeline.render();
+  } else if (sceneParam === 'velocity') {
+    // The velocity channel made visible: |x| in red, |y| in green (NDC per frame, scaled up).
+    let velocity: THREE.TextureNode;
+    if (params.get('via') === 'scene-pipeline') {
+      velocity = createScenePipeline(renderer, scene, camera, { velocity: true }).scenePass.velocity!;
+    } else {
+      const scenePass = pass(scene, camera);
+      scenePass.setMRT(mrt({ output }).merge(windVelocityMRT()));
+      velocity = scenePass.getTextureNode(WIND_VELOCITY);
+    }
+    const pipeline = new THREE.RenderPipeline(renderer);
+    pipeline.outputNode = vec4(abs(velocity.xy).mul(200), 0, 1);
+    pipeline.outputColorTransform = false;
+    render = () => pipeline.render();
   } else if (sceneParam === 'none' || sceneParam === 'style') {
     // The Style's suggested Tree Effects (with the Highlight for ?highlight=1), or none.
     const suggested = params.get('treeEffects') === 'style' || (sceneParam === 'style' && highlight);
@@ -165,7 +207,7 @@ async function main(): Promise<void> {
       pick = (x, y) => effects.pick(x, y);
       highlighted = effects.highlighted;
     } else {
-      const options: ScenePipelineOptions = { ...common, sun };
+      const options: ScenePipelineOptions = { ...common, sun, velocity: params.get('velocity') === '1' };
       if (sceneParam === 'style') options.style = styleName;
       if (treeEffects) options.treeEffects = treeEffects;
       const pipeline = createScenePipeline(renderer, scene, camera, options);
@@ -204,6 +246,7 @@ async function main(): Promise<void> {
     }
   }
   window.scenePipelineExample = { status: 'rendered', backend, picked, renderer: { before, after: rendererState() } };
+  if (sceneParam === 'velocity') window.scenePipelineExample.regions = regions();
   if (sceneWind.strength > 0 && windTime === null) renderer.setAnimationLoop(render);
 }
 

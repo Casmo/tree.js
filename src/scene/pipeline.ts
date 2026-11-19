@@ -8,7 +8,6 @@ import {
   treeEffectsShape,
 } from '../effects/effects';
 import type { TreeEffectsChoice } from '../effects/effects';
-import { treeEffectsPass, type TreeEffectsChannels, type TreeEffectsPass } from '../effects/pass';
 import type { TreeEffectsSettings } from '../effects/suggested';
 import { readTreeId, treeFromId } from '../effects/tree-id';
 import type { LiveTreeEffect } from '../effects/live';
@@ -17,6 +16,7 @@ import type { ForestTree } from '../forest';
 import type { Tree } from '../tree';
 import { resolveSceneEffects, type SceneEffectsChoice, type SceneEffectsSettings } from './settings';
 import { liveSceneEffects, sceneEffectsShape, type LiveSceneEffects } from './stack';
+import { scenePass, type ScenePass, type ScenePassChannels } from './velocity';
 
 /**
  * Which Tree Effects and Scene Effects to render. `style` picks both of that Style's suggestions;
@@ -38,6 +38,11 @@ export interface ScenePipelineOptions extends ScenePipelineChoice {
   treeId?: boolean;
   /** The trees the Highlight marks (as `TreeEffectsOptions.highlighted`). */
   highlighted?: (Tree | ForestTree)[];
+  /**
+   * Keeps the Wind-aware velocity channel on (`scenePass.velocity`, see `windVelocityMRT`), e.g. for
+   * your own temporal effects. TRAA and motion blur turn it on by themselves.
+   */
+  velocity?: boolean;
 }
 
 /** The resolved settings of a Scene Pipeline (`{}` = none in a group). */
@@ -58,9 +63,15 @@ function isEmpty(settings: ScenePipelineSettings): boolean {
   return [settings.treeEffects, settings.sceneEffects].every((group) => Object.values(group).every((part) => part === undefined));
 }
 
-/** The scene pass channels the settings need (with the `treeId` option). */
-function channelsOf(settings: ScenePipelineSettings, options: ScenePipelineOptions): TreeEffectsChannels {
-  return channelsFor(settings.treeEffects, options);
+/** The scene pass channels the settings need (with the `treeId` and `velocity` options). */
+function channelsOf(settings: ScenePipelineSettings, options: ScenePipelineOptions): ScenePassChannels {
+  return { ...channelsFor(settings.treeEffects, options), velocity: wantsVelocity(settings, options) };
+}
+
+/** Whether the scene pass renders Wind-aware velocity (ADR 0011): only when something reads it. */
+function wantsVelocity(_settings: ScenePipelineSettings, options: ScenePipelineOptions): boolean {
+  // TRAA and motion blur add themselves here (`antialias === 'traa'`, `motionBlur`).
+  return options.velocity === true;
 }
 
 /**
@@ -75,7 +86,7 @@ export class ScenePipeline {
   readonly highlighted: (Tree | ForestTree)[];
   private current: ScenePipelineSettings = { treeEffects: {}, sceneEffects: {} };
   private graph: { shape: string; tree: LiveTreeEffect<TreeEffectsSettings>; scene: LiveSceneEffects; treeNodes: Node[] } | null = null;
-  private input!: { channels: string; pass: TreeEffectsPass };
+  private input!: { channels: string; pass: ScenePass };
   /** Nothing is on (no effects, no extra channel): render with `renderer.render()` itself. */
   private passThrough = true;
 
@@ -91,7 +102,7 @@ export class ScenePipeline {
   }
 
   /** The scene pass; replaced (the old one disposed) when {@link set} needs another set of channels. */
-  get scenePass(): TreeEffectsPass {
+  get scenePass(): ScenePass {
     return this.input.pass;
   }
 
@@ -113,7 +124,7 @@ export class ScenePipeline {
       this.input?.pass.pass.dispose();
       this.input = {
         channels,
-        pass: treeEffectsPass(this.scene, this.camera, this.options.selection ?? null, channelsOf(this.current, this.options)),
+        pass: scenePass(this.scene, this.camera, this.options.selection ?? null, channelsOf(this.current, this.options)),
       };
     }
     this.passThrough = channels === '' && isEmpty(this.current);

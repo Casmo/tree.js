@@ -2,6 +2,7 @@ import type { Node } from 'three/webgpu';
 import { attribute, cross, positionGeometry, positionLocal } from 'three/tsl';
 import { growthPosition } from '../growth';
 import { objectWindDirection, windOffset, type WindResponse, type WindSource } from '../wind';
+import { setWindMotion } from '../wind/motion';
 
 /**
  * Per-instance data of a Forest (one interleaved instanced buffer, 8 floats per tree):
@@ -41,7 +42,12 @@ export function instanceRotate(v: Node<'vec3'>, inverse = false): Node<'vec3'> {
 export function forestPosition(wind: WindSource, response: WindResponse, base: Node<'vec3'> = positionGeometry): Node<'vec3'> {
   const { scale, growth, windPhase } = instanceState();
   const grown = growthPosition(growth, base);
-  const offset = windOffset(wind, response, { direction: instanceRotate(objectWindDirection(wind), true), phase: windPhase });
+  const offsetAt = (time?: Node<'float'>) =>
+    windOffset(wind, response, { direction: instanceRotate(objectWindDirection(wind), true), phase: windPhase, time });
+  const offset = offsetAt();
   const displacement = grown.add(offset).sub(positionGeometry);
-  return positionLocal.add(instanceRotate(displacement).mul(scale));
+  const position = positionLocal.add(instanceRotate(displacement).mul(scale));
+  // Wind-aware velocity (ADR 0011): each instance's own phase at the previous Wind time.
+  setWindMotion(position, { source: wind, shift: (previous) => instanceRotate(offsetAt(previous).sub(offset)).mul(scale) });
+  return position;
 }

@@ -10,6 +10,8 @@ export interface SceneEffectInput {
   color: Node<'vec4'>;
   depth?: TextureNode;
   camera?: Camera;
+  /** Wind-aware velocity (NDC units per frame, see `windVelocityMRT`), for TRAA and motion blur. */
+  velocity?: TextureNode;
 }
 
 /**
