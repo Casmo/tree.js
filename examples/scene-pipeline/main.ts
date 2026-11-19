@@ -9,6 +9,12 @@
 //   ?scene=plain  no pipeline at all: renderer.render(scene, camera)
 //   ?scene=tone-mapping  one Scene Effect alone, through its stand-alone builder (sceneToneMapping)
 //                        in a hand-made RenderPipeline, with the Style's suggested settings
+//   ?scene=bloom  bloom alone (sceneBloom), likewise: the Style's suggested bloom or sceneBloom's
+//                 defaults (low-poly suggests none), with the renderer's normal output transform
+//   ?scene=smaa|fxaa  anti-aliasing alone (sceneAntialias) on the renderer's output transform
+//                     (renderOutput), in a hand-made RenderPipeline
+//   ?antialias=fxaa,smaa  with ?scene=style: after the first frames, set() the suggestion with each
+//                         anti-aliasing mode in turn (smaa|fxaa|none), rendering in between
 //   ?scene=fog  fog alone: sceneFog with the Style's suggested settings as the app's scene.fogNode
 //   ?appFog=1  the app sets its own scene.fogNode first; ?dispose=1  dispose() the pipeline after
 //              rendering: `scenePipelineExample.fog` says whether scene.fogNode was the app's while
@@ -23,7 +29,7 @@
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?wind=<strength>&windTime=<s>  scene-wide Wind; windTime pins its clock (default: no Wind)
 import * as THREE from 'three/webgpu';
-import { color, fog, pass, rangeFogFactor } from 'three/tsl';
+import { color, fog, pass, rangeFogFactor, renderOutput } from 'three/tsl';
 import {
   createForest,
   createTree,
@@ -36,7 +42,16 @@ import {
   type Tree,
 } from '@casmo/tree.js';
 import { createTreeEffects, SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from '@casmo/tree.js/effects';
-import { createScenePipeline, sceneFog, sceneToneMapping, SUGGESTED_SCENE_EFFECTS, type ScenePipelineOptions } from '@casmo/tree.js/scene';
+import {
+  createScenePipeline,
+  sceneAntialias,
+  sceneBloom,
+  sceneFog,
+  sceneToneMapping,
+  SUGGESTED_SCENE_EFFECTS,
+  type SceneAntialiasMode,
+  type ScenePipelineOptions,
+} from '@casmo/tree.js/scene';
 import { framingBox } from '../framing';
 
 /** The renderer settings the pipeline must never change. */
@@ -56,6 +71,8 @@ declare global {
       renderer?: { before: RendererState; after: RendererState };
       /** `?pick=<name>`: the point picked (CSS pixels) and the name of the tree pick() resolved to. */
       picked?: { name: string | null; x: number; y: number };
+      /** `?antialias=<modes>`: the anti-aliasing modes set() switched through at runtime. */
+      antialias?: string[];
       /** Whether `scene.fogNode` was the app's own value while the pipeline rendered, and after `?dispose=1`. */
       fog?: { during: boolean; after?: boolean };
     };
@@ -155,6 +172,7 @@ async function main(): Promise<void> {
   let render: () => void;
   let pick: ((x: number, y: number) => Promise<Tree | ForestTree | undefined>) | undefined;
   let highlighted: (Tree | ForestTree)[] | undefined;
+  let switchAntialias: ((mode: SceneAntialiasMode | null) => void) | undefined;
   let dispose: (() => void) | undefined;
   if (sceneParam === 'plain') {
     render = () => renderer.render(scene, camera);
@@ -163,6 +181,16 @@ async function main(): Promise<void> {
     const pipeline = new THREE.RenderPipeline(renderer);
     pipeline.outputNode = sceneToneMapping(pass(scene, camera).getTextureNode(), SUGGESTED_SCENE_EFFECTS[styleName].toneMapping);
     pipeline.outputColorTransform = false; // the builder outputs display colours
+    render = () => pipeline.render();
+  } else if (sceneParam === 'smaa' || sceneParam === 'fxaa') {
+    // Anti-aliasing alone: it runs on display colours, so on the renderer's own output transform.
+    const pipeline = new THREE.RenderPipeline(renderer);
+    pipeline.outputNode = sceneAntialias(renderOutput(pass(scene, camera).getTextureNode()), sceneParam);
+    pipeline.outputColorTransform = false; // renderOutput above already did it
+    render = () => pipeline.render();
+  } else if (sceneParam === 'bloom') {
+    const pipeline = new THREE.RenderPipeline(renderer);
+    pipeline.outputNode = sceneBloom(pass(scene, camera).getTextureNode(), SUGGESTED_SCENE_EFFECTS[styleName].bloom);
     render = () => pipeline.render();
   } else if (sceneParam === 'fog') {
     // Fog alone: the stand-alone builder as the app's own scene.fogNode, rendered as usual.
@@ -186,6 +214,7 @@ async function main(): Promise<void> {
       render = () => pipeline.render();
       pick = (x, y) => pipeline.pick(x, y);
       highlighted = pipeline.highlighted;
+      switchAntialias = (antialias) => pipeline.set({ style: styleName, sceneEffects: { ...SUGGESTED_SCENE_EFFECTS[styleName], antialias } });
       dispose = () => pipeline.dispose();
     }
   } else {
@@ -202,6 +231,16 @@ async function main(): Promise<void> {
   for (let i = 0; i < 4; i++) {
     render();
     await new Promise(requestAnimationFrame);
+  }
+  const antialias = params.get('antialias')?.split(',');
+  if (antialias && switchAntialias) {
+    for (const mode of antialias) {
+      switchAntialias(mode === 'none' ? null : (mode as SceneAntialiasMode));
+      for (let i = 0; i < 3; i++) {
+        render();
+        await new Promise(requestAnimationFrame);
+      }
+    }
   }
   let picked: typeof window.scenePipelineExample.picked;
   if (pickName !== null && pick) {
@@ -223,7 +262,7 @@ async function main(): Promise<void> {
     dispose();
     fogState.after = scene.fogNode === appFogNode;
   }
-  window.scenePipelineExample = { status: 'rendered', backend, picked, fog: fogState, renderer: { before, after: rendererState() } };
+  window.scenePipelineExample = { status: 'rendered', backend, picked, antialias, fog: fogState, renderer: { before, after: rendererState() } };
   if (sceneWind.strength > 0 && windTime === null) renderer.setAnimationLoop(render);
 }
 

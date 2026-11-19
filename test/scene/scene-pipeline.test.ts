@@ -6,11 +6,18 @@ import { SUGGESTED_TREE_EFFECTS, TREE_ID, TREE_MASK } from '../../src/effects';
 import {
   applySceneEffects,
   createScenePipeline,
+  sceneAntialias,
+  sceneBloom,
   sceneToneMapping,
   SUGGESTED_SCENE_EFFECTS,
   type ScenePipeline,
   type ScenePipelineOptions,
 } from '../../src/scene';
+
+// SMAA loads its lookup textures through `new Image()`, which Node does not have.
+vi.stubGlobal('Image', class {
+  src = '';
+});
 
 const renderer = { isWebGPURenderer: true } as unknown as Renderer;
 const create = (options?: ScenePipelineOptions) => createScenePipeline(renderer, new Scene(), new PerspectiveCamera(), options);
@@ -22,6 +29,19 @@ describe('SUGGESTED_SCENE_EFFECTS', () => {
     expect(SUGGESTED_SCENE_EFFECTS['low-poly'].toneMapping?.mapping).toBe('neutral');
     expect(SUGGESTED_SCENE_EFFECTS.stylized.toneMapping?.mapping).toBe('agx');
     expect(SUGGESTED_SCENE_EFFECTS.realistic.toneMapping?.mapping).toBe('agx');
+  });
+
+  it('suggests SMAA for every Style (the Tree ID channel turns MSAA off)', () => {
+    for (const settings of Object.values(SUGGESTED_SCENE_EFFECTS)) expect(settings.antialias).toBe('smaa');
+  });
+
+  it('suggests soft bloom for stylized, subtle bloom for realistic and none for low-poly', () => {
+    expect(SUGGESTED_SCENE_EFFECTS['low-poly'].bloom).toBeUndefined();
+    const soft = SUGGESTED_SCENE_EFFECTS.stylized.bloom!;
+    const subtle = SUGGESTED_SCENE_EFFECTS.realistic.bloom!;
+    expect(soft).toBeDefined();
+    expect(subtle).toBeDefined();
+    expect(subtle.strength!).toBeLessThan(soft.strength!);
   });
 });
 
@@ -97,7 +117,7 @@ describe('ScenePipeline set(): rebuild versus uniform-only update', () => {
   it('keeps the graph when only colours and numbers change', () => {
     const pipeline = create({ style: 'stylized' });
     const before = pipeline.pipeline.outputNode;
-    pipeline.set({ treeEffects: 'stylized', sceneEffects: { toneMapping: { mapping: 'agx', exposure: 1.6 } } });
+    pipeline.set({ treeEffects: 'stylized', sceneEffects: { ...SUGGESTED_SCENE_EFFECTS.stylized, toneMapping: { mapping: 'agx', exposure: 1.6 } } });
     expect(pipeline.pipeline.outputNode).toBe(before);
     pipeline.set({ style: 'stylized' });
     expect(pipeline.pipeline.outputNode).toBe(before);
@@ -128,6 +148,20 @@ describe('ScenePipeline set(): rebuild versus uniform-only update', () => {
     expect(disposed).toHaveBeenCalledTimes(blurs.length);
   });
 
+  it('updates bloom numbers as uniforms and frees the bloom render targets when bloom goes off', () => {
+    const pipeline = create({ treeEffects: null, sceneEffects: { bloom: { strength: 0.3 } } });
+    const before = pipeline.pipeline.outputNode;
+    const blooms = findNodes(before, (node) => node.constructor.name === 'BloomNode');
+    expect(blooms).toHaveLength(1);
+    const disposed = vi.fn();
+    blooms[0]!.addEventListener('dispose', disposed);
+    pipeline.set({ treeEffects: null, sceneEffects: { bloom: { strength: 0.8, radius: 0.6, threshold: 0.5 } } });
+    expect(pipeline.pipeline.outputNode).toBe(before);
+    expect(disposed).not.toHaveBeenCalled();
+    pipeline.set({ treeEffects: null, sceneEffects: {} });
+    expect(disposed).toHaveBeenCalledTimes(1);
+  });
+
   it('replaces the scene pass only when the set of channels changes', () => {
     const pipeline = create({ style: 'realistic' });
     const plain = pipeline.scenePass;
@@ -137,6 +171,44 @@ describe('ScenePipeline set(): rebuild versus uniform-only update', () => {
     expect(pipeline.scenePass).not.toBe(plain);
     expect(outputsOf(pipeline).sort()).toEqual(['normal', 'output', TREE_ID, TREE_MASK].sort());
     expect(pipeline.scenePass.pass.options.samples).toBe(0);
+  });
+});
+
+describe('ScenePipeline anti-aliasing', () => {
+  const isAA = (node: Node) => ['SMAANode', 'FXAANode'].includes(node.constructor.name);
+
+  it('switches between SMAA, FXAA and none with set(), freeing the render targets of the old one', () => {
+    const pipeline = create({ sceneEffects: { antialias: 'smaa' } });
+    const smaa = findNodes(pipeline.pipeline.outputNode, isAA);
+    expect(smaa.map((node) => node.constructor.name)).toEqual(['SMAANode']);
+    const disposed = vi.fn();
+    for (const node of findNodes(pipeline.pipeline.outputNode, (node) => 'isRTTNode' in node || isAA(node))) node.addEventListener('dispose', disposed);
+    pipeline.set({ sceneEffects: { antialias: 'smaa' } });
+    expect(disposed).not.toHaveBeenCalled();
+    pipeline.set({ sceneEffects: { antialias: 'fxaa' } });
+    expect(disposed).toHaveBeenCalledTimes(2); // the SMAA node and the texture of its input
+    expect(findNodes(pipeline.pipeline.outputNode, isAA).map((node) => node.constructor.name)).toEqual(['FXAANode']);
+    pipeline.set({ sceneEffects: { antialias: null } });
+    expect(pipeline.pipeline.outputNode).toBe(pipeline.scenePass.color);
+  });
+
+  it('runs on display colours: last in the stack, with its own output transform when there is no tone mapping', () => {
+    for (const toneMapping of [undefined, {}]) {
+      const pipeline = create({ sceneEffects: { toneMapping, antialias: 'fxaa' } });
+      expect(isAA(pipeline.pipeline.outputNode)).toBe(true);
+      expect(pipeline.pipeline.outputColorTransform).toBe(false);
+      expect(findNodes(pipeline.pipeline.outputNode, (node) => 'isRenderOutputNode' in node)).toHaveLength(1);
+    }
+  });
+
+  it('dispose() frees the anti-aliasing render targets', () => {
+    const pipeline = create({ sceneEffects: 'stylized' });
+    const disposed = vi.fn();
+    const nodes = findNodes(pipeline.pipeline.outputNode, (node) => 'isRTTNode' in node || isAA(node));
+    expect(nodes.length).toBe(2);
+    for (const node of nodes) node.addEventListener('dispose', disposed);
+    pipeline.dispose();
+    expect(disposed).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -158,6 +230,22 @@ describe('Scene Effects as nodes', () => {
     const input = { color: vec4(0.2, 0.4, 0.1, 1) };
     expect(applySceneEffects(input, {})).toBe(input.color);
     expect(applySceneEffects(input, { toneMapping: {} })).not.toBe(input.color);
+    expect(applySceneEffects(input, { bloom: {} })).not.toBe(input.color);
+  });
+
+  it('sceneBloom returns a new colour node, with or without options', () => {
+    const color = vec4(2, 1, 0.5, 1);
+    expect(sceneBloom(color)).not.toBe(color);
+    expect(sceneBloom(color, { strength: 0.5, radius: 0.4, threshold: 0.9 })).not.toBe(color);
+  });
+
+  it('applySceneEffects and sceneAntialias anti-alias the colour with SMAA or FXAA', () => {
+    const input = { color: vec4(0.2, 0.4, 0.1, 1) };
+    expect(applySceneEffects(input, { antialias: 'smaa' }).constructor.name).toBe('SMAANode');
+    expect(applySceneEffects(input, { antialias: null })).toBe(input.color);
+    expect(sceneAntialias(input.color, 'smaa').constructor.name).toBe('SMAANode');
+    expect(sceneAntialias(input.color, 'fxaa').constructor.name).toBe('FXAANode');
+    expect(() => sceneAntialias(input.color, 'msaa' as never)).toThrow(/msaa/);
   });
 
   it('sceneToneMapping returns a new colour node', () => {

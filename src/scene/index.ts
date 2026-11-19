@@ -7,7 +7,9 @@ export {
   type ScenePipelineOptions,
   type ScenePipelineSettings,
 } from './pipeline';
+export { sceneAntialias, type SceneAntialiasMode } from './antialias';
 export { type SceneEffectsChoice, type SceneEffectsSettings } from './settings';
+export { sceneBloom, type SceneBloomOptions } from './bloom';
 export { SUGGESTED_SCENE_EFFECTS } from './suggested';
 export { applySceneEffects } from './stack';
 export { type SceneEffectInput } from './stage';

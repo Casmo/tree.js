@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { vec4 } from 'three/tsl';
 import { Color, PerspectiveCamera, Scene, Texture, type Node, type Renderer } from 'three/webgpu';
 import { applySceneEffects, createScenePipeline, sceneFog, SUGGESTED_SCENE_EFFECTS, type ScenePipelineOptions } from '../../src/scene';
+
+// SMAA (in the Style suggestions) loads its lookup textures through `new Image()`, which Node does not have.
+vi.stubGlobal('Image', class {
+  src = '';
+});
 
 const renderer = { isWebGPURenderer: true } as unknown as Renderer;
 const appFog = vec4(1, 0, 0, 1) as unknown as Node;
