@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { vec4 } from 'three/tsl';
-import { PerspectiveCamera, Scene, type Node, type Renderer } from 'three/webgpu';
+import { PassNode, PerspectiveCamera, Scene, type Node, type Renderer } from 'three/webgpu';
+import GTAONode from 'three/addons/tsl/display/GTAONode.js';
 import { SUGGESTED_TREE_EFFECTS, TREE_ID, TREE_MASK } from '../../src/effects';
 import {
   applySceneEffects,
   createScenePipeline,
+  sceneAO,
   sceneAntialias,
   sceneBloom,
   sceneToneMapping,
@@ -252,6 +254,54 @@ describe('Scene Effects as nodes', () => {
     const color = vec4(2, 1, 0.5, 1);
     expect(sceneToneMapping(color)).not.toBe(color);
     expect(sceneToneMapping(color, { mapping: 'neutral', exposure: 0.8 })).not.toBe(color);
+  });
+});
+
+describe('ambient occlusion (GTAO through the lighting context)', () => {
+  it('sceneAO returns a depth + view-normal pre-pass, the AO node and a lighting context for your own scene pass', () => {
+    const scene = new Scene();
+    const camera = new PerspectiveCamera();
+    const { prePass, node, context } = sceneAO(scene, camera, { radius: 0.8, scale: 1.4 });
+    expect(prePass).toBeInstanceOf(PassNode);
+    expect(prePass.scene).toBe(scene);
+    expect(Object.keys(prePass.getMRT()!.outputNodes)).toEqual(['output']);
+    expect(node).toBeInstanceOf(GTAONode);
+    expect(node.radius.value).toBe(0.8);
+    expect(node.scale.value).toBe(1.4);
+    expect(typeof (context.value as { getAO?: unknown }).getAO).toBe('function');
+    // Defaults for every option.
+    expect(sceneAO(scene, camera).node.radius.value).toBeGreaterThan(0);
+  });
+
+  it('is in every Style\'s suggestion, lighter for low-poly', () => {
+    for (const style of ['low-poly', 'stylized', 'realistic'] as const) expect(SUGGESTED_SCENE_EFFECTS[style].ao, style).toBeDefined();
+    expect(SUGGESTED_SCENE_EFFECTS['low-poly'].ao!.scale!).toBeLessThan(SUGGESTED_SCENE_EFFECTS.stylized.ao!.scale!);
+  });
+
+  it('feeds the AO context into the scene pass lighting only while AO is on', () => {
+    const pipeline = create({ sceneEffects: { ao: {} } });
+    expect(pipeline.scenePass.pass.contextNode).not.toBeNull();
+    pipeline.set({ sceneEffects: null });
+    expect(pipeline.scenePass.pass.contextNode).toBeNull();
+    expect(create({ style: 'stylized', sceneEffects: { toneMapping: {} } }).scenePass.pass.contextNode).toBeNull();
+  });
+
+  it('rebuilds when AO is switched, and only updates uniforms when its numbers change', () => {
+    const disposed = vi.spyOn(GTAONode.prototype, 'dispose');
+    const pipeline = create({ sceneEffects: { ao: { radius: 1 } } });
+    const context = pipeline.scenePass.pass.contextNode;
+    const output = pipeline.pipeline.outputNode;
+    pipeline.set({ sceneEffects: { ao: { radius: 2, scale: 0.5 } } });
+    expect(pipeline.scenePass.pass.contextNode).toBe(context);
+    expect(pipeline.pipeline.outputNode).toBe(output);
+    expect(disposed).not.toHaveBeenCalled();
+    pipeline.set({ sceneEffects: { toneMapping: {} } });
+    expect(disposed).toHaveBeenCalledTimes(1);
+    pipeline.set({ sceneEffects: { ao: {} } });
+    expect(pipeline.scenePass.pass.contextNode).not.toBe(context);
+    pipeline.dispose();
+    expect(disposed).toHaveBeenCalledTimes(2);
+    disposed.mockRestore();
   });
 });
 

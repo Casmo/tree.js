@@ -9,6 +9,7 @@
 //   ?scene=plain  no pipeline at all: renderer.render(scene, camera)
 //   ?scene=tone-mapping  one Scene Effect alone, through its stand-alone builder (sceneToneMapping)
 //                        in a hand-made RenderPipeline, with the Style's suggested settings
+//   ?scene=gtao  ambient occlusion alone (sceneAO: pre-pass + GTAO + the scene pass's lighting context)
 //   ?scene=bloom  bloom alone (sceneBloom), likewise: the Style's suggested bloom or sceneBloom's
 //                 defaults (low-poly suggests none), with the renderer's normal output transform
 //   ?scene=smaa|fxaa  anti-aliasing alone (sceneAntialias) on the renderer's output transform
@@ -44,6 +45,7 @@ import {
 import { createTreeEffects, SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from '@casmo/tree.js/effects';
 import {
   createScenePipeline,
+  sceneAO,
   sceneAntialias,
   sceneBloom,
   sceneFog,
@@ -181,6 +183,13 @@ async function main(): Promise<void> {
     const pipeline = new THREE.RenderPipeline(renderer);
     pipeline.outputNode = sceneToneMapping(pass(scene, camera).getTextureNode(), SUGGESTED_SCENE_EFFECTS[styleName].toneMapping);
     pipeline.outputColorTransform = false; // the builder outputs display colours
+    render = () => pipeline.render();
+  } else if (sceneParam === 'gtao') {
+    // AO alone: the pre-pass and GTAO feed the scene pass's lighting (only ambient light darkens).
+    const pipeline = new THREE.RenderPipeline(renderer);
+    const scenePass = pass(scene, camera);
+    scenePass.contextNode = sceneAO(scene, camera, SUGGESTED_SCENE_EFFECTS[styleName].ao).context;
+    pipeline.outputNode = scenePass;
     render = () => pipeline.render();
   } else if (sceneParam === 'smaa' || sceneParam === 'fxaa') {
     // Anti-aliasing alone: it runs on display colours, so on the renderer's own output transform.

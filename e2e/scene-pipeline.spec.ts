@@ -77,6 +77,14 @@ test('tone mapping alone, through sceneToneMapping in a hand-made pipeline (real
   await expect(page.locator('canvas')).toHaveScreenshot('realistic-tone-mapping-webgpu.png');
 });
 
+test('ambient occlusion alone, through sceneAO in a hand-made pipeline (realistic, WebGPU)', async ({ page }) => {
+  const plain = await load(page, 'style=realistic&scene=plain');
+  const occluded = await load(page, 'style=realistic&scene=gtao');
+  expect(occluded.example.renderer!.after).toEqual(occluded.example.renderer!.before);
+  expect((await difference(page, plain.image, occluded.image)).changed, 'AO darkens the frame').toBeGreaterThan(5_000);
+  await expect(page.locator('canvas')).toHaveScreenshot('realistic-gtao-webgpu.png');
+});
+
 for (const mode of ['smaa', 'fxaa']) {
   test(`${mode.toUpperCase()} alone, through sceneAntialias in a hand-made pipeline (realistic, WebGPU)`, async ({ page }) => {
     const plain = await load(page, 'style=realistic&scene=plain');

@@ -11,6 +11,8 @@ export const SUGGESTED_SCENE_EFFECTS: Record<StyleName, SceneEffectsSettings> = 
   // Crisp and flat: Neutral keeps the flat colours close to their base colour; no bloom.
   'low-poly': {
     toneMapping: { mapping: 'neutral' },
+    // Light GTAO: a hint of ground contact that keeps the flat shading flat.
+    ao: { radius: 1, scale: 0.7, thickness: 1 },
     antialias: 'smaa',
     fog: { near: 12, far: 90 },
   },
@@ -18,6 +20,7 @@ export const SUGGESTED_SCENE_EFFECTS: Record<StyleName, SceneEffectsSettings> = 
   // Soft bloom: the bright sky glows widely over the crown edges.
   stylized: {
     toneMapping: { mapping: 'agx' },
+    ao: { radius: 1.2, scale: 1.3, thickness: 2 },
     bloom: { strength: 0.3, radius: 0.7, threshold: 0.5 },
     antialias: 'smaa',
     fog: { near: 10, far: 80, mist: { height: 1.2, strength: 0.5 } },
@@ -25,6 +28,7 @@ export const SUGGESTED_SCENE_EFFECTS: Record<StyleName, SceneEffectsSettings> = 
   // Subtle bloom: a little glare from the bright sky through the leaves.
   realistic: {
     toneMapping: { mapping: 'agx' },
+    ao: { radius: 1.2, scale: 1.6, thickness: 2 },
     bloom: { strength: 0.2, radius: 0.4, threshold: 0.6 },
     antialias: 'smaa',
     fog: { near: 8, far: 70, mist: { height: 2, strength: 0.7, farLayer: {} } },
