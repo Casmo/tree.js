@@ -1,5 +1,6 @@
 import type { StyleName } from '../styles/registry';
 import type { SceneGodraysOptions } from './godrays';
+import type { SceneBloomOptions } from './bloom';
 import type { SceneToneMappingOptions } from './tone-mapping';
 import { SUGGESTED_SCENE_EFFECTS } from './suggested';
 
@@ -12,6 +13,8 @@ export interface SceneEffectsSettings {
   toneMapping?: SceneToneMappingOptions;
   /** God rays through the canopy; need a shadow-casting `sun` (skipped with a warning otherwise). */
   godrays?: SceneGodraysOptions;
+  /** Bloom: a soft glare around the bright parts of the frame, before tone mapping. */
+  bloom?: SceneBloomOptions;
 }
 
 /** The suggested Scene Effects of a built-in Style, or the settings themselves; `null` = none. */

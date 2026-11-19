@@ -83,6 +83,14 @@ test('god rays alone, through sceneGodrays on the shadow-casting sun (realistic,
   await expect(page.locator('canvas')).toHaveScreenshot('realistic-godrays-webgpu.png');
 });
 
+test('bloom alone, through sceneBloom in a hand-made pipeline (realistic, WebGPU)', async ({ page }) => {
+  const plain = await load(page, 'style=realistic&scene=plain');
+  const bloomed = await load(page, 'style=realistic&scene=bloom');
+  expect(bloomed.example.renderer!.after).toEqual(bloomed.example.renderer!.before);
+  expect((await difference(page, plain.image, bloomed.image)).changed, 'bloom changes the frame').toBeGreaterThan(10_000);
+  await expect(page.locator('canvas')).toHaveScreenshot('realistic-bloom-webgpu.png');
+});
+
 test.describe('the Scene Pipeline behaves as TreeEffects for its Tree Effects part', () => {
   const cases = [
     { name: 'suggested Tree Effects', query: 'style=low-poly&scene=none&treeEffects=style' },
