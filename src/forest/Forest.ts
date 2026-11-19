@@ -3,7 +3,6 @@ import {
   BufferGeometry,
   DynamicDrawUsage,
   Euler,
-  Group,
   InstancedBufferAttribute,
   InstancedInterleavedBuffer,
   InstancedMesh,
@@ -19,11 +18,12 @@ import {
   type Renderer,
   type Scene,
 } from 'three/webgpu';
-import { and, positionGeometry } from 'three/tsl';
+import { and, positionGeometry, varying } from 'three/tsl';
 import type { MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
 import { generateLightTree, generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
 import { LiveMaterialFeatures, type MaterialFeatureNodes, type MaterialFeatureTarget } from '../materials/material-features';
+import { LiveShaderHooks, partHookTarget, ShaderHookedGroup, type ShaderHookTarget, type TreeShaderHooks } from '../materials/shader-hooks';
 import { webgpuRenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes } from '../season';
 import { checkedSeason } from '../season/check';
@@ -31,10 +31,11 @@ import { clampGrowth } from '../growth';
 import { textureReady, type TextureOptions } from '../textures';
 import { sceneWind, Wind, WindBinding, WindResponse, type WindSource } from '../wind';
 import { impostorBounds, VariantImpostor } from './impostor';
+import { impostorHookTarget } from './impostor-material';
 import { ForestLod } from './forest-lod';
 import { VariantLevels, type DetailLevelUniforms, type LevelPart } from './levels';
 import { DetailLevel, resolveForestLod, type ForestLodOptions, type ForestLodSettings, type ForestLodUpdate } from './lod';
-import { INSTANCE_ATTRIBUTES, INSTANCE_STRIDE, forestPosition, instanceRotate, instanceState, levelVisible } from './nodes';
+import { INSTANCE_ATTRIBUTES, INSTANCE_STRIDE, forestPosition, instanceRotate, instanceState, instanceTreeBase, levelVisible } from './nodes';
 import {
   delayedGrowth,
   forestTreeKey,
@@ -67,6 +68,8 @@ export interface ForestOptions {
    * fallback it is ignored (one console warning). Switching it on or off needs a new Forest.
    */
   lod?: boolean | ForestLodOptions;
+  /** The Tree Shader Hook per tree part (see {@link Forest.shaderHooks}). Default: none. */
+  shaderHooks?: TreeShaderHooks;
 }
 
 /** What the GPU draws one tree with (after its offsets). */
@@ -276,6 +279,18 @@ export class ForestVariant {
     return this.instanceData.count;
   }
 
+  /**
+   * @internal What Tree Shader Hooks shade on this Variant: its bark, leaf and Fruit materials (which draw
+   * every Detail Level but Impostor), with each tree's own Season, Growth and position.
+   */
+  hookTargets(): ShaderHookTarget[] {
+    const { season, growth } = instanceState();
+    const inputs = () => ({ season: varying(season) as Node<'float'>, growth: varying(growth) as Node<'float'>, treeBase: instanceTreeBase() });
+    const targets = [partHookTarget('bark', this.barkMaterial, this.woodSource, inputs()), partHookTarget('leaves', this.leafMaterial, this.leafSource, inputs())];
+    if (this.fruitMaterial && this.fruitSource) targets.push(partHookTarget('fruit', this.fruitMaterial, this.fruitSource, inputs()));
+    return targets;
+  }
+
   /** @internal */
   add(tree: ForestTree): void {
     if (this.trees.length === this.capacity) this.allocate(this.capacity * 2);
@@ -381,6 +396,7 @@ export class ForestVariant {
       wind: { source: this.wind, response: this.windResponse },
     });
     levels.setLevel(DetailLevel.Impostor, [this.impostor.part]);
+    this.forest.addShaderHookTargets([impostorHookTarget(this.impostor.part.material as MeshStandardNodeMaterial)]);
 
     // Every level draws only its share of a tree in a cross-fade.
     for (const material of [this.barkMaterial, this.leafMaterial, this.fruitMaterial]) {
@@ -472,7 +488,7 @@ export class ForestVariant {
  * hash of the forest seed and the tree's id (or position), never from its index, so adding or
  * removing trees never changes the others. Growth and Season can be set per tree or for all.
  */
-export class Forest extends Group {
+export class Forest extends ShaderHookedGroup {
   readonly isForest = true;
   readonly definition: TreeDefinition;
   /** The forest seed. */
@@ -485,6 +501,7 @@ export class Forest extends Group {
   private growthValue: number;
   private seasonValue: number;
   private readonly features: LiveMaterialFeatures;
+  protected readonly hooks: LiveShaderHooks;
   /** The trunk height of the tallest Variant (the distances of `lod: true`). */
   private readonly tallestTrunk: number;
   /** The Detail Levels; null without lod. */
@@ -525,6 +542,11 @@ export class Forest extends Group {
         growth: instanceState().growth,
         toObject: (normal) => instanceRotate(normal),
       })),
+    );
+    this.hooks = new LiveShaderHooks(
+      this.variants.flatMap((v) => v.hookTargets()),
+      definition.materials.shading,
+      options.shaderHooks,
     );
     const textures = this.variants.flatMap((v) => [v.barkMaterial.map, v.barkMaterial.normalMap, v.leafMaterial.map]);
     this.ready = Promise.all(textures.filter((t) => t !== null).map(textureReady)).then(() => undefined);
@@ -591,7 +613,8 @@ export class Forest extends Group {
 
   /**
    * The Wind every tree of this forest sways with. Assigning another Wind only rebinds uniforms:
-   * no rebuild, no recompile.
+   * no rebuild, no recompile (except the one-time node-graph rebuild when the Forest first follows a
+   * Wind that has had a Wind Burst, see `Wind.burst`).
    */
   get wind(): Wind {
     return this.windBinding.wind;
@@ -685,6 +708,11 @@ export class Forest extends Group {
     for (const tree of this.byKey.values()) tree.season = this.seasonValue;
   }
 
+  /** @internal Materials made later (the Impostor cards) that the hooks shade too. */
+  addShaderHookTargets(targets: readonly ShaderHookTarget[]): void {
+    this.hooks.addTargets(targets);
+  }
+
   /**
    * Crown Normals amount (0..1), from the Definition's `materials.leaf.crownNormals`; null when it is off.
    * Setting it (clamped to 0..1) only writes a uniform: no regeneration, no recompile. Throws on a
@@ -733,6 +761,7 @@ export class Forest extends Group {
 
   /** Frees every Variant's geometries, materials and instance buffers, and removes the forest from its parent. */
   override dispose(): void {
+    this.hooks.dispose();
     this.detailLevels?.dispose(); // nothing left to wait for
     for (const variant of this.variants) variant.dispose();
     this.byKey.clear();

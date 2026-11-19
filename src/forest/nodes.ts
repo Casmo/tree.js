@@ -1,7 +1,7 @@
 import type { Node, NodeBuilder } from 'three/webgpu';
-import { attribute, bool, cross, Fn, instanceIndex, normalLocal, positionGeometry, positionLocal } from 'three/tsl';
+import { attribute, bool, cross, Fn, instanceIndex, modelWorldMatrix, normalLocal, positionGeometry, positionLocal, vec4 } from 'three/tsl';
 import { growthPosition } from '../growth';
-import { objectWindDirection, windOffset, type WindResponse, type WindSource } from '../wind';
+import { objectBurstFrame, objectWindDirection, windOffset, type WindBurstFrame, type WindResponse, type WindSource } from '../wind';
 import { setWindMotion } from '../wind/motion';
 
 /**
@@ -100,6 +100,19 @@ export function levelTreePosition(): Node<'vec3'> {
   );
 }
 
+/**
+ * The tree's base in forest space, on the instanced meshes and the Detail Level meshes alike, as the
+ * vertex stage knows it before `positionNode` runs. On an InstancedMesh three.js only hands over the
+ * placed vertex (M·p), so the base is M·p − R·s·p, kept in a variable so that it is worked out before
+ * `positionNode` replaces `positionLocal`; on a Detail Level mesh it is the tree's data.
+ */
+export function instanceTreeBase(): Node<'vec3'> {
+  return perInstance(
+    () => positionLocal.sub(instanceRotate(positionGeometry).mul(instanceState().scale)).toVar(),
+    (instance) => instance.position,
+  );
+}
+
 /** Rotates `v` by the quaternion `q` (`inverse` = by its conjugate). */
 export function rotateByQuaternion(q: Node<'vec4'>, v: Node<'vec3'>, inverse = false): Node<'vec3'> {
   const u = inverse ? q.xyz.negate() : q.xyz;
@@ -128,6 +141,18 @@ function placedPosition(): Node<'vec3'> {
 }
 
 /**
+ * Where a Wind Burst finds a Forest tree: its own base (through the Forest's transform) and its own
+ * rotation, so each instance bends away from the burst point like a single Tree does.
+ */
+export function instanceBurstFrame(): WindBurstFrame {
+  const forest = objectBurstFrame();
+  return {
+    origin: modelWorldMatrix.mul(vec4(instanceTreeBase(), 1)).xz,
+    toTree: (world) => instanceRotate(forest.toTree(world), true),
+  };
+}
+
+/**
  * The vertex position of a Forest tree (positionNode of an instanced Variant mesh).
  *
  * On an InstancedMesh, three.js applies the instance matrix to `positionLocal` before
@@ -143,13 +168,19 @@ function placedPosition(): Node<'vec3'> {
 export function forestPosition(wind: WindSource, response: WindResponse, base: Node<'vec3'> = positionGeometry): Node<'vec3'> {
   const { scale, growth, windPhase } = instanceState();
   const grown = growthPosition(growth, base);
+  // One frame for now and the previous Wind time: both read the same tree base.
+  const burst = instanceBurstFrame();
   const offsetAt = (time?: Node<'float'>) =>
-    windOffset(wind, response, { direction: instanceRotate(objectWindDirection(wind), true), phase: windPhase, time });
+    windOffset(wind, response, { direction: instanceRotate(objectWindDirection(wind), true), phase: windPhase, time, burst });
   const offset = offsetAt();
   const displacement = grown.add(offset).sub(positionGeometry);
   const position = placedPosition().add(instanceRotate(displacement).mul(scale));
   // Wind-aware velocity (ADR 0011): each instance's own phase at the previous Wind time. Detail Level
   // meshes draw with these same materials (and per-tree nodes), so they get it too.
-  setWindMotion(position, { source: wind, shift: (previous) => instanceRotate(offsetAt(previous).sub(offset)).mul(scale) });
+  setWindMotion(position, {
+    source: wind,
+    shift: (previous) => instanceRotate(offsetAt(previous).sub(offset)).mul(scale),
+    offset: instanceRotate(offset).mul(scale),
+  });
   return position;
 }

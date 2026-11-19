@@ -9,6 +9,7 @@ import type { ForestLodOptions } from '../forest/lod';
 import { clampGrowth } from '../growth/evaluate';
 import { wrapSeason } from '../season/profile';
 import { sceneWind, type Wind as WindObject } from '../wind';
+import type { TreeShaderHooks } from '../materials/shader-hooks';
 import { useTreeStyle } from './useTreeStyle';
 
 type GroupProps = Omit<ThreeElements['group'], 'args' | 'object' | 'children' | 'ref' | 'castShadow' | 'receiveShadow' | 'dispose'>;
@@ -49,6 +50,11 @@ export interface ForestProps extends GroupProps {
    * rebuilds the forest; new `light`, `impostor`, `fade` or `camera` only write `forest.lod`.
    */
   lod?: boolean | ForestLodOptions;
+  /**
+   * The Tree Shader Hooks of every tree in the forest, at every Detail Level (as `forest.shaderHooks`),
+   * stacked after the scene-wide ones. Keep hooks stable (module scope or `useMemo`). Unset: none.
+   */
+  shaderHooks?: TreeShaderHooks;
   /** Whether the trees cast shadows. Default true. */
   castShadow?: boolean;
   /** Whether the trees receive shadows. Default true. */
@@ -111,7 +117,7 @@ function syncForest(forest: ForestObject, placements: readonly ForestTreePlaceme
 
 /**
  * Many trees of one Definition, drawn instanced (a `Forest`). Changing `placements` plants or cuts
- * only the affected trees; Growth, Season, Wind and shadow props only update instance data, uniforms
+ * only the affected trees; Growth, Season, Wind, Tree Shader Hook and shadow props only update instance data, uniforms
  * and meshes; changing `lod` distances, fade or camera only writes `forest.lod`. A new `definition`
  * (by value), `style`/`form`, `variants`, `seed`, or switching `lod` on or off rebuilds the forest.
  * The forest is disposed of on unmount.
@@ -126,6 +132,7 @@ export function Forest({
   growth = 1,
   season = 0,
   wind,
+  shaderHooks,
   castShadow = true,
   receiveShadow = true,
   lod,
@@ -141,8 +148,8 @@ export function Forest({
 
   const [generation, setGeneration] = useState(0);
   const forest = useMemo(
-    () => createForest(JSON.parse(key) as TreeDefinitionInput, [], { variants, seed, wind, growth, season, lod }),
-    // placements/growth/season/wind and the live lod settings are synced by the layout effects below.
+    () => createForest(JSON.parse(key) as TreeDefinitionInput, [], { variants, seed, wind, growth, season, lod, shaderHooks }),
+    // placements/growth/season/wind/shaderHooks and the live lod settings are synced by the layout effects below.
     [key, variants, seed, lodKey, generation],
   );
 
@@ -157,6 +164,10 @@ export function Forest({
   useLayoutEffect(() => {
     forest.wind = wind ?? sceneWind;
   }, [forest, wind]);
+
+  useLayoutEffect(() => {
+    forest.shaderHooks = shaderHooks ?? {};
+  }, [forest, shaderHooks]);
 
   // The live part of `lod`, with the defaults the forest itself fills in.
   const live = forest.resolveLod(lod);

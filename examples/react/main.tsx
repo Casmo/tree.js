@@ -4,6 +4,8 @@
 //   ?scene=forest  a <Forest> of 49 trees instead of two <Tree>s (click a tree to cut it)
 //   ?scene=species  one Species tree: <Tree species={oak} style={lowPoly} seed={7} />
 //   ?scene=pipeline  stylized trees rendered through <ScenePipeline style="stylized" sun={sun} />
+//   ?scene=weather  two low-poly trees, with setters for <SnowCover>, <Wetness>, a <Tree shaderHooks>,
+//                   a Wind Burst (useWindBurst) and a foliage-only <TreeEffect> in a <ScenePipeline>
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?growth=<0..1>  Growth of the trees (default 1)
 //   ?season=<0..1>  Season (default 0.37, summer)
@@ -12,7 +14,23 @@ import * as THREE from 'three/webgpu';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Forest, ScenePipeline, Tree, Wind, useScenePipeline, useTreeStyle, type ForestTreePlacement } from '@casmo/tree.js/react';
+import { color, mix, uniform, vec3, vec4 } from 'three/tsl';
+import {
+  Forest,
+  ScenePipeline,
+  SnowCover,
+  Tree,
+  TreeEffect,
+  Wetness,
+  Wind,
+  useScenePipeline,
+  useTreeStyle,
+  useWindBurst,
+  type CustomTreeEffect,
+  type ForestTreePlacement,
+  type TreeShaderHooks,
+  type WindBurstOptions,
+} from '@casmo/tree.js/react';
 import type { Forest as ForestObject } from '@casmo/tree.js';
 import { oak } from '@casmo/tree.js/species';
 
@@ -29,6 +47,12 @@ declare global {
       plantTree?: (placement: ForestTreePlacement) => void;
       /** ?scene=pipeline: the Scene Effects the pipeline renders with (once it is built). */
       sceneEffects?: string[];
+      /** ?scene=weather: the weather and effects to show (React state), and the Wind clock. */
+      setWeather?: (weather: WeatherState) => void;
+      setWindTime?: (seconds: number) => void;
+      burst?: (options: WindBurstOptions) => void;
+      /** Waits for this many rendered frames. */
+      frames?: (count: number) => Promise<void>;
     };
   }
 }
@@ -37,7 +61,7 @@ window.reactExample = { status: 'loading' };
 const params = new URLSearchParams(location.search);
 const forceWebGL = params.get('backend') === 'webgl';
 const windTime = params.get('windTime');
-const scene = (['forest', 'species', 'pipeline'] as const).find((name) => name === params.get('scene')) ?? 'trees';
+const scene = (['forest', 'species', 'pipeline', 'weather'] as const).find((name) => name === params.get('scene')) ?? 'trees';
 
 function Trees({ growth, styleName = 'low-poly' }: { growth: number; styleName?: 'low-poly' | 'stylized' }) {
   const style = useTreeStyle(styleName);
@@ -102,6 +126,51 @@ function Woods({ growth }: { growth: number }) {
   );
 }
 
+/** ?scene=weather: what is on. Unset: not mounted. */
+interface WeatherState {
+  /** <SnowCover amount>. */
+  snow?: number;
+  /** <Wetness amount>. */
+  wetness?: number;
+  /** A Tree Shader Hook that tints the leaves of the right tree only (<Tree shaderHooks>). */
+  tint?: boolean;
+  /** A foliage-only custom Tree Effect (<TreeEffect> in a bare <ScenePipeline>) at this strength. */
+  effect?: number;
+}
+
+// A plain Tree Shader Hook: the right tree's leaves turn orange. Module scope: one stable hook.
+const tinted: TreeShaderHooks = { leaves: ({ color: base }) => mix(base, vec3(1, 0.35, 0), 0.8) };
+
+/** The bare foliage-only custom Tree Effect: leaf pixels turn magenta by `strength` (mask.g is leaves only). */
+const foliage: CustomTreeEffect<{ strength: number }> = {
+  build(input, options) {
+    const strength = uniform(options.strength);
+    const node = vec4(mix(input.color.rgb, color('#ff00ff'), input.mask.g.mul(strength)), input.color.a);
+    return { node, update: (next) => (strength.value = next.strength) };
+  },
+};
+
+function WeatherScene({ weather }: { weather: WeatherState }) {
+  const lowPoly = useTreeStyle('low-poly');
+  const burst = useWindBurst();
+  useEffect(() => {
+    window.reactExample.burst = burst;
+  }, [burst]);
+  return (
+    <>
+      <Tree style={lowPoly} form="broadleaf" seed={1} season={0.37} position={[-3, 0, 2]} />
+      <Tree style={lowPoly} form="broadleaf" seed={4} season={0.37} position={[3, 0, -2]} shaderHooks={weather.tint ? tinted : undefined} />
+      {weather.snow !== undefined && <SnowCover amount={weather.snow} />}
+      {weather.wetness !== undefined && <Wetness amount={weather.wetness} />}
+      {weather.effect !== undefined && (
+        <ScenePipeline>
+          <TreeEffect effect={foliage} options={{ strength: weather.effect }} />
+        </ScenePipeline>
+      )}
+    </>
+  );
+}
+
 /** Reports the Scene Effects of the enclosing <ScenePipeline> (useScenePipeline: null until it is built). */
 function PipelineStatus() {
   const pipeline = useScenePipeline();
@@ -132,9 +201,18 @@ function Ready() {
 
 function App() {
   const [growth, setGrowth] = useState(Number(params.get('growth') ?? 1));
+  const [weather, setWeather] = useState<WeatherState>({});
+  const [time, setWindTime] = useState(windTime === null ? null : Number(windTime));
   const sun = useRef<THREE.DirectionalLight>(null);
   useEffect(() => {
     window.reactExample.setGrowth = setGrowth;
+    window.reactExample.setWeather = setWeather;
+    window.reactExample.setWindTime = setWindTime;
+    window.reactExample.frames = (count) =>
+      new Promise((resolve) => {
+        const tick = () => (--count <= 0 ? resolve() : requestAnimationFrame(tick));
+        requestAnimationFrame(tick);
+      });
   }, []);
   return (
     <Canvas
@@ -156,9 +234,9 @@ function App() {
         <circleGeometry args={[7, 48]} />
         <meshStandardMaterial color="#7da05a" />
       </mesh>
-      <Wind direction={[1, 0, -0.4]} strength={Number(params.get('wind') ?? 0)} time={windTime === null ? null : Number(windTime)} />
+      <Wind direction={[1, 0, -0.4]} strength={Number(params.get('wind') ?? 0)} time={time} />
       <Suspense fallback={null}>
-        {scene === 'forest' ? <Woods growth={growth} /> : scene === 'species' ? <SpeciesTree growth={growth} /> : scene === 'pipeline' ? <Trees growth={growth} styleName="stylized" /> : <Trees growth={growth} />}
+        {scene === 'forest' ? <Woods growth={growth} /> : scene === 'species' ? <SpeciesTree growth={growth} /> : scene === 'pipeline' ? <Trees growth={growth} styleName="stylized" /> : scene === 'weather' ? <WeatherScene weather={weather} /> : <Trees growth={growth} />}
         {scene === 'pipeline' && (
           // The stylized Style's suggested Tree Effects and Scene Effects; `sun` (a ref) is there for god rays.
           <ScenePipeline style="stylized" sun={sun}>

@@ -1,8 +1,12 @@
+import type { WindBurstOptions } from "@casmo/tree.js";
+import type { SnowExampleOptions } from "../examples/snow";
+import type { WetnessSettings } from "@casmo/tree.js/weather";
+
 export {};
 declare global {
   interface Window {
     treeExample: {
-      status: 'loading' | 'rendered' | 'error';
+      status: "loading" | "rendered" | "error";
       backend?: string;
       error?: string;
       /** id of the leaf BufferGeometry, to check that Season does not regenerate. */
@@ -11,13 +15,27 @@ declare global {
       fruitVertices?: number;
       /** Sets `tree.season` and re-renders (status goes 'loading' -> 'rendered'). */
       setSeason?: (season: number) => void;
+      /** With ?burst=1: world-space ground points of the near (left) and far (right) tree. */
+      trees?: { near: [number, number]; far: [number, number] };
+      /** Starts a Wind Burst on the scene-wide Wind (at its current time) and draws the frame again. */
+      burst?: (options: WindBurstOptions) => Promise<void>;
+      /** Pins the scene-wide Wind clock to `seconds` and draws the frame again. */
+      setWindTime?: (seconds: number) => Promise<void>;
+      /** Sets the magenta Tree Shader Hook on these parts only (none: removes them) and re-renders. */
+      setShaderHooks?: (parts: string[]) => void;
+      /** Shows or hides one part's mesh ('wood', 'leaves', 'fruit') and re-renders. */
+      setVisible?: (mesh: string, visible: boolean) => void;
+      /** Sets Snow Cover (or the facing test hook), the snow amount and settings, and draws the frame again. */
+      setSnow?: (options: SnowExampleOptions) => Promise<void>;
+      /** With ?wetness: sets the scene-wide wetness amount, Wetness's settings, and whether its hooks are set, then draws again. */
+      setWetness?: (options: { amount?: number; hooks?: boolean; settings?: WetnessSettings }) => Promise<void>;
     };
   }
 }
 declare global {
   interface Window {
     forestExample: {
-      status: 'loading' | 'rendered' | 'error';
+      status: "loading" | "rendered" | "error";
       backend?: string;
       error?: string;
       trees?: number;
@@ -40,6 +58,14 @@ declare global {
         translucency?: { strength?: number; edge?: number; ambient?: number };
         occlusionStrength?: number;
       }) => Promise<void>;
+      /** Sets the magenta Tree Shader Hook on the forest's / the scene-wide parts and its amount, then draws again. */
+      setShaderHooks?: (options: { parts?: string[]; sceneParts?: string[]; amount?: number }) => Promise<void>;
+      /** Sets Snow Cover (or the facing test hook) on the forest, the snow amount and settings, and draws the frame again. */
+      setSnow?: (options: SnowExampleOptions) => Promise<void>;
+      /** Starts a Wind Burst on the scene-wide Wind (at its current time) and draws the frame again. */
+      burst?: (options: { x: number; z: number; strength?: number; radius?: number }) => Promise<void>;
+      /** Pins the scene-wide Wind clock to `seconds` and draws the frame again. */
+      setWindTime?: (seconds: number) => Promise<void>;
     };
   }
 }
@@ -47,7 +73,7 @@ declare global {
   interface Window {
     largeForestExample: {
       /** 'loading' while the Forest is built, baked or measured. */
-      status: 'loading' | 'rendered' | 'error';
+      status: "loading" | "rendered" | "error";
       backend?: string;
       error?: string;
       trees?: number;

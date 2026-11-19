@@ -18,6 +18,7 @@ thousands at once as an instanced Forest, add opt-in Tree Effects, or design you
 - [Wind](#wind)
 - [Forests](#forests)
 - [Material Features](#material-features)
+- [Tree Shader Hook](#tree-shader-hook)
 - [Tree Effects](#tree-effects)
 - [React Three Fiber](#react-three-fiber)
 - [Without a bundler: import map (CDN)](#without-a-bundler-import-map-cdn)
@@ -43,6 +44,7 @@ npm install @casmo/tree.js three
 | `@casmo/tree.js/species` | the 28 Species (`oak`, `douglasFir`, ...), `loadSpecies`, `SPECIES_NAMES`; JSON files |
 | `@casmo/tree.js/effects` | Tree Effects (post-processing) |
 | `@casmo/tree.js/scene` | Scene Pipeline: the Style's suggested Tree Effects and Scene Effects (tone mapping, SMAA/FXAA, fog, ...) in one opt-in pipeline |
+| `@casmo/tree.js/weather` | ready-made weather Tree Shader Hooks: [Snow Cover](#snow-cover), [Wetness](#wetness) |
 | `@casmo/tree.js/react` | `<Tree>`, `<Forest>`, `<Wind>`, `useTreeStyle`, `<ScenePipeline>` for React Three Fiber |
 
 ## Quick start
@@ -385,6 +387,55 @@ scene.add(swaying, sheltered);
 
 A swaying tree needs a render loop (`renderer.setAnimationLoop`).
 
+### Wind Burst
+
+A Wind Burst is a short, local push of air from a point on the ground, e.g. where the player places a
+building: trees within its radius bend away from it, the front rolls outward at 30 m/s, and the push
+springs back once and fades out within 1.2 s of Wind time. It adds to the Wind on trunk, branches and
+leaves, scaled by each tree's Wind response, also when the Wind is calm:
+
+```ts
+import { createTree, sceneWind } from '@casmo/tree.js';
+
+const tree = createTree({ schemaVersion: 3 }, { seed: 1 });
+tree.position.set(3, 0, 0);
+
+sceneWind.burst({ x: 1, z: 0, strength: 1, radius: 6 }); // radius defaults to 8 m per unit of strength
+sceneWind.burst({ x: 1, z: 0, strength: -0.5 }); // reduced motion: lean away and settle, no swing
+console.log(sceneWind.bursts.length); // the bursts running now
+```
+
+A negative strength is the reduced-motion mode, for players who turn motion down: trees within reach
+lean away from the point all at once and settle, with no front travelling outward and no swing back; the
+size of the value is the strength (and sets the default radius). A weaker positive strength simply
+pushes less.
+
+Up to 8 bursts (`MAX_WIND_BURSTS`) run at once per Wind; another one replaces the oldest. A burst starts
+at the Wind's current time (its pinned `time`, or the renderer clock), so a pinned clock holds it still.
+The Wind-aware velocity channel (TRAA, motion blur) includes burst motion.
+
+Wind Bursts are opt-in at the material level: until a Wind has had its first `burst()`, the trees swaying
+with it have no burst nodes at all, and their materials are exactly as without Wind Bursts. The first
+burst on a Wind (or binding a tree or Forest to a Wind that has had one) rebuilds the node graphs of
+those trees once, on Trees, every Forest Detail Level, Impostors and the velocity channel, so expect one
+shader compile then; the geometry is never rebuilt. Call `burst()` once during loading (e.g. with a
+small radius far away) to have that compile happen up front. After that a burst only writes uniforms,
+and with no burst running the shader loop runs zero times.
+
+Forests take the bursts of their Wind too: every Forest tree bends away from the burst point from its
+own position and rotation, at every Detail Level, and Impostors sway with it, so the whole park reacts:
+
+```ts
+import { createForest, sceneWind } from '@casmo/tree.js';
+
+const forest = createForest({ schemaVersion: 3 }, [{ position: [0, 0, 0] }, { position: [20, 0, 0] }], { lod: true });
+scene.add(forest);
+
+sceneWind.burst({ x: 2, z: 0, strength: 1, radius: 6 }); // the first tree bends, the second does not
+```
+
+Impostors also include their sway, bursts and all, in the Wind-aware velocity channel.
+
 ## Forests
 
 ![A 400-tree instanced Forest whose trees turn to autumn towards the right](docs/images/forest.png)
@@ -577,6 +628,185 @@ renderer.setAnimationLoop(() => pipeline.render());
 Material Features are a different thing from [Tree Effects](#tree-effects): those are post-processing
 (the "leaf glow" effect is a screen-space bloom, not Leaf Translucency). See them side by side per Style in
 [`examples/material-features`](examples/material-features/main.ts).
+
+## Tree Shader Hook
+
+A Tree Shader Hook is the one supported way to change how a tree's surface is shaded (snow, rain, drought
+colour, a painterly foliage look) without touching its materials. You hand the library a
+[TSL](https://threejs.org/docs/#api/en/nodes/TSL) function per tree part (`bark`, `leaves` or `fruit`),
+and it applies it inside that part's node materials, which it keeps building and rewiring itself for
+Growth, Season and Wind. Don't patch `tree.leaves.material` yourself; set a hook instead.
+
+The hook gets TSL nodes for the fragment it shades and returns a colour (lit as before), or a colour and a
+roughness:
+
+| Input | What it is |
+| --- | --- |
+| `color` | The base colour (linear rgb): after Season, Ground Tint, textures and the Seed's tint, before lighting |
+| `roughness` | The part's roughness before the hook |
+| `normal` | The world-space normal the fragment is lit with, after Wind and Growth (and Crown Normals, the bark normal map) |
+| `position`, `treePosition` | The fragment's world position, and the tree's own (the foot of its trunk) |
+| `season`, `growth` | The tree's Season and Growth (0..1) |
+| `part`, `shading` | The tree part, and the Style's shading (`'flat'`, `'toon'` or `'standard'`) |
+
+```ts
+import { createTree, type TreeShaderHook } from '@casmo/tree.js';
+import stylized from '@casmo/tree.js/styles/stylized';
+import { mix, smoothstep, uniform, vec3 } from 'three/tsl';
+
+const frost = uniform(0.5); // animate the hook with uniforms: no rebuild
+const frosty: TreeShaderHook = ({ color, normal, roughness }) => ({
+  color: mix(color, vec3(0.9, 0.95, 1), smoothstep(0.3, 0.8, normal.y).mul(frost)),
+  roughness: roughness.mul(0.8),
+});
+
+const tree = createTree(stylized.broadleaf, { seed: 3, shaderHooks: { leaves: frosty } });
+tree.shaderHooks = { leaves: frosty, bark: frosty }; // set or change at runtime
+tree.shaderHooks = {};                               // remove: the tree is drawn exactly as before
+```
+
+`tree.shaderHooks` holds the hooks per part of a `Tree`; a part whose hooks didn't change is left alone. A
+hook is called once when it is set, to build the node graph, not per frame. Setting, changing or removing it
+rebuilds the node graph of that part's material once (a shader recompile) and never the geometry. With no
+hook nothing changes: same geometry, attributes and materials as before. It works on WebGPU and on the
+WebGL2 fallback.
+
+### On Forests, Detail Levels and Impostors
+
+A `Forest` takes hooks the same way, for every tree in it, near and far:
+
+```ts
+import { createForest } from '@casmo/tree.js';
+import stylized from '@casmo/tree.js/styles/stylized';
+import { mix, vec3 } from 'three/tsl';
+
+const forest = createForest(stylized.broadleaf, [{ position: [0, 0, 0] }, { position: [6, 0, 2] }], {
+  lod: true,
+  shaderHooks: { leaves: ({ color }) => mix(color, vec3(0.9, 0.6, 0.2), 0.5) },
+});
+forest.shaderHooks = {}; // set, change or remove at runtime, as on a Tree
+```
+
+The hook runs at every [Detail Level](#detail-levels): Full and Light trees share the Variant's materials,
+and Impostors apply it while they are drawn, to their baked colour, normals and Season data, with
+`part` set per texel (bark or leaves; Impostors have no Fruit). So far trees follow a hook, and its
+uniforms, live: changing a hook never rebakes an Impostor. `season`, `growth` and `treePosition` are each
+tree's own.
+
+### Scene-wide default and stacking
+
+`setSceneShaderHooks` sets hooks every Tree and Forest runs, now and when created later, the way
+`sceneWind` is shared:
+
+```ts
+import { createTree, setSceneShaderHooks, stackShaderHooks, type TreeShaderHook } from '@casmo/tree.js';
+import stylized from '@casmo/tree.js/styles/stylized';
+import { vec3 } from 'three/tsl';
+
+const dusk: TreeShaderHook = ({ color }) => color.mul(vec3(1, 0.85, 0.7));
+const pale: TreeShaderHook = ({ color }) => color.mul(1.2);
+setSceneShaderHooks({ bark: dusk, leaves: dusk });
+
+const tree = createTree(stylized.broadleaf, {
+  shaderHooks: {
+    leaves: pale, // stacks: dusk, then pale
+    bark: null,   // overrides: no hook on this tree's bark, not even the scene-wide one
+  },
+});
+tree.shaderHooks = stackShaderHooks({ leaves: pale }, { leaves: dusk }); // several sets of hooks, joined per part
+setSceneShaderHooks({}); // remove the scene-wide default
+```
+
+Per part, a Tree's or Forest's hooks work like this:
+
+- **left out** (or `undefined`): only the scene-wide default's hooks run;
+- **a hook or a list of hooks**: they stack after the scene-wide default's;
+- **`null`**: no hook at all on that part, the scene-wide default is overridden.
+
+Stacked hooks run in a fixed order: first the ready-made hooks the library ships (such as Snow Cover and
+Wetness), then the app's own; within each group the scene-wide default's before the Tree's or Forest's,
+each list in the order given. Each hook gets the colour and roughness the one before it returned. A hook
+that is listed twice runs once.
+
+### The normal after Wind
+
+`normal` is the normal after Wind on every Style. three only moves a flat-shaded (low-poly) facet with the
+swayed vertices; on smooth shading the library turns the lit normal by how the Wind turned the surface
+(the facet of the unswayed positions to the swayed one, from screen-space derivatives). That costs one
+varying and a few instructions, and only in a hook that reads `normal`. On an Impostor the baked normal is
+turned with the card's sway the same way.
+
+### Snow Cover
+
+Snow Cover is a ready-made Tree Shader Hook that whitens the surfaces of trees that face up, by a
+scene-wide snow amount from 0 (none) to 1 (full cover). The amount is shared the way `sceneWind` is:
+`sceneSnow`, or a `Snow` of your own. It lives in its own entry point, `@casmo/tree.js/weather`, which
+nothing else in the library imports, so a game without weather never loads it:
+
+```ts
+import { setSceneShaderHooks } from '@casmo/tree.js';
+import { sceneSnow, snowCoverHooks } from '@casmo/tree.js/weather';
+
+const snow = snowCoverHooks();
+setSceneShaderHooks(snow); // every Tree and Forest, near and far (Impostors too); or `tree.shaderHooks = snow`
+sceneSnow.amount = 0.8;    // driven by your weather: a uniform, no rebuild
+
+// Settings are live too (uniform writes):
+snow.set({
+  color: '#f4f8ff',  // sRGB, like any three.js colour
+  slope: 60,         // the steepest surface (degrees from level, 0..90) that still holds snow
+  softness: 25,      // degrees below `slope` over which the snow thins out to none (0: a hard edge)
+  strength: { bark: 1, leaves: 1, fruit: 0.5 }, // how much snow each part takes
+});
+```
+
+It draws to suit the Style: hard flat caps on low-poly, toon bands on stylized, soft lit snow with a slight
+sparkle on realistic. Snow is read from the `normal` after Wind, so it sways with the branches, lies on bare
+winter branches when the leaves are gone, and undersides stay bare. It stacks like any hooks and always runs
+before your own. At amount 0, or without the hooks set, trees look exactly as before.
+`snowCoverHooks({ snow })` follows another `Snow` than `sceneSnow`. For snow of your own, start from
+`snowCoverShading`, the body of the ready-made hook, which only uses the hook's inputs and the settings you
+give it.
+
+### Wetness
+
+Wetness is a ready-made Tree Shader Hook for rain: trees get darker and get a sheen (a lower roughness),
+most on surfaces that face up, by a scene-wide wetness amount from 0 (dry) to 1 (soaked). The amount is
+shared the way `sceneWind` is: `sceneWetness`, or a `Wetness` of your own. It lives in its own entry
+point, `@casmo/tree.js/weather`, so a game without weather never loads it:
+
+```ts
+import { createTree, setSceneShaderHooks, stackShaderHooks, type TreeShaderHook } from '@casmo/tree.js';
+import stylized from '@casmo/tree.js/styles/stylized';
+import { sceneWetness, wetnessHooks } from '@casmo/tree.js/weather';
+
+const wet = wetnessHooks({ darkening: 0.5, sheen: 0.7 });
+setSceneShaderHooks(wet); // every Tree and Forest, near and far (Impostors too)
+sceneWetness.amount = 0.8; // driven by your weather: a uniform, no rebuild
+
+// Settings are live too (uniform writes):
+wet.set({
+  color: '#d8e0ea',  // the tint wet surfaces take on
+  slope: 140,        // the steepest surface (degrees from level, 0..180: facing down) that still gets wet
+  softness: 60,      // degrees below `slope` over which it dries out to none (0: a hard edge)
+  strength: { bark: 1, leaves: 0.8, fruit: 0.5 }, // how much each part takes
+  darkening: 0.4,    // how much darker a soaked surface gets
+  sheen: 0.6,        // how much its roughness drops
+});
+
+// Stacks with your own hooks: the ready-made ones always run first.
+const mine: TreeShaderHook = ({ color }) => color.mul(1.1);
+const tree = createTree(stylized.broadleaf, { shaderHooks: stackShaderHooks({ leaves: mine }, wet) });
+```
+
+`slope` and `softness` mean the same as Snow Cover's: the angle of a surface from level (its normal from
+straight up), fully wet up to `slope - softness` and dry from `slope` on. Unlike snow, rain also wets
+sides and undersides, so Wetness's `slope` goes up to 180 (Snow Cover's to 90).
+
+It draws to suit the Style: smooth on realistic, whole facets on low-poly, and toon bands with a light
+glint band on top on stylized (toon lighting has no highlights for the sheen to show in). At amount 0, or
+without the hooks set, trees look exactly as before. `wetnessHooks({ wetness })` follows another `Wetness`
+than `sceneWetness`. For a look of your own, write your own hook instead, using this one as a model.
 
 ## Tree Effects
 
@@ -803,6 +1033,54 @@ renderer.domElement.addEventListener('pointermove', async (event) => {
   pipeline: `treeHighlight(input, highlighted, options)`, with the `treeId` input of
   `treeEffectsPass(scene, camera, null, { treeId: true })`, or `applyTreeEffects(input, settings, highlighted)`.
 
+### Custom Tree Effects
+
+Add a Tree Effect of your own to `TreeEffects`, such as a brush look on the foliage only. It is built
+the way the built-in ones are: from the colour so far and the tree mask, returning a colour node and an
+`update()` that changes its uniforms live. The tree mask's `r` is 1 on any tree pixel, `g` on leaf
+pixels only and `b` on the selected trees'.
+
+```ts
+import { mix, uniform, vec4 } from 'three/tsl';
+import { createTreeEffects, type CustomTreeEffect } from '@casmo/tree.js/effects';
+
+const foliage: CustomTreeEffect<{ strength: number }> = {
+  before: 'outline', // where it runs among the built-in effects (default: last, under the Highlight; 'end': over it)
+  // channels: { treeId: true, normal: true }, // only if it reads them: the scene pass adds them
+  build(input, options) {
+    const strength = uniform(options.strength);
+    const look = input.color.rgb; // your look here (this is the bare pass-through)
+    const node = vec4(mix(input.color.rgb, look, input.mask.g.mul(strength)), input.color.a);
+    return { node, update: (next) => (strength.value = next.strength) };
+  },
+};
+
+const effects = createTreeEffects(renderer, scene, camera, { effects: 'stylized' });
+effects.addEffect(foliage, { strength: 1 });
+effects.updateEffect(foliage, { strength: 0.5 }); // live: no new graph, no recompile
+effects.removeEffect(foliage);
+```
+
+- `before` names a built-in effect (`'grade'`, `'glow'`, `'innerLines'`, `'outline'` or `'highlight'`);
+  the custom effect runs right before it, whether that one is on or not. `'end'` runs it after every
+  built-in Tree Effect, the Highlight too (so it also changes the Highlight's tint and ring). Custom
+  effects at the same place run in the order they were added. The default, `'highlight'`, runs it after
+  every other built-in effect and under the Highlight.
+- The input has the colour so far (`color`), the tree mask (`mask`), `depth` and `camera`, plus the
+  optional channels it declares in `channels` (`treeId`, `normal` with `normalEncoding`), which the scene
+  pass then adds (a new scene pass, as for the built-in effects). Undeclared channels are never in its
+  input, even when a built-in effect has them on.
+- Custom effects stay through `effects.set()`, which rebuilds them with their latest options when it
+  builds a new graph. `effects.customEffects` lists them. Adding or removing one builds a new graph.
+- With no custom effect nothing changes: no channel, no pass. A custom effect itself adds no pass; it
+  is part of the pipeline's output node.
+- The [Scene Pipeline](#scene-pipeline) takes the same custom effects, with the same `addEffect`,
+  `updateEffect`, `removeEffect` and `customEffects`: see [Custom Tree Effects in the Scene
+  Pipeline](#custom-tree-effects-in-the-scene-pipeline).
+- In your own pipeline, call `effect.build(input, options)` on the output of `applyTreeEffects` (or any
+  colour) yourself. See [`examples/custom-effect`](examples/custom-effect/main.ts) for the bare setup of a
+  foliage-only effect.
+
 ## Scene Pipeline
 
 ![A stylized tree in front of a small Forest without (left) and with (right) the Scene Pipeline's stylized suggestion: AgX tone mapping, ground-contact AO, a soft bloom, distance fog and a low mist](docs/images/scene-pipeline.png)
@@ -872,6 +1150,35 @@ createScenePipeline(renderer, scene, camera, {
 - The order is fixed: scene pass (fog in the materials, AO in the ambient light) -> Tree Effects -> god
   rays -> motion blur -> bloom -> TRAA -> tone mapping and output colour space -> SMAA / FXAA.
 
+### Custom Tree Effects in the Scene Pipeline
+
+A [custom Tree Effect](#custom-tree-effects) goes into the Scene Pipeline the same way as into
+`TreeEffects`. It runs among the Tree Effects, at the place its `before` names (`'end'`: after the
+Highlight), so on tree pixels and before every Scene Effect (god rays, bloom, tone mapping and anti-aliasing see its result):
+
+```ts
+import { vec4 } from 'three/tsl';
+import type { CustomTreeEffect } from '@casmo/tree.js/effects';
+import { createScenePipeline } from '@casmo/tree.js/scene';
+
+// The bare foliage-only setup of Custom Tree Effects above (put your look in place of `input.color.rgb`).
+const foliage: CustomTreeEffect<{ strength: number }> = {
+  before: 'outline',
+  build: (input) => ({ node: vec4(input.color.rgb, input.color.a), update: () => {} }),
+};
+
+const pipeline = createScenePipeline(renderer, scene, camera, { style: 'stylized' });
+pipeline.addEffect(foliage, { strength: 1 });
+pipeline.updateEffect(foliage, { strength: 0.5 }); // live: no new graph, no recompile
+pipeline.set({ style: 'realistic' }); // the custom effect stays, rebuilt with its latest options
+pipeline.removeEffect(foliage);
+```
+
+- The channels it declares (`treeId`, `normal`) are added to the scene pass by the same rule as for the
+  built-in effects, and go again when it is removed and nothing else needs them.
+- With no custom effect the pipeline is unchanged. A custom effect alone (no Style, no overrides) makes
+  the pipeline render through its `RenderPipeline` instead of `renderer.render()`.
+
 ### Scene Effects in your own pipeline
 
 Every Scene Effect is also a stand-alone builder (every number and colour a uniform, every option with a
@@ -918,7 +1225,7 @@ node for your own MRT. TRAA changes your scene pass: `sceneAntialias(color, 'tra
 
 ![Two low-poly trees rendered with React Three Fiber](docs/images/react.png)
 
-`@casmo/tree.js/react` has `<Tree>`, `<Forest>`, `<Wind>` and `useTreeStyle`. Trees use TSL node
+`@casmo/tree.js/react` has `<Tree>`, `<Forest>`, `<Wind>` and `useTreeStyle` (and, opt-in, the [hooks, weather, Wind Bursts and custom Tree Effects](#tree-shader-hooks-weather-wind-bursts-and-custom-tree-effects-in-react)). Trees use TSL node
 materials, so give `<Canvas>` a `WebGPURenderer` (it falls back to WebGL2 by itself). R3F v9 takes an
 async `gl` factory, which must `await renderer.init()` before it returns:
 
@@ -1010,6 +1317,72 @@ function Look() {
   );
 }
 ```
+
+### Tree Shader Hooks, weather, Wind Bursts and custom Tree Effects in React
+
+All of these are opt-in: a React app that uses none of them renders exactly as before.
+
+```tsx
+import { useState } from 'react';
+import { mix, vec3, vec4 } from 'three/tsl';
+import {
+  SceneShaderHooks,
+  ScenePipeline,
+  SnowCover,
+  Tree,
+  TreeEffect,
+  Wetness,
+  useWindBurst,
+  type CustomTreeEffect,
+  type TreeShaderHooks,
+} from '@casmo/tree.js/react';
+
+// Module scope (or useMemo): a new function is a new hook, and a new hook rebuilds the node graph.
+const autumn: TreeShaderHooks = { leaves: ({ color }) => mix(color, vec3(0.9, 0.5, 0.1), 0.5) };
+const dusk: TreeShaderHooks = { bark: ({ color }) => color.mul(vec3(1, 0.85, 0.7)) };
+const foliage: CustomTreeEffect<{ strength: number }> = {
+  before: 'outline',
+  build: (input) => ({ node: vec4(input.color.rgb, input.color.a), update: () => {} }), // your look here
+};
+
+function Park({ snow, rain }: { snow: number; rain: number }) {
+  const burst = useWindBurst(); // on the scene-wide Wind, or useWindBurst(otherWind)
+  const [fall, setFall] = useState(false);
+  return (
+    <>
+      <SceneShaderHooks hooks={dusk} />
+      <SnowCover amount={snow} slope={60} />
+      <Wetness amount={rain} sheen={0.7} />
+      <Tree style="stylized" seed={1} shaderHooks={fall ? autumn : undefined} onClick={() => setFall(!fall)} />
+      <mesh rotation-x={-Math.PI / 2} onClick={(e) => burst({ x: e.point.x, z: e.point.z, strength: 1, radius: 6 })}>
+        <planeGeometry args={[40, 40]} />
+      </mesh>
+      <ScenePipeline style="stylized">
+        <TreeEffect effect={foliage} options={{ strength: 0.5 }} />
+      </ScenePipeline>
+    </>
+  );
+}
+```
+
+- `<Tree shaderHooks>` and `<Forest shaderHooks>` set the [Tree Shader Hooks](#tree-shader-hook) of that tree
+  or every tree of the forest (`tree.shaderHooks`, `forest.shaderHooks`); unset is none. Only the parts
+  whose hooks change rebuild their node graph; the tree is never regenerated.
+- `<SceneShaderHooks hooks>` sets scene-wide default hooks while mounted (`setSceneShaderHooks`). Several
+  stack in the order they mounted, after the hooks the scene already had, which the last one to unmount
+  puts back. Don't call `setSceneShaderHooks` yourself while they are mounted.
+- `<SnowCover>` and `<Wetness>` put the ready-made [Snow Cover](#snow-cover) and [Wetness](#wetness)
+  hooks on every tree while mounted (scene-wide, before the app's own hooks). `amount` is written to
+  `sceneSnow` / `sceneWetness` (or the `snow` / `wetness` prop) and put back on unmount; the settings
+  (`color`, `slope`, `softness`, `strength`, and Wetness's `darkening`, `sheen`) are live, an unset one is
+  its default. Their `ref` gives the hooks (`SnowCoverHooks`, `WetnessHooks`). They load
+  `@casmo/tree.js/weather` with a dynamic import on first use, so apps without weather never bundle it:
+  they suspend like `<ScenePipeline>` (call `preloadWeather()` to start the download early).
+- `useWindBurst(wind?)` returns a stable function that starts a [Wind Burst](#wind-burst).
+- `<TreeEffect effect options>` inside a `<ScenePipeline>` adds a [custom Tree
+  Effect](#custom-tree-effects-in-the-scene-pipeline) while mounted. New `options` (compared by value) go
+  through `updateEffect` (no new graph); it stays through Style changes, moves into a rebuilt pipeline, and
+  is removed on unmount. Several at the same place run in the order they mounted.
 
 ## Without a bundler: import map (CDN)
 
@@ -1149,6 +1522,7 @@ a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branche
 | [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
 | [`examples/large-forest`](examples/large-forest/main.ts) | `/examples/large-forest/` | 10,000 trees with Detail Levels on and off: frame times, draw calls, triangles and trees per Detail Level; `?trees=&lod=0&frames=&orbit=` | <img src="docs/images/example-large-forest.png" alt="examples/large-forest" width="160"> |
 | [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` | <img src="docs/images/example-effects.png" alt="examples/effects" width="160"> |
+| [`examples/custom-effect`](examples/custom-effect/main.ts) | `/examples/custom-effect/` | a foliage-only [custom Tree Effect](#custom-tree-effects) (the bare setup); `?effect=on\|pass-through\|off&effects=style&view=mask&backend=webgl` | <img src="docs/images/example-custom-effect.png" alt="examples/custom-effect" width="160"> |
 | [`examples/material-features`](examples/material-features/main.ts) | `/examples/material-features/` | the same tree with Material Features off and on (`SUGGESTED_MATERIAL_FEATURES`); `?style=realistic&species=oak` | <img src="docs/images/example-material-features.png" alt="examples/material-features" width="160"> |
 | [`examples/scene-pipeline`](examples/scene-pipeline/main.ts) | `/examples/scene-pipeline/` | the opt-in [Scene Pipeline](#scene-pipeline) (`createScenePipeline`) per Style: `?style=low-poly\|stylized\|realistic`; one Scene Effect alone through its builder: `?scene=tone-mapping\|smaa\|fxaa\|traa\|gtao\|bloom\|fog\|godrays\|motion-blur` (`&sun=back` for light shafts); `?scene=none` (adds nothing) or `plain` (`renderer.render`); the Wind-aware velocity channel: `?scene=velocity&wind=1.5&windTime=3`; motion blur: `?scene=motion-blur&wind=3&windTime=3&cameraStep=0.5`; `?backend=webgl` | <img src="docs/images/example-scene-pipeline.png" alt="examples/scene-pipeline" width="160"> |
 | [`examples/species`](examples/species/main.ts) | `/examples/species/` | a Species x Style picker over the whole collection; `?species=douglas-fir&style=realistic` | <img src="docs/images/example-species.png" alt="examples/species" width="160"> |

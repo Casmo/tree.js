@@ -16,6 +16,7 @@ import type { Light, Object3D, Renderer } from 'three/webgpu';
 // Types only: the Scene Pipeline module (and its three addons) is loaded with a dynamic import the
 // first time a <ScenePipeline> renders, so apps that never use it don't bundle it.
 import type { ScenePipeline as ScenePipelineObject, ScenePipelineChoice } from '../scene';
+import type { CustomTreeEffect } from '../effects';
 import type { ForestTree } from '../forest';
 import type { Tree } from '../tree';
 
@@ -55,6 +56,9 @@ export interface ScenePipelineProps extends ScenePipelineChoice {
 }
 
 const ScenePipelineContext = createContext<ScenePipelineObject | null>(null);
+
+// Pipelines <ScenePipeline> has disposed of: a <TreeEffect> leaves those alone.
+const disposedPipelines = new WeakSet<ScenePipelineObject>();
 
 /**
  * The `ScenePipeline` of the nearest enclosing `<ScenePipeline>` (e.g. to call `pick()`), or `null`
@@ -109,6 +113,7 @@ export function ScenePipeline({ style, treeEffects, sceneEffects, sun, selection
     });
     setPipeline(created);
     return () => {
+      disposedPipelines.add(created);
       created.dispose();
       setPipeline(null);
     };
@@ -137,4 +142,52 @@ export function ScenePipeline({ style, treeEffects, sceneEffects, sun, selection
   }, 1);
 
   return <ScenePipelineContext value={pipeline}>{children}</ScenePipelineContext>;
+}
+
+export interface TreeEffectProps<Options> {
+  /**
+   * The app's own Tree Effect (`CustomTreeEffect` from `@casmo/tree.js/effects`). Keep it stable (module
+   * scope or `useMemo`): another effect object is removed and added again (a new graph).
+   */
+  effect: CustomTreeEffect<Options>;
+  /** Its options. Compared by value: new options go through the effect's `update()` (no new graph, no recompile). */
+  options?: Options;
+}
+
+/**
+ * Adds a custom Tree Effect to the enclosing `<ScenePipeline>` while mounted (`pipeline.addEffect`), at
+ * the place its `before` names (`'end'`: after the Highlight); several at the same place run in the order they mounted. New `options`
+ * only call `updateEffect`, it stays through Style and settings changes and goes into a rebuilt pipeline,
+ * and it is removed on unmount. Renders nothing; does nothing outside a `<ScenePipeline>`.
+ *
+ * ```tsx
+ * <ScenePipeline style="stylized">
+ *   <TreeEffect effect={foliage} options={{ strength: 0.5 }} />
+ * </ScenePipeline>
+ * ```
+ */
+export function TreeEffect<Options>({ effect, options }: TreeEffectProps<Options>): null {
+  const pipeline = useScenePipeline();
+  const latest = useRef(options);
+  latest.current = options;
+  // The options the effect was added or last updated with, by value.
+  const applied = useRef('');
+  const optionsKey = JSON.stringify(options) ?? '';
+
+  useLayoutEffect(() => {
+    if (!pipeline) return;
+    applied.current = JSON.stringify(latest.current) ?? '';
+    pipeline.addEffect(effect, latest.current as Options);
+    return () => {
+      if (!disposedPipelines.has(pipeline)) pipeline.removeEffect(effect);
+    };
+  }, [pipeline, effect]);
+
+  useLayoutEffect(() => {
+    if (!pipeline || applied.current === optionsKey) return;
+    applied.current = optionsKey;
+    pipeline.updateEffect(effect, latest.current as Options);
+  }, [pipeline, effect, optionsKey]);
+
+  return null;
 }

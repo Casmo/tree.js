@@ -336,3 +336,54 @@ async function changedIn(page: Page, a: Buffer, b: Buffer, regions: Record<strin
     [a.toString('base64'), b.toString('base64'), regions] as const,
   );
 }
+
+test.describe('custom Tree Effects in the Scene Pipeline', () => {
+  /** Changed pixels between two screenshots, and how many of them are not on leaves (`g` > 0 in the mask screenshot). */
+  async function leafChanges(page: Page, a: Buffer, b: Buffer, mask: Buffer): Promise<{ changed: number; offLeaves: number; leaves: number }> {
+    return page.evaluate(
+      async ([pa, pb, pm]) => {
+        const decode = async (base64: string) => {
+          const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${base64}`)).blob());
+          const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+          const context = canvas.getContext('2d')!;
+          context.drawImage(bitmap, 0, 0);
+          return context.getImageData(0, 0, bitmap.width, bitmap.height).data;
+        };
+        const [da, db, dm] = await Promise.all([decode(pa), decode(pb), decode(pm)]);
+        let changed = 0;
+        let offLeaves = 0;
+        let leaves = 0;
+        for (let i = 0; i < da.length; i += 4) {
+          // Any leaf coverage counts (anti-aliased leaf edges are partly leaf).
+          const leaf = dm[i + 1]! > 0;
+          if (leaf) leaves++;
+          const diff = Math.max(Math.abs(da[i]! - db[i]!), Math.abs(da[i + 1]! - db[i + 1]!), Math.abs(da[i + 2]! - db[i + 2]!));
+          if (diff === 0) continue;
+          changed++;
+          if (!leaf) offLeaves++;
+        }
+        return { changed, offLeaves, leaves };
+      },
+      [a.toString('base64'), b.toString('base64'), mask.toString('base64')] as const,
+    );
+  }
+
+  for (const backend of backends) {
+    test(`a foliage-only custom Tree Effect changes leaf pixels and nothing else (${backend.name})`, async ({ page }) => {
+      const mask = await load(page, `scene=none&custom=pass-through&view=mask${backend.query}`);
+      const through = await load(page, `scene=none&custom=pass-through${backend.query}`);
+      const on = await load(page, `scene=none&custom=on${backend.query}`);
+      expect(on.example.backend).toBe(backend.name);
+      const { changed, offLeaves, leaves } = await leafChanges(page, through.image, on.image, mask.image);
+      expect(leaves, 'the trees have leaves in view').toBeGreaterThan(5_000);
+      expect(changed, 'the effect changes most leaf pixels').toBeGreaterThan(leaves * 0.5);
+      expect(offLeaves, 'no bark, ground, rock or sky pixel changes').toBe(0);
+    });
+
+    test(`the bare pass-through custom Tree Effect leaves the Style's full suggestion as it is (${backend.name})`, async ({ page }) => {
+      const off = await load(page, `scene=style${backend.query}`);
+      const through = await load(page, `scene=style&custom=pass-through${backend.query}`);
+      expect(await difference(page, off.image, through.image)).toEqual({ changed: 0, maxDiff: 0 });
+    });
+  }
+});

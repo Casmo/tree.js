@@ -8,6 +8,8 @@ export { treeColorGrade, type TreeColorGradeOptions } from './grade';
 export { treeHighlight, type TreeHighlightOptions } from './highlight';
 export { TREE_ID, readTreeId, treeFromId, treeIdMRT, treeIdOf, treeIdTexture } from './tree-id';
 export { SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from './suggested';
+export { type CustomTreeEffect, type CustomTreeEffectOptions, type TreeEffectName, type TreeEffectPlace } from './custom';
+export { type LiveTreeEffect } from './live';
 export {
   applyTreeEffects,
   createTreeEffects,

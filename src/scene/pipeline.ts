@@ -8,6 +8,7 @@ import {
   treeEffectsShape,
 } from '../effects/effects';
 import type { TreeEffectsChoice } from '../effects/effects';
+import { CustomTreeEffectList, type CustomTreeEffect, type CustomTreeEffectOptions } from '../effects/custom';
 import type { TreeEffectsSettings } from '../effects/suggested';
 import { readTreeId, treeFromId } from '../effects/tree-id';
 import type { LiveTreeEffect } from '../effects/live';
@@ -67,9 +68,9 @@ function isEmpty(settings: ScenePipelineSettings): boolean {
   return [settings.treeEffects, settings.sceneEffects].every((group) => Object.values(group).every((part) => part == null));
 }
 
-/** The scene pass channels the settings need (with the `treeId` and `velocity` options). */
-function channelsOf(settings: ScenePipelineSettings, options: ScenePipelineOptions): ScenePassChannels {
-  return { ...channelsFor(settings.treeEffects, options), velocity: wantsVelocity(settings, options) };
+/** The scene pass channels the settings need (with the `treeId` and `velocity` options and the custom effects' channels). */
+function channelsOf(settings: ScenePipelineSettings, options: ScenePipelineOptions, custom: CustomTreeEffectList): ScenePassChannels {
+  return { ...channelsFor(settings.treeEffects, options, custom), velocity: wantsVelocity(settings, options) };
 }
 
 /** Whether the scene pass renders Wind-aware velocity (ADR 0011): only when something reads it. */
@@ -88,6 +89,7 @@ export class ScenePipeline {
   /** The trees the Highlight marks (the `highlighted` option, or an empty list): change it in place. */
   readonly highlighted: (Tree | ForestTree)[];
   private current: ScenePipelineSettings = { treeEffects: {}, sceneEffects: {} };
+  private readonly custom = new CustomTreeEffectList();
   private graph: {
     shape: string;
     tree: LiveTreeEffect<TreeEffectsSettings>;
@@ -131,22 +133,52 @@ export class ScenePipeline {
    */
   set(choice: ScenePipelineChoice): void {
     this.current = resolveChoice(choice);
-    const channels = channelsKey(channelsOf(this.current, this.options));
+    this.rebuild();
+  }
+
+  /** The app's own Tree Effects, in the order they were added (see {@link addEffect}). */
+  get customEffects(): readonly CustomTreeEffect<never>[] {
+    return this.custom.effects;
+  }
+
+  /**
+   * Adds a Tree Effect of the app's own (as `TreeEffects.addEffect()`): it runs at the place it names
+   * among the built-in Tree Effects, so before every Scene Effect. It stays through {@link set} until
+   * {@link removeEffect}. Builds a new graph, and a new scene pass if it declares a channel that is not on yet.
+   */
+  addEffect<Options>(effect: CustomTreeEffect<Options>, ...[options]: CustomTreeEffectOptions<Options>): void {
+    this.custom.add(effect, options as Options);
+    this.rebuild();
+  }
+
+  /** Changes the options of an added custom effect live, through its `update()` (no new graph, no recompile). */
+  updateEffect<Options>(effect: CustomTreeEffect<Options>, options: Options): void {
+    this.custom.update(effect, options);
+  }
+
+  /** Removes a custom effect (nothing happens if it is not added); its channels go when nothing else needs them. */
+  removeEffect<Options>(effect: CustomTreeEffect<Options>): void {
+    if (this.custom.remove(effect as CustomTreeEffect<never>)) this.rebuild();
+  }
+
+  /** Brings the scene pass, the graph and the fog in line with the settings and the custom effects. */
+  private rebuild(): void {
+    const channels = channelsKey(channelsOf(this.current, this.options, this.custom));
     if (this.input?.channels !== channels) {
       // Other channels: a new scene pass (new MRT, ADR 0009), and a new graph that reads it.
       this.disposeGraph();
       this.input?.pass.pass.dispose();
       this.input = {
         channels,
-        pass: createScenePass(this.scene, this.camera, this.options.selection ?? null, channelsOf(this.current, this.options)),
+        pass: createScenePass(this.scene, this.camera, this.options.selection ?? null, channelsOf(this.current, this.options, this.custom)),
       };
     }
     const sceneEffects = this.usableSceneEffects(this.current.sceneEffects);
-    this.passThrough = channels === '' && isEmpty({ ...this.current, sceneEffects });
+    this.passThrough = channels === '' && isEmpty({ ...this.current, sceneEffects }) && this.custom.effects.length === 0;
     this.setFog();
     const { ao: aoSettings } = sceneEffects;
     const shape = JSON.stringify([
-      treeEffectsShape(this.current.treeEffects, this.scenePass),
+      treeEffectsShape(this.current.treeEffects, this.scenePass, this.custom),
       sceneEffectsShape(sceneEffects),
       aoSettings !== undefined,
     ]);
@@ -157,7 +189,7 @@ export class ScenePipeline {
       return;
     }
     this.disposeGraph();
-    const tree = liveTreeEffects(this.scenePass, this.current.treeEffects, this.highlighted);
+    const tree = liveTreeEffects(this.scenePass, this.current.treeEffects, this.highlighted, this.custom);
     const scene = liveSceneEffects({ ...this.scenePass, color: tree.node, sun: this.options.sun }, sceneEffects);
     // AO only darkens ambient light: a pre-pass, GTAO, and its context on the scene pass's lighting.
     const ao = aoSettings ? liveSceneAO(this.scene, this.camera, aoSettings) : null;

@@ -1,5 +1,5 @@
-import { useLayoutEffect } from 'react';
-import { sceneWind, type Wind as WindObject, type WindDirection } from '../wind';
+import { useCallback, useLayoutEffect } from 'react';
+import { sceneWind, type Wind as WindObject, type WindBurstOptions, type WindDirection } from '../wind';
 
 export interface WindProps {
   /** World-space direction the wind blows towards (any non-zero length). Unset: leave as is (default +X). */
@@ -41,4 +41,18 @@ export function Wind({ direction, strength, time = null, wind = sceneWind }: Win
   }, [wind, time]);
 
   return null;
+}
+
+/**
+ * A function that triggers a Wind Burst (`wind.burst()`) on `wind` (default the scene-wide `sceneWind`):
+ * trees near the ground point bend away from it and settle within 1.2 s. Stable for the same Wind, so it
+ * is safe in event handlers and effect deps. Only uniform writes.
+ *
+ * ```tsx
+ * const burst = useWindBurst();
+ * <mesh onClick={(e) => burst({ x: e.point.x, z: e.point.z, strength: 1 })} />
+ * ```
+ */
+export function useWindBurst(wind: WindObject = sceneWind): (options: WindBurstOptions) => void {
+  return useCallback((options: WindBurstOptions) => void wind.burst(options), [wind]);
 }

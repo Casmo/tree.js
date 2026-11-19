@@ -1,7 +1,6 @@
 import {
   BufferAttribute,
   BufferGeometry,
-  Group,
   InterleavedBuffer,
   InterleavedBufferAttribute,
   Mesh,
@@ -17,6 +16,7 @@ import { trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { clampGrowth, growthPosition } from '../growth';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
 import { LiveMaterialFeatures } from '../materials/material-features';
+import { LiveShaderHooks, partHookTarget, ShaderHookedGroup, type TreeShaderHooks } from '../materials/shader-hooks';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes, type SeasonUniform } from '../season';
 import { checkedSeason } from '../season/check';
@@ -85,13 +85,15 @@ export interface TreeOptions {
    * the app-wide `setTextureOptions`. Only Definitions with textures (e.g. the realistic Style) use it.
    */
   textures?: TextureOptions;
+  /** The Tree Shader Hook per tree part (see {@link Tree.shaderHooks}). Default: none. */
+  shaderHooks?: TreeShaderHooks;
 }
 
 /**
  * A generated tree as a three.js object. Add it to a scene rendered by `WebGPURenderer`.
  * `growth`, `season` and the Wind only update uniforms: no regeneration, no recompile.
  */
-export class Tree extends Group {
+export class Tree extends ShaderHookedGroup {
   readonly isTree = true;
   readonly definition: TreeDefinition;
   readonly seed: number;
@@ -111,6 +113,7 @@ export class Tree extends Group {
   readonly windResponse: WindResponse;
   private readonly windBinding: WindBinding;
   private readonly features: LiveMaterialFeatures;
+  protected readonly hooks: LiveShaderHooks;
 
   /**
    * Resolves once every texture of this tree has loaded (at once for a tree without textures);
@@ -157,12 +160,22 @@ export class Tree extends Group {
     fruit.positionNode = growthPosition(this.growthUniform, fruitSeason.position);
     applyWind(fruit, offset);
     // Wind-aware velocity (ADR 0011): only read by a scene pass with a velocity channel.
-    const motion = { source: this.windBinding, shift: (previous: Node<'float'>) => windOffset(this.windBinding, this.windResponse, { time: previous }).sub(offset) };
+    const motion = { source: this.windBinding, offset, shift: (previous: Node<'float'>) => windOffset(this.windBinding, this.windResponse, { time: previous }).sub(offset) };
     for (const material of [bark, leaf, fruit]) setWindMotion(material.positionNode as Node, motion);
     this.season = options.season ?? 0;
     this.features = new LiveMaterialFeatures(definition, [
       { leaf, materials: [bark, leaf, fruit], crown: data.crown, growth: this.growthUniform },
     ]);
+    const inputs = { season: this.seasonUniform, growth: this.growthUniform };
+    this.hooks = new LiveShaderHooks(
+      [
+        partHookTarget('bark', bark, this.wood.geometry, inputs),
+        partHookTarget('leaves', leaf, this.leaves.geometry, inputs),
+        partHookTarget('fruit', fruit, this.fruit.geometry, inputs),
+      ],
+      definition.materials.shading,
+      options.shaderHooks,
+    );
   }
 
   /**
@@ -214,7 +227,8 @@ export class Tree extends Group {
 
   /**
    * The Wind this tree sways with (shared with every other tree using it). Assigning another
-   * Wind only rebinds uniforms: no regeneration, no recompile.
+   * Wind only rebinds uniforms: no regeneration, no recompile (except the one-time node-graph rebuild
+   * when the tree first follows a Wind that has had a Wind Burst, see `Wind.burst`).
    */
   get wind(): Wind {
     return this.windBinding.wind;
@@ -251,6 +265,7 @@ export class Tree extends Group {
 
   /** Frees the GPU resources (geometries and materials) of this tree and removes it from its parent. */
   override dispose(): void {
+    this.hooks.dispose();
     this.traverse((object) => {
       if (object instanceof Mesh) {
         object.geometry.dispose();

@@ -17,6 +17,11 @@ export interface WindMotion {
    * the current ones (they are not motion).
    */
   shift(previous: Node<'float'>): Node<'vec3'>;
+  /**
+   * TSL node: the current Wind displacement of each vertex, in the space `positionNode` outputs (only
+   * attributes and uniforms). Tree Shader Hooks turn the smooth normal with it (the swayed normal).
+   */
+  readonly offset?: Node<'vec3'>;
 }
 
 // Keyed by the material's positionNode, so material clones (which share it) move the same, and a
