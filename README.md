@@ -405,10 +405,22 @@ sceneWind.burst({ x: 1, z: 0, strength: -0.5 }); // reduced motion: lean away an
 console.log(sceneWind.bursts.length); // the bursts running now
 ```
 
+A negative strength is the reduced-motion mode, for players who turn motion down: trees within reach
+lean away from the point all at once and settle, with no front travelling outward and no swing back; the
+size of the value is the strength (and sets the default radius). A weaker positive strength simply
+pushes less.
+
 Up to 8 bursts (`MAX_WIND_BURSTS`) run at once per Wind; another one replaces the oldest. A burst starts
 at the Wind's current time (its pinned `time`, or the renderer clock), so a pinned clock holds it still.
-It only writes uniforms: with no burst running the shader loop runs zero times and trees look exactly
-as without bursts. The Wind-aware velocity channel (TRAA, motion blur) includes burst motion.
+The Wind-aware velocity channel (TRAA, motion blur) includes burst motion.
+
+Wind Bursts are opt-in at the material level: until a Wind has had its first `burst()`, the trees swaying
+with it have no burst nodes at all, and their materials are exactly as without Wind Bursts. The first
+burst on a Wind (or binding a tree or Forest to a Wind that has had one) rebuilds the node graphs of
+those trees once, on Trees, every Forest Detail Level, Impostors and the velocity channel, so expect one
+shader compile then; the geometry is never rebuilt. Call `burst()` once during loading (e.g. with a
+small radius far away) to have that compile happen up front. After that a burst only writes uniforms,
+and with no burst running the shader loop runs zero times.
 
 Forests take the bursts of their Wind too: every Forest tree bends away from the burst point from its
 own position and rotation, at every Detail Level, and Impostors sway with it, so the whole park reacts:

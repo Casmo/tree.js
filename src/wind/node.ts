@@ -14,14 +14,14 @@ import {
 } from 'three/tsl';
 import type { WindUniforms } from './Wind';
 import type { WindResponse } from './response';
-import { objectBurstFrame, windBurstPush, type WindBurstFrame } from './burst';
+import { objectBurstFrame, windBurstPush, withWindBursts, type WindBurstFrame } from './burst';
 
 // Sway amplitudes at Wind strength 1 and response 1, as a fraction of the trunk height.
 const TRUNK_AMPLITUDE = 0.15;
 const BRANCH_AMPLITUDE = 0.1;
 // Leaf flutter, as a fraction of the distance from the leaf base.
 const LEAF_AMPLITUDE = 0.2;
-// How hard a Wind Burst bends a tree, relative to a Wind of the same strength (fernweh's blast bend).
+// How hard a Wind Burst bends a tree, relative to a Wind of the same strength.
 const BURST_BEND = 3;
 
 /**
@@ -29,7 +29,8 @@ const BURST_BEND = 3;
  * the tree's own space and the tree's phase (radians), e.g. from per-instance attributes; and the
  * Wind time (seconds) to evaluate the sway at (default the Wind's own clock), e.g. the previous
  * frame's for Wind-aware velocity. `burst`: where the tree stands for Wind Bursts (default the
- * rendered object), or `false` for a tree that does not take Wind Bursts.
+ * rendered object), or `false` for a tree that does not take Wind Bursts. Burst nodes are only added
+ * once the Wind has had a burst (one node-graph rebuild then; see `Wind.burst`).
  */
 export interface WindFrame {
   direction?: Node<'vec3'>;
@@ -77,12 +78,15 @@ export function windOffset(wind: WindSource, response: WindResponse, frame: Wind
     flutter.mul(response.uniforms.leaves).mul(weights.z).mul(leafLength).mul(wind.uniforms.strength).mul(gust).mul(LEAF_AMPLITUDE),
   );
   const offset = sway.add(leaves);
-  if (!motion.burst) return offset;
+  if (frame.burst === false) return offset;
 
-  // Wind Bursts: added on top, so with none running (a push of exactly 0) the sum is the Wind's own.
-  const push = motion.burst;
-  const burstLeaves = normalGeometry.mul(flutter.mul(response.uniforms.leaves).mul(weights.z).mul(leafLength).mul(push.length()).mul(LEAF_AMPLITUDE));
-  return offset.add(burstSway(push, response, weights.x, weights.y)).add(burstLeaves);
+  // Wind Bursts: added on top (only once the Wind has had one), so with none running (a push of exactly
+  // 0) the sum is the Wind's own.
+  return withWindBursts(wind, offset, () => {
+    const push = burstMotion(wind, frame);
+    const burstLeaves = normalGeometry.mul(flutter.mul(response.uniforms.leaves).mul(weights.z).mul(leafLength).mul(push.length()).mul(LEAF_AMPLITUDE));
+    return offset.add(burstSway(push, response, weights.x, weights.y)).add(burstLeaves);
+  });
 }
 
 /** The Wind clock, direction and gusts one tree sways with. */
@@ -94,8 +98,6 @@ interface WindMotion {
   gust: Node<'float'>;
   /** Strength × trunk height × gust. */
   scale: Node<'float'>;
-  /** The Wind Bursts' push in the tree's space (× {@link BURST_BEND}), or null without bursts. */
-  burst: Node<'vec3'> | null;
 }
 
 function windMotion(wind: WindSource, response: WindResponse, frame: WindFrame): WindMotion {
@@ -103,12 +105,12 @@ function windMotion(wind: WindSource, response: WindResponse, frame: WindFrame):
   const t = (frame.time ?? wind.uniforms.time).mul(r.frequency).add(frame.phase ?? r.phase);
   const direction = (frame.direction ?? objectWindDirection(wind)).normalize();
   const gust = sin(t.mul(0.37)).add(sin(t.mul(0.91).add(1.7))).mul(0.1).add(0.8);
-  return { t, direction, gust, scale: wind.uniforms.strength.mul(r.height).mul(gust), burst: burstMotion(wind, frame) };
+  return { t, direction, gust, scale: wind.uniforms.strength.mul(r.height).mul(gust) };
 }
 
-function burstMotion(wind: WindSource, frame: WindFrame): Node<'vec3'> | null {
-  if (frame.burst === false) return null;
-  const { origin, toTree } = frame.burst ?? objectBurstFrame();
+/** The Wind Bursts' push in the tree's space (× {@link BURST_BEND}). */
+function burstMotion(wind: WindSource, frame: WindFrame): Node<'vec3'> {
+  const { origin, toTree } = frame.burst || objectBurstFrame();
   const push = windBurstPush(wind, origin, frame.time);
   return toTree(vec3(push.x, 0, push.y)).mul(BURST_BEND);
 }
@@ -156,7 +158,8 @@ export function treeSwayOffset(wind: WindSource, response: WindResponse, point: 
   const branches = trunk.mul(CROWN_BRANCH_SWAY);
   const motion = windMotion(wind, response, frame);
   const sway = swayOffset(motion, response, { trunk, branches, spatialPhase: float(0) });
-  return motion.burst ? sway.add(burstSway(motion.burst, response, trunk, branches)) : sway;
+  if (frame.burst === false) return sway;
+  return withWindBursts(wind, sway, () => sway.add(burstSway(burstMotion(wind, frame), response, trunk, branches)));
 }
 
 /**

@@ -247,7 +247,8 @@ export class Tree extends Group {
 
   /**
    * The Wind this tree sways with (shared with every other tree using it). Assigning another
-   * Wind only rebinds uniforms: no regeneration, no recompile.
+   * Wind only rebinds uniforms: no regeneration, no recompile (except the one-time node-graph rebuild
+   * when the tree first follows a Wind that has had a Wind Burst, see `Wind.burst`).
    */
   get wind(): Wind {
     return this.windBinding.wind;

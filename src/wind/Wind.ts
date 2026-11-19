@@ -42,6 +42,44 @@ export const MAX_WIND_BURSTS = 8;
 /** Metres a Wind Burst reaches per unit of strength, unless given a `radius`. */
 export const WIND_BURST_REACH = 8;
 
+/** Something that switches Wind Bursts on once they are used (see {@link WindBurstsUsed}). */
+export interface BurstListener {
+  burstsUsed(): void;
+}
+
+/**
+ * Whether a Wind (or a {@link WindBinding}) has ever had a Wind Burst. Tree materials only get burst
+ * nodes once it has: until then they are exactly as without Wind Bursts. Listeners are held weakly and
+ * told once.
+ */
+export class WindBurstsUsed {
+  private used = false;
+  private listeners = new Set<WeakRef<BurstListener>>();
+
+  get triggered(): boolean {
+    return this.used;
+  }
+
+  /** Tells `listener` (at once if already triggered) when the first burst comes. */
+  listen(listener: BurstListener): void {
+    if (this.used) {
+      listener.burstsUsed();
+      return;
+    }
+    if (this.listeners.size >= 256) for (const ref of this.listeners) if (!ref.deref()) this.listeners.delete(ref);
+    this.listeners.add(new WeakRef(listener));
+  }
+
+  /** Marks bursts as used and tells every listener (only the first time). */
+  trigger(): void {
+    if (this.used) return;
+    this.used = true;
+    const listeners = this.listeners;
+    this.listeners = new Set();
+    for (const ref of listeners) ref.deref()?.burstsUsed();
+  }
+}
+
 /**
  * Scene-wide Wind: a direction and a strength that every tree listening to it sways with.
  * Changing them only writes uniform values (no recompile). Trees use {@link sceneWind} unless
@@ -114,7 +152,8 @@ export class Wind {
    * Starts a Wind Burst: a short push of air from a ground point that bends the trees within its
    * radius away from it and fades out within {@link WIND_BURST_LIFETIME} seconds of Wind time, on top
    * of the Wind. At most {@link MAX_WIND_BURSTS} run at once; another one replaces the oldest. Only
-   * uniform writes (no recompile). Returns this.
+   * uniform writes, except that the first burst on a Wind rebuilds the node graphs of the trees swaying
+   * with it once (never their geometry): until then their materials have no burst nodes at all. Returns this.
    */
   burst({ x, z, strength = 1, radius = WIND_BURST_REACH * Math.abs(strength) }: WindBurstOptions): this {
     for (const [name, value] of Object.entries({ x, z, strength })) {
@@ -124,6 +163,7 @@ export class Wind {
     const running = this.bursts;
     if (running.length === MAX_WIND_BURSTS) running.shift();
     this.started = [...running, { x, z, strength, radius, start: this.now }];
+    this.uniforms.bursts.used.trigger();
     return this;
   }
 
@@ -174,15 +214,15 @@ export type WindUniforms = Wind['uniforms'];
 /**
  * Per-object Wind uniforms that follow whichever Wind is bound to them, read once per render.
  * Trees and Forests build their Wind nodes on these, so switching to another Wind is one
- * assignment: no new nodes, no recompile, no regeneration.
+ * assignment: no new nodes, no recompile, no regeneration (only the first time the binding follows a
+ * Wind that has had a Wind Burst do the materials built on it add burst nodes, one rebuild).
  */
-export class WindBinding {
-  /** The bound Wind. */
-  wind: Wind;
+export class WindBinding implements BurstListener {
   readonly uniforms: WindUniforms;
+  private bound: Wind;
 
   constructor(wind: Wind) {
-    this.wind = wind;
+    this.bound = wind;
     const direction = wind.uniforms.direction.value.clone();
     this.uniforms = {
       direction: uniform(direction).onRenderUpdate(() => direction.copy(this.wind.uniforms.direction.value)),
@@ -190,12 +230,30 @@ export class WindBinding {
       time: uniform(0).onRenderUpdate((frame) => this.wind.timeAt(frame.time)),
       bursts: burstUniforms(() => this.wind),
     };
+    wind.uniforms.bursts.used.listen(this);
+  }
+
+  /** The bound Wind. Binding one that has had a Wind Burst switches bursts on (see {@link WindBurstsUsed}). */
+  get wind(): Wind {
+    return this.bound;
+  }
+
+  set wind(value: Wind) {
+    this.bound = value;
+    if (!this.uniforms.bursts.used.triggered) value.uniforms.bursts.used.listen(this);
+  }
+
+  /** @internal A Wind this binding listened to had its first burst: switch bursts on if it is still the bound one. */
+  burstsUsed(): void {
+    if (this.bound.uniforms.bursts.used.triggered) this.uniforms.bursts.used.trigger();
   }
 }
 
+
 /**
  * The Wind Burst uniforms tree materials read: a fixed-size array of {@link MAX_WIND_BURSTS} slots,
- * and how many of them to loop over (0 when no burst runs, so the loop costs nothing).
+ * and how many of them to loop over (0 when no burst runs, so the loop costs nothing). Tree materials
+ * only read them once a burst has been triggered (`used`).
  */
 export interface WindBurstUniforms {
   /** Per slot: x, z (world-space ground point), start (Wind time), strength. */
@@ -203,6 +261,8 @@ export interface WindBurstUniforms {
   /** Per slot: the radius in metres. */
   readonly radii: UniformArrayNode<'float'>;
   readonly count: UniformNode<'int', number>;
+  /** Whether any burst has been triggered (then materials add burst nodes; see {@link WindBurstsUsed}). */
+  readonly used: WindBurstsUsed;
 }
 
 /** Burst uniforms that follow the bursts of `wind()`, read once per render. */
@@ -217,5 +277,6 @@ function burstUniforms(wind: () => Wind): WindBurstUniforms {
       wind().drawnBursts.forEach((b, i) => (radii[i] = b.radius));
     }) as UniformArrayNode<'float'>,
     count: uniform(0, 'int').onRenderUpdate(() => wind().drawnBursts.length) as UniformNode<'int', number>,
+    used: new WindBurstsUsed(),
   };
 }

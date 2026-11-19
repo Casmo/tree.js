@@ -621,7 +621,8 @@ export class Forest extends Group {
 
   /**
    * The Wind every tree of this forest sways with. Assigning another Wind only rebinds uniforms:
-   * no rebuild, no recompile.
+   * no rebuild, no recompile (except the one-time node-graph rebuild when the Forest first follows a
+   * Wind that has had a Wind Burst, see `Wind.burst`).
    */
   get wind(): Wind {
     return this.windBinding.wind;
