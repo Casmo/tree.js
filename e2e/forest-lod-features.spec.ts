@@ -48,6 +48,7 @@ async function impostors(page: Page, features: string): Promise<number[]> {
 }
 
 test('each Material Feature visibly applies to Impostors', async ({ page }) => {
+  test.setTimeout(120_000); // four forests, each baked on the CPU (SwiftShader)
   const plain = await impostors(page, '');
   for (const features of ['crownNormals=1', 'translucency=1,1,1', 'occlusion=1']) {
     // The trees cover about a third of the view: each feature changes a good part of them.
@@ -61,6 +62,7 @@ test('Impostors with every Material Feature', async ({ page }) => {
 });
 
 test('tuning the live Material Features reaches the Impostors without a rebake', async ({ page }) => {
+  test.setTimeout(120_000); // two forests, each baked on the CPU (SwiftShader)
   const built = await impostors(page, 'crownNormals=0.3&translucency=0.2,0.5,0.4&occlusion=0.4');
   await expect(page.locator('canvas')).toHaveScreenshot('forest-lod-impostor-features-tuned-webgpu.png', mask(page));
 
