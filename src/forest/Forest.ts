@@ -12,12 +12,16 @@ import {
   Matrix4,
   Quaternion,
   Vector3,
+  type Camera,
+  type Mesh,
   type MeshStandardNodeMaterial,
-  type UniformNode,
+  type Node,
+  type Renderer,
+  type Scene,
 } from 'three/webgpu';
-import { positionGeometry, uniform } from 'three/tsl';
+import { and, positionGeometry, uniform } from 'three/tsl';
 import type { MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
-import { generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
+import { generateLightTree, generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
 import { LiveMaterialFeatures, type MaterialFeatureTarget } from '../materials/material-features';
 import { assertWebGPURenderer } from '../renderer';
@@ -26,15 +30,17 @@ import { checkedSeason } from '../season/check';
 import { clampGrowth } from '../growth';
 import { textureReady, type TextureOptions } from '../textures';
 import { sceneWind, Wind, WindBinding, WindResponse, type WindSource } from '../wind';
+import { LevelSelection, MAX_LEVEL_PARTS, VariantLevels, type DetailLevelUniforms, type LevelPart } from './levels';
 import {
   checkDetailLevelDistances,
+  DetailLevel,
   resolveForestLod,
   type DetailLevelDistances,
   type ForestLodOptions,
   type ForestLodSettings,
   type ForestLodUpdate,
 } from './lod';
-import { INSTANCE_ATTRIBUTES, INSTANCE_STRIDE, forestPosition, instanceRotate, instanceState } from './nodes';
+import { INSTANCE_ATTRIBUTES, INSTANCE_STRIDE, forestPosition, instanceRotate, instanceState, levelVisible } from './nodes';
 import {
   delayedGrowth,
   forestTreeKey,
@@ -75,8 +81,6 @@ export interface ForestInstanceState {
   season: number;
   windPhase: number;
 }
-
-type LodUniforms = Record<keyof DetailLevelDistances, UniformNode<'float', number>>;
 
 const MIN_CAPACITY = 16;
 // Room for Wind sway in the instance bounding spheres (fraction of the trunk height).
@@ -206,6 +210,11 @@ export class ForestVariant {
   private readonly woodSource: BufferGeometry;
   private readonly leafSource: BufferGeometry;
   private readonly fruitSource: BufferGeometry | null;
+  private readonly definition: TreeDefinition;
+  /** @internal The Detail Levels this Variant draws its trees with; null until they are drawn (lod set, on WebGPU). */
+  levels: VariantLevels | null = null;
+  /** Vertex data of the Light level (null until Detail Levels are drawn). */
+  private lightSources: BufferGeometry[] = [];
 
   constructor(
     private readonly forest: Forest,
@@ -218,6 +227,7 @@ export class ForestVariant {
   ) {
     this.index = index;
     this.seed = seed;
+    this.definition = definition;
     this.data = generateTree(definition, seed);
     const height = trunkHeight(this.data.skeleton);
     this.windResponse = new WindResponse(definition.wind, { height, phase: 0 });
@@ -321,6 +331,7 @@ export class ForestVariant {
       i * INSTANCE_STRIDE,
     );
     this.instanceData.needsUpdate = true;
+    this.levels?.write(i, array.subarray(i * INSTANCE_STRIDE, (i + 1) * INSTANCE_STRIDE), [position.x, position.y, position.z]);
     for (const mesh of this.meshes) mesh.boundingSphere = mesh.boundingBox = null;
   }
 
@@ -331,8 +342,49 @@ export class ForestVariant {
     return { growth: array[o + 5]!, season: array[o + 6]!, windPhase: array[o + 7]! };
   }
 
+  /**
+   * @internal Starts drawing this Variant's trees by Detail Level (ADR 0010): a Full and a Light mesh
+   * set, drawn indirectly from the level lists, with the Variant's own materials (which get the
+   * cross-fade dither). The instanced meshes stay, hidden, for raycasting and Tree IDs.
+   */
+  enableDetailLevels(uniforms: DetailLevelUniforms, lightOverride: ForestLodSettings['lightDefinition'], setupMesh: (mesh: Mesh) => void): void {
+    if (this.levels) return;
+    const levels = new VariantLevels(this.capacity, uniforms, setupMesh);
+    const parts = (level: string, wood: BufferGeometry, leaves: BufferGeometry, fruit: BufferGeometry | null): LevelPart[] => {
+      const list: LevelPart[] = [
+        { name: `forest wood ${this.index} ${level}`, geometry: wood, material: this.barkMaterial },
+        { name: `forest leaves ${this.index} ${level}`, geometry: leaves, material: this.leafMaterial },
+      ];
+      if (fruit && this.fruitMaterial && fruit.getIndex()!.count > 0) {
+        list.push({ name: `forest fruit ${this.index} ${level}`, geometry: fruit, material: this.fruitMaterial });
+      }
+      return list;
+    };
+    levels.setLevel(DetailLevel.Full, parts('full', this.woodSource, this.leafSource, this.fruitSource));
+
+    const light = generateLightTree(this.definition, this.seed, lightOverride ?? undefined);
+    const margin = trunkHeight(this.data.skeleton) * WIND_BOUNDS;
+    this.lightSources = [light.wood, light.leaves, light.fruit].map((buffers) => interleavedGeometry(buffers, margin));
+    const [wood, leaves, fruit] = this.lightSources as [BufferGeometry, BufferGeometry, BufferGeometry];
+    levels.setLevel(DetailLevel.Light, parts('light', wood, leaves, this.fruitSource ? fruit : null));
+
+    // Every level draws only its share of a tree in a cross-fade.
+    for (const material of [this.barkMaterial, this.leafMaterial, this.fruitMaterial]) {
+      if (!material) continue;
+      material.maskNode = material.maskNode ? and(material.maskNode as Node<'bool'>, levelVisible()) : levelVisible();
+      material.needsUpdate = true;
+    }
+    this.levels = levels;
+    for (const tree of this.trees) this.write(tree);
+    levels.count = this.trees.length;
+    for (const mesh of this.meshes) mesh.visible = false;
+    this.forest.add(...levels.meshes);
+  }
+
   /** @internal Frees the GPU resources. */
   dispose(): void {
+    this.levels?.dispose();
+    for (const source of this.lightSources) source.dispose();
     this.disposeMeshes();
     this.woodSource.dispose();
     this.leafSource.dispose();
@@ -344,6 +396,7 @@ export class ForestVariant {
 
   private setCount(): void {
     for (const mesh of this.meshes) mesh.count = this.trees.length;
+    if (this.levels) this.levels.count = this.trees.length;
   }
 
   /**
@@ -361,6 +414,7 @@ export class ForestVariant {
       this.disposeMeshes();
     }
     this.instanceData = instanceData;
+    this.levels?.resize(capacity);
 
     const mesh = (name: string, source: BufferGeometry, material: MeshStandardNodeMaterial) => {
       const geometry = shareGeometry(source);
@@ -372,9 +426,11 @@ export class ForestVariant {
       instanced.name = `${name} ${this.index}`;
       instanced.castShadow = true;
       instanced.receiveShadow = true;
-      instanced.onBeforeRender = (renderer) => {
+      // Drawn by the Detail Level meshes instead once those are on (kept for raycasting and Tree IDs).
+      instanced.visible = this.levels === null;
+      instanced.onBeforeRender = (renderer, scene, camera) => {
         assertWebGPURenderer(renderer);
-        this.forest.detectLodBackend(renderer);
+        this.forest.detectLodBackend(renderer, scene, camera);
       };
       return instanced;
     };
@@ -414,10 +470,11 @@ export class Forest extends Group {
   private seasonValue: number;
   private readonly features: LiveMaterialFeatures;
   /** Detail Level settings and their uniforms; null without lod. */
-  private readonly lodState: { settings: ForestLodSettings; uniforms: LodUniforms } | null;
+  private readonly lodState: { settings: ForestLodSettings; uniforms: DetailLevelUniforms; selection: LevelSelection } | null;
   /** Detail Levels are drawn: lod is set and the renderer is not on the WebGL2 fallback (unknown before the first render). */
   private lodBackend: 'unknown' | 'webgpu' | 'webgl' = 'unknown';
   private resolveLodReady: () => void = () => {};
+  private disposed = false;
   /**
    * Resolves once every Impostor is baked; at once without lod, and on the first render on
    * WebGPURenderer's WebGL2 fallback (where lod is ignored).
@@ -459,7 +516,20 @@ export class Forest extends Group {
 
     const tallest = Math.max(...this.variants.map((v) => trunkHeight(v.data.skeleton)));
     const lod = resolveForestLod(options.lod, tallest);
-    this.lodState = lod ? { settings: lod, uniforms: { light: uniform(lod.light), impostor: uniform(lod.impostor), fade: uniform(lod.fade) } } : null;
+    if (lod) {
+      const uniforms: DetailLevelUniforms = {
+        light: uniform(lod.light),
+        impostor: uniform(lod.impostor),
+        fade: uniform(lod.fade),
+        camera: uniform(new Vector3()),
+        forest: uniform(new Matrix4()),
+        // No Impostors yet: trees beyond the Impostor distance draw Light.
+        farthest: uniform(DetailLevel.Light, 'uint'),
+      };
+      this.lodState = { settings: lod, uniforms, selection: new LevelSelection(uniforms) };
+    } else {
+      this.lodState = null;
+    }
     this.lodReady = lod ? new Promise((resolve) => (this.resolveLodReady = resolve)) : Promise.resolve();
 
     for (const placement of placements) this.addTree(placement);
@@ -492,8 +562,8 @@ export class Forest extends Group {
     uniforms.fade.value = next.fade;
   }
 
-  /** @internal The live Detail Level distances as uniforms (null without lod), for the GPU level selection. */
-  get lodUniforms(): LodUniforms | null {
+  /** @internal The live Detail Level settings as uniforms (null without lod), for the GPU level selection. */
+  get lodUniforms(): DetailLevelUniforms | null {
     return this.lodState?.uniforms ?? null;
   }
 
@@ -503,22 +573,66 @@ export class Forest extends Group {
   }
 
   /**
-   * @internal Called before each mesh is drawn: on the first render of a lod Forest, finds the backend.
-   * On WebGL2 the forest ignores lod (one console warning) and draws every tree in full.
+   * @internal Called before each instanced mesh is drawn: on the first render of a lod Forest, finds the
+   * backend. On WebGL2 the forest ignores lod (one console warning) and draws every tree in full. On
+   * WebGPU that first frame still draws every tree in full; the Detail Level meshes take over right
+   * after it (they cannot join a frame that is already being drawn), and then `lodReady` resolves.
    */
-  detectLodBackend(renderer: unknown): void {
-    if (!this.lodState || this.lodBackend !== 'unknown') return;
+  detectLodBackend(renderer: unknown, scene?: Scene | null, camera?: Camera | null): void {
+    if (!this.lodState) return;
+    this.lodState.selection.observe(scene ?? null, camera ?? null);
+    if (this.lodBackend !== 'unknown') return;
     const backend = (renderer as { backend?: { isWebGLBackend?: boolean } }).backend;
     if (backend?.isWebGLBackend === true) {
       this.lodBackend = 'webgl';
       console.warn(
         'tree.js: Forest Detail Levels (lod) need WebGPU; on WebGPURenderer\'s WebGL2 fallback this Forest ignores lod and draws every tree in full.',
       );
+      this.resolveLodReady();
     } else {
       this.lodBackend = 'webgpu';
+      queueMicrotask(() => {
+        if (!this.disposed) this.enableDetailLevels();
+        // No Impostors to bake yet: ready once the Detail Levels are drawn.
+        this.resolveLodReady();
+      });
     }
-    // No Impostors to bake yet: ready once the backend is known.
-    this.resolveLodReady();
+  }
+
+  /** Builds every Variant's Detail Level meshes and buffers (WebGPU, lod set). */
+  private enableDetailLevels(): void {
+    const { settings, uniforms } = this.lodState!;
+    for (const variant of this.variants) {
+      variant.enableDetailLevels(uniforms, settings.lightDefinition, (mesh) => {
+        mesh.onBeforeRender = (renderer, scene, camera) => {
+          assertWebGPURenderer(renderer);
+          this.selectDetailLevels(renderer as unknown as Renderer, scene, camera);
+        };
+      });
+    }
+  }
+
+  /**
+   * Before a Detail Level mesh is drawn: the first time in a frame, picks every tree's level for the
+   * LOD camera on the GPU (shadow passes and other cameras reuse that frame's levels).
+   */
+  private selectDetailLevels(renderer: Renderer, scene: Scene | null, camera: Camera | null): void {
+    const { settings, selection } = this.lodState!;
+    selection.prepare(renderer, scene, camera, settings.camera, this, this.variants.map((v) => v.levels!));
+  }
+
+  /**
+   * @internal How many trees each Detail Level drew in the last frame (indexed by DetailLevel; a tree
+   * in a cross-fade counts at both levels). All zero until Detail Levels are drawn. Reads the GPU.
+   */
+  async detailLevelCounts(renderer: Renderer): Promise<number[]> {
+    const counts = [0, 0, 0];
+    for (const variant of this.variants) {
+      if (!variant.levels) continue;
+      const args = new Uint32Array(await renderer.getArrayBufferAsync(variant.levels.drawArguments));
+      for (let level = 0; level < counts.length; level++) counts[level]! += args[level * MAX_LEVEL_PARTS * 5 + 1]!;
+    }
+    return counts;
   }
 
   /**
@@ -665,6 +779,7 @@ export class Forest extends Group {
 
   /** Frees every Variant's geometries, materials and instance buffers, and removes the forest from its parent. */
   override dispose(): void {
+    this.disposed = true;
     for (const variant of this.variants) variant.dispose();
     this.byKey.clear();
     this.removeFromParent();
