@@ -17,7 +17,7 @@ import { trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { clampGrowth, growthPosition } from '../growth';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
 import { LiveMaterialFeatures } from '../materials/material-features';
-import { LiveShaderHooks, type TreeShaderHooks } from '../materials/shader-hooks';
+import { LiveShaderHooks, type ShaderHookTarget, type TreeShaderHooks } from '../materials/shader-hooks';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes, type SeasonUniform } from '../season';
 import { checkedSeason } from '../season/check';
@@ -161,14 +161,14 @@ export class Tree extends Group {
     fruit.positionNode = growthPosition(this.growthUniform, fruitSeason.position);
     applyWind(fruit, offset);
     // Wind-aware velocity (ADR 0011): only read by a scene pass with a velocity channel.
-    const motion = { source: this.windBinding, shift: (previous: Node<'float'>) => windOffset(this.windBinding, this.windResponse, { time: previous }).sub(offset) };
+    const motion = { source: this.windBinding, offset, shift: (previous: Node<'float'>) => windOffset(this.windBinding, this.windResponse, { time: previous }).sub(offset) };
     for (const material of [bark, leaf, fruit]) setWindMotion(material.positionNode as Node, motion);
     this.season = options.season ?? 0;
     this.features = new LiveMaterialFeatures(definition, [
       { leaf, materials: [bark, leaf, fruit], crown: data.crown, growth: this.growthUniform },
     ]);
-    const target = (part: 'bark' | 'leaves' | 'fruit', mesh: Mesh<BufferGeometry, MeshStandardNodeMaterial>) => ({
-      part,
+    const target = (part: 'bark' | 'leaves' | 'fruit', mesh: Mesh<BufferGeometry, MeshStandardNodeMaterial>): ShaderHookTarget => ({
+      parts: [part],
       material: mesh.material,
       vertexColors: mesh.material.vertexColors && mesh.geometry.hasAttribute('color'),
       season: this.seasonUniform,
@@ -177,16 +177,18 @@ export class Tree extends Group {
     this.hooks = new LiveShaderHooks(
       [target('bark', this.wood as Mesh<BufferGeometry, MeshStandardNodeMaterial>), target('leaves', this.leaves), target('fruit', this.fruit)],
       definition.materials.shading,
+      options.shaderHooks,
     );
-    if (options.shaderHooks) this.hooks.hooks = options.shaderHooks;
   }
 
   /**
    * The Tree Shader Hook per tree part (GLOSSARY, ADR 0012), e.g. `{ leaves: ({ color }) => color.mul(0.8) }`:
-   * a TSL function that gets the part's base colour, world normal, world positions, Season and Growth and
-   * returns a new colour (optionally with a roughness). Assign a new object to set, change or remove hooks
-   * (a part left out has none): only the parts whose hook changed rebuild their node graph, once; the
-   * geometry is never rebuilt. Without a hook a part is drawn exactly as before.
+   * a TSL function (or a list of them, which stack) that gets the part's base colour, world normal, world
+   * positions, Season and Growth and returns a new colour (optionally with a roughness). Assign a new
+   * object to set, change or remove hooks: a part left out has only the scene-wide default hooks
+   * (`setSceneShaderHooks`), its own run after those, and `null` runs none at all. Only the parts whose
+   * hooks changed rebuild their node graph, once; the geometry is never rebuilt. Without a hook a part is
+   * drawn exactly as before.
    */
   get shaderHooks(): TreeShaderHooks {
     return this.hooks.hooks;
@@ -282,6 +284,7 @@ export class Tree extends Group {
 
   /** Frees the GPU resources (geometries and materials) of this tree and removes it from its parent. */
   override dispose(): void {
+    this.hooks.dispose();
     this.traverse((object) => {
       if (object instanceof Mesh) {
         object.geometry.dispose();

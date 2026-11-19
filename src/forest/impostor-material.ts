@@ -14,6 +14,7 @@ import {
   max,
   min,
   mix,
+  modelWorldMatrix,
   modelWorldMatrixInverse,
   positionGeometry,
   select,
@@ -30,6 +31,7 @@ import { createShadedMaterial } from '../materials';
 import { crownAt } from '../materials/crown-nodes';
 import { applyLeafTranslucencyTerm } from '../materials/leaf-translucency-model';
 import type { MaterialFeatureNodes } from '../materials/material-features';
+import type { ShaderHookTarget } from '../materials/shader-hooks';
 import { setTreeLeafMask } from '../effects/mask';
 import { leafSeasonNode } from '../season';
 import { objectWindDirection, treeSwayOffset, type WindResponse, type WindSource } from '../wind';
@@ -116,6 +118,8 @@ export interface ImpostorFrame {
 export interface ImpostorView {
   /** The card's vertex in forest space (`positionNode`). */
   position: Node<'vec3'>;
+  /** The Wind displacement of the card's vertex in forest space (null without Wind). */
+  sway: Node<'vec3'> | null;
   /** The card pushed back from the viewer by its half size (`castShadowPositionNode`), so it does not shadow itself. */
   shadowPosition: Node<'vec3'>;
   /** Coverage of this fragment (0..1), blended over the frames. */
@@ -158,7 +162,9 @@ export function impostorView(atlases: ImpostorAtlases, sway?: (point: Node<'vec3
   const card = basis(view);
   const point = card.right.mul(positionGeometry.x).add(card.up.mul(positionGeometry.y)).mul(half);
   const treePoint = center.add(point);
-  const position = base.add(instanceRotate(sway ? treePoint.add(sway(treePoint)) : treePoint).mul(scale));
+  const offset = sway ? sway(treePoint) : null;
+  const position = base.add(instanceRotate(offset ? treePoint.add(offset) : treePoint).mul(scale));
+  const swayed = offset ? instanceRotate(offset).mul(scale) : null;
   const shadowPosition = position.sub(viewForest.mul(half).mul(scale));
 
   // The frames around the view (`blendFrames`) and where each one pictured this vertex.
@@ -208,6 +214,7 @@ export function impostorView(atlases: ImpostorAtlases, sway?: (point: Node<'vec3
   const coverage = blended(COLOR_CHANNEL).a;
   return {
     position,
+    sway: swayed,
     shadowPosition,
     coverage,
     blend,
@@ -332,7 +339,30 @@ export function createImpostorMaterial(
   // Tree Effects: tree pixels, leaves where the (Season-aware) leaf flag says so (wood elsewhere).
   material.userData.treePart = 'leaves';
   setTreeLeafMask(material, leaf);
+  hookTargets.set(material, {
+    material,
+    // No Fruit on an Impostor: its bark and leaf texels, by the (Season-aware) leaf flag.
+    parts: ['bark', 'leaves'],
+    partWeight: (part) => (part === 'leaves' ? leaf : float(1).sub(leaf)),
+    vertexColors: false,
+    season: treeSeason,
+    growth: varying(instanceState().growth) as Node<'float'>,
+    treePosition: varying(modelWorldMatrix.mul(vec4(levelTreePosition(), 1)).xyz) as Node<'vec3'>,
+    sway: view.sway,
+  });
   return material;
+}
+
+const hookTargets = new WeakMap<MeshStandardNodeMaterial, ShaderHookTarget>();
+
+/**
+ * What Tree Shader Hooks shade on an Impostor card (ADR 0012): its baked colour, leaf flag and normal at
+ * draw time, so hooks follow live settings without a rebake.
+ */
+export function impostorHookTarget(material: MeshStandardNodeMaterial): ShaderHookTarget {
+  const target = hookTargets.get(material);
+  if (!target) throw new Error('Not an Impostor material');
+  return target;
 }
 
 /**
