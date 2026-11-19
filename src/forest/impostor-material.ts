@@ -26,6 +26,7 @@ import {
 } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
 import { createShadedMaterial } from '../materials';
+import { setTreeLeafMask } from '../effects/mask';
 import { seasonLeafColor } from '../season';
 import { instanceRotate, instanceState, levelTreePosition, levelVisible } from './nodes';
 import type { Vec3 } from './octahedral';
@@ -240,5 +241,8 @@ export function createImpostorMaterial(definition: TreeDefinition, atlases: Impo
   material.roughnessNode = mix(float(definition.materials.bark.roughness), float(definition.materials.leaf.roughness), leaf);
   material.metalness = 0;
   material.maskNode = and(view.coverage.greaterThan(ALPHA_CUT), levelVisible());
+  // Tree Effects: tree pixels, leaves where the baked leaf flag says so (wood elsewhere).
+  material.userData.treePart = 'leaves';
+  setTreeLeafMask(material, leaf);
   return material;
 }
