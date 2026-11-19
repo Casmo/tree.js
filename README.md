@@ -427,7 +427,8 @@ if (hit) console.log(forest.treeAt(hit)?.key);
 Far trees cover a few pixels but still cost their full mesh. With `lod` a Forest draws each tree at a
 **Detail Level** for its distance from the camera: **Full** up close, **Light** (the same Variant
 regenerated with fewer faces and larger leaves, every branch in place) in the middle distance, and an
-**Impostor** far away: one camera-facing card per tree, lit by your lights from baked normals. Neighbouring
+**Impostor** far away: one camera-facing card per tree, lit by your lights from baked normals, that still
+follows Season (leaf colour, leaf drop down to bare branches, blossom) and sways in the Wind. Neighbouring
 levels cross-fade with an ordered dither, so trees never pop. A compute pass picks the levels on the GPU
 every frame and fills indirect draws, so there is no per-tree work on the CPU. A tree that is not fully
 grown is never an Impostor.
@@ -442,26 +443,32 @@ declare const placements: ForestPlacement[]; // thousands of trees
 // cross-fading over 10% of the switch distance. `lod: true` uses 6 and 20 trunk heights.
 const forest = createForest(lowPoly.broadleaf, placements, { variants: 4, lod: { light: 30, impostor: 90, fade: 0.1 } });
 scene.add(forest);
-renderer.render(scene, camera); // the first frame bakes the Impostors (far trees draw Light until then)
-await forest.lodReady;
+renderer.render(scene, camera); // the first frame finds the backend and draws every tree in full
+await forest.lodReady; // Detail Levels drawn, Impostors baked (far trees draw Light until then)
 
-forest.lod = { impostor: 120 }; // distances, fade and the LOD camera are live: no rebuild
+forest.lod = { impostor: 120 }; // distances, fade and the camera that picks the levels are live: no rebuild
 ```
 
 - Detail Levels need WebGPU (compute and indirect draws). On WebGPURenderer's WebGL2 fallback a `lod`
   Forest draws every tree in full, exactly as without `lod`, with one console warning. Without `lod` nothing
   changes: no extra meshes, buffers or bake.
+- The backend is only known when the Forest is first drawn: three.js hands it the renderer during that
+  render, after the frame's draw list is made. So on WebGPU the **first frame draws every tree in full**
+  (one full-cost frame), the Detail Levels take over from the next frame, and far trees switch from Light
+  to Impostor once the bake is done; on the WebGL2 fallback `lodReady` resolves on that first render, not
+  at once. To show neither switch, render once and `await forest.lodReady` before the forest is seen.
 - One camera picks every tree's level: the first non-shadow camera that draws the Forest in a frame, or
   `lod.camera`. Shadow passes and other cameras reuse its levels.
 - Raycasting, `forest.treeAt`, `addTree`/`removeTree`, live Material Features and Tree Effects work as
   without `lod`, at every Detail Level.
 - **Memory**: the Impostors are baked into atlases of `impostorAtlas.size`² pixels (default 2048, with
-  `frames` 12 × 12 directions), one per baked channel and Variant: colour, normals, Season data, and Material
-  Feature inputs when the Definition sets them. Each atlas is RGBA8 with mipmaps, about 21 MiB at 2048, plus
-  one depth buffer of the same size (16 MiB) per Variant: about 80 MiB of GPU memory per Variant with three
-  atlases, 320 MiB for 4 Variants. Halving `size` quarters it (`impostorAtlas: { size: 1024 }`); fewer
-  `frames` keep the memory and give each direction more pixels.
-  `forest.dispose()` frees them.
+  `frames` 12 × 12 directions from the horizon to straight above), in two render targets per Variant: the
+  tree (colour, normals, Season data, and Material Feature inputs when the Definition sets them) and the
+  wood alone (colour, normals: shown where leaves have dropped). Each atlas is RGBA8 with mipmaps, about
+  21 MiB at 2048, and each render target has a depth buffer of the same size (16 MiB). That is about
+  139 MiB of GPU memory per Variant (five atlases), 160 MiB with Material Features (six), so 555 MiB or
+  640 MiB for 4 Variants. Halving `size` quarters it (`impostorAtlas: { size: 1024 }`: about 35 MiB per
+  Variant); fewer `frames` keep the memory and give each direction more pixels. `forest.dispose()` frees them.
 
 [`examples/large-forest`](examples/large-forest/main.ts) draws 10,000 trees under an orbiting camera and
 rebuilds the Forest with Detail Levels on or off, measuring both runs side by side. One example run

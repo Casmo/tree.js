@@ -260,6 +260,18 @@ describe('Detail Levels on the WebGL2 fallback', () => {
     }
   });
 
+  it('resolves lodReady on the first render, not before: the backend is only known when the Forest is drawn', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const forest = createForest(definition, placements, { variants: 2, lod: true });
+      expect(await settled(forest.lodReady)).toBe(false);
+      render(forest, 'webgl');
+      expect(await settled(forest.lodReady)).toBe(true);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it('warns nothing for a Forest without lod, nor on WebGPU', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
@@ -350,6 +362,16 @@ describe('Detail Levels on WebGPU', () => {
     expect(new Set(offsets).size).toBe(offsets.length);
   });
 
+  it('draws no mesh for an empty part (a WebGPU draw of 0 indices): a bare Definition has no leaf meshes', async () => {
+    const bare = createForest({ ...definition, leaves: { count: 0 }, fruit: undefined }, placements, { variants: 2, lod: { light: 10, impostor: 40 } });
+    render(bare, 'webgpu');
+    await bare.lodReady;
+    const meshes = levelMeshes(bare);
+    expect(meshes.length).toBeGreaterThan(0);
+    for (const mesh of meshes) expect(mesh.geometry.getIndex()!.count).toBeGreaterThan(0);
+    expect(meshes.filter((m) => m.name.includes('leaves'))).toEqual([]);
+  });
+
   it('builds the same Light meshes for the same Definition and Variant Seed', async () => {
     const a = levelMeshes(await lodForest());
     const b = levelMeshes(await lodForest());
@@ -372,7 +394,7 @@ describe('Detail Levels on WebGPU', () => {
     }
   });
 
-  it('selects the levels once per frame for the LOD camera; shadow passes and other cameras reuse them', async () => {
+  it('selects the levels once per frame for the camera that picks them; shadow passes and other cameras reuse them', async () => {
     const forest = await lodForest();
     const view = new PerspectiveCamera();
     view.position.set(1, 2, 3);
@@ -390,7 +412,7 @@ describe('Detail Levels on WebGPU', () => {
     expect(frame1.compute.mock.calls[0]![0]).toHaveLength(3 * 3);
     expect(forest.lodUniforms!.camera.value.toArray()).toEqual([1, 2, 3]);
 
-    // Next frame the shadow map is drawn first: it uses the last frame's LOD camera, not the light's.
+    // Next frame the shadow map is drawn first: it uses the last frame's level camera, not the light's.
     const frame2 = gpu(2);
     drawLevels(forest, frame2, shadowScene, sun);
     drawLevels(forest, frame2, {}, view);
@@ -404,7 +426,7 @@ describe('Detail Levels on WebGPU', () => {
     expect(forest.lodUniforms!.camera.value.toArray()).toEqual([50, 60, 70]);
   });
 
-  it('selects again in the same frame only when the trees, the settings or the LOD camera changed', async () => {
+  it('selects again in the same frame only when the trees, the settings or the level camera changed', async () => {
     const forest = await lodForest();
     const view = new PerspectiveCamera();
     const renderer = gpu(7);
@@ -423,7 +445,7 @@ describe('Detail Levels on WebGPU', () => {
     view.position.x = 5;
     drawLevels(forest, renderer, {}, view);
     expect(renderer.compute).toHaveBeenCalledTimes(5);
-    // Another camera in the same frame reuses the LOD camera's levels.
+    // Another camera in the same frame reuses the level camera's levels.
     drawLevels(forest, renderer, {}, new PerspectiveCamera());
     expect(renderer.compute).toHaveBeenCalledTimes(5);
   });

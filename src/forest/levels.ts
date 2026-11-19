@@ -35,7 +35,7 @@ export interface DetailLevelUniforms {
   light: UniformNode<'float', number>;
   impostor: UniformNode<'float', number>;
   fade: UniformNode<'float', number>;
-  /** The LOD camera's world position this frame. */
+  /** World position of the camera that picks the levels this frame. */
   camera: UniformNode<'vec3', Vector3>;
   /** The Forest's world matrix (tree positions are in forest space). */
   forest: UniformNode<'mat4', Matrix4>;
@@ -88,7 +88,7 @@ function ramp(x: Node<'float'>, start: Node<'float'>, end: Node<'float'>): Node<
  *
  * - `setLevel(level, parts)` gives a level its meshes (Full and Light now; an Impostor card later).
  * - `write(slot, …)` / `count` mirror the Variant's instance data; `resize(capacity)` keeps them.
- * - `dispatches` run once per frame for the LOD camera, before any of the meshes is drawn.
+ * - `dispatches` run once per frame for the camera that picks the levels, before any of the meshes is drawn.
  */
 export class VariantLevels {
   /** Every level's meshes, nearest level first. */
@@ -189,14 +189,26 @@ export class VariantLevels {
   }
 
   /**
+   * How many trees each Detail Level drew in the last selection (indexed by DetailLevel; a tree in a
+   * cross-fade counts at both levels), read back from the draw arguments on the GPU.
+   */
+  async drawnCounts(renderer: Renderer): Promise<number[]> {
+    const args = new Uint32Array(await renderer.getArrayBufferAsync(this.args));
+    return Array.from({ length: LEVEL_COUNT }, (_, level) => args[level * MAX_LEVEL_PARTS * ARGS_STRIDE + 1]!);
+  }
+
+  /**
    * Gives `level` its meshes (at most MAX_LEVEL_PARTS parts), one per part, each drawn
-   * indirectly from the level's list. Returns them; the caller adds them to the scene.
+   * indirectly from the level's list. A part without indices (e.g. the leaves of a bare
+   * Definition) gets no mesh: WebGPU would draw it with an index count of 0. Returns the meshes;
+   * the caller adds them to the scene.
    */
   setLevel(level: DetailLevel, parts: readonly LevelPart[]): Mesh[] {
     if (parts.length > MAX_LEVEL_PARTS) throw new RangeError(`A Detail Level has at most ${MAX_LEVEL_PARTS} meshes`);
     if (this.levels.some((l) => l.level === level)) throw new Error(`Detail Level ${level} already has its meshes`);
     const array = this.args.array as Uint32Array;
-    const meshes = parts.map((part, i) => {
+    const drawn = parts.filter((part) => (part.geometry.getIndex()?.count ?? 0) > 0);
+    const meshes = drawn.map((part, i) => {
       const draw = (level * MAX_LEVEL_PARTS + i) * ARGS_STRIDE;
       const geometry = new BufferGeometry();
       for (const [name, attribute] of Object.entries(part.geometry.attributes)) geometry.setAttribute(name, attribute);
@@ -367,14 +379,14 @@ function isShadowPass(scene: Scene | null): boolean {
 }
 
 /**
- * Picks the LOD camera and runs every Variant's level selection before a Detail Level mesh of the
- * Forest is drawn: once per frame (`renderer.info.frame`), and again in the same frame only when
- * something it depends on changed (trees, settings, the LOD camera's or the Forest's position). So
- * every render of a frame (shadow passes, other cameras) draws the levels of the frame's LOD camera.
+ * Picks the level camera (the camera whose distance picks every tree's Detail Level) and runs every
+ * Variant's level selection before a Detail Level mesh of the Forest is drawn: once per frame (`renderer.info.frame`), and again in the same frame only when
+ * something it depends on changed (trees, settings, the level camera's or the Forest's position). So
+ * every render of a frame (shadow passes, other cameras) draws the levels of the frame's level camera.
  */
 export class LevelSelection {
   private frame: number | null = null;
-  /** The LOD camera of the current frame. */
+  /** The level camera of the current frame. */
   private camera: Camera | null = null;
   /** The last non-shadow camera seen drawing the Forest (before the first selection). */
   private seen: Camera | null = null;
@@ -390,9 +402,9 @@ export class LevelSelection {
   }
 
   /**
-   * Called before a Detail Level mesh is drawn. The first call of a frame fixes the frame's LOD
+   * Called before a Detail Level mesh is drawn. The first call of a frame fixes the frame's level
    * camera: `explicit` (`lod.camera`) when set, otherwise the camera of this render. A shadow map can
-   * be drawn before the camera's own render reaches the Forest: then it is the previous frame's LOD
+   * be drawn before the camera's own render reaches the Forest: then it is the previous frame's level
    * camera (or, on the first frame, the last camera seen drawing the Forest).
    */
   prepare(renderer: Renderer, scene: Scene | null, camera: Camera | null, explicit: Camera | null, forest: Object3D, variants: readonly VariantLevels[]): void {
