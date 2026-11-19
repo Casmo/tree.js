@@ -799,6 +799,7 @@ createRoot(document.getElementById('root')!).render(<App />);
 - A new `seed`, `definition` (compared by value) or `style`/`form` regenerates the tree. Trees are disposed of on unmount.
 - `style` also takes a Style name (`<Tree style="low-poly" />`), which suspends like `useTreeStyle`. The `ref` is the tree.js `Tree` (or `Forest`) object.
 - `<Forest>` diffs its `placements` by id: changing the array plants and cuts trees without touching the others; per-tree `growth`/`season` override the forest's.
+- `<Forest lod>` takes `createForest`'s `lod`. Switching it on or off (or a new `impostorAtlas`/`lightDefinition`) rebuilds the forest; new distances, `fade` or `camera` only write `forest.lod`.
 - Use `shadows="percentage"` (plain `shadows` asks for a shadow type WebGPURenderer no longer has).
 
 ## Without a bundler: import map (CDN)
