@@ -143,3 +143,27 @@ export function resolveForestLod(lod: boolean | ForestLodOptions | undefined, tr
   checkAtlas('size', settings.impostorAtlas.size);
   return settings;
 }
+
+/** Side of the ordered-dither (Bayer) matrix the cross-fade uses. */
+export const DITHER_SIZE = 8;
+
+/**
+ * The cross-fade threshold of screen pixel (x, y), in 0..1: an 8 × 8 Bayer matrix, the same in every
+ * frame (no temporal noise), so a still frame is deterministic. The GPU mirrors it bit for bit.
+ */
+export function ditherThreshold(x: number, y: number): number {
+  const px = Math.floor(x) & 7;
+  const py = Math.floor(y) & 7;
+  const v = px ^ py;
+  const rank = ((v & 1) << 5) | ((py & 1) << 4) | ((v & 2) << 2) | ((py & 2) << 1) | ((v & 4) >> 1) | ((py & 4) >> 2);
+  return (rank + 0.5) / (DITHER_SIZE * DITHER_SIZE);
+}
+
+/**
+ * Whether a tree drawn at a level shows a pixel with dither `threshold`. A tree at `level` with
+ * `fade` shows the nearer level where `threshold < 1 − fade` and the next level (`next`) everywhere
+ * else, so the two levels together cover every pixel exactly once.
+ */
+export function showsPixel(fade: number, next: boolean, threshold: number): boolean {
+  return next ? threshold >= 1 - fade : threshold < 1 - fade;
+}
