@@ -23,7 +23,7 @@ import { and, positionGeometry, uniform } from 'three/tsl';
 import type { MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
 import { generateLightTree, generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
-import { LiveMaterialFeatures, type MaterialFeatureTarget } from '../materials/material-features';
+import { LiveMaterialFeatures, type MaterialFeatureNodes, type MaterialFeatureTarget } from '../materials/material-features';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes } from '../season';
 import { checkedSeason } from '../season/check';
@@ -354,6 +354,7 @@ export class ForestVariant {
     uniforms: DetailLevelUniforms,
     settings: Pick<ForestLodSettings, 'lightDefinition' | 'impostorAtlas'>,
     setupMesh: (mesh: Mesh) => void,
+    features: MaterialFeatureNodes | null = null,
   ): void {
     if (this.levels) return;
     const levels = new VariantLevels(this.capacity, uniforms, setupMesh);
@@ -383,6 +384,7 @@ export class ForestVariant {
       settings.impostorAtlas,
       `forest impostor ${this.index}`,
       this.textures,
+      features ? { nodes: features, crown: this.data.crown } : null,
       { source: this.wind, response: this.windResponse },
     );
     levels.setLevel(DetailLevel.Impostor, [this.impostor.part]);
@@ -633,7 +635,7 @@ export class Forest extends Group {
           assertWebGPURenderer(renderer);
           this.selectDetailLevels(renderer as unknown as Renderer, scene, camera);
         };
-      });
+      }, this.features.nodes);
     }
   }
 

@@ -34,6 +34,12 @@ declare global {
       renderAgain?: () => Promise<void>;
       /** With ?lod: sets the Growth of the whole forest, draws it and updates `levels` and `expectedLevels`. */
       setGrowth?: (growth: number) => Promise<void>;
+      /** Tunes the forest's live Material Features (only those that are on), then draws the frame again. */
+      setMaterialFeatures?: (features: {
+        crownNormals?: number;
+        translucency?: { strength?: number; edge?: number; ambient?: number };
+        occlusionStrength?: number;
+      }) => Promise<void>;
     };
   }
 }

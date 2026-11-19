@@ -18,6 +18,9 @@
 //                 at its trunk and highlighted; the result is in `effectsExample.picked`
 //   ?pipeline=custom  build the pipeline by hand (treeEffectsPass + applyTreeEffects) with an extra
 //                     user effect (vignette) on top, to show the effects compose with other effects
+//   ?lod=full|light|impostor  add the small Forest of ?view=treeId (to any view) drawing by Detail Level:
+//                 f0 and f1 at that level, plus one tree behind the camera in full (Detail Levels
+//                 need WebGPU); `effectsExample.levels` = trees per level
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?depth=reversed|log  render with a reversed or a logarithmic depth buffer (the depth-reading
 //                        effects, betweenTrees and Inner Lines, must look the same)
@@ -26,7 +29,7 @@
 import * as THREE from 'three/webgpu';
 import { float, ivec2, mrt, output, pass, screenCoordinate, select, uint, vec3, vec4 } from 'three/tsl';
 import { screenUV } from 'three/tsl';
-import { createForest, createTree, extendDefinition, type FruitType, type TreeDefinition, type TreeStyle } from '@casmo/tree.js';
+import { createForest, createTree, extendDefinition, type Forest, type ForestLodOptions, type ForestPlacement, type FruitType, type TreeDefinition, type TreeStyle } from '@casmo/tree.js';
 import {
   applyTreeEffects,
   createTreeEffects,
@@ -64,6 +67,10 @@ declare global {
       hideTree?: () => void;
       /** `?view=treeId`: hides every object (a frame in which nothing is drawn) and renders once more. */
       hideAll?: () => void;
+      /** `?lod=<level>`: the Forest trees the GPU drew at each Detail Level (Full, Light, Impostor). */
+      levels?: number[];
+      /** Each named tree's trunk point (see `?pick`) in CSS pixels on the canvas. */
+      trunks?: Record<string, { x: number; y: number }>;
     };
   }
 }
@@ -74,6 +81,20 @@ const styleName = (params.get('style') ?? 'low-poly') as keyof typeof SUGGESTED_
 const form = params.get('form') === 'conifer' ? 'conifer' : 'broadleaf';
 const effectsParam = params.get('effects') ?? 'style';
 const statusEl = document.getElementById('status')!;
+const lodName = params.get('lod');
+if (lodName !== null && !['full', 'light', 'impostor'].includes(lodName)) throw new Error(`Unknown lod "${lodName}"`);
+
+/**
+ * `?lod=full|light|impostor`: switch distances (no fade) that put f0 and f1 at that Detail Level and
+ * the tree `near` (`near` units from the camera) in full, so f0 and f1 sit at other places in their
+ * level list than in the Variant (slot ≠ instance index).
+ */
+function lodFor(name: string, near: number, far: number): ForestLodOptions {
+  const between = (k: number) => near + (far - near) * k;
+  if (name === 'impostor') return { light: between(1 / 3), impostor: between(2 / 3), fade: 0 };
+  if (name === 'light') return { light: between(1 / 2), impostor: 1e4, fade: 0 };
+  return { light: 1e4, impostor: 1e4, fade: 0 };
+}
 
 /** One effect of the Style's combination (with its settings, or a default), all of it, or none. */
 function chosenEffects(): TreeEffectsSettings {
@@ -164,17 +185,22 @@ async function main(): Promise<void> {
   // Each tree with a point on its trunk (a little above the ground), to read its ID under.
   const trunk = (x: number, z: number) => new THREE.Vector3(x, size.y * 0.12, z);
   const named = new Map<string, { tree: Parameters<typeof treeIdOf>[0]; at: THREE.Vector3 }>([['tree', { tree, at: trunk(0, 0) }]]);
-  if (treeIdView || pickName || overlap) {
+  let forest: Forest | undefined;
+  if (treeIdView || pickName || overlap || lodName) {
     const back = new THREE.Vector3(-direction.x, 0, -direction.z).normalize();
     const side = new THREE.Vector3(back.z, 0, -back.x);
     const second = createTree(definition, { seed: 2, season: 0.37 });
     second.position.copy(centre).addScaledVector(back, size.x * 0.8).addScaledVector(side, size.x * 0.45).setY(0);
     const spots = [-1.1, 1.1].map((k) => centre.clone().addScaledVector(back, size.x * 1.4).addScaledVector(side, size.x * k));
-    const forest = createForest(definition, spots.map((p, i) => ({ id: `f${i}`, position: [p.x, 0, p.z] })), {
-      variants: 2,
-      seed: 1,
-      season: 0.37,
-    });
+    const placements: ForestPlacement[] = spots.map((p, i) => ({ id: `f${i}`, position: [p.x, 0, p.z] }));
+    let lod: ForestLodOptions | undefined;
+    if (lodName) {
+      // One Variant with a tree behind the camera (out of view: further back than its crown is wide) in its first slot.
+      const near = camera.position.clone().addScaledVector(new THREE.Vector3(direction.x, 0, direction.z).normalize(), size.x * 1.5).setY(0);
+      placements.unshift({ id: 'near', position: [near.x, 0, near.z] });
+      lod = lodFor(lodName, camera.position.distanceTo(near), Math.min(...spots.map((p) => camera.position.distanceTo(p.clone().setY(0)))));
+    }
+    forest = createForest(definition, placements, { variants: lodName ? 1 : 2, seed: 1, season: 0.37, lod });
     await Promise.all([second.ready, forest.ready]);
     scene.add(second, forest);
     named.set('second', { tree: second, at: trunk(second.position.x, second.position.z) });
@@ -306,10 +332,14 @@ async function main(): Promise<void> {
   // render a few frames so the screenshot shows the settled image.
   for (let i = 0; i < Number(params.get('frames') ?? 4); i++) {
     render();
+    // ?lod: the first frame turns the Detail Levels on (and bakes the Impostors); draw by level from the next.
+    if (i === 0 && forest?.lod) await forest.lodReady;
     await new Promise(requestAnimationFrame);
   }
+  const levels = forest?.lod ? await forest.detailLevelCounts(renderer) : undefined;
   const picked = await pick?.();
-  window.effectsExample = { ...window.effectsExample, status: 'rendered', backend, rebuilt, picked };
+  const trunks = Object.fromEntries([...named].map(([name, { at }]) => [name, onScreen(at)]));
+  window.effectsExample = { ...window.effectsExample, status: 'rendered', backend, rebuilt, picked, levels, trunks };
 }
 
 main().catch((error: unknown) => {

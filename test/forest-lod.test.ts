@@ -511,10 +511,11 @@ describe('Impostors', () => {
     const done = bakes(renderer);
     expect(done).toHaveLength(3);
     for (const [tree, wood] of done) {
-      // The tree layer: colour (with coverage), normal (a = leaf flag) and Season (shift, coverage and blossom
-      // ranks, leaf flag) atlases at the default 2048², 12 × 12 frames of wood and leaves.
+      // The tree layer: colour (with coverage), normal (a = leaf flag), Season (shift, coverage and blossom
+      // ranks, leaf flag) and the Material Feature atlas (the Definition sets Crown Normals and Structural
+      // Occlusion) at the default 2048², 12 × 12 frames of wood and leaves.
       expect([tree!.target.width, tree!.target.height]).toEqual([2048, 2048]);
-      expect(tree!.target.textures.map((t) => t.name)).toEqual(['output', 'normal', 'season']);
+      expect(tree!.target.textures.map((t) => t.name)).toEqual(['output', 'normal', 'season', 'features']);
       expect(tree!.meshes.map((m) => m.count)).toEqual([144, 144]);
       // The wood layer: the wood alone, so bare branches show where leaves have dropped.
       expect([wood!.target.width, wood!.target.height]).toEqual([2048, 2048]);

@@ -22,7 +22,7 @@ import {
   type Renderer,
   type Texture,
 } from 'three/webgpu';
-import { attribute, float, frontFacing, mrt, normalGeometry, output, select, texture, uv, vec4 } from 'three/tsl';
+import { attribute, float, frontFacing, mrt, normalGeometry, output, positionGeometry, select, texture, uv, vec4 } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
 import type { GeometryBuffers } from '../generator';
 import { createBarkMaterial, createLeafMaterial } from '../materials';
@@ -31,12 +31,16 @@ import type { WindResponse, WindSource } from '../wind';
 import {
   COLOR_CHANNEL,
   createImpostorMaterial,
+  FEATURES_CHANNEL,
+  featureTexel,
+  hasImpostorFeatures,
   NORMAL_CHANNEL,
   SEASON_CHANNEL,
   WOOD_COLOR_CHANNEL,
   WOOD_NORMAL_CHANNEL,
   type ImpostorAtlases,
   type ImpostorBounds,
+  type ImpostorFeatures,
 } from './impostor-material';
 import { encodeSeasonTexel, SEASON_SHIFT_SCALE } from './impostor-season';
 import type { LevelPart } from './levels';
@@ -70,12 +74,16 @@ const bakedNormal = () => select(frontFacing, normalGeometry, normalGeometry.neg
 
 /**
  * The channels of the tree layer every Impostor bakes: colour (rgb, coverage in a), the tree-space
- * normal (a = leaf flag) and the leaves' Season timing (`encodeSeasonTexel`: shift, coverage rank,
- * blossom rank, leaf flag; empty on wood). Material Feature inputs (#77) join here (taking the
- * Definition, for the ones only some Definitions need).
+ * normal (a = leaf flag), the leaves' Season timing (`encodeSeasonTexel`: shift, coverage rank,
+ * blossom rank, leaf flag; empty on wood), plus, only when a Material Feature is on, the features
+ * atlas (`FEATURES_CHANNEL`: the pictured point and the raw Structural Occlusion).
+ *
+ * Each channel is one RGBA8 attachment of a single render pass: WebGPU's default limit
+ * (`maxColorAttachmentBytesPerSample` 32, 8 per RGBA8) allows 4, which these use up. More inputs need
+ * another layer (as the wood layer, `impostorWoodChannels`).
  */
-export function impostorChannels(): ImpostorChannel[] {
-  return [
+export function impostorChannels(bounds: ImpostorBounds, features: ImpostorFeatures | null = null): ImpostorChannel[] {
+  const channels: ImpostorChannel[] = [
     { name: COLOR_CHANNEL, bake: () => output },
     { name: NORMAL_CHANNEL, bake: (part) => vec4(bakedNormal(), float(part.kind === 'leaves' ? 1 : 0)) },
     {
@@ -87,6 +95,12 @@ export function impostorChannels(): ImpostorChannel[] {
       },
     },
   ];
+  if (hasImpostorFeatures(features)) {
+    // aOcclusion is only generated when Structural Occlusion is on.
+    const occlusion = features.nodes.occlusion ? attribute<'float'>('aOcclusion', 'float') : float(0);
+    channels.push({ name: FEATURES_CHANNEL, bake: () => featureTexel(positionGeometry, occlusion, bounds) });
+  }
+  return channels;
 }
 
 /**
@@ -235,14 +249,15 @@ export class VariantImpostor {
     atlas: Required<ImpostorAtlasOptions>,
     name: string,
     private readonly textures?: TextureOptions,
+    features: ImpostorFeatures | null = null,
     wind?: { source: WindSource; response: WindResponse },
   ) {
     this.frames = atlas.frames;
     this.bounds = impostorBounds([buffers.wood, buffers.leaves]);
     const layer = (kinds: ImpostorLayer['kinds'], channels: ImpostorChannel[]): ImpostorLayer => ({ kinds, channels, target: layerTarget(atlas.size, channels) });
-    this.layers = [layer(['wood', 'leaves'], impostorChannels()), layer(['wood'], impostorWoodChannels())];
+    this.layers = [layer(['wood', 'leaves'], impostorChannels(this.bounds, features)), layer(['wood'], impostorWoodChannels())];
     this.channels = this.layers.flatMap((l) => l.channels);
-    this.part = { name, geometry: cardGeometry(), material: createImpostorMaterial(definition, this.atlases, wind) };
+    this.part = { name, geometry: cardGeometry(), material: createImpostorMaterial(definition, this.atlases, features, wind) };
   }
 
   /** The atlases by channel name. */
