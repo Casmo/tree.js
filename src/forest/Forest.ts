@@ -30,6 +30,7 @@ import { checkedSeason } from '../season/check';
 import { clampGrowth } from '../growth';
 import { textureReady, type TextureOptions } from '../textures';
 import { sceneWind, Wind, WindBinding, WindResponse, type WindSource } from '../wind';
+import { VariantImpostor } from './impostor';
 import { LevelSelection, MAX_LEVEL_PARTS, VariantLevels, type DetailLevelUniforms, type LevelPart } from './levels';
 import {
   checkDetailLevelDistances,
@@ -215,6 +216,8 @@ export class ForestVariant {
   levels: VariantLevels | null = null;
   /** Vertex data of the Light level (null until Detail Levels are drawn). */
   private lightSources: BufferGeometry[] = [];
+  /** @internal The Impostor of this Variant (atlases and card material); null until Detail Levels are drawn. */
+  impostor: VariantImpostor | null = null;
 
   constructor(
     private readonly forest: Forest,
@@ -223,7 +226,7 @@ export class ForestVariant {
     seed: number,
     wind: WindSource,
     capacity: number,
-    textures?: TextureOptions,
+    private readonly textures?: TextureOptions,
   ) {
     this.index = index;
     this.seed = seed;
@@ -347,7 +350,11 @@ export class ForestVariant {
    * set, drawn indirectly from the level lists, with the Variant's own materials (which get the
    * cross-fade dither). The instanced meshes stay, hidden, for raycasting and Tree IDs.
    */
-  enableDetailLevels(uniforms: DetailLevelUniforms, lightOverride: ForestLodSettings['lightDefinition'], setupMesh: (mesh: Mesh) => void): void {
+  enableDetailLevels(
+    uniforms: DetailLevelUniforms,
+    settings: Pick<ForestLodSettings, 'lightDefinition' | 'impostorAtlas'>,
+    setupMesh: (mesh: Mesh) => void,
+  ): void {
     if (this.levels) return;
     const levels = new VariantLevels(this.capacity, uniforms, setupMesh);
     const parts = (level: string, wood: BufferGeometry, leaves: BufferGeometry, fruit: BufferGeometry | null): LevelPart[] => {
@@ -362,11 +369,22 @@ export class ForestVariant {
     };
     levels.setLevel(DetailLevel.Full, parts('full', this.woodSource, this.leafSource, this.fruitSource));
 
-    const light = generateLightTree(this.definition, this.seed, lightOverride ?? undefined);
+    const light = generateLightTree(this.definition, this.seed, settings.lightDefinition ?? undefined);
     const margin = trunkHeight(this.data.skeleton) * WIND_BOUNDS;
     this.lightSources = [light.wood, light.leaves, light.fruit].map((buffers) => interleavedGeometry(buffers, margin));
     const [wood, leaves, fruit] = this.lightSources as [BufferGeometry, BufferGeometry, BufferGeometry];
     levels.setLevel(DetailLevel.Light, parts('light', wood, leaves, this.fruitSource ? fruit : null));
+
+    // The Impostor card is set up now (its draw arguments too), but only drawn once baked (`farthest`).
+    this.impostor = new VariantImpostor(
+      this.definition,
+      { wood: this.woodSource, leaves: this.leafSource },
+      { wood: this.data.wood, leaves: this.data.leaves },
+      settings.impostorAtlas,
+      `forest impostor ${this.index}`,
+      this.textures,
+    );
+    levels.setLevel(DetailLevel.Impostor, [this.impostor.part]);
 
     // Every level draws only its share of a tree in a cross-fade.
     for (const material of [this.barkMaterial, this.leafMaterial, this.fruitMaterial]) {
@@ -384,6 +402,7 @@ export class ForestVariant {
   /** @internal Frees the GPU resources. */
   dispose(): void {
     this.levels?.dispose();
+    this.impostor?.dispose();
     for (const source of this.lightSources) source.dispose();
     this.disposeMeshes();
     this.woodSource.dispose();
@@ -523,7 +542,7 @@ export class Forest extends Group {
         fade: uniform(lod.fade),
         camera: uniform(new Vector3()),
         forest: uniform(new Matrix4()),
-        // No Impostors yet: trees beyond the Impostor distance draw Light.
+        // Until the Impostors are baked, trees beyond the Impostor distance draw Light.
         farthest: uniform(DetailLevel.Light, 'uint'),
       };
       this.lodState = { settings: lod, uniforms, selection: new LevelSelection(uniforms) };
@@ -576,7 +595,8 @@ export class Forest extends Group {
    * @internal Called before each instanced mesh is drawn: on the first render of a lod Forest, finds the
    * backend. On WebGL2 the forest ignores lod (one console warning) and draws every tree in full. On
    * WebGPU that first frame still draws every tree in full; the Detail Level meshes take over right
-   * after it (they cannot join a frame that is already being drawn), and then `lodReady` resolves.
+   * after it (they cannot join a frame that is already being drawn), the Impostors are baked, and then
+   * `lodReady` resolves.
    */
   detectLodBackend(renderer: unknown, scene?: Scene | null, camera?: Camera | null): void {
     if (!this.lodState) return;
@@ -592,9 +612,9 @@ export class Forest extends Group {
     } else {
       this.lodBackend = 'webgpu';
       queueMicrotask(() => {
-        if (!this.disposed) this.enableDetailLevels();
-        // No Impostors to bake yet: ready once the Detail Levels are drawn.
-        this.resolveLodReady();
+        if (this.disposed) return this.resolveLodReady();
+        this.enableDetailLevels();
+        void this.bakeImpostors(renderer as Renderer);
       });
     }
   }
@@ -603,12 +623,30 @@ export class Forest extends Group {
   private enableDetailLevels(): void {
     const { settings, uniforms } = this.lodState!;
     for (const variant of this.variants) {
-      variant.enableDetailLevels(uniforms, settings.lightDefinition, (mesh) => {
+      variant.enableDetailLevels(uniforms, settings, (mesh) => {
         mesh.onBeforeRender = (renderer, scene, camera) => {
           assertWebGPURenderer(renderer);
           this.selectDetailLevels(renderer as unknown as Renderer, scene, camera);
         };
       });
+    }
+  }
+
+  /**
+   * Bakes every Variant's Impostor with the app's renderer (after the textures have loaded), then lets
+   * far trees draw as Impostors and resolves `lodReady`. Until then they draw Light. If the bake
+   * fails, they keep drawing Light (one console error) and `lodReady` still resolves.
+   */
+  private async bakeImpostors(renderer: Renderer): Promise<void> {
+    try {
+      await this.ready.catch(() => {}); // a texture that failed to load bakes as without it
+      if (this.disposed) return;
+      for (const variant of this.variants) variant.impostor!.bake(renderer);
+      this.lodState!.uniforms.farthest.value = DetailLevel.Impostor;
+    } catch (error) {
+      console.error('tree.js: baking the Forest Impostors failed; far trees draw Light.', error);
+    } finally {
+      this.resolveLodReady();
     }
   }
 

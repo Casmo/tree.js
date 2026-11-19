@@ -136,9 +136,26 @@ async function settled(promise: Promise<unknown>): Promise<boolean> {
   return done;
 }
 
+/**
+ * A WebGPURenderer as the Forest sees it: its backend, a frame number, `compute` and `render` (mocks)
+ * and every other getter/setter as a no-op (the Impostor bake saves and restores the renderer's state).
+ */
+function fakeRenderer(backend: 'webgpu' | 'webgl', frame = 1) {
+  const target = {
+    isWebGPURenderer: true,
+    backend: backend === 'webgl' ? { isWebGLBackend: true } : { isWebGPUBackend: true },
+    info: { frame },
+    compute: vi.fn(),
+    render: vi.fn(),
+    setRenderTarget: vi.fn(),
+  };
+  return new Proxy(target, {
+    get: (t, key) => (key in t ? t[key as keyof typeof t] : typeof key === 'string' && /^(get|set)[A-Z]/.test(key) ? () => undefined : undefined),
+  });
+}
+
 /** Draws every mesh of the forest once (their `onBeforeRender`) with a renderer on the given backend. */
-function render(forest: Forest, backend: 'webgpu' | 'webgl'): void {
-  const renderer = { isWebGPURenderer: true, backend: backend === 'webgl' ? { isWebGLBackend: true } : { isWebGPUBackend: true } };
+function render(forest: Forest, backend: 'webgpu' | 'webgl', renderer: unknown = fakeRenderer(backend)): void {
   for (const mesh of drawn(forest)) (mesh.onBeforeRender as (...args: unknown[]) => void)(renderer, null, null, mesh.geometry, mesh.material, null);
 }
 
@@ -289,7 +306,7 @@ function triangles(meshes: Mesh[]): number {
 
 /** A WebGPU renderer as the selection sees it: a frame number and a compute call. */
 function gpu(frame = 1) {
-  return { isWebGPURenderer: true, backend: { isWebGPUBackend: true }, info: { frame }, compute: vi.fn() };
+  return fakeRenderer('webgpu', frame);
 }
 
 const shadowScene = { overrideMaterial: { isShadowPassMaterial: true } };
@@ -429,10 +446,6 @@ describe('Detail Levels on WebGPU', () => {
     expect([forest.lodUniforms!.light.value, forest.lodUniforms!.impostor.value, forest.lodUniforms!.fade.value]).toEqual([12, 30, 0.4]);
   });
 
-  it('draws only Light until Impostors exist', async () => {
-    const forest = await lodForest();
-    expect(forest.lodUniforms!.farthest.value).toBe(DetailLevel.Light);
-  });
 
   it('keeps drawing by Detail Level when a Variant outgrows its capacity', async () => {
     const forest = await lodForest();
@@ -458,5 +471,127 @@ describe('Detail Levels on WebGPU', () => {
     expect(disposed).toHaveBeenCalledTimes(meshes.length);
     expect(freed).toHaveBeenCalled();
     expect(meshes.every((m) => m.parent === null)).toBe(true);
+  });
+});
+
+/** The bake renders the renderer was asked for: the scene, and the render target set before it. */
+function bakes(renderer: ReturnType<typeof fakeRenderer>) {
+  return renderer.render.mock.calls.map(([scene], i) => {
+    const target = renderer.setRenderTarget.mock.calls.filter(([t]) => t)[i]![0] as { width: number; height: number; textures: { name: string }[] };
+    const meshes = (scene as { children: InstancedMesh[] }).children;
+    return { target, meshes };
+  });
+}
+
+describe('Impostors', () => {
+  async function baked(options: Partial<ForestOptions> = {}, renderer = fakeRenderer('webgpu')) {
+    const forest = createForest(definition, placements, { variants: 3, seed: 5, lod: { light: 10, impostor: 40 }, ...options });
+    render(forest, 'webgpu', renderer);
+    expect(await settled(forest.lodReady)).toBe(true);
+    return { forest, renderer };
+  }
+
+  it('are baked for every Variant on the first WebGPU frame, with the app renderer, from frames × frames directions', async () => {
+    const { forest, renderer } = await baked();
+    const done = bakes(renderer);
+    expect(done).toHaveLength(3);
+    for (const { target, meshes } of done) {
+      // Colour (with coverage) and normal atlases at the default 2048², 12 × 12 frames of wood and leaves.
+      expect([target.width, target.height]).toEqual([2048, 2048]);
+      expect(target.textures.map((t) => t.name)).toEqual(['output', 'normal']);
+      expect(meshes.map((m) => m.count)).toEqual([144, 144]);
+    }
+    // The renderer is left as it was: its render target is restored after each bake.
+    expect(renderer.setRenderTarget.mock.calls.at(-1)![0]).toBeUndefined();
+    // Far trees now draw as Impostors.
+    expect(forest.lodUniforms!.farthest.value).toBe(DetailLevel.Impostor);
+  });
+
+  it('respects impostorAtlas', async () => {
+    const { renderer } = await baked({ lod: { light: 10, impostor: 40, impostorAtlas: { frames: 4, size: 256 } } });
+    for (const { target, meshes } of bakes(renderer)) {
+      expect([target.width, target.height]).toEqual([256, 256]);
+      expect(meshes.map((m) => m.count)).toEqual([16, 16]);
+    }
+  });
+
+  it('draws far trees Light while the bake runs; lodReady resolves after it', async () => {
+    const forest = createForest(definition, placements, { variants: 2, lod: { light: 10, impostor: 40 } });
+    const renderer = fakeRenderer('webgpu');
+    render(forest, 'webgpu', renderer);
+    expect(forest.lodUniforms!.farthest.value).toBe(DetailLevel.Light);
+    expect(renderer.render).not.toHaveBeenCalled();
+    await forest.lodReady;
+    expect(renderer.render).toHaveBeenCalledTimes(2);
+    expect(forest.lodUniforms!.farthest.value).toBe(DetailLevel.Impostor);
+  });
+
+  it('give every Variant one card mesh (no Fruit), drawn indirectly from the Impostor level list', async () => {
+    const { forest } = await baked();
+    for (const variant of forest.variants) {
+      const cards = levelMeshes(forest).filter((m) => m.name === `forest impostor ${variant.index}`);
+      expect(cards).toHaveLength(1);
+      expect(cards[0]!.geometry.getIndex()!.count).toBe(6);
+      expect(cards[0]!.geometry.indirect).toBe(levelMeshes(forest).find((m) => m.name === `forest wood ${variant.index} full`)!.geometry.indirect);
+      expect(cards[0]!.castShadow).toBe(true);
+      expect(cards[0]!.material).not.toBe(variant.leafMaterial);
+    }
+  });
+
+  it('bake the same pictures for the same Definition and Variant Seeds', async () => {
+    const picture = (renderer: ReturnType<typeof fakeRenderer>) =>
+      bakes(renderer).map(({ meshes }) =>
+        meshes.map((m) => [hashArray(m.instanceMatrix.array as Float32Array), hashArray(m.geometry.getIndex()!.array as Uint32Array), (m.material as MeshStandardNodeMaterial).type]),
+      );
+    const a = picture((await baked()).renderer);
+    expect(picture((await baked()).renderer)).toEqual(a);
+    expect(picture((await baked({ seed: 6 })).renderer)).not.toEqual(a);
+  });
+
+  it('are not baked without lod, nor on the WebGL2 fallback', async () => {
+    const plain = createForest(definition, placements, { variants: 2 });
+    const renderer = fakeRenderer('webgpu');
+    render(plain, 'webgpu', renderer);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const webgl = createForest(definition, placements, { variants: 2, lod: true });
+      const fallback = fakeRenderer('webgl');
+      render(webgl, 'webgl', fallback);
+      await settled(webgl.lodReady);
+      await settled(plain.lodReady);
+      expect(renderer.render).not.toHaveBeenCalled();
+      expect(fallback.render).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('keep far trees Light when the bake fails, and still resolve lodReady', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const renderer = fakeRenderer('webgpu');
+      renderer.render.mockImplementation(() => {
+        throw new Error('device lost');
+      });
+      const { forest } = await baked({}, renderer);
+      expect(forest.lodUniforms!.farthest.value).toBe(DetailLevel.Light);
+      expect(error).toHaveBeenCalledTimes(1);
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('are freed on dispose: atlases, cards and their material', async () => {
+    const { forest, renderer } = await baked();
+    const targets = bakes(renderer).map(({ target }) => target as unknown as Mesh & { addEventListener: Mesh['addEventListener'] });
+    const freed = vi.fn();
+    for (const target of targets) target.addEventListener('dispose', freed);
+    const cards = levelMeshes(forest).filter((m) => m.name.startsWith('forest impostor'));
+    const materials = vi.fn();
+    for (const card of cards) (card.material as MeshStandardNodeMaterial).addEventListener('dispose', materials);
+    forest.dispose();
+    expect(freed).toHaveBeenCalledTimes(3);
+    expect(materials).toHaveBeenCalledTimes(3);
+    expect(cards.every((m) => m.parent === null)).toBe(true);
   });
 });

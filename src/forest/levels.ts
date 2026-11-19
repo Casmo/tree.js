@@ -40,7 +40,7 @@ export interface DetailLevelUniforms {
   /** The Forest's world matrix (tree positions are in forest space). */
   forest: UniformNode<'mat4', Matrix4>;
   /**
-   * The farthest Detail Level that can be drawn: Light until the Impostors are baked (#75). Trees
+   * The farthest Detail Level that can be drawn: Light until the Impostors are baked. Trees
    * beyond it draw at it, without a cross-fade into the level that is not there.
    */
   farthest: UniformNode<'uint', number>;
