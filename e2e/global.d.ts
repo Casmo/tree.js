@@ -26,6 +26,12 @@ declare global {
       fruitInstances?: number;
       /** Roots in the Variant with the fewest (0 without a `roots` block). */
       roots?: number;
+      /** With ?lod: trees drawn at each Detail Level by the GPU (a tree in a cross-fade counts at both). */
+      levels?: { full: number; light: number; impostor: number };
+      /** With ?lod: the same counts from the CPU's selectDetailLevel. */
+      expectedLevels?: { full: number; light: number; impostor: number };
+      /** Draws the frame again (the page is otherwise still), resolving once it is drawn. */
+      renderAgain?: () => Promise<void>;
     };
   }
 }

@@ -16,16 +16,25 @@
 //   ?features=suggested  the ?style's SUGGESTED_MATERIAL_FEATURES (low-poly without a ?style)
 //   ?crownNormals=<0..1>  Crown Normals at that amount (overrides the suggestion)
 //   ?occlusion=<0..1>  Structural Occlusion at that strength (overrides the suggestion)
+//   Detail Levels (ADR 0010, WebGPU; on ?backend=webgl the forest draws every tree in full):
+//   ?lod=1  the default distances (6 and 20 trunk heights)
+//   ?lod=<light>,<impostor>[,<fade>]  Light from <light>, Impostor from <impostor> world units (fade default 0.1)
+//   ?lodCamera=1  (with distances) pick the Detail Levels for a camera 40 m behind the view (lod.camera)
+//   ?shadows=1  the sun casts shadows (the shadow pass reuses the frame's Detail Levels)
 import * as THREE from 'three/webgpu';
 import {
   createForest,
   createRandom,
+  DetailLevel,
   extendDefinition,
   loadStyle,
   sceneWind,
   SEASON_PROFILES,
+  selectDetailLevel,
   SUGGESTED_MATERIAL_FEATURES,
   withMaterialFeatures,
+  type Forest,
+  type ForestLodOptions,
   type ForestPlacement,
   type FruitType,
   type MaterialFeatures,
@@ -48,6 +57,12 @@ declare global {
       fruitInstances?: number;
       /** Roots in the Variant with the fewest (0 without a `roots` block). */
       roots?: number;
+      /** With ?lod: trees drawn at each Detail Level by the GPU (a tree in a cross-fade counts at both). */
+      levels?: { full: number; light: number; impostor: number };
+      /** With ?lod: the same counts from the CPU's selectDetailLevel (Impostors draw Light until they exist). */
+      expectedLevels?: { full: number; light: number; impostor: number };
+      /** Draws the frame again (the page is otherwise still), resolving once it is drawn. */
+      renderAgain?: () => Promise<void>;
     };
   }
 }
@@ -81,6 +96,17 @@ sun.position.set(5, 8, 3);
 scene.add(sun);
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120).rotateX(-Math.PI / 2), new THREE.MeshStandardNodeMaterial({ color: '#7da05a' }));
 scene.add(ground);
+const shadows = params.get('shadows') === '1';
+if (shadows) {
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 0.5, far: 120 });
+  sun.position.set(25, 40, 15);
+  ground.receiveShadow = true;
+}
+// ?lodCamera=1: a camera far behind the view picks the Detail Levels (it is never rendered).
+const lodCamera = new THREE.PerspectiveCamera();
+lodCamera.position.set(0, 22, 46 + 40);
 
 // A jittered grid; the jitter comes from the tree.js Random so the forest is reproducible.
 const count = number('trees', 400);
@@ -127,12 +153,40 @@ function withFeatures(definition: TreeDefinitionInput | TreeDefinition): TreeDef
   return Object.keys(features).length === 0 ? definition : withMaterialFeatures(definition, features);
 }
 
+/** `?lod=1` or `?lod=<light>,<impostor>[,<fade>]`; undefined without (or with `?lod=0`). */
+function lodOption(): true | ForestLodOptions | undefined {
+  const lod = params.get('lod');
+  if (lod === null || lod === '0') return undefined;
+  const camera = params.get('lodCamera') === '1' ? { camera: lodCamera } : {};
+  if (lod === '1') return true;
+  const [light, impostor, fade] = lod.split(',').map(Number);
+  return { light: light!, impostor: impostor!, ...(fade !== undefined ? { fade } : {}), ...camera };
+}
+
+/** Trees per Detail Level as the CPU selects them for `camera` (Impostors draw Light until they exist). */
+function expectedLevels(forest: Forest): { full: number; light: number; impostor: number } {
+  const counts = [0, 0, 0];
+  const settings = forest.lod!;
+  const eye = (settings.camera ?? camera).position;
+  for (const tree of forest.trees) {
+    const [x, y, z] = tree.placement.position as [number, number, number];
+    const distance = eye.distanceTo(new THREE.Vector3(x, y, z));
+    let { level, fade } = selectDetailLevel(distance, tree.placement.scale ?? 1, forest.instanceState(tree).growth, settings);
+    if (level >= DetailLevel.Light) [level, fade] = [DetailLevel.Light, 0];
+    counts[level]! += 1;
+    if (fade > 0) counts[level + 1]! += 1;
+  }
+  return { full: counts[0]!, light: counts[1]!, impostor: counts[2]! };
+}
+
 async function main(): Promise<void> {
+  const lod = lodOption();
   const forest = createForest(withFeatures(withFruit(await loadDefinition())), placements, {
     variants: number('variants', 4),
     seed: number('seed', 1),
     growth: number('growth', 1),
     season: number('season', 0.37),
+    lod,
   });
   const cut = number('cut', 0);
   if (cut > 0) for (let i = 0; i < count; i += cut) forest.removeTree(i);
@@ -150,6 +204,7 @@ async function main(): Promise<void> {
   const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: params.get('backend') === 'webgl' });
   renderer.setPixelRatio(1);
   renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = shadows;
   document.body.appendChild(renderer.domElement);
   await renderer.init();
   const backend = (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'webgpu' : 'webgl2';
@@ -161,11 +216,30 @@ async function main(): Promise<void> {
   });
 
   await renderer.renderAsync(scene, camera);
+  let levels: Window['forestExample']['levels'];
+  if (lod) {
+    // The first frame finds the backend (and draws every tree in full); Detail Levels draw from the next.
+    await forest.lodReady;
+    await renderer.renderAsync(scene, camera);
+    if (backend === 'webgpu') {
+      const [full, light, impostor] = await forest.detailLevelCounts(renderer);
+      levels = { full: full!, light: light!, impostor: impostor! };
+    }
+  }
   const drawCalls = renderer.info.render.drawCalls;
   statusEl.textContent = `WebGPURenderer (${backend}) - ${forest.size} trees, ${forest.variants.length} Variants, ${drawCalls} draw calls`;
   const fruitInstances = forest.variants.reduce((sum, v) => sum + (v.fruit?.count ?? 0), 0);
   const roots = Math.min(...forest.variants.map((v) => v.data.skeleton.roots.length));
-  window.forestExample = { status: 'rendered', backend, trees: forest.size, drawCalls, fruitInstances, roots };
+  window.forestExample = {
+    status: 'rendered',
+    backend,
+    trees: forest.size,
+    drawCalls,
+    fruitInstances,
+    roots,
+    ...(levels ? { levels, expectedLevels: expectedLevels(forest) } : {}),
+    renderAgain: () => renderer.renderAsync(scene, camera),
+  };
   if (sceneWind.strength > 0 && windTime === null) renderer.setAnimationLoop(() => renderer.render(scene, camera));
 }
 
