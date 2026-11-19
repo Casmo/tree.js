@@ -846,6 +846,53 @@ renderer.domElement.addEventListener('pointermove', async (event) => {
   pipeline: `treeHighlight(input, highlighted, options)`, with the `treeId` input of
   `treeEffectsPass(scene, camera, null, { treeId: true })`, or `applyTreeEffects(input, settings, highlighted)`.
 
+### Custom Tree Effects
+
+Add a Tree Effect of your own to `TreeEffects`, such as a brush look on the foliage only. It is built
+the way the built-in ones are: from the colour so far and the tree mask, returning a colour node and an
+`update()` that changes its uniforms live. The tree mask's `r` is 1 on any tree pixel, `g` on leaf
+pixels only and `b` on the selected trees'.
+
+```ts
+import { mix, uniform, vec4 } from 'three/tsl';
+import { createTreeEffects, type CustomTreeEffect } from '@casmo/tree.js/effects';
+
+const foliage: CustomTreeEffect<{ strength: number }> = {
+  before: 'outline', // where it runs among the built-in effects (default: last, under the Highlight)
+  // channels: { treeId: true, normal: true }, // only if it reads them: the scene pass adds them
+  build(input, options) {
+    const strength = uniform(options.strength);
+    const look = input.color.rgb; // your look here (this is the bare pass-through)
+    const node = vec4(mix(input.color.rgb, look, input.mask.g.mul(strength)), input.color.a);
+    return { node, update: (next) => (strength.value = next.strength) };
+  },
+};
+
+const effects = createTreeEffects(renderer, scene, camera, { effects: 'stylized' });
+effects.addEffect(foliage, { strength: 1 });
+effects.updateEffect(foliage, { strength: 0.5 }); // live: no new graph, no recompile
+effects.removeEffect(foliage);
+```
+
+- `before` names a built-in effect (`'grade'`, `'glow'`, `'innerLines'`, `'outline'` or `'highlight'`);
+  the custom effect runs right before it, whether that one is on or not. Custom effects at the same
+  place run in the order they were added. The default, `'highlight'`, runs it after every other
+  built-in effect and under the Highlight.
+- The input has the colour so far (`color`), the tree mask (`mask`), `depth` and `camera`, plus the
+  optional channels it declares in `channels` (`treeId`, `normal` with `normalEncoding`), which the scene
+  pass then adds (a new scene pass, as for the built-in effects). Undeclared channels are never in its
+  input, even when a built-in effect has them on.
+- Custom effects stay through `effects.set()`, which rebuilds them with their latest options when it
+  builds a new graph. `effects.customEffects` lists them. Adding or removing one builds a new graph.
+- With no custom effect nothing changes: no channel, no pass. A custom effect itself adds no pass; it
+  is part of the pipeline's output node.
+- The [Scene Pipeline](#scene-pipeline) takes the same custom effects, with the same `addEffect`,
+  `updateEffect`, `removeEffect` and `customEffects`: see [Custom Tree Effects in the Scene
+  Pipeline](#custom-tree-effects-in-the-scene-pipeline).
+- In your own pipeline, call `effect.build(input, options)` on the output of `applyTreeEffects` (or any
+  colour) yourself. See [`examples/custom-effect`](examples/custom-effect/main.ts) for the bare setup of a
+  foliage-only effect.
+
 ## Scene Pipeline
 
 ![A stylized tree in front of a small Forest without (left) and with (right) the Scene Pipeline's stylized suggestion: AgX tone mapping, ground-contact AO, a soft bloom, distance fog and a low mist](docs/images/scene-pipeline.png)
@@ -914,6 +961,35 @@ createScenePipeline(renderer, scene, camera, {
   your own temporal effects (`pipeline.scenePass.velocity`).
 - The order is fixed: scene pass (fog in the materials, AO in the ambient light) -> Tree Effects -> god
   rays -> motion blur -> bloom -> TRAA -> tone mapping and output colour space -> SMAA / FXAA.
+
+### Custom Tree Effects in the Scene Pipeline
+
+A [custom Tree Effect](#custom-tree-effects) goes into the Scene Pipeline the same way as into
+`TreeEffects`. It runs among the Tree Effects, at the place its `before` names, so on tree pixels and
+before every Scene Effect (god rays, bloom, tone mapping and anti-aliasing see its result):
+
+```ts
+import { vec4 } from 'three/tsl';
+import type { CustomTreeEffect } from '@casmo/tree.js/effects';
+import { createScenePipeline } from '@casmo/tree.js/scene';
+
+// The bare foliage-only setup of Custom Tree Effects above (put your look in place of `input.color.rgb`).
+const foliage: CustomTreeEffect<{ strength: number }> = {
+  before: 'outline',
+  build: (input) => ({ node: vec4(input.color.rgb, input.color.a), update: () => {} }),
+};
+
+const pipeline = createScenePipeline(renderer, scene, camera, { style: 'stylized' });
+pipeline.addEffect(foliage, { strength: 1 });
+pipeline.updateEffect(foliage, { strength: 0.5 }); // live: no new graph, no recompile
+pipeline.set({ style: 'realistic' }); // the custom effect stays, rebuilt with its latest options
+pipeline.removeEffect(foliage);
+```
+
+- The channels it declares (`treeId`, `normal`) are added to the scene pass by the same rule as for the
+  built-in effects, and go again when it is removed and nothing else needs them.
+- With no custom effect the pipeline is unchanged. A custom effect alone (no Style, no overrides) makes
+  the pipeline render through its `RenderPipeline` instead of `renderer.render()`.
 
 ### Scene Effects in your own pipeline
 
@@ -1192,6 +1268,7 @@ a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branche
 | [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
 | [`examples/large-forest`](examples/large-forest/main.ts) | `/examples/large-forest/` | 10,000 trees with Detail Levels on and off: frame times, draw calls, triangles and trees per Detail Level; `?trees=&lod=0&frames=&orbit=` | <img src="docs/images/example-large-forest.png" alt="examples/large-forest" width="160"> |
 | [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` | <img src="docs/images/example-effects.png" alt="examples/effects" width="160"> |
+| [`examples/custom-effect`](examples/custom-effect/main.ts) | `/examples/custom-effect/` | a foliage-only [custom Tree Effect](#custom-tree-effects) (the bare setup); `?effect=on\|pass-through\|off&effects=style&view=mask&backend=webgl` | <img src="docs/images/example-custom-effect.png" alt="examples/custom-effect" width="160"> |
 | [`examples/material-features`](examples/material-features/main.ts) | `/examples/material-features/` | the same tree with Material Features off and on (`SUGGESTED_MATERIAL_FEATURES`); `?style=realistic&species=oak` | <img src="docs/images/example-material-features.png" alt="examples/material-features" width="160"> |
 | [`examples/scene-pipeline`](examples/scene-pipeline/main.ts) | `/examples/scene-pipeline/` | the opt-in [Scene Pipeline](#scene-pipeline) (`createScenePipeline`) per Style: `?style=low-poly\|stylized\|realistic`; one Scene Effect alone through its builder: `?scene=tone-mapping\|smaa\|fxaa\|traa\|gtao\|bloom\|fog\|godrays\|motion-blur` (`&sun=back` for light shafts); `?scene=none` (adds nothing) or `plain` (`renderer.render`); the Wind-aware velocity channel: `?scene=velocity&wind=1.5&windTime=3`; motion blur: `?scene=motion-blur&wind=3&windTime=3&cameraStep=0.5`; `?backend=webgl` | <img src="docs/images/example-scene-pipeline.png" alt="examples/scene-pipeline" width="160"> |
 | [`examples/species`](examples/species/main.ts) | `/examples/species/` | a Species x Style picker over the whole collection; `?species=douglas-fir&style=realistic` | <img src="docs/images/example-species.png" alt="examples/species" width="160"> |
