@@ -81,7 +81,7 @@ A short, local push of air from a point on the ground, such as where a building 
 _Avoid_: Blast, gust, impulse
 
 **Tree Effect**:
-An opt-in post-processing effect that only alters the pixels of trees, such as an outline or leaf glow; the one exception is the thin ring a Highlight draws just around its trees.
+An opt-in post-processing effect that only alters the pixels of trees, such as an outline or leaf glow, either shipped with the library or written by the app; the one exception is the thin ring a Highlight draws just around its trees.
 _Avoid_: Post preset, filter
 
 **Scene Effect**:
