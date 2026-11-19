@@ -5,6 +5,7 @@ import type { CrownVolume } from '../generator';
 import { materialFeaturesOf } from '../styles/material-features';
 import { applyCrownNormals } from './crown-normals';
 import { applyLeafTranslucency } from './leaf-translucency-model';
+import type { LeafTranslucencyValues } from './leaf-translucency';
 import { applyStructuralOcclusion } from './occlusion';
 
 type FloatUniform = UniformNode<'float', number>;
@@ -21,6 +22,16 @@ export interface MaterialFeatureTarget {
   growth: Node<'float'>;
   /** Turns a tree-space normal into the mesh's own space (a Forest rotates it by the instance). Default: as is. */
   toObject?: (normal: Node<'vec3'>) => Node<'vec3'>;
+}
+
+/**
+ * The live values of the Material Features that are on, as the uniforms every target shares (null for
+ * a feature that is off). For materials made after the features were applied (a Forest's Impostors).
+ */
+export interface MaterialFeatureNodes {
+  crownNormals: Node<'float'> | null;
+  translucency: LeafTranslucencyValues | null;
+  occlusion: Node<'float'> | null;
 }
 
 const clamp01 = (value: number): number => Math.min(Math.max(value, 0), 1);
@@ -48,6 +59,11 @@ export class LiveMaterialFeatures {
       if (this.translucencyValues) applyLeafTranslucency(leaf, this.translucencyValues, crown, growth);
       if (this.occlusion) applyStructuralOcclusion(materials, this.occlusion);
     }
+  }
+
+  /** The features that are on, as their shared uniforms (tuning them reaches every material that reads them). */
+  get nodes(): MaterialFeatureNodes {
+    return { crownNormals: this.crown, translucency: this.translucencyValues, occlusion: this.occlusion };
   }
 
   /** The features that are on, with their current values (same shape as `materialFeaturesOf`). */

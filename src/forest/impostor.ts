@@ -22,12 +22,22 @@ import {
   type Renderer,
   type Texture,
 } from 'three/webgpu';
-import { float, frontFacing, mrt, normalGeometry, output, select, texture, uv, vec4 } from 'three/tsl';
+import { attribute, float, frontFacing, mrt, normalGeometry, output, positionGeometry, select, texture, uv, vec4 } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
 import type { GeometryBuffers } from '../generator';
 import { createBarkMaterial, createLeafMaterial } from '../materials';
 import type { TextureOptions } from '../textures';
-import { COLOR_CHANNEL, createImpostorMaterial, NORMAL_CHANNEL, type ImpostorAtlases, type ImpostorBounds } from './impostor-material';
+import {
+  COLOR_CHANNEL,
+  createImpostorMaterial,
+  FEATURES_CHANNEL,
+  featureTexel,
+  hasImpostorFeatures,
+  NORMAL_CHANNEL,
+  type ImpostorAtlases,
+  type ImpostorBounds,
+  type ImpostorFeatures,
+} from './impostor-material';
 import type { LevelPart } from './levels';
 import type { ImpostorAtlasOptions } from './lod';
 import { frameBasis, frameDirection } from './octahedral';
@@ -55,12 +65,15 @@ export interface ImpostorChannel {
 }
 
 /**
- * The channels every Impostor bakes: colour (rgb, coverage in a) and the tree-space normal (a = leaf
- * flag). Season (#76) and Material Feature inputs (#77) join here (taking the Definition, for the
- * ones only some Definitions need).
+ * The channels an Impostor bakes: colour (rgb, coverage in a) and the tree-space normal (a = leaf
+ * flag), plus, only when a Material Feature is on, the features atlas (`FEATURES_CHANNEL`: the
+ * pictured point and the raw Structural Occlusion). Season (#76) joins here.
+ *
+ * Each channel is one RGBA8 attachment of a single render pass: WebGPU's default limit
+ * (`maxColorAttachmentBytesPerSample` 32, 8 per RGBA8) allows 4.
  */
-export function impostorChannels(): ImpostorChannel[] {
-  return [
+export function impostorChannels(bounds: ImpostorBounds, features: ImpostorFeatures | null = null): ImpostorChannel[] {
+  const channels: ImpostorChannel[] = [
     { name: COLOR_CHANNEL, bake: () => output },
     {
       name: NORMAL_CHANNEL,
@@ -68,6 +81,12 @@ export function impostorChannels(): ImpostorChannel[] {
       bake: (part) => vec4(select(frontFacing, normalGeometry, normalGeometry.negate()).normalize().mul(0.5).add(0.5), float(part.kind === 'leaves' ? 1 : 0)),
     },
   ];
+  if (hasImpostorFeatures(features)) {
+    // aOcclusion is only generated when Structural Occlusion is on.
+    const occlusion = features.nodes.occlusion ? attribute<'float'>('aOcclusion', 'float') : float(0);
+    channels.push({ name: FEATURES_CHANNEL, bake: () => featureTexel(positionGeometry, occlusion, bounds) });
+  }
+  return channels;
 }
 
 /** The tree's centre and the half size of a frame, from its wood and leaves (Fruit is not on Impostors). */
@@ -155,10 +174,11 @@ export class VariantImpostor {
     atlas: Required<ImpostorAtlasOptions>,
     name: string,
     private readonly textures?: TextureOptions,
+    features: ImpostorFeatures | null = null,
   ) {
     this.frames = atlas.frames;
     this.bounds = impostorBounds([buffers.wood, buffers.leaves]);
-    this.channels = impostorChannels();
+    this.channels = impostorChannels(this.bounds, features);
     this.target = new RenderTarget(atlas.size, atlas.size, {
       count: this.channels.length,
       type: UnsignedByteType,
@@ -173,7 +193,7 @@ export class VariantImpostor {
     geometry.setAttribute('normal', new BufferAttribute(new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]), 3));
     geometry.setAttribute('uv', new BufferAttribute(new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), 2));
     geometry.setIndex([0, 1, 2, 0, 2, 3]);
-    this.part = { name, geometry, material: createImpostorMaterial(definition, this.atlases) };
+    this.part = { name, geometry, material: createImpostorMaterial(definition, this.atlases, features) };
   }
 
   /** The atlases by channel name. */
