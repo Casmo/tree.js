@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { Mesh, PerspectiveCamera, Scene, type Material, type Node, type NodeMaterial, type Renderer } from 'three/webgpu';
 import { createForest, createTree, Wind, type TreeDefinitionInput } from '../../src/index';
 import { TREE_MASK } from '../../src/effects';
+import { windMotionOf } from '../../src/wind/motion';
+import { uniform } from 'three/tsl';
 import { createScenePipeline, windVelocity, windVelocityMRT, WIND_VELOCITY } from '../../src/scene';
 
 // SMAA (in the suggestions) loads its lookup textures through `new Image()`, which Node does not have.
@@ -118,6 +120,37 @@ describe('the previous Wind time of the velocity channel', () => {
     expect(draw(leaves, 51, 2)).toBeCloseTo(3 - 1 / 60);
     wind.time = 3.1; // an app that drives the pinned clock itself
     expect(draw(leaves, 52, 3)).toBeCloseTo(3);
+  });
+});
+
+describe('Wind Bursts in the velocity channel', () => {
+  /** The per-render values of the Wind motion `mesh` registers for velocity, evaluated at Wind time `previous`. */
+  function shiftUniforms(mesh: Mesh, previous: Node<'float'>, seconds: number): { values: unknown[]; nodes: Set<Node> } {
+    const shift = windMotionOf((mesh.material as NodeMaterial).positionNode)!.shift(previous);
+    const values: unknown[] = [];
+    const nodes = new Set<Node>();
+    shift.traverse((node) => {
+      nodes.add(node);
+      const n = node as unknown as { updateType: string; update?(frame: { time: number }): void; value?: unknown; array?: unknown[] };
+      if (n.updateType !== 'render' || !n.update || n.array) return;
+      n.update({ time: seconds });
+      values.push(n.value);
+    });
+    return { values, nodes };
+  }
+
+  it('the Wind motion of a tree includes its running bursts, evaluated at the previous Wind time too', () => {
+    const wind = new Wind();
+    wind.time = 4;
+    const tree = createTree(definition, { seed: 1, wind });
+    const previous = uniform(3.9);
+    expect(shiftUniforms(tree.leaves, previous, 0).values).not.toContain(1);
+    wind.burst({ x: 1, z: 1 });
+    for (const mesh of [tree.wood, tree.leaves, tree.fruit]) {
+      const { values, nodes } = shiftUniforms(mesh, previous, 0);
+      expect(values).toContain(1); // the one running burst
+      expect(nodes.has(previous)).toBe(true);
+    }
   });
 });
 

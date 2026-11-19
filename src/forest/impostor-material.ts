@@ -275,6 +275,7 @@ export function createImpostorMaterial(
         treeSwayOffset(wind.source, wind.response, point, {
           direction: instanceRotate(objectWindDirection(wind.source), true),
           phase: instanceState().windPhase,
+          burst: false, // Wind Bursts on Impostors are not wired up yet
         })
     : undefined;
   const view = impostorView(atlases, sway);

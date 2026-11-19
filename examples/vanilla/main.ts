@@ -14,6 +14,7 @@
 //   ?barkMap=<url>&leafMap=<url>  use these textures instead of the Definition's (custom textures)
 //   ?wind=<strength>  scene-wide Wind strength (default 0 = calm); animates unless windTime is given
 //   ?windTime=<s>  pin the Wind clock (deterministic screenshots)
+//   ?burst=1  two trees side by side, for Wind Bursts (window.treeExample.burst and setWindTime; pin ?windTime)
 //   ?shadows=1  enable shadow mapping (sun casts, ground receives)
 //   ?backlight=1  put the sun low behind the tree, facing the camera (to see Leaf Translucency)
 //   Material Features (off by default; applied with withMaterialFeatures):
@@ -43,6 +44,7 @@ import {
   type TreeDefinition,
   type TreeDefinitionInput,
   type TreeStyle,
+  type WindBurstOptions,
 } from '@casmo/tree.js';
 import { loadSpecies, type SpeciesName } from '@casmo/tree.js/species';
 import { framingBox } from '../framing';
@@ -66,6 +68,12 @@ declare global {
       fruitVertices?: number;
       /** Sets `tree.season` and re-renders (status goes 'loading' -> 'rendered'). */
       setSeason?: (season: number) => void;
+      /** With ?burst=1: world-space ground points of the near (left) and far (right) tree. */
+      trees?: { near: [number, number]; far: [number, number] };
+      /** Starts a Wind Burst on the scene-wide Wind (at its current time) and draws the frame again. */
+      burst?: (options: WindBurstOptions) => Promise<void>;
+      /** Pins the scene-wide Wind clock to `seconds` and draws the frame again. */
+      setWindTime?: (seconds: number) => Promise<void>;
     };
   }
 }
@@ -226,6 +234,18 @@ async function main(): Promise<void> {
   const shown = params.get('baked') === '1' ? await baked(tree) : tree;
   scene.add(shown);
   if (params.get('style') || params.get('species')) frame(shown);
+  // ?burst=1: a second tree across the view; the camera's right is world (1, 0, -1).
+  const burstTrees = params.get('burst') === '1' ? { near: [-2.5, 2.5] as [number, number], far: [2.5, -2.5] as [number, number] } : undefined;
+  if (burstTrees) {
+    const far = createTree(withFeatures(withFruit(withCustomTextures(await loadDefinition()))), { seed: seed + 1, growth, season });
+    await far.ready;
+    shown.position.set(burstTrees.near[0], 0, burstTrees.near[1]);
+    far.position.set(burstTrees.far[0], 0, burstTrees.far[1]);
+    scene.add(far);
+    camera.position.set(11, 5, 11);
+    camera.lookAt(0, 2.5, 0);
+    ground.scale.setScalar(1.6);
+  }
 
   if (params.get('renderer') === 'classic') {
     // A classic-renderer app uses classic materials; only the tree brings TSL node materials.
@@ -261,7 +281,15 @@ async function main(): Promise<void> {
     void renderer.renderAsync(scene, camera).then(() => (window.treeExample.status = 'rendered'));
   };
   const fruitVertices = tree.fruit.geometry.getAttribute('position').count;
-  window.treeExample = { status: 'rendered', backend, leafGeometryId, fruitVertices, setSeason };
+  const draw = async (change: () => void): Promise<void> => {
+    window.treeExample.status = 'loading';
+    change();
+    await renderer.renderAsync(scene, camera);
+    window.treeExample.status = 'rendered';
+  };
+  const burst = (options: WindBurstOptions) => draw(() => sceneWind.burst(options));
+  const setWindTime = (seconds: number) => draw(() => (sceneWind.time = seconds));
+  window.treeExample = { status: 'rendered', backend, leafGeometryId, fruitVertices, setSeason, trees: burstTrees, burst, setWindTime };
   // A swaying tree needs a render loop; with a pinned Wind clock one frame is enough.
   if (windStrength > 0 && windTime === null) renderer.setAnimationLoop(() => renderer.render(scene, camera));
 }

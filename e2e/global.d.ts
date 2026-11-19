@@ -1,3 +1,5 @@
+import type { WindBurstOptions } from '@casmo/tree.js';
+
 export {};
 declare global {
   interface Window {
@@ -11,6 +13,12 @@ declare global {
       fruitVertices?: number;
       /** Sets `tree.season` and re-renders (status goes 'loading' -> 'rendered'). */
       setSeason?: (season: number) => void;
+      /** With ?burst=1: world-space ground points of the near (left) and far (right) tree. */
+      trees?: { near: [number, number]; far: [number, number] };
+      /** Starts a Wind Burst on the scene-wide Wind (at its current time) and draws the frame again. */
+      burst?: (options: WindBurstOptions) => Promise<void>;
+      /** Pins the scene-wide Wind clock to `seconds` and draws the frame again. */
+      setWindTime?: (seconds: number) => Promise<void>;
     };
   }
 }
