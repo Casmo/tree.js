@@ -227,3 +227,67 @@ test.describe('Wind-aware velocity (ADR 0011)', () => {
     expect(await difference(page, without.image, withVelocity.image)).toEqual({ changed: 0, maxDiff: 0 });
   });
 });
+
+test.describe('motion blur along the Wind-aware velocity', () => {
+  const wind = 'wind=3&windTime=3';
+
+  test('motion blur alone, through sceneMotionBlur (realistic, WebGPU, strong pinned Wind, one camera step)', async ({ page }) => {
+    const plain = await load(page, `style=realistic&scene=plain&${wind}&cameraStep=0.5`);
+    const blurred = await load(page, `style=realistic&scene=motion-blur&${wind}&cameraStep=0.5`);
+    expect(blurred.example.renderer!.after).toEqual(blurred.example.renderer!.before);
+    expect((await difference(page, plain.image, blurred.image)).changed, 'motion blur changes the frame').toBeGreaterThan(10_000);
+    await expect(page.locator('canvas')).toHaveScreenshot('realistic-motion-blur-webgpu.png');
+  });
+
+  const views = [
+    { name: 'sceneMotionBlur in a hand-made pipeline', query: 'scene=motion-blur' },
+    { name: 'the Scene Pipeline, which requests the velocity channel itself', query: 'scene=motion-blur&via=scene-pipeline' },
+  ];
+  for (const { name, query } of views) {
+    test(`with a still camera, Wind sway blurs the leaves and not the ground (${name})`, async ({ page }) => {
+      const plain = await load(page, `style=realistic&scene=plain&${wind}`);
+      const blurred = await load(page, `style=realistic&${query}&${wind}`);
+      const changed = await changedIn(page, plain.image, blurred.image, blurred.example.regions!);
+      expect(changed.crown, 'swaying leaves blur').toBeGreaterThan(0.05);
+      expect(changed.ground, 'the ground stands still').toBe(0);
+    });
+  }
+
+  test('a camera step blurs the frame further (the same view, with one step of camera motion)', async ({ page }) => {
+    const still = await load(page, `style=realistic&scene=motion-blur&${wind}`);
+    const stepped = await load(page, `style=realistic&scene=motion-blur&${wind}&cameraStep=0.5`);
+    expect((await difference(page, still.image, stepped.image)).changed).toBeGreaterThan(10_000);
+  });
+});
+
+/** Per region (CSS pixels): the share of pixels that differ clearly (by more than 2 of 255) between two screenshots. */
+async function changedIn(page: Page, a: Buffer, b: Buffer, regions: Record<string, Rect>): Promise<Record<string, number>> {
+  return page.evaluate(
+    async ([pa, pb, rects]) => {
+      const decode = async (base64: string) => {
+        const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${base64}`)).blob());
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+        const context = canvas.getContext('2d')!;
+        context.drawImage(bitmap, 0, 0);
+        return context.getImageData(0, 0, bitmap.width, bitmap.height);
+      };
+      const [da, db] = await Promise.all([decode(pa), decode(pb)]);
+      const out: Record<string, number> = {};
+      for (const [name, r] of Object.entries(rects)) {
+        let count = 0;
+        let changed = 0;
+        for (let y = Math.max(0, Math.floor(r.y0)); y < Math.min(da.height, Math.ceil(r.y1)); y++) {
+          for (let x = Math.max(0, Math.floor(r.x0)); x < Math.min(da.width, Math.ceil(r.x1)); x++) {
+            const i = (y * da.width + x) * 4;
+            const diff = Math.max(...[0, 1, 2].map((c) => Math.abs(da.data[i + c]! - db.data[i + c]!)));
+            count++;
+            if (diff > 2) changed++;
+          }
+        }
+        out[name] = changed / Math.max(1, count);
+      }
+      return out;
+    },
+    [a.toString('base64'), b.toString('base64'), regions] as const,
+  );
+}

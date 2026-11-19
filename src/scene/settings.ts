@@ -3,6 +3,7 @@ import type { SceneGodraysOptions } from './godrays';
 import type { SceneAOOptions } from './ao';
 import type { SceneAntialiasMode } from './antialias';
 import type { SceneBloomOptions } from './bloom';
+import type { SceneMotionBlurOptions } from './motion-blur';
 import type { SceneToneMappingOptions } from './tone-mapping';
 import type { SceneFogOptions } from './fog';
 import { SUGGESTED_SCENE_EFFECTS } from './suggested';
@@ -18,6 +19,8 @@ export interface SceneEffectsSettings {
   godrays?: SceneGodraysOptions;
   /** Ground-contact ambient occlusion (GTAO) in the scene pass's lighting: darkens ambient light only. */
   ao?: SceneAOOptions;
+  /** Motion blur along the Wind-aware velocity (camera, object and Wind motion); never suggested. */
+  motionBlur?: SceneMotionBlurOptions;
   /** Bloom: a soft glare around the bright parts of the frame, before tone mapping. */
   bloom?: SceneBloomOptions;
   /** Post anti-aliasing of the display colours, last in the stack; `null` = none. */

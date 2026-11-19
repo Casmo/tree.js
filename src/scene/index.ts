@@ -11,6 +11,7 @@ export { sceneAntialias, type SceneAntialiasMode } from './antialias';
 export { type SceneEffectsChoice, type SceneEffectsSettings } from './settings';
 export { sceneAO, type SceneAO, type SceneAOOptions } from './ao';
 export { sceneBloom, type SceneBloomOptions } from './bloom';
+export { sceneMotionBlur, type SceneMotionBlurOptions } from './motion-blur';
 export { SUGGESTED_SCENE_EFFECTS } from './suggested';
 export { applySceneEffects } from './stack';
 export { type SceneEffectInput } from './stage';
