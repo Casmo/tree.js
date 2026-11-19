@@ -27,6 +27,19 @@ test('a forest on the WebGL2 fallback of WebGPURenderer', async ({ page }) => {
   await expect(page.locator('canvas')).toHaveScreenshot('forest-webgl2.png', mask(page));
 });
 
+test('a lod Forest on the WebGL2 fallback draws every tree in full, exactly as without lod', async ({ page }) => {
+  const warnings: string[] = [];
+  page.on('console', (m) => {
+    if (m.type() === 'warning' && m.text().includes('tree.js')) warnings.push(m.text());
+  });
+  const { result, errors } = await render(page, 'trees=400&variants=4&backend=webgl&lod=55,200');
+  expect(errors).toEqual([]);
+  expect(warnings).toHaveLength(1); // Detail Levels need WebGPU
+  expect(result).toMatchObject({ status: 'rendered', backend: 'webgl2', trees: 400 });
+  expect(result.levels).toBeUndefined();
+  await expect(page.locator('canvas')).toHaveScreenshot('forest-webgl2.png', mask(page));
+});
+
 test('per-tree Growth and Season: young at the back, autumn on the right', async ({ page }) => {
   const { result } = await render(page, 'trees=400&uneven=1');
   expect(result).toMatchObject({ status: 'rendered', backend: 'webgpu' });

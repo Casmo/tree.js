@@ -13,7 +13,7 @@ A number that, combined with a Tree Definition, picks one specific individual tr
 _Avoid_: Random, variation id
 
 **Style**:
-A visual look shipped with the library, such as low-poly, stylized or realistic, that can be applied to any Species: it sets how the tree is drawn (shading, leaf shape, textures, level of detail), not what shape it grows.
+A visual look shipped with the library, such as low-poly, stylized or realistic, that can be applied to any Species: it sets how the tree is drawn (shading, leaf shape, textures, polygon detail), not what shape it grows.
 _Avoid_: Theme, type, kind
 
 **Species**:
@@ -135,6 +135,14 @@ _Avoid_: Group, scatter, instances
 **Variant**:
 One Seed's tree shared by many trees in a Forest.
 _Avoid_: Copy, clone
+
+**Detail Level**:
+How finely one tree of a Forest is drawn for its distance from the camera: Full, Light (the same Variant with fewer faces and leaves) or Impostor, cross-fading between neighbouring levels; a Forest only has Detail Levels when the app asks for them.
+_Avoid_: LOD, level of detail, quality
+
+**Impostor**:
+A picture of a fully grown Variant, taken from many directions and drawn as a card turned to the camera that is still lit, follows Season and sways in the Wind; the farthest Detail Level.
+_Avoid_: Billboard, sprite, card
 
 **Tree Editor**:
 The web app in which a person designs a Tree Definition and exports it.

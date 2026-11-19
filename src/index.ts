@@ -66,4 +66,11 @@ export {
   type ForestPlacement,
   type ForestInstanceState,
   type ForestTreeTraits,
+  DetailLevel,
+  selectDetailLevel,
+  type DetailLevelSelection,
+  type ForestLodOptions,
+  type ForestLodSettings,
+  type ForestLodUpdate,
+  type ImpostorAtlasOptions,
 } from './forest';
