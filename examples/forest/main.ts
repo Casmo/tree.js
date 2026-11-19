@@ -23,6 +23,8 @@
 //   ?lodCamera=1  (with distances) pick the Detail Levels for a camera 40 m behind the view (lod.camera)
 //   ?shadows=1  the sun casts shadows (the shadow pass reuses the frame's Detail Levels)
 //   ?plant=<n>  (with lod) plant n more trees in a row in front after Detail Levels are on, then cut every 4th
+//   ?unplant=1  (with ?plant) then cut every planted tree again: the forest must look as before
+//   ?cutLater=1  (with lod and ?cut) cut the trees after Detail Levels are on instead of right after planting
 import * as THREE from 'three/webgpu';
 import {
   createForest,
@@ -193,7 +195,11 @@ async function main(): Promise<void> {
     lod,
   });
   const cut = number('cut', 0);
-  if (cut > 0) for (let i = 0; i < count; i += cut) forest.removeTree(i);
+  const cutTrees = () => {
+    for (let i = 0; i < count; i += cut) forest.removeTree(i);
+  };
+  const cutLater = lod !== undefined && params.get('cutLater') === '1';
+  if (cut > 0 && !cutLater) cutTrees();
   if (params.get('uneven') === '1') {
     const half = (side * spacing) / 2;
     for (const tree of forest.trees) {
@@ -234,6 +240,15 @@ async function main(): Promise<void> {
       // Past the Variants' capacity: they grow while drawing by Detail Level.
       for (let i = 0; i < plant; i++) forest.addTree({ id: `planted ${i}`, position: [(i - plant / 2) * 0.3, 0, 30 - (i % 3) * 2] });
       for (let i = 0; i < plant; i += 4) forest.removeTree(`planted ${i}`);
+      if (params.get('unplant') === '1') {
+        await renderer.renderAsync(scene, camera);
+        for (let i = 0; i < plant; i++) forest.removeTree(`planted ${i}`);
+      }
+      await renderer.renderAsync(scene, camera);
+    }
+    if (cut > 0 && cutLater) {
+      // Swap-removes on a forest that draws by Detail Level: the other trees must not change.
+      cutTrees();
       await renderer.renderAsync(scene, camera);
     }
     if (backend === 'webgpu') levels = await countLevels();

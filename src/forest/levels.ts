@@ -149,6 +149,10 @@ export class VariantLevels {
   }
 
   /** Number of trees (slots 0..count-1 are in use). */
+  get count(): number {
+    return this.countNode.value;
+  }
+
   set count(value: number) {
     this.countNode.value = value;
     this.version++;
@@ -162,6 +166,21 @@ export class VariantLevels {
   /** Every mesh of every level. */
   get meshes(): Mesh[] {
     return this.levels.flatMap((l) => l.meshes);
+  }
+
+  /**
+   * The GPU buffers in use: the tree data by slot (`TREE_VEC4S` vec4 per slot), the level lists and
+   * their cross-fades (`LEVEL_COUNT` × capacity), the level counters and the draw arguments. The first
+   * three are replaced when the Variant grows; the counters and the draw arguments are kept.
+   */
+  get buffers(): {
+    trees: StorageBufferAttribute;
+    lists: StorageBufferAttribute;
+    dithers: StorageBufferAttribute;
+    counters: StorageBufferAttribute;
+    args: IndirectStorageBufferAttribute;
+  } {
+    return { trees: this.treeData, lists: this.lists, dithers: this.dithers, counters: this.counters, args: this.args };
   }
 
   /** The indirect draw arguments, LEVEL_COUNT × MAX_LEVEL_PARTS draws of 5 u32 (for read-back). */

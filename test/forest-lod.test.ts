@@ -581,6 +581,12 @@ describe('Impostors', () => {
     }
   });
 
+  it('resolve lodReady when the Forest is disposed before it is drawn (nothing left to wait for)', async () => {
+    const forest = createForest(definition, placements, { variants: 2, lod: true });
+    forest.dispose();
+    expect(await settled(forest.lodReady)).toBe(true);
+  });
+
   it('are freed on dispose: atlases, cards and their material', async () => {
     const { forest, renderer } = await baked();
     const targets = bakes(renderer).map(({ target }) => target as unknown as Mesh & { addEventListener: Mesh['addEventListener'] });

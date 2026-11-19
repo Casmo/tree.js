@@ -401,9 +401,13 @@ export class ForestVariant {
 
   /** @internal Frees the GPU resources. */
   dispose(): void {
+    // Detail Levels: the level meshes' geometry, the GPU buffers and compute pass, then the Light vertex data.
     this.levels?.dispose();
+    this.levels = null;
     this.impostor?.dispose();
+    this.impostor = null;
     for (const source of this.lightSources) source.dispose();
+    this.lightSources = [];
     this.disposeMeshes();
     this.woodSource.dispose();
     this.leafSource.dispose();
@@ -495,8 +499,8 @@ export class Forest extends Group {
   private resolveLodReady: () => void = () => {};
   private disposed = false;
   /**
-   * Resolves once every Impostor is baked; at once without lod, and on the first render on
-   * WebGPURenderer's WebGL2 fallback (where lod is ignored).
+   * Resolves once every Impostor is baked (far trees draw Light until then); at once without lod, on
+   * the first render on WebGPURenderer's WebGL2 fallback (where lod is ignored), and on dispose.
    */
   readonly lodReady: Promise<void>;
 
@@ -818,6 +822,7 @@ export class Forest extends Group {
   /** Frees every Variant's geometries, materials and instance buffers, and removes the forest from its parent. */
   override dispose(): void {
     this.disposed = true;
+    this.resolveLodReady(); // nothing left to wait for
     for (const variant of this.variants) variant.dispose();
     this.byKey.clear();
     this.removeFromParent();
