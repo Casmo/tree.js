@@ -7,6 +7,7 @@ type SceneExample = {
   error?: string;
   renderer?: { before: RendererState; after: RendererState };
   picked?: { name: string | null; x: number; y: number };
+  antialias?: string[];
 };
 
 /** Loads the Scene Pipeline example and returns its status and a screenshot of the canvas (status text hidden). */
@@ -81,6 +82,36 @@ test('god rays alone, through sceneGodrays on the shadow-casting sun (realistic,
   expect(rays.example.renderer!.after, 'shadows and lights are the app\'s').toEqual(rays.example.renderer!.before);
   expect((await difference(page, plain.image, rays.image)).changed, 'god rays change the frame').toBeGreaterThan(10_000);
   await expect(page.locator('canvas')).toHaveScreenshot('realistic-godrays-webgpu.png');
+});
+
+test('ambient occlusion alone, through sceneAO in a hand-made pipeline (realistic, WebGPU)', async ({ page }) => {
+  const plain = await load(page, 'style=realistic&scene=plain');
+  const occluded = await load(page, 'style=realistic&scene=gtao');
+  expect(occluded.example.renderer!.after).toEqual(occluded.example.renderer!.before);
+  expect((await difference(page, plain.image, occluded.image)).changed, 'AO darkens the frame').toBeGreaterThan(5_000);
+  await expect(page.locator('canvas')).toHaveScreenshot('realistic-gtao-webgpu.png');
+});
+
+for (const mode of ['smaa', 'fxaa']) {
+  test(`${mode.toUpperCase()} alone, through sceneAntialias in a hand-made pipeline (realistic, WebGPU)`, async ({ page }) => {
+    const plain = await load(page, 'style=realistic&scene=plain');
+    const antialiased = await load(page, `style=realistic&scene=${mode}`);
+    const { changed, maxDiff } = await difference(page, plain.image, antialiased.image);
+    // Only edges change, and not the whole frame (the colours stay the renderer's own).
+    expect(changed, `${mode} smooths edges`).toBeGreaterThan(500);
+    expect(changed, `${mode} leaves flat areas alone`).toBeLessThan(640 * 480 * 0.5);
+    expect(maxDiff).toBeGreaterThan(20);
+    await expect(page.locator('canvas')).toHaveScreenshot(`realistic-${mode}-webgpu.png`);
+  });
+}
+
+test('switching anti-aliasing between SMAA and FXAA at runtime with set()', async ({ page }) => {
+  const smaa = await load(page, 'style=realistic&scene=style');
+  const switched = await load(page, 'style=realistic&scene=style&antialias=fxaa,smaa');
+  expect(switched.example.antialias).toEqual(['fxaa', 'smaa']);
+  expect(await difference(page, smaa.image, switched.image)).toEqual({ changed: 0, maxDiff: 0 });
+  const fxaa = await load(page, 'style=realistic&scene=style&antialias=smaa,fxaa');
+  expect((await difference(page, smaa.image, fxaa.image)).changed, 'FXAA differs from SMAA').toBeGreaterThan(200);
 });
 
 test('bloom alone, through sceneBloom in a hand-made pipeline (realistic, WebGPU)', async ({ page }) => {

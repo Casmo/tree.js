@@ -17,6 +17,7 @@ import type { ForestTree } from '../forest';
 import type { Tree } from '../tree';
 import { resolveSceneEffects, type SceneEffectsChoice, type SceneEffectsSettings } from './settings';
 import { godraysSunProblem, warnGodraysSkipped } from './godrays';
+import { liveSceneAO } from './ao';
 import { liveSceneEffects, sceneEffectsShape, type LiveSceneEffects } from './stack';
 
 /**
@@ -75,7 +76,14 @@ export class ScenePipeline {
   /** The trees the Highlight marks (the `highlighted` option, or an empty list): change it in place. */
   readonly highlighted: (Tree | ForestTree)[];
   private current: ScenePipelineSettings = { treeEffects: {}, sceneEffects: {} };
-  private graph: { shape: string; tree: LiveTreeEffect<TreeEffectsSettings>; scene: LiveSceneEffects; treeNodes: Node[] } | null = null;
+  private graph: {
+    shape: string;
+    tree: LiveTreeEffect<TreeEffectsSettings>;
+    scene: LiveSceneEffects;
+    treeNodes: Node[];
+    /** GTAO: its pre-pass and AO node, fed into the scene pass's lighting through its context. */
+    ao: ReturnType<typeof liveSceneAO> | null;
+  } | null = null;
   private input!: { channels: string; pass: TreeEffectsPass };
   /** Nothing is on (no effects, no extra channel): render with `renderer.render()` itself. */
   private passThrough = true;
@@ -121,16 +129,26 @@ export class ScenePipeline {
     }
     const sceneEffects = this.usableSceneEffects(this.current.sceneEffects);
     this.passThrough = channels === '' && isEmpty({ ...this.current, sceneEffects });
-    const shape = JSON.stringify([treeEffectsShape(this.current.treeEffects, this.scenePass), sceneEffectsShape(sceneEffects)]);
+    const { ao: aoSettings } = sceneEffects;
+    const shape = JSON.stringify([
+      treeEffectsShape(this.current.treeEffects, this.scenePass),
+      sceneEffectsShape(sceneEffects),
+      aoSettings !== undefined,
+    ]);
     if (this.graph?.shape === shape) {
       this.graph.tree.update(this.current.treeEffects);
       this.graph.scene.update(sceneEffects);
+      if (aoSettings) this.graph.ao?.update(aoSettings);
       return;
     }
     this.disposeGraph();
     const tree = liveTreeEffects(this.scenePass, this.current.treeEffects, this.highlighted);
     const scene = liveSceneEffects({ ...this.scenePass, color: tree.node, sun: this.options.sun }, sceneEffects);
-    this.graph = { shape, tree, scene, treeNodes: collectEffectNodes(tree.node, this.scenePass.color) };
+    // AO only darkens ambient light: a pre-pass, GTAO, and its context on the scene pass's lighting.
+    const ao = aoSettings ? liveSceneAO(this.scene, this.camera, aoSettings) : null;
+    this.scenePass.pass.contextNode = ao?.context ?? null;
+    this.scenePass.pass.needsUpdate = true;
+    this.graph = { shape, tree, scene, treeNodes: collectEffectNodes(tree.node, this.scenePass.color), ao };
     this.pipeline.outputNode = scene.node;
     // Display colours from the stack (tone mapping): no output transform of the renderer's.
     this.pipeline.outputColorTransform = !scene.display;
@@ -177,6 +195,10 @@ export class ScenePipeline {
     if (!this.graph) return;
     for (const node of this.graph.treeNodes) node.dispose();
     this.graph.scene.dispose();
+    if (this.graph.ao) {
+      this.graph.ao.dispose();
+      this.scenePass.pass.contextNode = null;
+    }
     this.graph = null;
   }
 }

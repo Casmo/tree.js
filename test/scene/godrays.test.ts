@@ -3,6 +3,11 @@ import { texture, vec4 } from 'three/tsl';
 import { DepthTexture, DirectionalLight, PerspectiveCamera, PointLight, Scene, SpotLight, type Light, type Node, type Renderer } from 'three/webgpu';
 import { createScenePipeline, sceneGodrays, SUGGESTED_SCENE_EFFECTS, type ScenePipelineOptions } from '../../src/scene';
 
+// SMAA (in the realistic suggestion) loads its lookup textures through `new Image()`, which Node does not have.
+vi.stubGlobal('Image', class {
+  src = '';
+});
+
 const renderer = { isWebGPURenderer: true } as unknown as Renderer;
 const create = (options?: ScenePipelineOptions) => createScenePipeline(renderer, new Scene(), new PerspectiveCamera(), options);
 const shadowSun = () => Object.assign(new DirectionalLight(), { castShadow: true });

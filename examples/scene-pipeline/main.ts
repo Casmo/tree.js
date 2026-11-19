@@ -12,8 +12,13 @@
 //   ?scene=godrays  god rays alone (sceneGodrays on the shadow-casting sun), with the realistic
 //                   suggestion's settings (with ?sun=back for visible shafts)
 //   ?sun=back  a low sun behind the Forest, shining towards the camera
+//   ?scene=gtao  ambient occlusion alone (sceneAO: pre-pass + GTAO + the scene pass's lighting context)
 //   ?scene=bloom  bloom alone (sceneBloom), likewise: the Style's suggested bloom or sceneBloom's
 //                 defaults (low-poly suggests none), with the renderer's normal output transform
+//   ?scene=smaa|fxaa  anti-aliasing alone (sceneAntialias) on the renderer's output transform
+//                     (renderOutput), in a hand-made RenderPipeline
+//   ?antialias=fxaa,smaa  with ?scene=style: after the first frames, set() the suggestion with each
+//                         anti-aliasing mode in turn (smaa|fxaa|none), rendering in between
 //   ?treeEffects=style  with ?scene=none: the Style's suggested Tree Effects only (no Scene Effects)
 //   ?via=tree-effects  render ?scene=none&treeEffects=... through createTreeEffects instead (the
 //                      Scene Pipeline must give the same image, the same pick and the same highlight)
@@ -24,7 +29,7 @@
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?wind=<strength>&windTime=<s>  scene-wide Wind; windTime pins its clock (default: no Wind)
 import * as THREE from 'three/webgpu';
-import { pass } from 'three/tsl';
+import { pass, renderOutput } from 'three/tsl';
 import {
   createForest,
   createTree,
@@ -37,7 +42,7 @@ import {
   type Tree,
 } from '@casmo/tree.js';
 import { createTreeEffects, SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from '@casmo/tree.js/effects';
-import { createScenePipeline, sceneBloom, sceneGodrays, sceneToneMapping, SUGGESTED_SCENE_EFFECTS, type ScenePipelineOptions } from '@casmo/tree.js/scene';
+import { createScenePipeline, sceneAO, sceneAntialias, sceneBloom, sceneGodrays, sceneToneMapping, SUGGESTED_SCENE_EFFECTS, type SceneAntialiasMode, type ScenePipelineOptions } from '@casmo/tree.js/scene';
 import { framingBox } from '../framing';
 
 /** The renderer settings the pipeline must never change. */
@@ -57,6 +62,8 @@ declare global {
       renderer?: { before: RendererState; after: RendererState };
       /** `?pick=<name>`: the point picked (CSS pixels) and the name of the tree pick() resolved to. */
       picked?: { name: string | null; x: number; y: number };
+      /** `?antialias=<modes>`: the anti-aliasing modes set() switched through at runtime. */
+      antialias?: string[];
     };
   }
 }
@@ -153,6 +160,7 @@ async function main(): Promise<void> {
   let render: () => void;
   let pick: ((x: number, y: number) => Promise<Tree | ForestTree | undefined>) | undefined;
   let highlighted: (Tree | ForestTree)[] | undefined;
+  let switchAntialias: ((mode: SceneAntialiasMode | null) => void) | undefined;
   if (sceneParam === 'plain') {
     render = () => renderer.render(scene, camera);
   } else if (sceneParam === 'tone-mapping') {
@@ -166,6 +174,19 @@ async function main(): Promise<void> {
     const pipeline = new THREE.RenderPipeline(renderer);
     const scenePass = pass(scene, camera);
     pipeline.outputNode = sceneGodrays(scenePass.getTextureNode(), scenePass.getTextureNode('depth'), camera, sun, SUGGESTED_SCENE_EFFECTS.realistic.godrays);
+    render = () => pipeline.render();
+  } else if (sceneParam === 'gtao') {
+    // AO alone: the pre-pass and GTAO feed the scene pass's lighting (only ambient light darkens).
+    const pipeline = new THREE.RenderPipeline(renderer);
+    const scenePass = pass(scene, camera);
+    scenePass.contextNode = sceneAO(scene, camera, SUGGESTED_SCENE_EFFECTS[styleName].ao).context;
+    pipeline.outputNode = scenePass;
+    render = () => pipeline.render();
+  } else if (sceneParam === 'smaa' || sceneParam === 'fxaa') {
+    // Anti-aliasing alone: it runs on display colours, so on the renderer's own output transform.
+    const pipeline = new THREE.RenderPipeline(renderer);
+    pipeline.outputNode = sceneAntialias(renderOutput(pass(scene, camera).getTextureNode()), sceneParam);
+    pipeline.outputColorTransform = false; // renderOutput above already did it
     render = () => pipeline.render();
   } else if (sceneParam === 'bloom') {
     const pipeline = new THREE.RenderPipeline(renderer);
@@ -189,6 +210,7 @@ async function main(): Promise<void> {
       render = () => pipeline.render();
       pick = (x, y) => pipeline.pick(x, y);
       highlighted = pipeline.highlighted;
+      switchAntialias = (antialias) => pipeline.set({ style: styleName, sceneEffects: { ...SUGGESTED_SCENE_EFFECTS[styleName], antialias } });
     }
   } else {
     throw new Error(`Unknown scene "${sceneParam}"`);
@@ -205,6 +227,16 @@ async function main(): Promise<void> {
     render();
     await new Promise(requestAnimationFrame);
   }
+  const antialias = params.get('antialias')?.split(',');
+  if (antialias && switchAntialias) {
+    for (const mode of antialias) {
+      switchAntialias(mode === 'none' ? null : (mode as SceneAntialiasMode));
+      for (let i = 0; i < 3; i++) {
+        render();
+        await new Promise(requestAnimationFrame);
+      }
+    }
+  }
   let picked: typeof window.scenePipelineExample.picked;
   if (pickName !== null && pick) {
     const target = named.get(pickName);
@@ -220,7 +252,7 @@ async function main(): Promise<void> {
       }
     }
   }
-  window.scenePipelineExample = { status: 'rendered', backend, picked, renderer: { before, after: rendererState() } };
+  window.scenePipelineExample = { status: 'rendered', backend, picked, antialias, renderer: { before, after: rendererState() } };
   if (sceneWind.strength > 0 && windTime === null) renderer.setAnimationLoop(render);
 }
 
