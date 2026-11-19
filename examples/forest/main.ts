@@ -7,7 +7,7 @@
 //   ?growth=<0..1>  Growth of the whole forest (default 1)
 //   ?season=<0..1>  Season of the whole forest (default 0.37)
 //   ?uneven=1  per-tree Growth (younger towards the back) and Season (autumn towards the right)
-//   ?wind=<strength>&windTime=<s>  scene-wide Wind; windTime pins the clock
+//   ?wind=<strength>&windTime=<s>  scene-wide Wind; windTime pins the clock (Wind Bursts: window.forestExample.burst and setWindTime)
 //   ?cut=<n>  remove every n-th tree after planting (the others must not change)
 //   ?style=<name>&form=conifer  a built-in Style's Definition instead of the example's own
 //   ?species=<id>  that Species (loadSpecies, e.g. oak) in the ?style (default low-poly), with its Root Flare and Roots
@@ -53,6 +53,7 @@ import {
   type TreeDefinitionInput,
   type TreeShaderHook,
   type TreeShaderHooks,
+  type WindBurstOptions,
 } from '@casmo/tree.js';
 import { loadSpecies, type SpeciesName } from '@casmo/tree.js/species';
 
@@ -84,6 +85,10 @@ declare global {
        * instead) and how strongly it tints (a uniform: no rebuild), then draws the frame again.
        */
       setShaderHooks?: (options: { parts?: string[]; sceneParts?: string[]; amount?: number }) => Promise<void>;
+      /** Starts a Wind Burst on the scene-wide Wind (at its current time) and draws the frame again. */
+      burst?: (options: WindBurstOptions) => Promise<void>;
+      /** Pins the scene-wide Wind clock to `seconds` and draws the frame again. */
+      setWindTime?: (seconds: number) => Promise<void>;
     };
   }
 }
@@ -305,6 +310,14 @@ async function main(): Promise<void> {
       if (parts !== undefined) forest.shaderHooks = hooksFor(parts);
       if (sceneParts !== undefined) setSceneShaderHooks(hooksFor(sceneParts));
       if (amount !== undefined) hookAmount.value = amount;
+      await renderer.renderAsync(scene, camera);
+    },
+    burst: async (options) => {
+      sceneWind.burst(options);
+      await renderer.renderAsync(scene, camera);
+    },
+    setWindTime: async (seconds) => {
+      sceneWind.time = seconds;
       await renderer.renderAsync(scene, camera);
     },
     ...(levels

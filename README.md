@@ -386,6 +386,43 @@ scene.add(swaying, sheltered);
 
 A swaying tree needs a render loop (`renderer.setAnimationLoop`).
 
+### Wind Burst
+
+A Wind Burst is a short, local push of air from a point on the ground, e.g. where the player places a
+building: trees within its radius bend away from it, the front rolls outward at 30 m/s, and the push
+springs back once and fades out within 1.2 s of Wind time. It adds to the Wind on trunk, branches and
+leaves, scaled by each tree's Wind response, also when the Wind is calm:
+
+```ts
+import { createTree, sceneWind } from '@casmo/tree.js';
+
+const tree = createTree({ schemaVersion: 3 }, { seed: 1 });
+tree.position.set(3, 0, 0);
+
+sceneWind.burst({ x: 1, z: 0, strength: 1, radius: 6 }); // radius defaults to 8 m per unit of strength
+sceneWind.burst({ x: 1, z: 0, strength: -0.5 }); // reduced motion: lean away and settle, no swing
+console.log(sceneWind.bursts.length); // the bursts running now
+```
+
+Up to 8 bursts (`MAX_WIND_BURSTS`) run at once per Wind; another one replaces the oldest. A burst starts
+at the Wind's current time (its pinned `time`, or the renderer clock), so a pinned clock holds it still.
+It only writes uniforms: with no burst running the shader loop runs zero times and trees look exactly
+as without bursts. The Wind-aware velocity channel (TRAA, motion blur) includes burst motion.
+
+Forests take the bursts of their Wind too: every Forest tree bends away from the burst point from its
+own position and rotation, at every Detail Level, and Impostors sway with it, so the whole park reacts:
+
+```ts
+import { createForest, sceneWind } from '@casmo/tree.js';
+
+const forest = createForest({ schemaVersion: 3 }, [{ position: [0, 0, 0] }, { position: [20, 0, 0] }], { lod: true });
+scene.add(forest);
+
+sceneWind.burst({ x: 2, z: 0, strength: 1, radius: 6 }); // the first tree bends, the second does not
+```
+
+Impostors also include their sway, bursts and all, in the Wind-aware velocity channel.
+
 ## Forests
 
 ![A 400-tree instanced Forest whose trees turn to autumn towards the right](docs/images/forest.png)

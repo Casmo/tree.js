@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { InstancedMesh, Mesh, PerspectiveCamera, Vector3, type MeshStandardNodeMaterial, type Node } from 'three/webgpu';
+import { InstancedMesh, Mesh, PerspectiveCamera, Vector3, Vector4, type MeshStandardNodeMaterial, type Node } from 'three/webgpu';
 import { createForest, DetailLevel, selectDetailLevel, Wind, type Forest, type ForestOptions, type ForestPlacement, type TreeDefinitionInput } from '../src/index';
 import { ditherThreshold, showsPixel } from '../src/forest/lod';
+import { windMotionOf } from '../src/wind/motion';
+import { uniform } from 'three/tsl';
 
 // light 10, impostor 40, fade 0.2: bands 9..11 (Full -> Light) and 36..44 (Light -> Impostor).
 const settings = { light: 10, impostor: 40, fade: 0.2 };
@@ -501,11 +503,29 @@ describe('Detail Levels on WebGPU', () => {
 function uniformValues(root: Node): unknown[] {
   const values: unknown[] = [];
   root.traverse((node) => {
-    const n = node as unknown as { isUniformNode?: boolean; updateType: string; update?(frame: { time: number }): void; value?: unknown };
+    const n = node as unknown as { isUniformNode?: boolean; updateType: string; update?(frame: { time: number }): void; value?: unknown; array?: unknown[] };
+    if (n.array && !n.value) n.value = new Float32Array(n.array.length * 4); // as the node builder's setup does
     if (n.updateType === 'render' && n.update) n.update({ time: 100 });
     if (n.isUniformNode) values.push(n.value instanceof Vector3 ? n.value.toArray() : n.value);
   });
   return values;
+}
+
+/** The Wind Bursts a node graph draws (per-render uniforms updated as the renderer would): x, z, start, strength. */
+function burstPoints(root: Node): number[][] {
+  const arrays = new Set<unknown[]>();
+  let count = 0;
+  root.traverse((node) => {
+    const n = node as unknown as { updateType: string; update?(frame: { time: number }): void; value?: unknown; array?: unknown[]; name?: string };
+    if (n.array && !n.value) n.value = new Float32Array(n.array.length * 4); // as the node builder's setup does
+    if (n.updateType === 'render' && n.update) n.update({ time: 100 });
+    if (n.array?.[0] instanceof Vector4) arrays.add(n.array);
+  });
+  root.traverse((node) => {
+    const n = node as unknown as { value?: unknown; nodeType?: string | null };
+    if (n.nodeType === 'int' && typeof n.value === 'number') count = Math.max(count, n.value);
+  });
+  return [...arrays].flatMap((array) => array.slice(0, count).map((v) => (v as Vector4).toArray()));
 }
 
 /** The bake renders per Variant: [tree layer, wood layer]. */
@@ -599,6 +619,35 @@ describe('Impostors', () => {
       expect(values).toContain(variant.windResponse.uniforms.height.value);
       expect(uniformValues(material.castShadowPositionNode as Node)).toContain(3.5);
     }
+  });
+
+  it('sway with the Wind Bursts of the Forest Wind (shadows too)', async () => {
+    const { forest } = await baked();
+    const wind = new Wind();
+    wind.time = 3;
+    forest.wind = wind;
+    const card = levelMeshes(forest).find((m) => m.name === 'forest impostor 0')!;
+    const material = card.material as MeshStandardNodeMaterial;
+    expect(burstPoints(material.positionNode as Node)).toEqual([]);
+    wind.burst({ x: 3, z: -2, strength: 0.5, radius: 5 });
+    expect(burstPoints(material.positionNode as Node)).toEqual([[3, -2, 3, 0.5]]);
+    expect(burstPoints(material.castShadowPositionNode as Node)).toEqual([[3, -2, 3, 0.5]]);
+  });
+
+  it('register their Wind motion, bursts included, for the Wind-aware velocity channel', async () => {
+    const { forest } = await baked();
+    const wind = new Wind({ strength: 1 });
+    wind.time = 3;
+    forest.wind = wind;
+    const card = levelMeshes(forest).find((m) => m.name === 'forest impostor 0')!;
+    const motion = windMotionOf((card.material as MeshStandardNodeMaterial).positionNode)!;
+    const previous = uniform(2.9);
+    const shift = motion.shift(previous);
+    const nodes = new Set<Node>();
+    shift.traverse((node) => nodes.add(node));
+    expect(nodes.has(previous)).toBe(true);
+    wind.burst({ x: 3, z: -2, strength: 0.5, radius: 5 });
+    expect(burstPoints(shift)).toEqual([[3, -2, 3, 0.5]]);
   });
 
   it('bake the same pictures for the same Definition and Variant Seeds', async () => {
