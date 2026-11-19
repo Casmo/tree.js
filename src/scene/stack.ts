@@ -30,6 +30,11 @@ export function sceneEffectsShape(settings: SceneEffectsSettings): string {
   return JSON.stringify(STACK.map((stage) => stage.shape(settings) ?? null));
 }
 
+/** Whether the steps that are on read the Wind-aware velocity channel (`input.velocity`). */
+export function sceneEffectsNeedVelocity(settings: SceneEffectsSettings): boolean {
+  return STACK.some((stage) => stage.needsVelocity === true && stage.shape(settings) !== undefined);
+}
+
 /** The built stack: its colour node, whether that is display colours, `update()` and `dispose()`. */
 export interface LiveSceneEffects extends Required<LiveSceneEffect> {
   /** The output is display colours (tone mapped, output colour space): no further output transform. */

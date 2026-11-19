@@ -815,7 +815,7 @@ default), for apps that already have a `RenderPipeline`. Pick by what you need:
 | --- | --- | --- |
 | `sceneToneMapping(color, { mapping, exposure })` | display colours | you want AgX / Neutral without setting `renderer.toneMapping`; set `pipeline.outputColorTransform = false` |
 | `sceneAntialias(color, 'smaa' \| 'fxaa')` | display colours | edges alias (MSAA is off with the Tree ID, or you render without it); give it display colours (after `sceneToneMapping`, or `renderOutput(color)`); SMAA is sharper, FXAA cheaper |
-| `sceneAntialias(color, 'traa', { depth, velocity, camera })` | linear colours | you want the smoothest still image and alpha-cut leaves; before tone mapping, velocity from `windVelocityMRT()` |
+| `sceneAntialias(color, 'traa', { depth, velocity, camera })` | linear colours | you want the smoothest still image and alpha-cut leaves; before tone mapping, velocity from `windVelocityMRT()`; sets `samples = 0` (no MSAA) on the scene pass of `depth` |
 | `sceneAO(scene, camera, options)` | `{ prePass, node, context }` | trees and rocks float on the ground; set `scenePass.contextNode = context` (only ambient light darkens; the scene is drawn twice) |
 | `sceneFog(options, scene.background)` | a fog node | depth and mist; set `scene.fogNode` yourself (no pipeline needed) |
 | `sceneGodrays(color, depth, camera, sun, options)` | linear colours | light shafts; needs the shadow-casting `sun` and the scene pass's depth |
@@ -844,7 +844,9 @@ pipeline.outputColorTransform = false; // tone mapping already output display co
 settings (fog and AO are not colour steps: use `sceneFog` and `sceneAO` for them). The velocity channel
 (ADR 0011) is three's `velocity` (NDC per frame) plus the Wind sway since the previous frame:
 `windVelocityMRT()` adds it to a scene pass under the name `WIND_VELOCITY`, and `windVelocity` is the
-node for your own MRT.
+node for your own MRT. TRAA changes your scene pass: `sceneAntialias(color, 'traa', input)` sets its
+`options.samples = 0`, because TRAA copies the depth each frame and a multisampled depth cannot be copied
+(TRAA anti-aliases instead). The Scene Pipeline restores the old value when TRAA goes off.
 
 ## React Three Fiber
 
@@ -915,7 +917,9 @@ createRoot(document.getElementById('root')!).render(<App />);
 `createScenePipeline`). It takes over rendering (`useFrame` priority 1), follows the camera, calls `set()`
 when `style`/`treeEffects`/`sceneEffects` change and disposes of the pipeline on unmount. `sun` takes a
 light or a ref. The `ref` and `useScenePipeline()` (for children) give the `ScenePipeline` (`null` until
-built). It loads `@casmo/tree.js/scene` on first render (suspends), so apps without it don't bundle it.
+built). It lazily loads `@casmo/tree.js/scene` (so apps without it don't bundle it) and suspends on
+its first render until that has loaded: put it inside a `<Suspense>` boundary (like `<Tree style>`), and
+call `preloadScenePipeline()` early (e.g. at module load) to start the download before it renders.
 
 ```tsx
 import { useRef } from 'react';

@@ -103,7 +103,7 @@ export interface ScenePass extends TreeEffectsPass {
 }
 
 /** `treeEffectsPass` with the Scene Pipeline's channels (the velocity MRT merged in when asked for). */
-export function scenePass(scene: Scene, camera: Camera, selection: readonly Object3D[] | null, channels: ScenePassChannels): ScenePass {
+export function createScenePass(scene: Scene, camera: Camera, selection: readonly Object3D[] | null, channels: ScenePassChannels): ScenePass {
   const { velocity, ...treeChannels } = channels;
   const input: ScenePass = treeEffectsPass(scene, camera, selection, treeChannels);
   if (velocity) {

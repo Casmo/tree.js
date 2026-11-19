@@ -18,8 +18,8 @@ import { resolveSceneEffects, type SceneEffectsChoice, type SceneEffectsSettings
 import { godraysSunProblem, warnGodraysSkipped } from './godrays';
 import { liveSceneAO } from './ao';
 import { liveSceneFog } from './fog';
-import { liveSceneEffects, sceneEffectsShape, type LiveSceneEffects } from './stack';
-import { scenePass, type ScenePass, type ScenePassChannels } from './velocity';
+import { liveSceneEffects, sceneEffectsNeedVelocity, sceneEffectsShape, type LiveSceneEffects } from './stack';
+import { createScenePass, type ScenePass, type ScenePassChannels } from './velocity';
 
 /**
  * Which Tree Effects and Scene Effects to render. `style` picks both of that Style's suggestions;
@@ -62,8 +62,9 @@ function resolveChoice(choice: ScenePipelineChoice): ScenePipelineSettings {
   };
 }
 
+/** Nothing is on: every part is left out, `undefined` or `null` (e.g. `{ antialias: null }`). */
 function isEmpty(settings: ScenePipelineSettings): boolean {
-  return [settings.treeEffects, settings.sceneEffects].every((group) => Object.values(group).every((part) => part === undefined));
+  return [settings.treeEffects, settings.sceneEffects].every((group) => Object.values(group).every((part) => part == null));
 }
 
 /** The scene pass channels the settings need (with the `treeId` and `velocity` options). */
@@ -73,10 +74,7 @@ function channelsOf(settings: ScenePipelineSettings, options: ScenePipelineOptio
 
 /** Whether the scene pass renders Wind-aware velocity (ADR 0011): only when something reads it. */
 function wantsVelocity(settings: ScenePipelineSettings, options: ScenePipelineOptions): boolean {
-  // TRAA and motion blur add themselves here (`antialias === 'traa'`, `motionBlur`).
-  return options.velocity === true
-    || !!settings.sceneEffects.motionBlur
-    || settings.sceneEffects.antialias === 'traa';
+  return options.velocity === true || sceneEffectsNeedVelocity(settings.sceneEffects);
 }
 
 /**
@@ -140,7 +138,7 @@ export class ScenePipeline {
       this.input?.pass.pass.dispose();
       this.input = {
         channels,
-        pass: scenePass(this.scene, this.camera, this.options.selection ?? null, channelsOf(this.current, this.options)),
+        pass: createScenePass(this.scene, this.camera, this.options.selection ?? null, channelsOf(this.current, this.options)),
       };
     }
     const sceneEffects = this.usableSceneEffects(this.current.sceneEffects);

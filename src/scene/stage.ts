@@ -1,10 +1,18 @@
 import type { Camera, Light, Node, TextureNode } from 'three/webgpu';
+import { convertToTexture } from 'three/tsl';
 import type { SceneEffectsSettings } from './settings';
 
 /**
+ * `color` as a texture an effect can sample around each pixel: itself when it already is one,
+ * otherwise rendered into one (a render target the caller owns: dispose it when it is not `color`).
+ */
+export function asTexture(color: Node<'vec4'>): TextureNode {
+  return (color as Partial<TextureNode>).isTextureNode ? (color as TextureNode) : convertToTexture(color);
+}
+
+/**
  * What a colour Scene Effect reads: the colour so far, and the scene pass's depth and camera when
- * the stack runs on a scene pass (the ready-made Scene Pipeline always passes them). Later channels
- * (e.g. velocity) are added here as optional fields.
+ * the stack runs on a scene pass (the ready-made Scene Pipeline always passes them).
  */
 export interface SceneEffectInput {
   color: Node<'vec4'>;
@@ -45,4 +53,6 @@ export interface SceneEffectStage {
    * RenderPipeline must not apply its own output transform (`outputColorTransform = false`).
    */
   display?: boolean;
+  /** The step reads `input.velocity` when on: the Scene Pipeline then renders the velocity channel. */
+  needsVelocity?: boolean;
 }

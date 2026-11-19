@@ -84,6 +84,19 @@ describe('ScenePipeline settings', () => {
     expect(render).toHaveBeenCalledTimes(1);
   });
 
+  it('renders with renderer.render() itself when the settings only turn things off (null parts add nothing)', () => {
+    const render = vi.fn();
+    const fake = { isWebGPURenderer: true, render } as unknown as Renderer;
+    const pipeline = createScenePipeline(fake, new Scene(), new PerspectiveCamera(), { sceneEffects: { antialias: null } });
+    const pipelineRender = vi.spyOn(pipeline.pipeline, 'render').mockImplementation(() => {});
+    pipeline.render();
+    pipeline.set({ style: 'stylized' });
+    pipeline.set({ treeEffects: {}, sceneEffects: { antialias: null, bloom: undefined } });
+    pipeline.render();
+    expect(render).toHaveBeenCalledTimes(2);
+    expect(pipelineRender).not.toHaveBeenCalled();
+  });
+
   it('picks both the suggested Tree Effects and the suggested Scene Effects of a Style', () => {
     for (const style of ['low-poly', 'stylized', 'realistic'] as const) {
       const pipeline = create({ style });

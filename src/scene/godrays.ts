@@ -1,8 +1,8 @@
 import { Color, type Camera, type ColorRepresentation, type DirectionalLight, type Light, type Node, type PointLight, type TextureNode } from 'three/webgpu';
-import { convertToTexture, uniform } from 'three/tsl';
+import { uniform } from 'three/tsl';
 import { godrays } from 'three/addons/tsl/display/GodraysNode.js';
 import { depthAwareBlend } from 'three/addons/tsl/display/depthAwareBlend.js';
-import type { SceneEffectStage } from './stage';
+import { asTexture, type SceneEffectStage } from './stage';
 
 /** God rays settings (all optional; every colour and number is a uniform). */
 export interface SceneGodraysOptions {
@@ -64,7 +64,7 @@ function liveSceneGodrays(color: Node<'vec4'>, depth: TextureNode, camera: Camer
   };
   update(options);
   // The blend samples its base around each pixel: a texture (the colour so far rendered to one when needed).
-  const base = (color as Partial<TextureNode>).isTextureNode ? (color as TextureNode) : convertToTexture(color);
+  const base = asTexture(color);
   const node = depthAwareBlend(base, rays.getTextureNode(), depth, camera, { blendColor: tint, edgeRadius, edgeStrength });
   const dispose = (): void => {
     rays.dispose();

@@ -225,6 +225,8 @@ async function main(): Promise<void> {
   let highlighted: (Tree | ForestTree)[] | undefined;
   let switchAntialias: ((mode: SceneAntialiasMode | null) => void) | undefined;
   let dispose: (() => void) | undefined;
+  /** The output node of the pipeline on show, for {@link smaaLoaded} (when it may be SMAA). */
+  let outputNode: () => THREE.Node | null = () => null;
   if (sceneParam === 'plain') {
     render = () => renderer.render(scene, camera);
   } else if (sceneParam === 'tone-mapping') {
@@ -278,6 +280,7 @@ async function main(): Promise<void> {
     pipeline.outputNode = sceneAntialias(renderOutput(pass(scene, camera).getTextureNode()), sceneParam);
     pipeline.outputColorTransform = false; // renderOutput above already did it
     render = () => pipeline.render();
+    outputNode = () => pipeline.outputNode;
   } else if (sceneParam === 'traa') {
     // TRAA alone: linear colours (before the output transform), the scene pass's depth and velocity.
     const pipeline = new THREE.RenderPipeline(renderer);
@@ -313,6 +316,7 @@ async function main(): Promise<void> {
       pick = (x, y) => pipeline.pick(x, y);
       highlighted = pipeline.highlighted;
       switchAntialias = (antialias) => pipeline.set({ style: styleName, sceneEffects: { ...SUGGESTED_SCENE_EFFECTS[styleName], antialias } });
+      outputNode = () => pipeline.pipeline.outputNode;
       dispose = () => pipeline.dispose();
     }
   } else {
@@ -325,10 +329,24 @@ async function main(): Promise<void> {
     renderer.setSize(innerWidth, innerHeight);
   });
 
+  /**
+   * SMAA (last in the stack, so the output node) loads its two lookup textures from images a moment
+   * after it is built: until then it renders without them. Wait for them before rendering the frames
+   * that are shown, so the image does not depend on how fast the machine is.
+   */
+  const smaaLoaded = async (): Promise<void> => {
+    const node = outputNode() as { _areaTexture?: THREE.Texture; _searchTexture?: THREE.Texture } | null;
+    if (!node?._areaTexture || !node._searchTexture) return;
+    const lookups = [node._areaTexture, node._searchTexture];
+    // Each texture's version goes up when its image has loaded (`needsUpdate` in the image's onload).
+    for (let i = 0; i < 600 && lookups.some((texture) => texture.version === 0); i++) await new Promise(requestAnimationFrame);
+  };
+
   // Render a few frames so pipelines that build on first use show the settled image.
   const frames = params.get('frames');
   const antialias = params.get('antialias')?.split(',');
   const first = Number((antialias ? null : frames) ?? 4);
+  await smaaLoaded();
   for (let i = 0; i < first; i++) {
     if (cameraStep) slideCamera(first - 1 - i);
     render();
@@ -337,6 +355,7 @@ async function main(): Promise<void> {
   if (antialias && switchAntialias) {
     for (const mode of antialias) {
       switchAntialias(mode === 'none' ? null : (mode as SceneAntialiasMode));
+      await smaaLoaded();
       for (let i = 0; i < Number(frames ?? 3); i++) {
         render();
         await new Promise(requestAnimationFrame);

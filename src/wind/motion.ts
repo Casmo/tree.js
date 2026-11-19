@@ -20,7 +20,9 @@ export interface WindMotion {
 }
 
 // Keyed by the material's positionNode, so material clones (which share it) move the same, and a
-// replaced positionNode (no longer ours) falls back to three's own velocity.
+// replaced positionNode (no longer ours) falls back to three's own velocity. Limitation: an app that
+// replaces a tree material's positionNode (even with one that wraps ours) drops its Wind velocity:
+// TRAA may then ghost and motion blur miss the sway of those trees.
 const motions = new WeakMap<Node, WindMotion>();
 
 /** Registers the Wind motion of the materials drawn with `positionNode`. */

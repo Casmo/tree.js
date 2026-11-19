@@ -1,6 +1,6 @@
 import type { Node, TextureNode } from 'three/webgpu';
-import { convertToTexture, float, Fn, int, Loop, uniform, uv, vec2, vec4 } from 'three/tsl';
-import type { SceneEffectStage } from './stage';
+import { float, Fn, int, Loop, uniform, uv, vec2, vec4 } from 'three/tsl';
+import { asTexture, type SceneEffectStage } from './stage';
 
 /** Motion blur settings (all optional; all uniforms). */
 export interface SceneMotionBlurOptions {
@@ -38,7 +38,7 @@ function liveSceneMotionBlur(color: Node<'vec4'>, velocity: TextureNode | undefi
   };
   update(options);
   // The blur samples around each pixel: a texture (the colour so far rendered to one when needed).
-  const base = (color as Partial<TextureNode>).isTextureNode ? (color as TextureNode) : convertToTexture(color);
+  const base = asTexture(color);
   const node = Fn(() => {
     const coord = uv();
     // NDC (y up, 2 units across) to texture coordinates (y down, 1 across), as three's TRAA does.
@@ -63,4 +63,5 @@ export const motionBlurStage: SceneEffectStage = {
     const live = liveSceneMotionBlur(input.color, input.velocity, settings.motionBlur!);
     return { node: live.node, update: (s) => live.update(s.motionBlur!), dispose: live.dispose };
   },
+  needsVelocity: true,
 };

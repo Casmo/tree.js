@@ -155,8 +155,9 @@ test.describe('Scene group', () => {
       await expect(page.getByLabel('Fog', { exact: true })).toBeChecked();
       await expect(page.getByLabel('God rays', { exact: true })).toBeChecked({ checked: style === 'realistic' });
       await expect(page.getByLabel('Anti-aliasing')).toHaveValue('smaa');
-      // God rays make the preview sun cast shadows.
+      // God rays make the preview sun cast shadows, and the tree is in its shadow map (shafts through the canopy).
       expect(await page.evaluate(() => window.treeEditor.preview!.sun.castShadow)).toBe(style === 'realistic');
+      expect(await page.evaluate(() => [window.treeEditor.preview!.tree!.wood.castShadow, window.treeEditor.preview!.tree!.leaves.castShadow])).toEqual([true, true]);
       await expect(page.locator('#preview canvas')).toHaveScreenshot(`${style}-scene-suggested.png`);
     });
   }

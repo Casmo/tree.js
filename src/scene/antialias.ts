@@ -37,8 +37,12 @@ function modeOf(mode: SceneAntialiasMode): SceneAntialiasMode {
  * `renderOutput(color)`), and set `pipeline.outputColorTransform = false`. TRAA runs on linear
  * colours, before tone mapping, and needs `input`: the scene pass's depth, its velocity (from
  * `windVelocityMRT()`, so swaying leaves don't ghost) and the camera (which it jitters while the
- * RenderPipeline renders). TRAA turns MSAA off on the scene pass of `depth` (it copies the depth,
- * which cannot be multisampled; TRAA anti-aliases instead).
+ * RenderPipeline renders).
+ *
+ * Side effect of `'traa'`: it sets `options.samples = 0` on the scene pass `depth` comes from (your
+ * `pass(scene, camera)`), turning its MSAA off for good: TRAA copies the depth each frame, which a
+ * multisampled depth cannot be (TRAA anti-aliases instead). The Scene Pipeline restores the old value
+ * when TRAA goes off; with this function, set `samples` back yourself if you drop TRAA.
  */
 export function sceneAntialias(color: Node<'vec4'>, mode: SceneAntialiasMode, input?: SceneAntialiasInput): Node<'vec4'> {
   return mode === 'traa' ? liveSceneTRAA(color, input ?? {}).node : liveSceneAntialias(color, mode).node;
@@ -113,6 +117,7 @@ export const traaStage: SceneEffectStage = {
     const live = liveSceneTRAA(input.color, input);
     return { node: live.node, update: () => {}, dispose: live.dispose };
   },
+  needsVelocity: true,
 };
 
 /**

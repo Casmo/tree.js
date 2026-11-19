@@ -126,6 +126,8 @@ for (const mode of ['smaa', 'fxaa']) {
 }
 
 test('switching anti-aliasing between SMAA and FXAA at runtime with set()', async ({ page }) => {
+  // Three full loads of the realistic scene: well within 30 s alone, not always under a full parallel run.
+  test.slow();
   const smaa = await load(page, 'style=realistic&scene=style');
   const switched = await load(page, 'style=realistic&scene=style&antialias=fxaa,smaa');
   expect(switched.example.antialias).toEqual(['fxaa', 'smaa']);
