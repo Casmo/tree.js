@@ -7,6 +7,7 @@ export {
   type ScenePipelineOptions,
   type ScenePipelineSettings,
 } from './pipeline';
+export { sceneAntialias, type SceneAntialiasMode } from './antialias';
 export { type SceneEffectsChoice, type SceneEffectsSettings } from './settings';
 export { sceneAO, type SceneAO, type SceneAOOptions } from './ao';
 export { sceneBloom, type SceneBloomOptions } from './bloom';
