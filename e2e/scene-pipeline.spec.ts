@@ -75,6 +75,14 @@ test('tone mapping alone, through sceneToneMapping in a hand-made pipeline (real
   await expect(page.locator('canvas')).toHaveScreenshot('realistic-tone-mapping-webgpu.png');
 });
 
+test('ambient occlusion alone, through sceneAO in a hand-made pipeline (realistic, WebGPU)', async ({ page }) => {
+  const plain = await load(page, 'style=realistic&scene=plain');
+  const occluded = await load(page, 'style=realistic&scene=gtao');
+  expect(occluded.example.renderer!.after).toEqual(occluded.example.renderer!.before);
+  expect((await difference(page, plain.image, occluded.image)).changed, 'AO darkens the frame').toBeGreaterThan(5_000);
+  await expect(page.locator('canvas')).toHaveScreenshot('realistic-gtao-webgpu.png');
+});
+
 test.describe('the Scene Pipeline behaves as TreeEffects for its Tree Effects part', () => {
   const cases = [
     { name: 'suggested Tree Effects', query: 'style=low-poly&scene=none&treeEffects=style' },

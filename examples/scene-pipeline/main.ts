@@ -9,6 +9,7 @@
 //   ?scene=plain  no pipeline at all: renderer.render(scene, camera)
 //   ?scene=tone-mapping  one Scene Effect alone, through its stand-alone builder (sceneToneMapping)
 //                        in a hand-made RenderPipeline, with the Style's suggested settings
+//   ?scene=gtao  ambient occlusion alone (sceneAO: pre-pass + GTAO + the scene pass's lighting context)
 //   ?treeEffects=style  with ?scene=none: the Style's suggested Tree Effects only (no Scene Effects)
 //   ?via=tree-effects  render ?scene=none&treeEffects=... through createTreeEffects instead (the
 //                      Scene Pipeline must give the same image, the same pick and the same highlight)
@@ -32,7 +33,7 @@ import {
   type Tree,
 } from '@casmo/tree.js';
 import { createTreeEffects, SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from '@casmo/tree.js/effects';
-import { createScenePipeline, sceneToneMapping, SUGGESTED_SCENE_EFFECTS, type ScenePipelineOptions } from '@casmo/tree.js/scene';
+import { createScenePipeline, sceneAO, sceneToneMapping, SUGGESTED_SCENE_EFFECTS, type ScenePipelineOptions } from '@casmo/tree.js/scene';
 import { framingBox } from '../framing';
 
 /** The renderer settings the pipeline must never change. */
@@ -153,6 +154,13 @@ async function main(): Promise<void> {
     const pipeline = new THREE.RenderPipeline(renderer);
     pipeline.outputNode = sceneToneMapping(pass(scene, camera).getTextureNode(), SUGGESTED_SCENE_EFFECTS[styleName].toneMapping);
     pipeline.outputColorTransform = false; // the builder outputs display colours
+    render = () => pipeline.render();
+  } else if (sceneParam === 'gtao') {
+    // AO alone: the pre-pass and GTAO feed the scene pass's lighting (only ambient light darkens).
+    const pipeline = new THREE.RenderPipeline(renderer);
+    const scenePass = pass(scene, camera);
+    scenePass.contextNode = sceneAO(scene, camera, SUGGESTED_SCENE_EFFECTS[styleName].ao).context;
+    pipeline.outputNode = scenePass;
     render = () => pipeline.render();
   } else if (sceneParam === 'none' || sceneParam === 'style') {
     // The Style's suggested Tree Effects (with the Highlight for ?highlight=1), or none.
