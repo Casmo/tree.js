@@ -80,6 +80,14 @@ _Avoid_: Sway, animation
 An opt-in post-processing effect that only alters the pixels of trees, such as an outline or leaf glow; the one exception is the thin ring a Highlight draws just around its trees.
 _Avoid_: Post preset, filter
 
+**Scene Effect**:
+An opt-in effect that alters the whole frame, not just the trees, such as tone mapping, anti-aliasing, ambient occlusion, bloom, fog or god rays.
+_Avoid_: Post effect, filter, scene preset
+
+**Scene Pipeline**:
+The opt-in, ready-made way to render a scene with a Style's suggested Tree Effects and Scene Effects together; the app may change any part of it or use the parts on their own instead.
+_Avoid_: Post stack, render preset
+
 **Inner Lines**:
 A Tree Effect that draws ink lines inside a tree where its surface folds or steps away from the viewer, such as around each leaf clump, on top of the outline around the tree.
 _Avoid_: Edge detection, Sobel lines, inner outline
