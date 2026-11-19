@@ -13,8 +13,9 @@ import {
   Quaternion,
   Vector3,
   type MeshStandardNodeMaterial,
+  type UniformNode,
 } from 'three/webgpu';
-import { positionGeometry } from 'three/tsl';
+import { positionGeometry, uniform } from 'three/tsl';
 import type { MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
 import { generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
@@ -25,6 +26,14 @@ import { checkedSeason } from '../season/check';
 import { clampGrowth } from '../growth';
 import { textureReady, type TextureOptions } from '../textures';
 import { sceneWind, Wind, WindBinding, WindResponse, type WindSource } from '../wind';
+import {
+  checkDetailLevelDistances,
+  resolveForestLod,
+  type DetailLevelDistances,
+  type ForestLodOptions,
+  type ForestLodSettings,
+  type ForestLodUpdate,
+} from './lod';
 import { INSTANCE_ATTRIBUTES, INSTANCE_STRIDE, forestPosition, instanceRotate, instanceState } from './nodes';
 import {
   delayedGrowth,
@@ -51,6 +60,13 @@ export interface ForestOptions {
   wind?: Wind;
   /** Where the Definition's textures load from (as `createTree(..., { textures })`). */
   textures?: TextureOptions;
+  /**
+   * Detail Levels (ADR 0010): draw far trees Light and as Impostors, with a cross-fade. `true` derives
+   * the switch distances from the tallest Variant's trunk height. Missing or false: the forest draws
+   * every tree in full, exactly as without this option. WebGPU only: on WebGPURenderer's WebGL2
+   * fallback it is ignored (one console warning). Switching it on or off needs a new Forest.
+   */
+  lod?: boolean | ForestLodOptions;
 }
 
 /** What the GPU draws one tree with (after its offsets). */
@@ -59,6 +75,8 @@ export interface ForestInstanceState {
   season: number;
   windPhase: number;
 }
+
+type LodUniforms = Record<keyof DetailLevelDistances, UniformNode<'float', number>>;
 
 const MIN_CAPACITY = 16;
 // Room for Wind sway in the instance bounding spheres (fraction of the trunk height).
@@ -354,7 +372,10 @@ export class ForestVariant {
       instanced.name = `${name} ${this.index}`;
       instanced.castShadow = true;
       instanced.receiveShadow = true;
-      instanced.onBeforeRender = (renderer) => assertWebGPURenderer(renderer);
+      instanced.onBeforeRender = (renderer) => {
+        assertWebGPURenderer(renderer);
+        this.forest.detectLodBackend(renderer);
+      };
       return instanced;
     };
     this.woodMesh = mesh('forest wood', this.woodSource, this.barkMaterial);
@@ -392,6 +413,16 @@ export class Forest extends Group {
   private growthValue: number;
   private seasonValue: number;
   private readonly features: LiveMaterialFeatures;
+  /** Detail Level settings and their uniforms; null without lod. */
+  private readonly lodState: { settings: ForestLodSettings; uniforms: LodUniforms } | null;
+  /** Detail Levels are drawn: lod is set and the renderer is not on the WebGL2 fallback (unknown before the first render). */
+  private lodBackend: 'unknown' | 'webgpu' | 'webgl' = 'unknown';
+  private resolveLodReady: () => void = () => {};
+  /**
+   * Resolves once every Impostor is baked; at once without lod, and on the first render on
+   * WebGPURenderer's WebGL2 fallback (where lod is ignored).
+   */
+  readonly lodReady: Promise<void>;
 
   constructor(definition: TreeDefinition, placements: readonly ForestPlacement[] = [], options: ForestOptions = {}) {
     super();
@@ -425,7 +456,69 @@ export class Forest extends Group {
     const textures = this.variants.flatMap((v) => [v.barkMaterial.map, v.barkMaterial.normalMap, v.leafMaterial.map]);
     this.ready = Promise.all(textures.filter((t) => t !== null).map(textureReady)).then(() => undefined);
     this.ready.catch(() => {}); // only reported to whoever awaits it
+
+    const tallest = Math.max(...this.variants.map((v) => trunkHeight(v.data.skeleton)));
+    const lod = resolveForestLod(options.lod, tallest);
+    this.lodState = lod ? { settings: lod, uniforms: { light: uniform(lod.light), impostor: uniform(lod.impostor), fade: uniform(lod.fade) } } : null;
+    this.lodReady = lod ? new Promise((resolve) => (this.resolveLodReady = resolve)) : Promise.resolve();
+
     for (const placement of placements) this.addTree(placement);
+  }
+
+  /**
+   * The Detail Level settings (a copy), null without lod. Setting `light`, `impostor`, `fade` or
+   * `camera` (the others kept) only writes uniforms: no rebuild, no recompile. Throws a RangeError for
+   * invalid values (keeping the old ones), and on a forest without lod (switching it on needs a new Forest).
+   */
+  get lod(): ForestLodSettings | null {
+    if (!this.lodState) return null;
+    const { settings } = this.lodState;
+    return { ...settings, impostorAtlas: { ...settings.impostorAtlas } };
+  }
+
+  set lod(value: ForestLodUpdate) {
+    if (!this.lodState) throw new Error('This Forest has no Detail Levels: pass `lod` to createForest (switching them on needs a new Forest)');
+    const { settings, uniforms } = this.lodState;
+    const next: DetailLevelDistances = {
+      light: value.light ?? settings.light,
+      impostor: value.impostor ?? settings.impostor,
+      fade: value.fade ?? settings.fade,
+    };
+    checkDetailLevelDistances(next);
+    Object.assign(settings, next);
+    if (value.camera !== undefined) settings.camera = value.camera;
+    uniforms.light.value = next.light;
+    uniforms.impostor.value = next.impostor;
+    uniforms.fade.value = next.fade;
+  }
+
+  /** @internal The live Detail Level distances as uniforms (null without lod), for the GPU level selection. */
+  get lodUniforms(): LodUniforms | null {
+    return this.lodState?.uniforms ?? null;
+  }
+
+  /** @internal Whether Detail Levels are drawn: lod is set and the first render was on WebGPU (not the WebGL2 fallback). */
+  get lodActive(): boolean {
+    return this.lodState !== null && this.lodBackend === 'webgpu';
+  }
+
+  /**
+   * @internal Called before each mesh is drawn: on the first render of a lod Forest, finds the backend.
+   * On WebGL2 the forest ignores lod (one console warning) and draws every tree in full.
+   */
+  detectLodBackend(renderer: unknown): void {
+    if (!this.lodState || this.lodBackend !== 'unknown') return;
+    const backend = (renderer as { backend?: { isWebGLBackend?: boolean } }).backend;
+    if (backend?.isWebGLBackend === true) {
+      this.lodBackend = 'webgl';
+      console.warn(
+        'tree.js: Forest Detail Levels (lod) need WebGPU; on WebGPURenderer\'s WebGL2 fallback this Forest ignores lod and draws every tree in full.',
+      );
+    } else {
+      this.lodBackend = 'webgpu';
+    }
+    // No Impostors to bake yet: ready once the backend is known.
+    this.resolveLodReady();
   }
 
   /**
