@@ -48,6 +48,20 @@ describe('Custom Tree Effects: position among the built-in Tree Effects', () => 
     expect(custom.last().input.color, 'after the grade, glow and Inner Lines').not.toBe(effects.scenePass.color);
   });
 
+  it("runs a custom effect after every built-in effect, the Highlight too, with before: 'end'", () => {
+    const custom = tint({ before: 'end' });
+    const underHighlight = tint();
+    const effects = make({ effects: { ...SUGGESTED_TREE_EFFECTS.stylized, highlight: {} } });
+    effects.addEffect(underHighlight.effect, 0.2);
+    effects.addEffect(custom.effect, 0.5);
+    expect(effects.pipeline.outputNode, 'nothing runs after it').toBe(custom.last().node);
+    expect(custom.last().input.color, 'the Highlight ran before it').not.toBe(underHighlight.last().node);
+    expect(effects.pipeline.outputNode).not.toBe(underHighlight.last().node);
+
+    effects.set({ ...SUGGESTED_TREE_EFFECTS.stylized, highlight: {} });
+    expect(effects.pipeline.outputNode, 'kept at the end across set()').toBe(custom.last().node);
+  });
+
   it('runs custom effects at the same position in the order they were added', () => {
     const a = tint();
     const b = tint();

@@ -156,7 +156,7 @@ export interface TreeEffectProps<Options> {
 
 /**
  * Adds a custom Tree Effect to the enclosing `<ScenePipeline>` while mounted (`pipeline.addEffect`), at
- * the place its `before` names; several at the same place run in the order they mounted. New `options`
+ * the place its `before` names (`'end'`: after the Highlight); several at the same place run in the order they mounted. New `options`
  * only call `updateEffect`, it stays through Style and settings changes and goes into a rebuilt pipeline,
  * and it is removed on unmount. Renders nothing; does nothing outside a `<ScenePipeline>`.
  *

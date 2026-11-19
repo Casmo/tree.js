@@ -3,7 +3,7 @@ import type { StyleName } from '../styles/registry';
 import { glowRadius, liveLeafGlow } from './glow';
 import { liveTreeColorGrade } from './grade';
 import type { LiveTreeEffect } from './live';
-import { CustomTreeEffectList, type CustomTreeEffect, type CustomTreeEffectOptions, type TreeEffectName } from './custom';
+import { CustomTreeEffectList, type CustomTreeEffect, type CustomTreeEffectOptions, type TreeEffectPlace } from './custom';
 import type { TreeEffectInput } from './mask';
 import { liveTreeHighlight } from './highlight';
 import { liveTreeOutline } from './outline';
@@ -55,7 +55,7 @@ export function liveTreeEffects(
 ): LiveTreeEffect<TreeEffectsSettings> {
   const updates: ((settings: TreeEffectsSettings) => void)[] = [];
   let color = input.color;
-  const before = (name: TreeEffectName): void => {
+  const before = (name: TreeEffectPlace): void => {
     if (custom) color = custom.buildBefore(name, { ...input, color });
   };
   before('grade');
@@ -89,6 +89,7 @@ export function liveTreeEffects(
     updates.push((s) => highlight.update(s.highlight!));
     color = highlight.node;
   }
+  before('end');
   return { node: color, update: (s) => updates.forEach((update) => update(s)) };
 }
 

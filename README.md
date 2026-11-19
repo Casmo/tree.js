@@ -1041,7 +1041,7 @@ import { mix, uniform, vec4 } from 'three/tsl';
 import { createTreeEffects, type CustomTreeEffect } from '@casmo/tree.js/effects';
 
 const foliage: CustomTreeEffect<{ strength: number }> = {
-  before: 'outline', // where it runs among the built-in effects (default: last, under the Highlight)
+  before: 'outline', // where it runs among the built-in effects (default: last, under the Highlight; 'end': over it)
   // channels: { treeId: true, normal: true }, // only if it reads them: the scene pass adds them
   build(input, options) {
     const strength = uniform(options.strength);
@@ -1058,9 +1058,10 @@ effects.removeEffect(foliage);
 ```
 
 - `before` names a built-in effect (`'grade'`, `'glow'`, `'innerLines'`, `'outline'` or `'highlight'`);
-  the custom effect runs right before it, whether that one is on or not. Custom effects at the same
-  place run in the order they were added. The default, `'highlight'`, runs it after every other
-  built-in effect and under the Highlight.
+  the custom effect runs right before it, whether that one is on or not. `'end'` runs it after every
+  built-in Tree Effect, the Highlight too (so it also changes the Highlight's tint and ring). Custom
+  effects at the same place run in the order they were added. The default, `'highlight'`, runs it after
+  every other built-in effect and under the Highlight.
 - The input has the colour so far (`color`), the tree mask (`mask`), `depth` and `camera`, plus the
   optional channels it declares in `channels` (`treeId`, `normal` with `normalEncoding`), which the scene
   pass then adds (a new scene pass, as for the built-in effects). Undeclared channels are never in its
@@ -1148,8 +1149,8 @@ createScenePipeline(renderer, scene, camera, {
 ### Custom Tree Effects in the Scene Pipeline
 
 A [custom Tree Effect](#custom-tree-effects) goes into the Scene Pipeline the same way as into
-`TreeEffects`. It runs among the Tree Effects, at the place its `before` names, so on tree pixels and
-before every Scene Effect (god rays, bloom, tone mapping and anti-aliasing see its result):
+`TreeEffects`. It runs among the Tree Effects, at the place its `before` names (`'end'`: after the
+Highlight), so on tree pixels and before every Scene Effect (god rays, bloom, tone mapping and anti-aliasing see its result):
 
 ```ts
 import { vec4 } from 'three/tsl';

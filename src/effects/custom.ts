@@ -7,8 +7,11 @@ import type { TreeEffectsSettings } from './suggested';
 /** A built-in Tree Effect, by its key in {@link TreeEffectsSettings}. */
 export type TreeEffectName = keyof TreeEffectsSettings;
 
-/** The order the built-in Tree Effects run in (the Highlight always last, on top). */
+/** The order the built-in Tree Effects run in (the Highlight last of them, on top). */
 export const TREE_EFFECT_ORDER: readonly TreeEffectName[] = ['grade', 'glow', 'innerLines', 'outline', 'highlight'];
+
+/** Where a custom Tree Effect runs: right before a built-in Tree Effect, or `'end'`: after all of them. */
+export type TreeEffectPlace = TreeEffectName | 'end';
 
 /**
  * A Tree Effect written by the app, for `TreeEffects.addEffect()`. It is built the way the built-in
@@ -17,11 +20,12 @@ export const TREE_EFFECT_ORDER: readonly TreeEffectName[] = ['grade', 'glow', 'i
  */
 export interface CustomTreeEffect<Options = undefined> {
   /**
-   * Runs right before this built-in Tree Effect, whether that one is on or not; custom effects at the
-   * same place run in the order they were added. Default `'highlight'`: after every other built-in
-   * effect, and under the Highlight.
+   * Runs right before this built-in Tree Effect, whether that one is on or not, or with `'end'` after
+   * every built-in Tree Effect, the Highlight too (in the Scene Pipeline still before the Scene
+   * Effects); custom effects at the same place run in the order they were added. Default
+   * `'highlight'`: after every other built-in effect, and under the Highlight.
    */
-  before?: TreeEffectName;
+  before?: TreeEffectPlace;
   /**
    * The optional channels the effect reads (`treeId`, `normal`): the scene pass adds them (ADR 0009)
    * and they are in the effect's input. Undeclared channels are never in its input, even when a
@@ -94,8 +98,8 @@ export class CustomTreeEffectList {
     return this.entries.map((entry) => `${entry.id}@${placeOf(entry.effect)}`).join();
   }
 
-  /** Builds the custom effects placed before `name` onto `input.color` and returns the resulting colour. */
-  buildBefore(name: TreeEffectName, input: TreeEffectInput): Node<'vec4'> {
+  /** Builds the custom effects placed before `name` (or at the `'end'`) onto `input.color` and returns the resulting colour. */
+  buildBefore(name: TreeEffectPlace, input: TreeEffectInput): Node<'vec4'> {
     let color = input.color;
     for (const entry of this.entries) {
       if (placeOf(entry.effect) !== name) continue;
@@ -110,7 +114,7 @@ export class CustomTreeEffectList {
   }
 }
 
-function placeOf(effect: CustomTreeEffect<never>): TreeEffectName {
+function placeOf(effect: CustomTreeEffect<never>): TreeEffectPlace {
   return effect.before ?? 'highlight';
 }
 
