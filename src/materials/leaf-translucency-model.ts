@@ -57,7 +57,14 @@ export function applyLeafTranslucency(
   crown: CrownVolume,
   growth: Node<'float'>,
 ): void {
-  const term = leafTranslucencyTerm(values, crown, growth);
+  applyLeafTranslucencyTerm(material, leafTranslucencyTerm(values, crown, growth));
+}
+
+/**
+ * Gives `material` the translucent lighting model for a ready-made term (`applyLeafTranslucency` builds
+ * it from a tree's vertices; an Impostor from its baked Crown Volume distance).
+ */
+export function applyLeafTranslucencyTerm(material: MeshStandardNodeMaterial, term: LeafTranslucencyTerm): void {
   const toon = material instanceof SoftToonNodeMaterial;
   // The declared return type is the physical model; the renderer only uses the LightingModel interface.
   material.setupLightingModel = () =>

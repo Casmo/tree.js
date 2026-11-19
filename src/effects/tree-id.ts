@@ -1,5 +1,6 @@
 import { NearestFilter, NoColorSpace, RedIntegerFormat, UnsignedIntType, Vector2, type BufferAttribute, type MRTNode, type Node, type Object3D, type PassNode, type Renderer, type Texture } from 'three/webgpu';
-import { instanceIndex, mrt, select, uniform } from 'three/tsl';
+import { mrt, select, uniform } from 'three/tsl';
+import { instanceSlot } from '../forest/nodes';
 import type { Forest, ForestTree, ForestVariant } from '../forest';
 import type { Tree } from '../tree';
 import { treePartOf } from './mask';
@@ -109,14 +110,15 @@ export function treeFromId(id: number): Tree | ForestTree | undefined {
 
 /**
  * The ID the drawn object writes: a Tree's ID for each of its parts, the block base of a Forest
- * Variant's mesh (the shader adds the instance index), 0 for anything else.
+ * Variant's mesh, instanced or drawing a Detail Level (the shader adds the tree's slot), 0 for
+ * anything else.
  */
 function drawnId(object: Object3D | null): number {
   for (let o = object; o; o = o.parent) {
     if ((o as Partial<Tree>).isTree) return idOfTree(o as Tree);
     const forest = o.parent as Partial<Forest> | null;
     if (forest?.isForest) {
-      const variant = forest.variants!.find((v) => v.meshes.includes(o as never));
+      const variant = forest.variants!.find((v) => v.meshes.includes(o as never) || v.levels?.meshes.includes(o as never));
       if (variant) return blockOfVariant(variant).base;
     }
   }
@@ -207,7 +209,8 @@ function clearTreeIdsBeforeEachRender(scenePass: PassNode, texture: Texture): vo
 /**
  * TSL node: the Tree ID of the tree being drawn (`uint`), 0 for anything that is not a tree. A Tree
  * writes one ID for all its parts (wood, leaves, Fruit); a Forest tree writes its Variant's block
- * base + its instance index. A per-object uniform decided from the drawn object, so no material is
+ * base + its slot, at every Detail Level (the instance index on the instanced meshes, the slot from
+ * the level list on a Detail Level mesh). A per-object uniform decided from the drawn object, so no material is
  * changed. It ignores the outline's `selection`: every tree gets its ID.
  */
 function createTreeId(): Node<'uint'> {
@@ -215,7 +218,7 @@ function createTreeId(): Node<'uint'> {
     node.value = treePartOf(frame.material) === null ? 0 : drawnId(frame.object);
     return undefined;
   });
-  return select(base.equal(0), base, base.add(instanceIndex)) as Node<'uint'>;
+  return select(base.equal(0), base, base.add(instanceSlot())) as Node<'uint'>;
 }
 
 /**

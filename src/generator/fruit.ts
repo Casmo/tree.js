@@ -187,7 +187,7 @@ const COARSE: Record<Exclude<FruitType, 'nut'>, [number, number][]> = {
 };
 
 /** At or below this many sides, Fruit uses the coarse profiles (and the nut a plain icosahedron). */
-const COARSE_SIDES = 5;
+export const COARSE_SIDES = 5;
 
 /** The default templates: each Fruit Type's own sides (Definitions without `fruit.sides`). */
 const DEFAULT_SIDES: Record<Exclude<FruitType, 'nut'>, number> = { round: 8, pear: 8, cone: 7, berry: 6 };

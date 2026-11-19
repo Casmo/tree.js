@@ -4,6 +4,15 @@ import type { ForestPlacement } from './placement';
 
 export { Forest, ForestTree, ForestVariant, type ForestOptions, type ForestInstanceState } from './Forest';
 export type { ForestPlacement, ForestTreeTraits } from './placement';
+export {
+  DetailLevel,
+  selectDetailLevel,
+  type DetailLevelSelection,
+  type ForestLodOptions,
+  type ForestLodSettings,
+  type ForestLodUpdate,
+  type ImpostorAtlasOptions,
+} from './lod';
 
 /**
  * Places many trees of one Tree Definition cheaply: `variants` Seeds are generated once and each

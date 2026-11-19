@@ -23,7 +23,15 @@ export interface CrownNodes {
 export function crownNodes(crown: CrownVolume, growth: Node<'float'>): CrownNodes {
   const grown = varying(growthPosition(growth, positionGeometry), 'vCrownPosition');
   // Grown position back in the fully grown tree's frame: the Volume itself scaled by the Growth scale.
-  const local = grown.div(growthScale(float(growth).clamp(0, 1))).sub(vec3(...crown.center));
+  return crownAt(crown, grown.div(growthScale(float(growth).clamp(0, 1))));
+}
+
+/**
+ * The Crown Volume measured at `point`, a position in the fully grown tree's own space (Growth 1, no
+ * Wind). `crownNodes` uses it for a tree's vertices; an Impostor for the point its bake pictured.
+ */
+export function crownAt(crown: CrownVolume, point: Node<'vec3'>): CrownNodes {
+  const local = point.sub(vec3(...crown.center));
   const radii = vec3(...crown.radii);
   const unit = local.div(radii);
   const gradient = unit.div(radii);
