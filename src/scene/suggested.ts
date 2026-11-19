@@ -16,5 +16,7 @@ export const SUGGESTED_SCENE_EFFECTS: Record<StyleName, SceneEffectsSettings> = 
   },
   realistic: {
     toneMapping: { mapping: 'agx' },
+    // Warm light shafts through the canopy (needs the app's shadow-casting `sun`).
+    godrays: { density: 1.2, maxDensity: 0.4, distanceAttenuation: 0.6, color: '#fff0c8' },
   },
 };

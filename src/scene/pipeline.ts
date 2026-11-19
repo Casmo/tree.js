@@ -16,6 +16,7 @@ import type { StyleName } from '../styles/registry';
 import type { ForestTree } from '../forest';
 import type { Tree } from '../tree';
 import { resolveSceneEffects, type SceneEffectsChoice, type SceneEffectsSettings } from './settings';
+import { godraysSunProblem, warnGodraysSkipped } from './godrays';
 import { liveSceneEffects, sceneEffectsShape, type LiveSceneEffects } from './stack';
 
 /**
@@ -78,6 +79,8 @@ export class ScenePipeline {
   private input!: { channels: string; pass: TreeEffectsPass };
   /** Nothing is on (no effects, no extra channel): render with `renderer.render()` itself. */
   private passThrough = true;
+  /** God rays were skipped for want of a shadow-casting sun, and that was said once. */
+  private warnedSun = false;
 
   constructor(
     private readonly renderer: Renderer,
@@ -116,16 +119,17 @@ export class ScenePipeline {
         pass: treeEffectsPass(this.scene, this.camera, this.options.selection ?? null, channelsOf(this.current, this.options)),
       };
     }
-    this.passThrough = channels === '' && isEmpty(this.current);
-    const shape = JSON.stringify([treeEffectsShape(this.current.treeEffects, this.scenePass), sceneEffectsShape(this.current.sceneEffects)]);
+    const sceneEffects = this.usableSceneEffects(this.current.sceneEffects);
+    this.passThrough = channels === '' && isEmpty({ ...this.current, sceneEffects });
+    const shape = JSON.stringify([treeEffectsShape(this.current.treeEffects, this.scenePass), sceneEffectsShape(sceneEffects)]);
     if (this.graph?.shape === shape) {
       this.graph.tree.update(this.current.treeEffects);
-      this.graph.scene.update(this.current.sceneEffects);
+      this.graph.scene.update(sceneEffects);
       return;
     }
     this.disposeGraph();
     const tree = liveTreeEffects(this.scenePass, this.current.treeEffects, this.highlighted);
-    const scene = liveSceneEffects({ ...this.scenePass, color: tree.node }, this.current.sceneEffects);
+    const scene = liveSceneEffects({ ...this.scenePass, color: tree.node, sun: this.options.sun }, sceneEffects);
     this.graph = { shape, tree, scene, treeNodes: collectEffectNodes(tree.node, this.scenePass.color) };
     this.pipeline.outputNode = scene.node;
     // Display colours from the stack (tone mapping): no output transform of the renderer's.
@@ -154,6 +158,19 @@ export class ScenePipeline {
     this.disposeGraph();
     this.scenePass.pass.dispose();
     this.pipeline.dispose();
+  }
+
+  /**
+   * The Scene Effects that can run: without a shadow-casting `sun`, god rays are left out (with one
+   * console warning per pipeline). Shadows and lights are never changed.
+   */
+  private usableSceneEffects(settings: SceneEffectsSettings): SceneEffectsSettings {
+    if (!settings.godrays) return settings;
+    const problem = godraysSunProblem(this.options.sun);
+    if (!problem) return settings;
+    if (!this.warnedSun) warnGodraysSkipped(problem);
+    this.warnedSun = true;
+    return { ...settings, godrays: undefined };
   }
 
   private disposeGraph(): void {
