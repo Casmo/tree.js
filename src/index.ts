@@ -24,6 +24,7 @@ export {
 } from './generator';
 export { createRandom, type Random } from './random';
 export { createBarkMaterial, createLeafMaterial } from './materials';
+export type { TreeShaderHook, TreeShaderHooks, TreeShaderInput, TreeShaderOutput } from './materials/shader-hooks';
 export {
   DEFAULT_TEXTURE_BASE_PATH,
   getTextureOptions,
