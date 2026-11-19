@@ -11,7 +11,7 @@ import { leafGeometry, placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
 import { bakeOcclusion } from './occlusion';
 import { growRoots, rootSides } from './roots';
-import { inSubtree, sculptBranches, sculptLeaves, sculptsFor } from './sculpt';
+import { sculptBranches, sculptLeaves, sculptsFor } from './sculpt';
 import { buildStems, FLARE_SECTIONS } from './trunk';
 import type { GrowthWindow, SkeletonBranch, TreeData } from './types';
 import { branchSway, writeTrunkSway } from './wind';

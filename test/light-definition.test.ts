@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseDefinition, type SpeciesDefinition, type TreeDefinition } from '../src/index';
-import { generateLightTree, generateTree, lightDefinition, type GeometryBuffers } from '../src/generator';
+import { generateLightTree, generateTree, hashTreeData, lightDefinition, type GeometryBuffers } from '../src/generator';
 import * as collection from '../src/species';
 import lowPoly from '../src/styles/low-poly';
 import stylized from '../src/styles/stylized';
@@ -94,5 +94,84 @@ describe('generateLightTree', () => {
     expect(triangles(light.leaves)).toBeLessThan(triangles(full.leaves));
     if (triangles(full.fruit) > 0) expect(triangles(light.fruit)).toBeLessThan(triangles(full.fruit));
     else expect(triangles(light.fruit)).toBe(0);
+  });
+
+  const oak = stylized.apply(collection.oak);
+  const fir = realistic.apply(collection.douglasFir);
+
+  it('is deterministic per Definition and Seed', () => {
+    expect(hashTreeData(generateLightTree(oak, 3))).toBe(hashTreeData(generateLightTree(oak, 3)));
+    expect(hashTreeData(generateLightTree(oak, 3))).not.toBe(hashTreeData(generateLightTree(oak, 4)));
+  });
+
+  it.each([
+    ['oak', oak],
+    ['douglas fir', fir],
+  ])('%s: every surviving branch starts where it does in the Full tree; only the deepest level is gone', (_, definition) => {
+    const full = generateTree(definition, 11).skeleton.branches;
+    const light = generateLightTree(definition, 11).skeleton.branches;
+    const deepest = definition.branches.length;
+    const kept = definition.branches.length >= 2 ? full.filter((b) => b.level < deepest) : full;
+    expect(light.map((b) => b.path)).toEqual(kept.map((b) => b.path));
+    light.forEach((b, i) => {
+      expect(b.points[0]!.position).toEqual(kept[i]!.points[0]!.position);
+      expect(b.points.at(-1)!.position).toEqual(kept[i]!.points.at(-1)!.position);
+    });
+  });
+
+  it('keeps branches deleted by a Sculpt deleted, and grows no leaves where the Full tree has none', () => {
+    // Branch 0.1 is deleted; branch 0.0 keeps no twigs, so in the Full tree it bears no leaves.
+    const sculpted = parseDefinition({
+      schemaVersion: 3,
+      branches: [{ count: 3 }, { count: 2 }],
+      sculpts: [
+        { seed: 11, path: '0.1', action: 'delete' },
+        { seed: 11, path: '0.0.0', action: 'delete' },
+        { seed: 11, path: '0.0.1', action: 'delete' },
+      ],
+    });
+    const light = generateLightTree(sculpted, 11).skeleton;
+    expect(light.branches.map((b) => b.path)).toEqual(['0', '0.0', '0.2']);
+    expect(new Set(light.leaves.map((l) => l.branch))).toEqual(new Set(['0.2']));
+  });
+
+  it.each([
+    ['oak', oak],
+    ['douglas fir with Structural Occlusion', parseDefinition({ ...fir, materials: { ...fir.materials, occlusion: { strength: 0.7 } } })],
+  ])('%s: carries the same per-vertex attributes as the Full tree', (_, definition) => {
+    const full = generateTree(definition, 5);
+    const light = generateLightTree(definition, 5);
+    for (const part of ['wood', 'leaves', 'fruit'] as const) {
+      expect(Object.keys(light[part].attributes).sort()).toEqual(Object.keys(full[part].attributes).sort());
+      for (const [name, attribute] of Object.entries(light[part].attributes)) {
+        expect(attribute.itemSize, `${part}.${name}`).toBe(full[part].attributes[name]!.itemSize);
+        expect(attribute.array.length, `${part}.${name}`).toBe((light[part].positions.length / 3) * attribute.itemSize);
+      }
+    }
+  });
+
+  it('grows, sways and changes with the Season like the Full tree: the trunk carries the same Growth, Wind and Season values', () => {
+    const full = generateTree(oak, 5);
+    const light = generateLightTree(oak, 5);
+    expect(light.growth.branches.slice(0, light.skeleton.branches.length)).toEqual(
+      full.growth.branches.filter((_, i) => full.skeleton.branches[i]!.level < oak.branches.length),
+    );
+    // The trunk's base ring (the first vertex) has the same Growth, Season and Wind in both.
+    for (const name of ['aGrowth', 'aSeason', 'aWind', 'aLevel', 'aRandom']) {
+      const size = full.wood.attributes[name]!.itemSize;
+      expect(Array.from(light.wood.attributes[name]!.array.slice(0, size)), name).toEqual(Array.from(full.wood.attributes[name]!.array.slice(0, size)));
+    }
+    // Light leaves grow within the Full leaves' Growth, and every leaf sways with flutter at its tip.
+    const fullStart = Math.min(...full.growth.leaves.map((w) => w.start));
+    for (const w of light.growth.leaves) expect(w.start).toBeGreaterThanOrEqual(fullStart);
+    expect(Math.max(...light.growth.leaves.map((w) => w.end))).toBe(Math.max(...full.growth.leaves.map((w) => w.end)));
+  });
+
+  it('respects the lightDefinition override', () => {
+    const plain = generateLightTree(oak, 5);
+    const finer = generateLightTree(oak, 5, { trunk: { sides: 12 }, leaves: { count: 1 } });
+    expect(triangles(finer.wood)).toBeGreaterThan(triangles(plain.wood));
+    expect(finer.skeleton.leaves.length).toBeLessThan(plain.skeleton.leaves.length);
+    expect(finer.skeleton.branches.map((b) => b.points[0]!.position)).toEqual(plain.skeleton.branches.map((b) => b.points[0]!.position));
   });
 });
