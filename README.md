@@ -615,11 +615,76 @@ tree.shaderHooks = { leaves: frosty, bark: frosty }; // set or change at runtime
 tree.shaderHooks = {};                               // remove: the tree is drawn exactly as before
 ```
 
-`tree.shaderHooks` holds one hook per part of a `Tree`; a part you leave out has none, and a part whose
-hook didn't change is left alone. A hook is called once when it is set, to build the node graph, not per frame. Setting, changing
-or removing it rebuilds the node graph of that part's material once (a shader recompile) and never the
-geometry. With no hook nothing changes: same geometry, attributes and materials as before. It works on
-WebGPU and on the WebGL2 fallback.
+`tree.shaderHooks` holds the hooks per part of a `Tree`; a part whose hooks didn't change is left alone. A
+hook is called once when it is set, to build the node graph, not per frame. Setting, changing or removing it
+rebuilds the node graph of that part's material once (a shader recompile) and never the geometry. With no
+hook nothing changes: same geometry, attributes and materials as before. It works on WebGPU and on the
+WebGL2 fallback.
+
+### On Forests, Detail Levels and Impostors
+
+A `Forest` takes hooks the same way, for every tree in it, near and far:
+
+```ts
+import { createForest } from '@casmo/tree.js';
+import stylized from '@casmo/tree.js/styles/stylized';
+import { mix, vec3 } from 'three/tsl';
+
+const forest = createForest(stylized.broadleaf, [{ position: [0, 0, 0] }, { position: [6, 0, 2] }], {
+  lod: true,
+  shaderHooks: { leaves: ({ color }) => mix(color, vec3(0.9, 0.6, 0.2), 0.5) },
+});
+forest.shaderHooks = {}; // set, change or remove at runtime, as on a Tree
+```
+
+The hook runs at every [Detail Level](#detail-levels): Full and Light trees share the Variant's materials,
+and Impostors apply it while they are drawn, to their baked colour, normals and Season data, with
+`part` set per texel (bark or leaves; Impostors have no Fruit). So far trees follow a hook, and its
+uniforms, live: changing a hook never rebakes an Impostor. `season`, `growth` and `treePosition` are each
+tree's own.
+
+### Scene-wide default and stacking
+
+`setSceneShaderHooks` sets hooks every Tree and Forest runs, now and when created later, the way
+`sceneWind` is shared:
+
+```ts
+import { createTree, setSceneShaderHooks, stackShaderHooks, type TreeShaderHook } from '@casmo/tree.js';
+import stylized from '@casmo/tree.js/styles/stylized';
+import { vec3 } from 'three/tsl';
+
+const dusk: TreeShaderHook = ({ color }) => color.mul(vec3(1, 0.85, 0.7));
+const pale: TreeShaderHook = ({ color }) => color.mul(1.2);
+setSceneShaderHooks({ bark: dusk, leaves: dusk });
+
+const tree = createTree(stylized.broadleaf, {
+  shaderHooks: {
+    leaves: pale, // stacks: dusk, then pale
+    bark: null,   // overrides: no hook on this tree's bark, not even the scene-wide one
+  },
+});
+tree.shaderHooks = stackShaderHooks({ leaves: pale }, { leaves: dusk }); // several sets of hooks, joined per part
+setSceneShaderHooks({}); // remove the scene-wide default
+```
+
+Per part, a Tree's or Forest's hooks work like this:
+
+- **left out** (or `undefined`): only the scene-wide default's hooks run;
+- **a hook or a list of hooks**: they stack after the scene-wide default's;
+- **`null`**: no hook at all on that part, the scene-wide default is overridden.
+
+Stacked hooks run in a fixed order: first the ready-made hooks the library ships (such as Snow Cover and
+Wetness), then the app's own; within each group the scene-wide default's before the Tree's or Forest's,
+each list in the order given. Each hook gets the colour and roughness the one before it returned. A hook
+that is listed twice runs once.
+
+### The normal after Wind
+
+`normal` is the normal after Wind on every Style. three only moves a flat-shaded (low-poly) facet with the
+swayed vertices; on smooth shading the library turns the lit normal by how the Wind turned the surface
+(the facet of the unswayed positions to the swayed one, from screen-space derivatives). That costs one
+varying and a few instructions, and only in a hook that reads `normal`. On an Impostor the baked normal is
+turned with the card's sway the same way.
 
 ## Tree Effects
 
