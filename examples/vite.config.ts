@@ -1,4 +1,4 @@
-// Production build of the bundled examples (vanilla three.js, React Three Fiber, Forest, Tree Effects, Species):
+// Production build of the bundled examples (vanilla three.js, React Three Fiber, Forest, Tree Effects, Species, Scene Pipeline):
 // `npm run build:examples` -> examples/dist, a static site (relative base) like any app would ship.
 // They import the library by its package name, which resolves to src/ in this repo (packageAliases).
 // examples/cdn needs no build: it loads the published ES modules through an import map.
@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import { packageAliases, textureDefine } from '../vite.config';
 
-export const BUNDLED_EXAMPLES = ['vanilla', 'react', 'forest', 'effects', 'species', 'material-features'];
+export const BUNDLED_EXAMPLES = ['vanilla', 'react', 'forest', 'effects', 'species', 'material-features', 'scene-pipeline'];
 
 export default defineConfig(({ command }) => ({
   root: import.meta.dirname,

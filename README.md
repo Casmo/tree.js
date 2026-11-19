@@ -42,6 +42,7 @@ npm install @casmo/tree.js three
 | `@casmo/tree.js/styles/low-poly` (`stylized`, `realistic`) | a built-in Style: one Tree Definition per Form (a few kB of data) |
 | `@casmo/tree.js/species` | the 28 Species (`oak`, `douglasFir`, ...), `loadSpecies`, `SPECIES_NAMES`; JSON files |
 | `@casmo/tree.js/effects` | Tree Effects (post-processing) |
+| `@casmo/tree.js/scene` | Scene Pipeline: the Style's suggested Tree Effects and Scene Effects (tone mapping, ...) in one opt-in pipeline |
 | `@casmo/tree.js/react` | `<Tree>`, `<Forest>`, `<Wind>`, `useTreeStyle` for React Three Fiber |
 
 ## Quick start
@@ -939,6 +940,7 @@ a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branche
 | [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
 | [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` | <img src="docs/images/example-effects.png" alt="examples/effects" width="160"> |
 | [`examples/material-features`](examples/material-features/main.ts) | `/examples/material-features/` | the same tree with Material Features off and on (`SUGGESTED_MATERIAL_FEATURES`); `?style=realistic&species=oak` | <img src="docs/images/example-material-features.png" alt="examples/material-features" width="160"> |
+| [`examples/scene-pipeline`](examples/scene-pipeline/main.ts) | `/examples/scene-pipeline/` | the opt-in Scene Pipeline (`createScenePipeline`) per Style, or one Scene Effect alone; `?style=realistic&scene=tone-mapping` | |
 | [`examples/species`](examples/species/main.ts) | `/examples/species/` | a Species x Style picker over the whole collection; `?species=douglas-fir&style=realistic` | <img src="docs/images/example-species.png" alt="examples/species" width="160"> |
 
 ```sh

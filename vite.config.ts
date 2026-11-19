@@ -9,7 +9,7 @@ import { defineConfig } from 'vitest/config';
 // The Tree Editor (editor/) imports the library by its package name, like any app would;
 // in this repo those names resolve to the sources (see also `paths` in tsconfig.json).
 export const packageAliases = [
-  // Subpaths: '/styles/<name>', '/react', '/effects' -> src/<subpath>/index.ts
+  // Subpaths: '/styles/<name>', '/react', '/effects', '/scene' -> src/<subpath>/index.ts
   { find: /^@casmo\/tree\.js\/([\w/-]+)$/, replacement: resolve(import.meta.dirname, 'src/$1/index.ts') },
   { find: /^@casmo\/tree\.js$/, replacement: resolve(import.meta.dirname, 'src/index.ts') },
 ];
@@ -60,6 +60,8 @@ export default defineConfig(({ command }) => ({
         react: resolve(import.meta.dirname, 'src/react/index.ts'),
         // Tree Effects: opt-in post-processing nodes (three/addons stay external).
         effects: resolve(import.meta.dirname, 'src/effects/index.ts'),
+        // Scene Pipeline: opt-in Scene Effects (depends on effects, never the other way round).
+        scene: resolve(import.meta.dirname, 'src/scene/index.ts'),
         // Species collection: one named export per Species, loadSpecies, SPECIES_NAMES.
         species: resolve(import.meta.dirname, 'src/species/index.ts'),
         ...Object.fromEntries(speciesFiles.map((file) => [`species/${file.slice(0, -'.json'.length)}`, resolve(SPECIES_DIR, file)])),
