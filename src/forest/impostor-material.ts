@@ -25,7 +25,12 @@ import {
   vec4,
 } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
+import type { CrownVolume } from '../generator';
 import { createShadedMaterial } from '../materials';
+import { crownAt } from '../materials/crown-nodes';
+import { applyLeafTranslucencyTerm } from '../materials/leaf-translucency-model';
+import type { MaterialFeatureNodes } from '../materials/material-features';
+import { setTreeLeafMask } from '../effects/mask';
 import { seasonLeafColor } from '../season';
 import { instanceRotate, instanceState, levelTreePosition, levelVisible } from './nodes';
 import type { Vec3 } from './octahedral';
@@ -210,12 +215,46 @@ export const COLOR_CHANNEL = 'output';
 export const NORMAL_CHANNEL = 'normal';
 
 /**
+ * The Material Feature atlas (only baked when a Material Feature is on, ADR 0008): rgb = the pictured
+ * point in tree space (Growth 1, encoded over the frame's box, see `featureTexel`), from which the card
+ * measures the Crown Volume (Crown Normals, Leaf Translucency); a = the raw Structural Occlusion
+ * (`aOcclusion`, 0 when that feature is off).
+ */
+export const FEATURES_CHANNEL = 'features';
+
+/** The Material Feature atlas texel the bake writes for a tree-space `point` and raw `occlusion`. */
+export function featureTexel(point: Node<'vec3'>, occlusion: Node<'float'>, bounds: ImpostorBounds): Node<'vec4'> {
+  return vec4(point.sub(vec3(...bounds.center)).div(2 * bounds.half).add(0.5), occlusion);
+}
+
+/** Inverse of `featureTexel` for the point (a texel already divided by the coverage). */
+function featurePoint(texel: Node<'vec4'>, bounds: ImpostorBounds): Node<'vec3'> {
+  return texel.xyz.sub(0.5).mul(2 * bounds.half).add(vec3(...bounds.center));
+}
+
+/** The Material Features an Impostor applies: the Forest's live values and the Variant's Crown Volume. */
+export interface ImpostorFeatures {
+  nodes: MaterialFeatureNodes;
+  crown: CrownVolume;
+}
+
+/** Whether any Material Feature is on (then the Impostor bakes and reads `FEATURES_CHANNEL`). */
+export function hasImpostorFeatures(features: ImpostorFeatures | null | undefined): features is ImpostorFeatures {
+  const nodes = features?.nodes;
+  return !!nodes && (nodes.crownNormals !== null || nodes.translucency !== null || nodes.occlusion !== null);
+}
+
+/**
  * The material of a Variant's Impostor cards: the Definition's shading (smooth: the baked normals
  * carry the shape), the baked colour with the leaves in the Season Profile's leaf colour at the tree's
  * Season, the baked normal turned with the tree, bark or leaf roughness, cut out by the coverage and
  * the Detail Level cross-fade (in the shadow pass too, so the shadow is tree-shaped).
  */
-export function createImpostorMaterial(definition: TreeDefinition, atlases: ImpostorAtlases): MeshStandardNodeMaterial {
+export function createImpostorMaterial(
+  definition: TreeDefinition,
+  atlases: ImpostorAtlases,
+  features: ImpostorFeatures | null = null,
+): MeshStandardNodeMaterial {
   const view = impostorView(atlases);
   const material = createShadedMaterial(definition.materials.shading);
   material.name = 'tree.js impostor';
@@ -240,5 +279,37 @@ export function createImpostorMaterial(definition: TreeDefinition, atlases: Impo
   material.roughnessNode = mix(float(definition.materials.bark.roughness), float(definition.materials.leaf.roughness), leaf);
   material.metalness = 0;
   material.maskNode = and(view.coverage.greaterThan(ALPHA_CUT), levelVisible());
+  if (hasImpostorFeatures(features)) applyImpostorFeatures(material, view, atlases.bounds, leaf, features);
+  // Tree Effects: tree pixels, leaves where the baked leaf flag says so (wood elsewhere).
+  material.userData.treePart = 'leaves';
+  setTreeLeafMask(material, leaf);
   return material;
+}
+
+/**
+ * Material Features on an Impostor card, as on the tree's own materials (same uniforms, so live tuning
+ * needs no rebake): the Crown Volume is measured at the point each texel pictured. Crown Normals and
+ * Leaf Translucency act on leaf texels only (by the baked leaf flag); Structural Occlusion on all.
+ */
+function applyImpostorFeatures(
+  material: MeshStandardNodeMaterial,
+  view: ImpostorView,
+  bounds: ImpostorBounds,
+  leaf: Node<'float'>,
+  features: ImpostorFeatures,
+): void {
+  const { nodes } = features;
+  const texel = view.value(FEATURES_CHANNEL);
+  const crown = crownAt(features.crown, featurePoint(texel, bounds));
+  if (nodes.crownNormals) {
+    const own = material.normalNode as Node<'vec3'>;
+    const crownView = transformNormalToView(instanceRotate(crown.normal)).normalize();
+    const blend = mix(own, crownView, nodes.crownNormals.mul(leaf));
+    material.normalNode = select(blend.length().greaterThan(1e-4), blend.normalize(), crownView);
+  }
+  if (nodes.translucency) {
+    const { strength, edge, ambient } = nodes.translucency;
+    applyLeafTranslucencyTerm(material, { strength: strength.mul(leaf), ambient: ambient.mul(leaf), edge, thinness: crown.distance.clamp(0, 1) });
+  }
+  if (nodes.occlusion) material.aoNode = mix(float(1), texel.w, nodes.occlusion);
 }

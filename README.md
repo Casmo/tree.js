@@ -643,7 +643,9 @@ renderer.domElement.addEventListener('click', async (event) => {
 ```
 
 - **Encoding:** `r32uint`, 0 = not a tree. A Forest Variant reserves a block of IDs the size of its
-  capacity, and its trees write block start + instance index.
+  capacity, and its trees write block start + slot, at every Detail Level (Impostors included). The
+  tree mask, outline, Inner Lines and Highlight work on far trees too; raycasting and `forest.treeAt`
+  keep hitting the full meshes.
 - **No MSAA:** an integer target cannot be multisampled, so turning on the Tree ID turns MSAA off on
   that scene pass: `treeIdTexture` sets `samples: 0`, also with an `antialias: true` renderer. This
   applies wherever the ID channel is on: `treeIdTexture`, `treeEffectsPass(..., { treeId: true })`,
