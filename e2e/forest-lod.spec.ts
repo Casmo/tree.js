@@ -52,6 +52,15 @@ test('trees past the Impostor distance draw Light until Impostors exist', async 
   expect(result.levels!.light).toBeGreaterThan(300);
 });
 
+test('Light trees follow Season and Growth like Full ones', async ({ page }) => {
+  // Autumn (leaves turning and dropping) on a forest at Growth 0.95.
+  const { result, errors } = await render(page, 'trees=400&lod=55,200&season=0.66&growth=0.95');
+  expect(errors).toEqual([]);
+  expect(result.levels).toEqual(result.expectedLevels);
+  expect(result.levels!.light).toBeGreaterThan(100);
+  await expect(page.locator('canvas')).toHaveScreenshot('forest-lod-autumn-webgpu.png', mask(page));
+});
+
 test('lod.camera picks the levels for that camera, not the one drawing', async ({ page }) => {
   // The LOD camera is 40 m behind the view: almost every tree is past 55 m from it.
   const { result, errors } = await render(page, 'trees=400&lod=55,200&lodCamera=1');
@@ -65,6 +74,14 @@ test('shadow passes draw the levels of the LOD camera', async ({ page }) => {
   expect(errors).toEqual([]);
   expect(result.levels).toEqual(result.expectedLevels);
   await expect(page.locator('canvas')).toHaveScreenshot('forest-lod-shadows-webgpu.png', mask(page));
+});
+
+test('planting past a Variant capacity and cutting trees keeps the levels right', async ({ page }) => {
+  // 200 more trees (50 cut again) after Detail Levels are on: every Variant grows past 128.
+  const { result, errors } = await render(page, 'trees=400&lod=55,200&plant=200');
+  expect(errors).toEqual([]);
+  expect(result.trees).toBe(550);
+  expect(result.levels).toEqual(result.expectedLevels);
 });
 
 // The WebGL2 fallback with lod is in forest.spec.ts, next to the screenshot it must match.

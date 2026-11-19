@@ -387,6 +387,30 @@ describe('Detail Levels on WebGPU', () => {
     expect(forest.lodUniforms!.camera.value.toArray()).toEqual([50, 60, 70]);
   });
 
+  it('selects again in the same frame only when the trees, the settings or the LOD camera changed', async () => {
+    const forest = await lodForest();
+    const view = new PerspectiveCamera();
+    const renderer = gpu(7);
+    drawLevels(forest, renderer, {}, view);
+    drawLevels(forest, renderer, {}, view);
+    expect(renderer.compute).toHaveBeenCalledTimes(1);
+    forest.addTree({ id: 'late', position: [0, 0, 50] });
+    drawLevels(forest, renderer, {}, view);
+    expect(renderer.compute).toHaveBeenCalledTimes(2);
+    forest.get(3)!.growth = 0.5;
+    drawLevels(forest, renderer, {}, view);
+    expect(renderer.compute).toHaveBeenCalledTimes(3);
+    forest.lod = { fade: 0.3 };
+    drawLevels(forest, renderer, {}, view);
+    expect(renderer.compute).toHaveBeenCalledTimes(4);
+    view.position.x = 5;
+    drawLevels(forest, renderer, {}, view);
+    expect(renderer.compute).toHaveBeenCalledTimes(5);
+    // Another camera in the same frame reuses the LOD camera's levels.
+    drawLevels(forest, renderer, {}, new PerspectiveCamera());
+    expect(renderer.compute).toHaveBeenCalledTimes(5);
+  });
+
   it('takes the Forest transform into account (distances are in world units)', async () => {
     const forest = await lodForest();
     forest.position.set(100, 0, 0);

@@ -21,6 +21,7 @@
 //   ?lod=<light>,<impostor>[,<fade>]  Light from <light>, Impostor from <impostor> world units (fade default 0.1)
 //   ?lodCamera=1  (with distances) pick the Detail Levels for a camera 40 m behind the view (lod.camera)
 //   ?shadows=1  the sun casts shadows (the shadow pass reuses the frame's Detail Levels)
+//   ?plant=<n>  (with lod) plant n more trees in a row in front after Detail Levels are on, then cut every 4th
 import * as THREE from 'three/webgpu';
 import {
   createForest,
@@ -221,6 +222,13 @@ async function main(): Promise<void> {
     // The first frame finds the backend (and draws every tree in full); Detail Levels draw from the next.
     await forest.lodReady;
     await renderer.renderAsync(scene, camera);
+    const plant = number('plant', 0);
+    if (plant > 0) {
+      // Past the Variants' capacity: they grow while drawing by Detail Level.
+      for (let i = 0; i < plant; i++) forest.addTree({ id: `planted ${i}`, position: [(i - plant / 2) * 0.3, 0, 30 - (i % 3) * 2] });
+      for (let i = 0; i < plant; i += 4) forest.removeTree(`planted ${i}`);
+      await renderer.renderAsync(scene, camera);
+    }
     if (backend === 'webgpu') {
       const [full, light, impostor] = await forest.detailLevelCounts(renderer);
       levels = { full: full!, light: light!, impostor: impostor! };

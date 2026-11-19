@@ -106,6 +106,8 @@ export class VariantLevels {
   private readonly countNode = uniform(0, 'uint');
   private readonly levelOf = new WeakMap<object, DetailLevel>();
   private computeNodes: ComputeNode[];
+  /** Bumped whenever the trees change (data, count, capacity): the levels must be selected again. */
+  version = 0;
   /** What the meshes read per tree (see `drawsDetailLevel`). */
   private readonly instance: LevelInstance;
 
@@ -149,6 +151,7 @@ export class VariantLevels {
   /** Number of trees (slots 0..count-1 are in use). */
   set count(value: number) {
     this.countNode.value = value;
+    this.version++;
   }
 
   /** The compute dispatches to run once per frame (reset, select, draw arguments). */
@@ -213,6 +216,7 @@ export class VariantLevels {
     array[o + 10] = position[2];
     array[o + 11] = 0;
     this.treeData.needsUpdate = true;
+    this.version++;
   }
 
   /** Room for `capacity` trees (the tree data is kept; the lists are refilled every frame). */
@@ -234,6 +238,7 @@ export class VariantLevels {
     }
     for (const node of this.computeNodes) node.dispose();
     this.computeNodes = this.createDispatches();
+    this.version++;
   }
 
   /** Frees the meshes' geometry, the buffers and the compute pass (the materials belong to the Variant). */
@@ -343,17 +348,20 @@ function isShadowPass(scene: Scene | null): boolean {
 }
 
 /**
- * Picks the LOD camera and runs every Variant's level selection once per frame (`renderer.info.frame`),
- * before the first Detail Level mesh of the Forest is drawn in it, so every render of that frame
- * (shadow passes, other cameras) draws the same levels.
+ * Picks the LOD camera and runs every Variant's level selection before a Detail Level mesh of the
+ * Forest is drawn: once per frame (`renderer.info.frame`), and again in the same frame only when
+ * something it depends on changed (trees, settings, the LOD camera's or the Forest's position). So
+ * every render of a frame (shadow passes, other cameras) draws the levels of the frame's LOD camera.
  */
 export class LevelSelection {
   private frame: number | null = null;
-  /** The camera the last selection was made for. */
-  private previous: Camera | null = null;
+  /** The LOD camera of the current frame. */
+  private camera: Camera | null = null;
   /** The last non-shadow camera seen drawing the Forest (before the first selection). */
   private seen: Camera | null = null;
-  private readonly cameraPosition = new Vector3();
+  /** What the last selection was made from (see `inputs`). */
+  private last: number[] = [];
+  private readonly position = new Vector3();
 
   constructor(private readonly uniforms: DetailLevelUniforms) {}
 
@@ -363,22 +371,45 @@ export class LevelSelection {
   }
 
   /**
-   * Called before a Detail Level mesh is drawn. The first call of a frame selects the levels for the
-   * LOD camera: `explicit` (`lod.camera`) when set, otherwise the camera of this render. A shadow map
-   * can be drawn before the camera's own render reaches the Forest: then the levels are selected for
-   * the previous frame's LOD camera (or, on the first frame, the last camera seen drawing the Forest).
+   * Called before a Detail Level mesh is drawn. The first call of a frame fixes the frame's LOD
+   * camera: `explicit` (`lod.camera`) when set, otherwise the camera of this render. A shadow map can
+   * be drawn before the camera's own render reaches the Forest: then it is the previous frame's LOD
+   * camera (or, on the first frame, the last camera seen drawing the Forest).
    */
   prepare(renderer: Renderer, scene: Scene | null, camera: Camera | null, explicit: Camera | null, forest: Object3D, variants: readonly VariantLevels[]): void {
     this.observe(scene, camera);
-    const frame = (renderer.info as { frame?: number } | undefined)?.frame;
-    if (frame !== undefined && frame === this.frame) return;
-    const lodCamera = explicit ?? (isShadowPass(scene) ? (this.previous ?? this.seen ?? camera) : camera);
-    if (!lodCamera || typeof renderer.compute !== 'function') return;
-    this.frame = frame ?? null;
-    if (!explicit) this.previous = lodCamera;
-    lodCamera.updateMatrixWorld();
-    this.uniforms.camera.value.copy(lodCamera.getWorldPosition(this.cameraPosition));
+    if (typeof renderer.compute !== 'function') return;
+    const frame = (renderer.info as { frame?: number } | undefined)?.frame ?? null;
+    if (frame === null || frame !== this.frame) {
+      const lodCamera = explicit ?? (isShadowPass(scene) ? (this.camera ?? this.seen ?? camera) : camera);
+      if (!lodCamera) return;
+      this.frame = frame;
+      this.camera = lodCamera;
+      this.last = [];
+    } else if (explicit) {
+      this.camera = explicit;
+    }
+    const inputs = this.inputs(this.camera!, forest, variants);
+    if (inputs.length === this.last.length && inputs.every((v, i) => v === this.last[i])) return;
+    this.last = inputs;
+    this.uniforms.camera.value.copy(this.position);
     this.uniforms.forest.value.copy(forest.matrixWorld);
     void renderer.compute(variants.flatMap((v) => v.dispatches));
+  }
+
+  /** Everything the selection reads (leaves the camera's world position in `this.position`). */
+  private inputs(camera: Camera, forest: Object3D, variants: readonly VariantLevels[]): number[] {
+    camera.updateMatrixWorld();
+    camera.getWorldPosition(this.position);
+    const { light, impostor, fade, farthest } = this.uniforms;
+    return [
+      ...this.position.toArray(),
+      ...forest.matrixWorld.elements,
+      light.value,
+      impostor.value,
+      fade.value,
+      farthest.value,
+      ...variants.map((v) => v.version),
+    ];
   }
 }
