@@ -9,6 +9,10 @@
 //   ?scene=plain  no pipeline at all: renderer.render(scene, camera)
 //   ?scene=tone-mapping  one Scene Effect alone, through its stand-alone builder (sceneToneMapping)
 //                        in a hand-made RenderPipeline, with the Style's suggested settings
+//   ?scene=fog  fog alone: sceneFog with the Style's suggested settings as the app's scene.fogNode
+//   ?appFog=1  the app sets its own scene.fogNode first; ?dispose=1  dispose() the pipeline after
+//              rendering: `scenePipelineExample.fog` says whether scene.fogNode was the app's while
+//              the pipeline rendered and after dispose() (the pipeline restores the app's value)
 //   ?treeEffects=style  with ?scene=none: the Style's suggested Tree Effects only (no Scene Effects)
 //   ?via=tree-effects  render ?scene=none&treeEffects=... through createTreeEffects instead (the
 //                      Scene Pipeline must give the same image, the same pick and the same highlight)
@@ -19,7 +23,7 @@
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?wind=<strength>&windTime=<s>  scene-wide Wind; windTime pins its clock (default: no Wind)
 import * as THREE from 'three/webgpu';
-import { pass } from 'three/tsl';
+import { color, fog, pass, rangeFogFactor } from 'three/tsl';
 import {
   createForest,
   createTree,
@@ -32,7 +36,7 @@ import {
   type Tree,
 } from '@casmo/tree.js';
 import { createTreeEffects, SUGGESTED_TREE_EFFECTS, type TreeEffectsSettings } from '@casmo/tree.js/effects';
-import { createScenePipeline, sceneToneMapping, SUGGESTED_SCENE_EFFECTS, type ScenePipelineOptions } from '@casmo/tree.js/scene';
+import { createScenePipeline, sceneFog, sceneToneMapping, SUGGESTED_SCENE_EFFECTS, type ScenePipelineOptions } from '@casmo/tree.js/scene';
 import { framingBox } from '../framing';
 
 /** The renderer settings the pipeline must never change. */
@@ -52,6 +56,8 @@ declare global {
       renderer?: { before: RendererState; after: RendererState };
       /** `?pick=<name>`: the point picked (CSS pixels) and the name of the tree pick() resolved to. */
       picked?: { name: string | null; x: number; y: number };
+      /** Whether `scene.fogNode` was the app's own value while the pipeline rendered, and after `?dispose=1`. */
+      fog?: { during: boolean; after?: boolean };
     };
   }
 }
@@ -108,6 +114,9 @@ async function main(): Promise<void> {
   rock.castShadow = rock.receiveShadow = true;
   for (const object of [tree, forest]) object.traverse((o) => (o.castShadow = o.receiveShadow = true));
   scene.add(ground, rock, tree, forest);
+  // ?appFog=1: the app's own fog node (a thin warm haze), which the pipeline must give back.
+  if (params.get('appFog') === '1') scene.fogNode = fog(color('#e0c8a0'), rangeFogFactor(40, 200).mul(0.3));
+  const appFogNode = scene.fogNode;
 
   const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 300);
   const distance = (size.y / 2 / Math.tan((camera.fov * Math.PI) / 360)) * 1.5;
@@ -146,6 +155,7 @@ async function main(): Promise<void> {
   let render: () => void;
   let pick: ((x: number, y: number) => Promise<Tree | ForestTree | undefined>) | undefined;
   let highlighted: (Tree | ForestTree)[] | undefined;
+  let dispose: (() => void) | undefined;
   if (sceneParam === 'plain') {
     render = () => renderer.render(scene, camera);
   } else if (sceneParam === 'tone-mapping') {
@@ -154,6 +164,10 @@ async function main(): Promise<void> {
     pipeline.outputNode = sceneToneMapping(pass(scene, camera).getTextureNode(), SUGGESTED_SCENE_EFFECTS[styleName].toneMapping);
     pipeline.outputColorTransform = false; // the builder outputs display colours
     render = () => pipeline.render();
+  } else if (sceneParam === 'fog') {
+    // Fog alone: the stand-alone builder as the app's own scene.fogNode, rendered as usual.
+    scene.fogNode = sceneFog(SUGGESTED_SCENE_EFFECTS[styleName].fog, scene.background);
+    render = () => renderer.render(scene, camera);
   } else if (sceneParam === 'none' || sceneParam === 'style') {
     // The Style's suggested Tree Effects (with the Highlight for ?highlight=1), or none.
     const suggested = params.get('treeEffects') === 'style' || (sceneParam === 'style' && highlight);
@@ -172,6 +186,7 @@ async function main(): Promise<void> {
       render = () => pipeline.render();
       pick = (x, y) => pipeline.pick(x, y);
       highlighted = pipeline.highlighted;
+      dispose = () => pipeline.dispose();
     }
   } else {
     throw new Error(`Unknown scene "${sceneParam}"`);
@@ -203,7 +218,12 @@ async function main(): Promise<void> {
       }
     }
   }
-  window.scenePipelineExample = { status: 'rendered', backend, picked, renderer: { before, after: rendererState() } };
+  const fogState: NonNullable<typeof window.scenePipelineExample.fog> = { during: scene.fogNode === appFogNode };
+  if (params.get('dispose') === '1' && dispose) {
+    dispose();
+    fogState.after = scene.fogNode === appFogNode;
+  }
+  window.scenePipelineExample = { status: 'rendered', backend, picked, fog: fogState, renderer: { before, after: rendererState() } };
   if (sceneWind.strength > 0 && windTime === null) renderer.setAnimationLoop(render);
 }
 

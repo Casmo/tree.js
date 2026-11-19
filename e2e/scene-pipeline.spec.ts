@@ -7,6 +7,7 @@ type SceneExample = {
   error?: string;
   renderer?: { before: RendererState; after: RendererState };
   picked?: { name: string | null; x: number; y: number };
+  fog?: { during: boolean; after?: boolean };
 };
 
 /** Loads the Scene Pipeline example and returns its status and a screenshot of the canvas (status text hidden). */
@@ -74,6 +75,20 @@ test('tone mapping alone, through sceneToneMapping in a hand-made pipeline (real
   expect((await difference(page, plain.image, toneMapped.image)).changed, 'tone mapping changes the frame').toBeGreaterThan(10_000);
   await expect(page.locator('canvas')).toHaveScreenshot('realistic-tone-mapping-webgpu.png');
 });
+
+test('fog alone, through sceneFog as the app\'s scene.fogNode (realistic, WebGPU)', async ({ page }) => {
+  const plain = await load(page, 'style=realistic&scene=plain');
+  const fogged = await load(page, 'style=realistic&scene=fog');
+  expect((await difference(page, plain.image, fogged.image)).changed, 'fog changes the frame').toBeGreaterThan(10_000);
+  await expect(page.locator('canvas')).toHaveScreenshot('realistic-fog-webgpu.png');
+});
+
+for (const appFog of [false, true]) {
+  test(`after dispose(), scene.fogNode is the app's value again (${appFog ? 'its own fog node' : 'no fog node'})`, async ({ page }) => {
+    const { example } = await load(page, `style=realistic&scene=style&dispose=1${appFog ? '&appFog=1' : ''}`);
+    expect(example.fog).toEqual({ during: false, after: true });
+  });
+}
 
 test.describe('the Scene Pipeline behaves as TreeEffects for its Tree Effects part', () => {
   const cases = [

@@ -16,6 +16,7 @@ import type { StyleName } from '../styles/registry';
 import type { ForestTree } from '../forest';
 import type { Tree } from '../tree';
 import { resolveSceneEffects, type SceneEffectsChoice, type SceneEffectsSettings } from './settings';
+import { liveSceneFog } from './fog';
 import { liveSceneEffects, sceneEffectsShape, type LiveSceneEffects } from './stack';
 
 /**
@@ -78,6 +79,8 @@ export class ScenePipeline {
   private input!: { channels: string; pass: TreeEffectsPass };
   /** Nothing is on (no effects, no extra channel): render with `renderer.render()` itself. */
   private passThrough = true;
+  /** The pipeline's fog while it is on, and the app's `scene.fogNode` it replaced (restored when off). */
+  private fog: { live: ReturnType<typeof liveSceneFog>; app: Node | null | undefined } | null = null;
 
   constructor(
     private readonly renderer: Renderer,
@@ -117,6 +120,7 @@ export class ScenePipeline {
       };
     }
     this.passThrough = channels === '' && isEmpty(this.current);
+    this.setFog();
     const shape = JSON.stringify([treeEffectsShape(this.current.treeEffects, this.scenePass), sceneEffectsShape(this.current.sceneEffects)]);
     if (this.graph?.shape === shape) {
       this.graph.tree.update(this.current.treeEffects);
@@ -151,9 +155,27 @@ export class ScenePipeline {
   }
 
   dispose(): void {
+    this.restoreFog();
     this.disposeGraph();
     this.scenePass.pass.dispose();
     this.pipeline.dispose();
+  }
+
+  /** Fog is the one scene change (ADR 0010): take over `scene.fogNode`, remembering the app's value. */
+  private setFog(): void {
+    const settings = this.current.sceneEffects.fog;
+    if (!settings) return this.restoreFog();
+    if (this.fog) return this.fog.live.update(settings, this.scene.background);
+    const live = liveSceneFog(settings, this.scene.background);
+    this.fog = { live, app: this.scene.fogNode };
+    this.scene.fogNode = live.node;
+  }
+
+  /** Gives `scene.fogNode` back to the app (unless the app replaced the pipeline's fog meanwhile). */
+  private restoreFog(): void {
+    if (!this.fog) return;
+    if (this.scene.fogNode === this.fog.live.node) this.scene.fogNode = this.fog.app;
+    this.fog = null;
   }
 
   private disposeGraph(): void {

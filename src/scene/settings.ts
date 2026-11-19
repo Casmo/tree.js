@@ -1,5 +1,6 @@
 import type { StyleName } from '../styles/registry';
 import type { SceneToneMappingOptions } from './tone-mapping';
+import type { SceneFogOptions } from './fog';
 import { SUGGESTED_SCENE_EFFECTS } from './suggested';
 
 /**
@@ -9,6 +10,8 @@ import { SUGGESTED_SCENE_EFFECTS } from './suggested';
 export interface SceneEffectsSettings {
   /** Tone mapping and the output colour space, applied inside the pipeline. */
   toneMapping?: SceneToneMappingOptions;
+  /** Distance fog and height mist, set as `scene.fogNode` (the app's value is restored). */
+  fog?: SceneFogOptions;
 }
 
 /** The suggested Scene Effects of a built-in Style, or the settings themselves; `null` = none. */
