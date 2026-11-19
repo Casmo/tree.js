@@ -16,6 +16,7 @@
 //   ?features=suggested  the ?style's SUGGESTED_MATERIAL_FEATURES (low-poly without a ?style)
 //   ?crownNormals=<0..1>  Crown Normals at that amount (overrides the suggestion)
 //   ?occlusion=<0..1>  Structural Occlusion at that strength (overrides the suggestion)
+//   ?translucency=<strength>,<edge>,<ambient>  Leaf Translucency with those settings (overrides the suggestion)
 //   Detail Levels (ADR 0010, WebGPU; on ?backend=webgl the forest draws every tree in full):
 //   ?lod=1  the default distances (6 and 20 trunk heights)
 //   ?lod=<light>,<impostor>[,<fade>]  Light from <light>, Impostor from <impostor> world units (fade default 0.1)
@@ -43,6 +44,7 @@ import {
   type MaterialFeatures,
   type StyleName,
   type TreeDefinition,
+  type TranslucencyDefinition,
   type TreeDefinitionInput,
 } from '@casmo/tree.js';
 import { loadSpecies, type SpeciesName } from '@casmo/tree.js/species';
@@ -68,6 +70,8 @@ declare global {
       renderAgain?: () => Promise<void>;
       /** With ?lod: sets the Growth of the whole forest, draws it and updates `levels` and `expectedLevels`. */
       setGrowth?: (growth: number) => Promise<void>;
+      /** Tunes the forest's live Material Features (only those that are on), then draws the frame again. */
+      setMaterialFeatures?: (features: { crownNormals?: number; translucency?: Partial<TranslucencyDefinition>; occlusionStrength?: number }) => Promise<void>;
     };
   }
 }
@@ -155,6 +159,8 @@ function withFeatures(definition: TreeDefinitionInput | TreeDefinition): TreeDef
   if (crownNormals !== null) features.crownNormals = Number(crownNormals);
   const occlusion = params.get('occlusion');
   if (occlusion !== null) features.occlusion = { strength: Number(occlusion) };
+  const translucency = params.get('translucency')?.split(',').map(Number);
+  if (translucency) features.translucency = { strength: translucency[0]!, edge: translucency[1]!, ambient: translucency[2]! };
   return Object.keys(features).length === 0 ? definition : withMaterialFeatures(definition, features);
 }
 
@@ -266,6 +272,12 @@ async function main(): Promise<void> {
     roots,
     ...(levels ? { levels, expectedLevels: expectedLevels(forest) } : {}),
     renderAgain: () => renderer.renderAsync(scene, camera),
+    setMaterialFeatures: async ({ crownNormals, translucency, occlusionStrength }) => {
+      if (crownNormals !== undefined) forest.crownNormals = crownNormals;
+      if (translucency !== undefined) forest.translucency = translucency;
+      if (occlusionStrength !== undefined) forest.occlusionStrength = occlusionStrength;
+      await renderer.renderAsync(scene, camera);
+    },
     ...(levels
       ? {
           setGrowth: async (growth: number) => {
