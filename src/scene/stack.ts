@@ -1,6 +1,7 @@
 import type { Node } from 'three/webgpu';
 import type { SceneEffectsSettings } from './settings';
 import type { LiveSceneEffect, SceneEffectInput, SceneEffectStage } from './stage';
+import { antialiasStage } from './antialias';
 import { toneMappingStage } from './tone-mapping';
 
 /**
@@ -15,7 +16,7 @@ const STACK: readonly SceneEffectStage[] = [
   // bloom
   // TRAA (before tone mapping)
   toneMappingStage,
-  // SMAA / FXAA (on display colours)
+  antialiasStage, // SMAA / FXAA (on display colours)
 ];
 
 /**

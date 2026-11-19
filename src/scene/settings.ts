@@ -1,4 +1,5 @@
 import type { StyleName } from '../styles/registry';
+import type { SceneAntialiasMode } from './antialias';
 import type { SceneToneMappingOptions } from './tone-mapping';
 import { SUGGESTED_SCENE_EFFECTS } from './suggested';
 
@@ -9,6 +10,8 @@ import { SUGGESTED_SCENE_EFFECTS } from './suggested';
 export interface SceneEffectsSettings {
   /** Tone mapping and the output colour space, applied inside the pipeline. */
   toneMapping?: SceneToneMappingOptions;
+  /** Post anti-aliasing of the display colours, last in the stack; `null` = none. */
+  antialias?: SceneAntialiasMode | null;
 }
 
 /** The suggested Scene Effects of a built-in Style, or the settings themselves; `null` = none. */
