@@ -445,7 +445,7 @@ scene.add(forest);
 renderer.render(scene, camera); // the first frame bakes the Impostors (far trees draw Light until then)
 await forest.lodReady;
 
-forest.lod = { impostor: 120 }; // distances, fade and the LOD camera are live: no rebuild
+forest.lod = { impostor: 120 }; // distances, fade and the camera that picks the levels are live: no rebuild
 ```
 
 - Detail Levels need WebGPU (compute and indirect draws). On WebGPURenderer's WebGL2 fallback a `lod`

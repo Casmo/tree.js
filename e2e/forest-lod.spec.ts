@@ -104,14 +104,14 @@ test('Light trees follow Season and Growth like Full ones', async ({ page }) => 
 });
 
 test('lod.camera picks the levels for that camera, not the one drawing', async ({ page }) => {
-  // The LOD camera is 40 m behind the view: almost every tree is past 55 m from it.
+  // The camera that picks the levels (lod.camera) is 40 m behind the view: almost every tree is past 55 m from it.
   const { result, errors } = await render(page, 'trees=400&lod=55,200&lodCamera=1');
   expect(errors).toEqual([]);
   expect(result.levels).toEqual(result.expectedLevels);
   expect(result.levels!.full).toBeLessThan(20);
 });
 
-test('shadow passes draw the levels of the LOD camera', async ({ page }) => {
+test('shadow passes draw the levels of the camera that picks them', async ({ page }) => {
   const { result, errors } = await render(page, 'trees=400&lod=55,200&shadows=1');
   expect(errors).toEqual([]);
   expect(result.levels).toEqual(result.expectedLevels);

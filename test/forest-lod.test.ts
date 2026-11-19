@@ -382,7 +382,7 @@ describe('Detail Levels on WebGPU', () => {
     }
   });
 
-  it('selects the levels once per frame for the LOD camera; shadow passes and other cameras reuse them', async () => {
+  it('selects the levels once per frame for the camera that picks them; shadow passes and other cameras reuse them', async () => {
     const forest = await lodForest();
     const view = new PerspectiveCamera();
     view.position.set(1, 2, 3);
@@ -400,7 +400,7 @@ describe('Detail Levels on WebGPU', () => {
     expect(frame1.compute.mock.calls[0]![0]).toHaveLength(3 * 3);
     expect(forest.lodUniforms!.camera.value.toArray()).toEqual([1, 2, 3]);
 
-    // Next frame the shadow map is drawn first: it uses the last frame's LOD camera, not the light's.
+    // Next frame the shadow map is drawn first: it uses the last frame's level camera, not the light's.
     const frame2 = gpu(2);
     drawLevels(forest, frame2, shadowScene, sun);
     drawLevels(forest, frame2, {}, view);
@@ -414,7 +414,7 @@ describe('Detail Levels on WebGPU', () => {
     expect(forest.lodUniforms!.camera.value.toArray()).toEqual([50, 60, 70]);
   });
 
-  it('selects again in the same frame only when the trees, the settings or the LOD camera changed', async () => {
+  it('selects again in the same frame only when the trees, the settings or the level camera changed', async () => {
     const forest = await lodForest();
     const view = new PerspectiveCamera();
     const renderer = gpu(7);
@@ -433,7 +433,7 @@ describe('Detail Levels on WebGPU', () => {
     view.position.x = 5;
     drawLevels(forest, renderer, {}, view);
     expect(renderer.compute).toHaveBeenCalledTimes(5);
-    // Another camera in the same frame reuses the LOD camera's levels.
+    // Another camera in the same frame reuses the level camera's levels.
     drawLevels(forest, renderer, {}, new PerspectiveCamera());
     expect(renderer.compute).toHaveBeenCalledTimes(5);
   });

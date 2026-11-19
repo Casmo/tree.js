@@ -3,7 +3,7 @@
 import type { Camera } from 'three/webgpu';
 import type { TreeDefinitionInput } from '../definition';
 
-/** A Forest tree's Detail Level (GLOSSARY): Full (as without LOD), Light (fewer faces and leaves) or Impostor (one card). */
+/** A Forest tree's Detail Level (GLOSSARY): Full (as without Detail Levels), Light (fewer faces and leaves) or Impostor (one card). */
 export const DetailLevel = { Full: 0, Light: 1, Impostor: 2 } as const;
 export type DetailLevel = (typeof DetailLevel)[keyof typeof DetailLevel];
 
@@ -84,7 +84,7 @@ function ramp(x: number, start: number, end: number): number {
  * - A tree whose drawn Growth is below 1 is never an Impostor: it is capped at Light.
  * - The Impostor switch is checked first, so if the two bands overlap the farther one wins.
  *
- * @param distance distance from the LOD camera to the tree's base, world units
+ * @param distance distance from the camera that picks the levels to the tree's base, world units
  * @param scale the tree's placement scale
  * @param growth the tree's drawn Growth (after its Growth delay)
  */
