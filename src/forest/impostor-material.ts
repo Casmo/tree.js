@@ -34,7 +34,8 @@ import { setTreeLeafMask } from '../effects/mask';
 import { leafSeasonNode } from '../season';
 import { objectWindDirection, treeSwayOffset, type WindResponse, type WindSource } from '../wind';
 import { SEASON_SHIFT_SCALE } from './impostor-season';
-import { instanceRotate, instanceState, levelTreePosition, levelVisible } from './nodes';
+import { setWindMotion } from '../wind/motion';
+import { instanceBurstFrame, instanceRotate, instanceState, levelTreePosition, levelVisible } from './nodes';
 import type { Vec3 } from './octahedral';
 
 /** Coverage (blended over the frames) from which an Impostor texel is drawn. */
@@ -121,6 +122,11 @@ export interface ImpostorView {
   /** Coverage of this fragment (0..1), blended over the frames. */
   coverage: Node<'float'>;
   /**
+   * With `sway`: where the card's vertex was at Wind time `previous` relative to `position` (forest
+   * space), for Wind-aware velocity (ADR 0011).
+   */
+  windShift?: (previous: Node<'float'>) => Node<'vec3'>;
+  /**
    * Blends `perFrame` over the frames by their weights. Decode per frame what does not blend
    * linearly (a colour that depends on the leaf flag, Season ranks); `perFrame` gets premultiplied
    * samples and should return a premultiplied value.
@@ -136,10 +142,10 @@ export interface ImpostorView {
  * across it, the four nearest frames and where each pictured the card's vertex (`frameUv`). In the
  * fragment stage: the atlases sampled in those frames and blended bilinearly.
  *
- * `sway`: a displacement (tree space) of a card point at its tree-space position (the Wind); the
- * pictures move with the card.
+ * `sway`: a displacement (tree space) of a card point at its tree-space position (the Wind) at Wind
+ * time `time` (default the Wind's clock); the pictures move with the card.
  */
-export function impostorView(atlases: ImpostorAtlases, sway?: (point: Node<'vec3'>) => Node<'vec3'>): ImpostorView {
+export function impostorView(atlases: ImpostorAtlases, sway?: (point: Node<'vec3'>, time?: Node<'float'>) => Node<'vec3'>): ImpostorView {
   const { frames, bounds } = atlases;
   const { half } = bounds;
   const center = vec3(...bounds.center);
@@ -158,7 +164,8 @@ export function impostorView(atlases: ImpostorAtlases, sway?: (point: Node<'vec3
   const card = basis(view);
   const point = card.right.mul(positionGeometry.x).add(card.up.mul(positionGeometry.y)).mul(half);
   const treePoint = center.add(point);
-  const position = base.add(instanceRotate(sway ? treePoint.add(sway(treePoint)) : treePoint).mul(scale));
+  const swayed = sway?.(treePoint);
+  const position = base.add(instanceRotate(swayed ? treePoint.add(swayed) : treePoint).mul(scale));
   const shadowPosition = position.sub(viewForest.mul(half).mul(scale));
 
   // The frames around the view (`blendFrames`) and where each one pictured this vertex.
@@ -210,6 +217,7 @@ export function impostorView(atlases: ImpostorAtlases, sway?: (point: Node<'vec3
     position,
     shadowPosition,
     coverage,
+    ...(sway && swayed ? { windShift: (previous: Node<'float'>) => instanceRotate(sway(treePoint, previous).sub(swayed)).mul(scale) } : {}),
     blend,
     value: (channel) => blended(channel).div(max(coverage, MIN_COVERAGE)),
   };
@@ -270,12 +278,14 @@ export function createImpostorMaterial(
   features: ImpostorFeatures | null = null,
   wind?: { source: WindSource; response: WindResponse },
 ): MeshStandardNodeMaterial {
+  const burst = wind && instanceBurstFrame();
   const sway = wind
-    ? (point: Node<'vec3'>) =>
+    ? (point: Node<'vec3'>, time?: Node<'float'>) =>
         treeSwayOffset(wind.source, wind.response, point, {
           direction: instanceRotate(objectWindDirection(wind.source), true),
           phase: instanceState().windPhase,
-          burst: false, // Wind Bursts on Impostors are not wired up yet
+          time,
+          burst,
         })
     : undefined;
   const view = impostorView(atlases, sway);
@@ -285,6 +295,8 @@ export function createImpostorMaterial(
   // The card always faces the camera; both sides so the shadow pass (which flips FrontSide) keeps it.
   material.side = DoubleSide;
   material.positionNode = view.position;
+  // Wind-aware velocity (ADR 0011): the card's sway, bursts included, at the previous Wind time.
+  if (wind && view.windShift) setWindMotion(view.position, { source: wind.source, shift: view.windShift });
   material.castShadowPositionNode = view.shadowPosition;
 
   // Per frame (frames blend wood and leaf texels, and leaves of different timing): each leaf texel at

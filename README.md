@@ -408,7 +408,20 @@ Up to 8 bursts (`MAX_WIND_BURSTS`) run at once per Wind; another one replaces th
 at the Wind's current time (its pinned `time`, or the renderer clock), so a pinned clock holds it still.
 It only writes uniforms: with no burst running the shader loop runs zero times and trees look exactly
 as without bursts. The Wind-aware velocity channel (TRAA, motion blur) includes burst motion.
-Forest instances and Impostors don't take bursts yet.
+
+Forests take the bursts of their Wind too: every Forest tree bends away from the burst point from its
+own position and rotation, at every Detail Level, and Impostors sway with it, so the whole park reacts:
+
+```ts
+import { createForest, sceneWind } from '@casmo/tree.js';
+
+const forest = createForest({ schemaVersion: 3 }, [{ position: [0, 0, 0] }, { position: [20, 0, 0] }], { lod: true });
+scene.add(forest);
+
+sceneWind.burst({ x: 2, z: 0, strength: 1, radius: 6 }); // the first tree bends, the second does not
+```
+
+Impostors also include their sway, bursts and all, in the Wind-aware velocity channel.
 
 ## Forests
 

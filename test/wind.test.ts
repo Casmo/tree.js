@@ -254,4 +254,21 @@ describe('Wind Burst', () => {
     }
     expect(drawnWindValues(materials[0]!, 22)).not.toContain(1); // over: no burst left to draw
   });
+
+  it('Forest trees sway with the bursts of the Forest Wind (on wood, leaves and Fruit)', () => {
+    const wind = new Wind();
+    const forest = createForest({ schemaVersion: 3, fruit: { type: 'round', count: 2 } }, [{ position: [0, 0, 0] }, { position: [4, 0, 1] }], {
+      variants: 1,
+      wind,
+    });
+    const variant = forest.variants[0]!;
+    const materials = [variant.barkMaterial, variant.leafMaterial, variant.fruitMaterial!];
+    for (const material of materials) expect(drawnWindValues(material, 20.5)).not.toContain(1);
+    wind.burst({ x: 3, z: -2, strength: 0.5, radius: 5 });
+    for (const material of materials) {
+      const drawn = drawnWindValues(material, 20.5);
+      expect(drawn).toContain(1); // one burst running
+      expect(drawn).toContainEqual(expect.arrayContaining([[3, -2, expect.any(Number), 0.5]]));
+    }
+  });
 });
