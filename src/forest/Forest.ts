@@ -3,7 +3,6 @@ import {
   BufferGeometry,
   DynamicDrawUsage,
   Euler,
-  Group,
   InstancedBufferAttribute,
   InstancedInterleavedBuffer,
   InstancedMesh,
@@ -24,7 +23,7 @@ import type { MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '.
 import { generateLightTree, generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
 import { LiveMaterialFeatures, type MaterialFeatureNodes, type MaterialFeatureTarget } from '../materials/material-features';
-import { LiveShaderHooks, type ShaderHookTarget, type TreeShaderHooks } from '../materials/shader-hooks';
+import { LiveShaderHooks, partHookTarget, ShaderHookedGroup, type ShaderHookTarget, type TreeShaderHooks } from '../materials/shader-hooks';
 import { webgpuRenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes } from '../season';
 import { checkedSeason } from '../season/check';
@@ -286,16 +285,9 @@ export class ForestVariant {
    */
   hookTargets(): ShaderHookTarget[] {
     const { season, growth } = instanceState();
-    const target = (part: 'bark' | 'leaves' | 'fruit', material: MeshStandardNodeMaterial, source: BufferGeometry): ShaderHookTarget => ({
-      parts: [part],
-      material,
-      vertexColors: material.vertexColors && source.hasAttribute('color'),
-      season: varying(season) as Node<'float'>,
-      growth: varying(growth) as Node<'float'>,
-      treeBase: instanceTreeBase(),
-    });
-    const targets = [target('bark', this.barkMaterial, this.woodSource), target('leaves', this.leafMaterial, this.leafSource)];
-    if (this.fruitMaterial && this.fruitSource) targets.push(target('fruit', this.fruitMaterial, this.fruitSource));
+    const inputs = () => ({ season: varying(season) as Node<'float'>, growth: varying(growth) as Node<'float'>, treeBase: instanceTreeBase() });
+    const targets = [partHookTarget('bark', this.barkMaterial, this.woodSource, inputs()), partHookTarget('leaves', this.leafMaterial, this.leafSource, inputs())];
+    if (this.fruitMaterial && this.fruitSource) targets.push(partHookTarget('fruit', this.fruitMaterial, this.fruitSource, inputs()));
     return targets;
   }
 
@@ -496,7 +488,7 @@ export class ForestVariant {
  * hash of the forest seed and the tree's id (or position), never from its index, so adding or
  * removing trees never changes the others. Growth and Season can be set per tree or for all.
  */
-export class Forest extends Group {
+export class Forest extends ShaderHookedGroup {
   readonly isForest = true;
   readonly definition: TreeDefinition;
   /** The forest seed. */
@@ -509,7 +501,7 @@ export class Forest extends Group {
   private growthValue: number;
   private seasonValue: number;
   private readonly features: LiveMaterialFeatures;
-  private readonly hooks: LiveShaderHooks;
+  protected readonly hooks: LiveShaderHooks;
   /** The trunk height of the tallest Variant (the distances of `lod: true`). */
   private readonly tallestTrunk: number;
   /** The Detail Levels; null without lod. */
@@ -714,21 +706,6 @@ export class Forest extends Group {
   set season(value: number) {
     this.seasonValue = checkedSeason(value);
     for (const tree of this.byKey.values()) tree.season = this.seasonValue;
-  }
-
-  /**
-   * The Tree Shader Hook per tree part (GLOSSARY, ADR 0012), as `Tree.shaderHooks`, for every tree of the
-   * forest: at every Detail Level, and on the Impostors, which apply it at draw time to their baked colour,
-   * normals and Season data (changing a hook never rebakes). A part left out has only the scene-wide
-   * default hooks (`setSceneShaderHooks`), its own run after those, `null` runs none. Only the parts whose
-   * hooks changed rebuild their node graphs, once; the geometry is never rebuilt.
-   */
-  get shaderHooks(): TreeShaderHooks {
-    return this.hooks.hooks;
-  }
-
-  set shaderHooks(value: TreeShaderHooks) {
-    this.hooks.hooks = value;
   }
 
   /** @internal Materials made later (the Impostor cards) that the hooks shade too. */

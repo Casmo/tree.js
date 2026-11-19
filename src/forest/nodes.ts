@@ -101,12 +101,14 @@ export function levelTreePosition(): Node<'vec3'> {
 }
 
 /**
- * The tree's base in forest space, in the vertex stage before `positionNode` runs: from the instance
- * matrix three applied to `positionLocal` on the instanced meshes, the tree's data on a Detail Level mesh.
+ * The tree's base in forest space, on the instanced meshes and the Detail Level meshes alike, as the
+ * vertex stage knows it before `positionNode` runs. On an InstancedMesh three.js only hands over the
+ * placed vertex (M·p), so the base is M·p − R·s·p, kept in a variable so that it is worked out before
+ * `positionNode` replaces `positionLocal`; on a Detail Level mesh it is the tree's data.
  */
 export function instanceTreeBase(): Node<'vec3'> {
   return perInstance(
-    () => positionLocal.sub(rotateByQuaternion(instanceRotation(), positionGeometry).mul(instanceState().scale)),
+    () => positionLocal.sub(instanceRotate(positionGeometry).mul(instanceState().scale)).toVar(),
     (instance) => instance.position,
   );
 }
@@ -139,25 +141,13 @@ function placedPosition(): Node<'vec3'> {
 }
 
 /**
- * The tree's base in forest space, on the instanced meshes and the Detail Level meshes alike. On an
- * InstancedMesh three.js only hands over the placed vertex (M·p), so the base is M·p − R·s·p, kept
- * in a variable before `positionNode` replaces `positionLocal`.
- */
-function instanceOrigin(): Node<'vec3'> {
-  return perInstance(
-    () => positionLocal.sub(instanceRotate(positionGeometry).mul(instanceState().scale)).toVar('treeOrigin'),
-    (instance) => instance.position,
-  );
-}
-
-/**
  * Where a Wind Burst finds a Forest tree: its own base (through the Forest's transform) and its own
  * rotation, so each instance bends away from the burst point like a single Tree does.
  */
 export function instanceBurstFrame(): WindBurstFrame {
   const forest = objectBurstFrame();
   return {
-    origin: modelWorldMatrix.mul(vec4(instanceOrigin(), 1)).xz,
+    origin: modelWorldMatrix.mul(vec4(instanceTreeBase(), 1)).xz,
     toTree: (world) => instanceRotate(forest.toTree(world), true),
   };
 }

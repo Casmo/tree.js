@@ -7,6 +7,9 @@ export const TREE_MASK = 'treeMask';
 /** The part of a tree a material draws. */
 export type TreePart = 'bark' | 'leaves' | 'fruit';
 
+/** Every tree part, in their fixed order. */
+export const TREE_PARTS: readonly TreePart[] = ['bark', 'leaves', 'fruit'];
+
 /**
  * Which tree part a material draws: 'bark', 'leaves' or 'fruit' for tree.js materials (and their clones),
  * `null` for anything else. Tree Effects only change the pixels drawn by these materials.
