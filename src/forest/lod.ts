@@ -100,3 +100,46 @@ export function selectDetailLevel(distance: number, scale: number, growth: numbe
   if (toLight >= 1) return { level: DetailLevel.Light, fade: 0 };
   return { level: DetailLevel.Full, fade: toLight };
 }
+
+function checkDistance(name: string, value: number): void {
+  if (!Number.isFinite(value) || value < 0) throw new RangeError(`Forest lod.${name} must be a finite distance >= 0, got ${value}`);
+}
+
+/** Throws a RangeError unless the distances and fade are valid. */
+export function checkDetailLevelDistances({ light, impostor, fade }: DetailLevelDistances): void {
+  checkDistance('light', light);
+  checkDistance('impostor', impostor);
+  if (impostor < light) throw new RangeError(`Forest lod.impostor (${impostor}) must be at least lod.light (${light})`);
+  if (!(fade >= 0 && fade <= 1)) throw new RangeError(`Forest lod.fade must be within 0..1, got ${fade}`);
+}
+
+function checkAtlas(name: keyof ImpostorAtlasOptions, value: number): void {
+  if (!Number.isInteger(value) || value < 1) throw new RangeError(`Forest lod.impostorAtlas.${name} must be an integer >= 1, got ${value}`);
+}
+
+/** The switch distances of `lod: true`, from the tallest Variant's trunk height. */
+export function defaultDetailLevelDistances(trunkHeight: number): Pick<ForestLodSettings, 'light' | 'impostor'> {
+  return { light: trunkHeight * DEFAULT_LIGHT_HEIGHTS, impostor: trunkHeight * DEFAULT_IMPOSTOR_HEIGHTS };
+}
+
+/**
+ * The settings of `ForestOptions.lod` with every default filled in, or null when it is missing or
+ * false. `trunkHeight` (the tallest Variant's) gives the distances of `lod: true`. Throws a RangeError
+ * for invalid settings.
+ */
+export function resolveForestLod(lod: boolean | ForestLodOptions | undefined, trunkHeight: number): ForestLodSettings | null {
+  if (lod === undefined || lod === false) return null;
+  const options: ForestLodOptions = lod === true ? defaultDetailLevelDistances(trunkHeight) : lod;
+  const settings: ForestLodSettings = {
+    light: options.light,
+    impostor: options.impostor,
+    fade: options.fade ?? DEFAULT_LOD_FADE,
+    impostorAtlas: { ...DEFAULT_IMPOSTOR_ATLAS, ...options.impostorAtlas },
+    lightDefinition: options.lightDefinition ?? null,
+    camera: options.camera ?? null,
+  };
+  checkDetailLevelDistances(settings);
+  checkAtlas('frames', settings.impostorAtlas.frames);
+  checkAtlas('size', settings.impostorAtlas.size);
+  return settings;
+}
