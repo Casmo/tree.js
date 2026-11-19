@@ -44,7 +44,7 @@ npm install @casmo/tree.js three
 | `@casmo/tree.js/species` | the 28 Species (`oak`, `douglasFir`, ...), `loadSpecies`, `SPECIES_NAMES`; JSON files |
 | `@casmo/tree.js/effects` | Tree Effects (post-processing) |
 | `@casmo/tree.js/scene` | Scene Pipeline: the Style's suggested Tree Effects and Scene Effects (tone mapping, SMAA/FXAA, fog, ...) in one opt-in pipeline |
-| `@casmo/tree.js/weather` | ready-made Tree Shader Hooks for weather: Snow Cover (opt-in, never loaded unless imported) |
+| `@casmo/tree.js/weather` | ready-made weather Tree Shader Hooks: [Snow Cover](#snow-cover), [Wetness](#wetness) |
 | `@casmo/tree.js/react` | `<Tree>`, `<Forest>`, `<Wind>`, `useTreeStyle`, `<ScenePipeline>` for React Three Fiber |
 
 ## Quick start
@@ -756,6 +756,42 @@ the WebGL2 fallback. `new SnowCover({ snow: new Snow() })` follows a snow amount
 
 To write your own snow, start from `snowCoverShading`: the body of the ready-made hook, which only uses the
 hook's inputs and the settings you give it.
+
+### Wetness
+
+Wetness is a ready-made Tree Shader Hook for rain: trees get darker and get a sheen (a lower roughness),
+most on surfaces that face up, by a scene-wide wetness amount from 0 (dry) to 1 (soaked). The amount is
+shared the way `sceneWind` is: `sceneWetness`, or a `Wetness` of your own. It lives in its own entry
+point, `@casmo/tree.js/weather`, so a game without weather never loads it:
+
+```ts
+import { createTree, setSceneShaderHooks, stackShaderHooks, type TreeShaderHook } from '@casmo/tree.js';
+import stylized from '@casmo/tree.js/styles/stylized';
+import { sceneWetness, wetnessHooks } from '@casmo/tree.js/weather';
+
+const wet = wetnessHooks({ darkening: 0.5, sheen: 0.7 });
+setSceneShaderHooks(wet); // every Tree and Forest, near and far (Impostors too)
+sceneWetness.amount = 0.8; // driven by your weather: a uniform, no rebuild
+
+// Settings are live too (uniform writes):
+wet.set({
+  color: '#d8e0ea',  // the tint wet surfaces take on
+  slope: 110,        // degrees from straight up a surface may face and still get fully wet
+  softness: 60,      // degrees over which it fades out around `slope` (0: a hard edge)
+  strength: { bark: 1, leaves: 0.8, fruit: 0.5 }, // how much each part takes
+  darkening: 0.4,    // how much darker a soaked surface gets
+  sheen: 0.6,        // how much its roughness drops
+});
+
+// Stacks with your own hooks: the ready-made ones always run first.
+const mine: TreeShaderHook = ({ color }) => color.mul(1.1);
+const tree = createTree(stylized.broadleaf, { shaderHooks: stackShaderHooks({ leaves: mine }, wet) });
+```
+
+It draws to suit the Style: smooth on realistic, whole facets on low-poly, and toon bands with a light
+glint band on top on stylized (toon lighting has no highlights for the sheen to show in). At amount 0, or
+without the hooks set, trees look exactly as before. `wetnessHooks({ wetness })` follows another `Wetness`
+than `sceneWetness`. For a look of your own, write your own hook instead, using this one as a model.
 
 ## Tree Effects
 

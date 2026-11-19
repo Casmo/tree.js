@@ -1,5 +1,6 @@
 import type { WindBurstOptions } from "@casmo/tree.js";
 import type { SnowExampleOptions } from "../examples/snow";
+import type { WetnessSettings } from "@casmo/tree.js/weather";
 
 export {};
 declare global {
@@ -26,6 +27,8 @@ declare global {
       setVisible?: (mesh: string, visible: boolean) => void;
       /** Sets Snow Cover (or the facing test hook), the snow amount and settings, and draws the frame again. */
       setSnow?: (options: SnowExampleOptions) => Promise<void>;
+      /** With ?wetness: sets the scene-wide wetness amount, Wetness's settings, and whether its hooks are set, then draws again. */
+      setWetness?: (options: { amount?: number; hooks?: boolean; settings?: WetnessSettings }) => Promise<void>;
     };
   }
 }
