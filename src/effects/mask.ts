@@ -1,5 +1,5 @@
-import { Vector4, type Camera, type Material, type MRTNode, type Node, type Object3D, type TextureNode } from 'three/webgpu';
-import { mrt, uniform } from 'three/tsl';
+import { Vector4, type Camera, type Material, type MRTNode, type Node, type NodeBuilder, type Object3D, type TextureNode } from 'three/webgpu';
+import { float, Fn, mrt, uniform, vec4 } from 'three/tsl';
 
 /** Name of the tree mask output in a pass's MRT (`scenePass.getTextureNode(TREE_MASK)`). */
 export const TREE_MASK = 'treeMask';
@@ -16,6 +16,20 @@ export function treePartOf(material: Material | null | undefined): TreePart | nu
   return part === 'bark' || part === 'leaves' || part === 'fruit' ? part : null;
 }
 
+// Materials that draw wood and leaves in one mesh (the Impostor cards) say per fragment which is which.
+const leafMasks = new WeakMap<Material, Node<'float'>>();
+
+/**
+ * @internal For a material with `treePart` 'leaves' that also draws wood (an Impostor card): the
+ * fragment's leaf amount (0 wood .. 1 leaves), the tree mask's g there.
+ */
+export function setTreeLeafMask(material: Material, leaf: Node<'float'>): void {
+  leafMasks.set(material, leaf);
+}
+
+/** The leaf amount of the fragment drawn (see {@link setTreeLeafMask}), 1 for every other material. */
+const leafMask = Fn((builder: NodeBuilder) => leafMasks.get(builder.material as Material) ?? float(1)) as unknown as () => Node<'float'>;
+
 function isSelected(object: Object3D | null, selection: readonly Object3D[]): boolean {
   for (let o = object; o; o = o.parent) if (selection.includes(o)) return true;
   return false;
@@ -25,18 +39,20 @@ function isSelected(object: Object3D | null, selection: readonly Object3D[]): bo
  * TSL node: the tree mask value of the object being drawn, `vec4(tree, leaves, selected, 1)`:
  * r = 1 on tree pixels (bark, leaves and Fruit), g = 1 on leaf pixels, b = 1 on pixels of selected trees (the outline's
  * selection), 0 elsewhere. A per-object uniform decided from the drawn material
- * ({@link treePartOf}), so no tree material is changed and every other object writes 0.
+ * ({@link treePartOf}), so no tree material is changed and every other object writes 0. An Impostor
+ * card (wood and leaves in one picture) writes g per fragment, from its baked leaf flag.
  *
  * `selection`: the selected tree objects (Trees, Forests, any ancestor of tree meshes), read on
  * every draw, so it may be changed in place. `null` (default) selects every tree.
  */
 export function createTreeMask(selection: readonly Object3D[] | null = null): Node<'vec4'> {
-  return uniform(new Vector4(0, 0, 0, 1)).onObjectUpdate((frame, self) => {
+  const value = uniform(new Vector4(0, 0, 0, 1)).onObjectUpdate((frame, self) => {
     const part = treePartOf(frame.material);
     const selected = part !== null && (selection === null || isSelected(frame.object, selection));
     self.value.set(part ? 1 : 0, part === 'leaves' ? 1 : 0, selected ? 1 : 0, 1);
     return undefined;
   });
+  return vec4(value.x, value.y.mul(leafMask()), value.z, value.w);
 }
 
 /**

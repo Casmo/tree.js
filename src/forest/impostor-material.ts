@@ -30,6 +30,7 @@ import { createShadedMaterial } from '../materials';
 import { crownAt } from '../materials/crown-nodes';
 import { applyLeafTranslucencyTerm } from '../materials/leaf-translucency-model';
 import type { MaterialFeatureNodes } from '../materials/material-features';
+import { setTreeLeafMask } from '../effects/mask';
 import { seasonLeafColor } from '../season';
 import { instanceRotate, instanceState, levelTreePosition, levelVisible } from './nodes';
 import type { Vec3 } from './octahedral';
@@ -279,6 +280,9 @@ export function createImpostorMaterial(
   material.metalness = 0;
   material.maskNode = and(view.coverage.greaterThan(ALPHA_CUT), levelVisible());
   if (hasImpostorFeatures(features)) applyImpostorFeatures(material, view, atlases.bounds, leaf, features);
+  // Tree Effects: tree pixels, leaves where the baked leaf flag says so (wood elsewhere).
+  material.userData.treePart = 'leaves';
+  setTreeLeafMask(material, leaf);
   return material;
 }
 
