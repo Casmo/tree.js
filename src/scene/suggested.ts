@@ -30,6 +30,8 @@ export const SUGGESTED_SCENE_EFFECTS: Record<StyleName, SceneEffectsSettings> = 
     toneMapping: { mapping: 'agx' },
     ao: { radius: 1.2, scale: 1.6, thickness: 2 },
     bloom: { strength: 0.2, radius: 0.4, threshold: 0.6 },
+    // Warm light shafts through the canopy (needs the app's shadow-casting `sun`).
+    godrays: { density: 1.2, maxDensity: 0.4, distanceAttenuation: 0.6, color: '#fff0c8' },
     antialias: 'smaa',
     fog: { near: 8, far: 70, mist: { height: 2, strength: 0.7, farLayer: {} } },
   },

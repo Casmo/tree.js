@@ -1,4 +1,5 @@
 import type { StyleName } from '../styles/registry';
+import type { SceneGodraysOptions } from './godrays';
 import type { SceneAOOptions } from './ao';
 import type { SceneAntialiasMode } from './antialias';
 import type { SceneBloomOptions } from './bloom';
@@ -13,6 +14,8 @@ import { SUGGESTED_SCENE_EFFECTS } from './suggested';
 export interface SceneEffectsSettings {
   /** Tone mapping and the output colour space, applied inside the pipeline. */
   toneMapping?: SceneToneMappingOptions;
+  /** God rays through the canopy; need a shadow-casting `sun` (skipped with a warning otherwise). */
+  godrays?: SceneGodraysOptions;
   /** Ground-contact ambient occlusion (GTAO) in the scene pass's lighting: darkens ambient light only. */
   ao?: SceneAOOptions;
   /** Bloom: a soft glare around the bright parts of the frame, before tone mapping. */

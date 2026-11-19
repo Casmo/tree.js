@@ -9,6 +9,9 @@
 //   ?scene=plain  no pipeline at all: renderer.render(scene, camera)
 //   ?scene=tone-mapping  one Scene Effect alone, through its stand-alone builder (sceneToneMapping)
 //                        in a hand-made RenderPipeline, with the Style's suggested settings
+//   ?scene=godrays  god rays alone (sceneGodrays on the shadow-casting sun), with the realistic
+//                   suggestion's settings (with ?sun=back for visible shafts)
+//   ?sun=back  a low sun behind the Forest, shining towards the camera
 //   ?scene=gtao  ambient occlusion alone (sceneAO: pre-pass + GTAO + the scene pass's lighting context)
 //   ?scene=bloom  bloom alone (sceneBloom), likewise: the Style's suggested bloom or sceneBloom's
 //                 defaults (low-poly suggests none), with the renderer's normal output transform
@@ -49,6 +52,7 @@ import {
   sceneAntialias,
   sceneBloom,
   sceneFog,
+  sceneGodrays,
   sceneToneMapping,
   SUGGESTED_SCENE_EFFECTS,
   type SceneAntialiasMode,
@@ -120,6 +124,8 @@ async function main(): Promise<void> {
   // The app's own shadow-casting sun: the pipeline never changes lights or shadows.
   const sun = new THREE.DirectionalLight('#fff4e0', 3.5);
   sun.position.copy(centre).add(new THREE.Vector3(6, 10, 2).multiplyScalar(width / 3));
+  // ?sun=back: a low sun behind the Forest, shining towards the camera (light shafts for god rays).
+  if (params.get('sun') === 'back') sun.position.copy(centre).addScaledVector(back, width * 4).addScaledVector(side, width).setY(width * 2.2);
   sun.target.position.copy(centre);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
@@ -183,6 +189,12 @@ async function main(): Promise<void> {
     const pipeline = new THREE.RenderPipeline(renderer);
     pipeline.outputNode = sceneToneMapping(pass(scene, camera).getTextureNode(), SUGGESTED_SCENE_EFFECTS[styleName].toneMapping);
     pipeline.outputColorTransform = false; // the builder outputs display colours
+    render = () => pipeline.render();
+  } else if (sceneParam === 'godrays') {
+    // God rays alone: the app's own shadow-casting sun, the scene pass's colour and depth.
+    const pipeline = new THREE.RenderPipeline(renderer);
+    const scenePass = pass(scene, camera);
+    pipeline.outputNode = sceneGodrays(scenePass.getTextureNode(), scenePass.getTextureNode('depth'), camera, sun, SUGGESTED_SCENE_EFFECTS.realistic.godrays);
     render = () => pipeline.render();
   } else if (sceneParam === 'gtao') {
     // AO alone: the pre-pass and GTAO feed the scene pass's lighting (only ambient light darkens).

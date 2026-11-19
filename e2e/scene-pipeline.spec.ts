@@ -77,6 +77,14 @@ test('tone mapping alone, through sceneToneMapping in a hand-made pipeline (real
   await expect(page.locator('canvas')).toHaveScreenshot('realistic-tone-mapping-webgpu.png');
 });
 
+test('god rays alone, through sceneGodrays on the shadow-casting sun (realistic, WebGPU)', async ({ page }) => {
+  const plain = await load(page, 'style=realistic&sun=back&scene=plain');
+  const rays = await load(page, 'style=realistic&sun=back&scene=godrays');
+  expect(rays.example.renderer!.after, 'shadows and lights are the app\'s').toEqual(rays.example.renderer!.before);
+  expect((await difference(page, plain.image, rays.image)).changed, 'god rays change the frame').toBeGreaterThan(10_000);
+  await expect(page.locator('canvas')).toHaveScreenshot('realistic-godrays-webgpu.png');
+});
+
 test('ambient occlusion alone, through sceneAO in a hand-made pipeline (realistic, WebGPU)', async ({ page }) => {
   const plain = await load(page, 'style=realistic&scene=plain');
   const occluded = await load(page, 'style=realistic&scene=gtao');
