@@ -19,28 +19,21 @@ import {
   type Renderer,
   type Scene,
 } from 'three/webgpu';
-import { and, positionGeometry, uniform } from 'three/tsl';
+import { and, positionGeometry } from 'three/tsl';
 import type { MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
 import { generateLightTree, generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
 import { LiveMaterialFeatures, type MaterialFeatureNodes, type MaterialFeatureTarget } from '../materials/material-features';
-import { assertWebGPURenderer } from '../renderer';
+import { webgpuRenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes } from '../season';
 import { checkedSeason } from '../season/check';
 import { clampGrowth } from '../growth';
 import { textureReady, type TextureOptions } from '../textures';
 import { sceneWind, Wind, WindBinding, WindResponse, type WindSource } from '../wind';
-import { VariantImpostor } from './impostor';
-import { LevelSelection, MAX_LEVEL_PARTS, VariantLevels, type DetailLevelUniforms, type LevelPart } from './levels';
-import {
-  checkDetailLevelDistances,
-  DetailLevel,
-  resolveForestLod,
-  type DetailLevelDistances,
-  type ForestLodOptions,
-  type ForestLodSettings,
-  type ForestLodUpdate,
-} from './lod';
+import { impostorBounds, VariantImpostor } from './impostor';
+import { ForestLod } from './forest-lod';
+import { VariantLevels, type DetailLevelUniforms, type LevelPart } from './levels';
+import { DetailLevel, resolveForestLod, type ForestLodOptions, type ForestLodSettings, type ForestLodUpdate } from './lod';
 import { INSTANCE_ATTRIBUTES, INSTANCE_STRIDE, forestPosition, instanceRotate, instanceState, levelVisible } from './nodes';
 import {
   delayedGrowth,
@@ -377,16 +370,16 @@ export class ForestVariant {
     levels.setLevel(DetailLevel.Light, parts('light', wood, leaves, this.fruitSource ? fruit : null));
 
     // The Impostor card is set up now (its draw arguments too), but only drawn once baked (`farthest`).
-    this.impostor = new VariantImpostor(
-      this.definition,
-      { wood: this.woodSource, leaves: this.leafSource },
-      { wood: this.data.wood, leaves: this.data.leaves },
-      settings.impostorAtlas,
-      `forest impostor ${this.index}`,
-      this.textures,
-      features ? { nodes: features, crown: this.data.crown } : null,
-      { source: this.wind, response: this.windResponse },
-    );
+    this.impostor = new VariantImpostor({
+      definition: this.definition,
+      sources: { wood: this.woodSource, leaves: this.leafSource },
+      bounds: impostorBounds([this.data.wood, this.data.leaves]),
+      atlas: settings.impostorAtlas,
+      name: `forest impostor ${this.index}`,
+      textures: this.textures,
+      features: features ? { nodes: features, crown: this.data.crown } : null,
+      wind: { source: this.wind, response: this.windResponse },
+    });
     levels.setLevel(DetailLevel.Impostor, [this.impostor.part]);
 
     // Every level draws only its share of a tree in a cross-fade.
@@ -454,10 +447,7 @@ export class ForestVariant {
       instanced.receiveShadow = true;
       // Drawn by the Detail Level meshes instead once those are on (kept for raycasting and Tree IDs).
       instanced.visible = this.levels === null;
-      instanced.onBeforeRender = (renderer, scene, camera) => {
-        assertWebGPURenderer(renderer);
-        this.forest.detectLodBackend(renderer, scene, camera);
-      };
+      instanced.onBeforeRender = (renderer, scene, camera) => this.forest.detectLodBackend(webgpuRenderer(renderer), scene, camera);
       return instanced;
     };
     this.woodMesh = mesh('forest wood', this.woodSource, this.barkMaterial);
@@ -495,15 +485,15 @@ export class Forest extends Group {
   private growthValue: number;
   private seasonValue: number;
   private readonly features: LiveMaterialFeatures;
-  /** Detail Level settings and their uniforms; null without lod. */
-  private readonly lodState: { settings: ForestLodSettings; uniforms: DetailLevelUniforms; selection: LevelSelection } | null;
-  /** Detail Levels are drawn: lod is set and the renderer is not on the WebGL2 fallback (unknown before the first render). */
-  private lodBackend: 'unknown' | 'webgpu' | 'webgl' = 'unknown';
-  private resolveLodReady: () => void = () => {};
-  private disposed = false;
+  /** The trunk height of the tallest Variant (the distances of `lod: true`). */
+  private readonly tallestTrunk: number;
+  /** The Detail Levels; null without lod. */
+  private readonly detailLevels: ForestLod | null;
   /**
-   * Resolves once every Impostor is baked (far trees draw Light until then); at once without lod, on
-   * the first render on WebGPURenderer's WebGL2 fallback (where lod is ignored), and on dispose.
+   * Resolves once every Impostor is baked (far trees draw Light until then); at once without lod; and
+   * on dispose. The backend is only known on the first render (three hands the renderer to the
+   * Forest's meshes then, not before), so on WebGPURenderer's WebGL2 fallback, where lod is ignored,
+   * it resolves on that first render, not at once.
    */
   readonly lodReady: Promise<void>;
 
@@ -540,23 +530,12 @@ export class Forest extends Group {
     this.ready = Promise.all(textures.filter((t) => t !== null).map(textureReady)).then(() => undefined);
     this.ready.catch(() => {}); // only reported to whoever awaits it
 
-    const tallest = Math.max(...this.variants.map((v) => trunkHeight(v.data.skeleton)));
-    const lod = resolveForestLod(options.lod, tallest);
-    if (lod) {
-      const uniforms: DetailLevelUniforms = {
-        light: uniform(lod.light),
-        impostor: uniform(lod.impostor),
-        fade: uniform(lod.fade),
-        camera: uniform(new Vector3()),
-        forest: uniform(new Matrix4()),
-        // Until the Impostors are baked, trees beyond the Impostor distance draw Light.
-        farthest: uniform(DetailLevel.Light, 'uint'),
-      };
-      this.lodState = { settings: lod, uniforms, selection: new LevelSelection(uniforms) };
-    } else {
-      this.lodState = null;
-    }
-    this.lodReady = lod ? new Promise((resolve) => (this.resolveLodReady = resolve)) : Promise.resolve();
+    this.tallestTrunk = Math.max(...this.variants.map((v) => trunkHeight(v.data.skeleton)));
+    const lod = this.resolveLod(options.lod);
+    this.detailLevels = lod
+      ? new ForestLod(lod, { object: this, variants: this.variants, texturesReady: this.ready, features: this.features.nodes })
+      : null;
+    this.lodReady = this.detailLevels?.ready ?? Promise.resolve();
 
     for (const placement of placements) this.addTree(placement);
   }
@@ -567,103 +546,39 @@ export class Forest extends Group {
    * invalid values (keeping the old ones), and on a forest without lod (switching it on needs a new Forest).
    */
   get lod(): ForestLodSettings | null {
-    if (!this.lodState) return null;
-    const { settings } = this.lodState;
-    return { ...settings, impostorAtlas: { ...settings.impostorAtlas } };
+    return this.detailLevels?.values ?? null;
   }
 
   set lod(value: ForestLodUpdate) {
-    if (!this.lodState) throw new Error('This Forest has no Detail Levels: pass `lod` to createForest (switching them on needs a new Forest)');
-    const { settings, uniforms } = this.lodState;
-    const next: DetailLevelDistances = {
-      light: value.light ?? settings.light,
-      impostor: value.impostor ?? settings.impostor,
-      fade: value.fade ?? settings.fade,
-    };
-    checkDetailLevelDistances(next);
-    Object.assign(settings, next);
-    if (value.camera !== undefined) settings.camera = value.camera;
-    uniforms.light.value = next.light;
-    uniforms.impostor.value = next.impostor;
-    uniforms.fade.value = next.fade;
+    if (!this.detailLevels) throw new Error('This Forest has no Detail Levels: pass `lod` to createForest (switching them on needs a new Forest)');
+    this.detailLevels.update(value);
+  }
+
+  /**
+   * @internal The settings `lod` gives this Forest, every default filled in (`lod: true`: the distances
+   * from its tallest Variant's trunk height), or null when it is missing or false. Throws a RangeError
+   * for invalid settings.
+   */
+  resolveLod(lod: boolean | ForestLodOptions | undefined): ForestLodSettings | null {
+    return resolveForestLod(lod, this.tallestTrunk);
   }
 
   /** @internal The live Detail Level settings as uniforms (null without lod), for the GPU level selection. */
   get lodUniforms(): DetailLevelUniforms | null {
-    return this.lodState?.uniforms ?? null;
+    return this.detailLevels?.uniforms ?? null;
   }
 
   /** @internal Whether Detail Levels are drawn: lod is set and the first render was on WebGPU (not the WebGL2 fallback). */
   get lodActive(): boolean {
-    return this.lodState !== null && this.lodBackend === 'webgpu';
+    return this.detailLevels?.active ?? false;
   }
 
   /**
    * @internal Called before each instanced mesh is drawn: on the first render of a lod Forest, finds the
-   * backend. On WebGL2 the forest ignores lod (one console warning) and draws every tree in full. On
-   * WebGPU that first frame still draws every tree in full; the Detail Level meshes take over right
-   * after it (they cannot join a frame that is already being drawn), the Impostors are baked, and then
-   * `lodReady` resolves.
+   * backend (see `ForestLod`). Does nothing without lod.
    */
-  detectLodBackend(renderer: unknown, scene?: Scene | null, camera?: Camera | null): void {
-    if (!this.lodState) return;
-    this.lodState.selection.observe(scene ?? null, camera ?? null);
-    if (this.lodBackend !== 'unknown') return;
-    const backend = (renderer as { backend?: { isWebGLBackend?: boolean } }).backend;
-    if (backend?.isWebGLBackend === true) {
-      this.lodBackend = 'webgl';
-      console.warn(
-        'tree.js: Forest Detail Levels (lod) need WebGPU; on WebGPURenderer\'s WebGL2 fallback this Forest ignores lod and draws every tree in full.',
-      );
-      this.resolveLodReady();
-    } else {
-      this.lodBackend = 'webgpu';
-      queueMicrotask(() => {
-        if (this.disposed) return this.resolveLodReady();
-        this.enableDetailLevels();
-        void this.bakeImpostors(renderer as Renderer);
-      });
-    }
-  }
-
-  /** Builds every Variant's Detail Level meshes and buffers (WebGPU, lod set). */
-  private enableDetailLevels(): void {
-    const { settings, uniforms } = this.lodState!;
-    for (const variant of this.variants) {
-      variant.enableDetailLevels(uniforms, settings, (mesh) => {
-        mesh.onBeforeRender = (renderer, scene, camera) => {
-          assertWebGPURenderer(renderer);
-          this.selectDetailLevels(renderer as unknown as Renderer, scene, camera);
-        };
-      }, this.features.nodes);
-    }
-  }
-
-  /**
-   * Bakes every Variant's Impostor with the app's renderer (after the textures have loaded), then lets
-   * far trees draw as Impostors and resolves `lodReady`. Until then they draw Light. If the bake
-   * fails, they keep drawing Light (one console error) and `lodReady` still resolves.
-   */
-  private async bakeImpostors(renderer: Renderer): Promise<void> {
-    try {
-      await this.ready.catch(() => {}); // a texture that failed to load bakes as without it
-      if (this.disposed) return;
-      for (const variant of this.variants) variant.impostor!.bake(renderer);
-      this.lodState!.uniforms.farthest.value = DetailLevel.Impostor;
-    } catch (error) {
-      console.error('tree.js: baking the Forest Impostors failed; far trees draw Light.', error);
-    } finally {
-      this.resolveLodReady();
-    }
-  }
-
-  /**
-   * Before a Detail Level mesh is drawn: the first time in a frame, picks every tree's level for the
-   * LOD camera on the GPU (shadow passes and other cameras reuse that frame's levels).
-   */
-  private selectDetailLevels(renderer: Renderer, scene: Scene | null, camera: Camera | null): void {
-    const { settings, selection } = this.lodState!;
-    selection.prepare(renderer, scene, camera, settings.camera, this, this.variants.map((v) => v.levels!));
+  detectLodBackend(renderer: Renderer, scene: Scene | null = null, camera: Camera | null = null): void {
+    this.detailLevels?.detect(renderer, scene, camera);
   }
 
   /**
@@ -671,13 +586,7 @@ export class Forest extends Group {
    * in a cross-fade counts at both levels). All zero until Detail Levels are drawn. Reads the GPU.
    */
   async detailLevelCounts(renderer: Renderer): Promise<number[]> {
-    const counts = [0, 0, 0];
-    for (const variant of this.variants) {
-      if (!variant.levels) continue;
-      const args = new Uint32Array(await renderer.getArrayBufferAsync(variant.levels.drawArguments));
-      for (let level = 0; level < counts.length; level++) counts[level]! += args[level * MAX_LEVEL_PARTS * 5 + 1]!;
-    }
-    return counts;
+    return this.detailLevels ? this.detailLevels.counts(renderer) : [0, 0, 0];
   }
 
   /**
@@ -824,8 +733,7 @@ export class Forest extends Group {
 
   /** Frees every Variant's geometries, materials and instance buffers, and removes the forest from its parent. */
   override dispose(): void {
-    this.disposed = true;
-    this.resolveLodReady(); // nothing left to wait for
+    this.detailLevels?.dispose(); // nothing left to wait for
     for (const variant of this.variants) variant.dispose();
     this.byKey.clear();
     this.removeFromParent();

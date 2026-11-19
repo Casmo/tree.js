@@ -189,6 +189,15 @@ export class VariantLevels {
   }
 
   /**
+   * How many trees each Detail Level drew in the last selection (indexed by DetailLevel; a tree in a
+   * cross-fade counts at both levels), read back from the draw arguments on the GPU.
+   */
+  async drawnCounts(renderer: Renderer): Promise<number[]> {
+    const args = new Uint32Array(await renderer.getArrayBufferAsync(this.args));
+    return Array.from({ length: LEVEL_COUNT }, (_, level) => args[level * MAX_LEVEL_PARTS * ARGS_STRIDE + 1]!);
+  }
+
+  /**
    * Gives `level` its meshes (at most MAX_LEVEL_PARTS parts), one per part, each drawn
    * indirectly from the level's list. A part without indices (e.g. the leaves of a bare
    * Definition) gets no mesh: WebGPU would draw it with an index count of 0. Returns the meshes;

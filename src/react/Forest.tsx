@@ -5,8 +5,7 @@ import type { TreeStyle } from '../styles/types';
 import type { StyleName } from '../styles/registry';
 import { createForest, type Forest as ForestObject } from '../forest';
 import { forestTreeKey, type ForestPlacement } from '../forest/placement';
-import { DEFAULT_LOD_FADE, defaultDetailLevelDistances, type ForestLodOptions, type ForestLodUpdate } from '../forest/lod';
-import { trunkHeight } from '../generator';
+import type { ForestLodOptions } from '../forest/lod';
 import { clampGrowth } from '../growth/evaluate';
 import { wrapSeason } from '../season/profile';
 import { sceneWind, type Wind as WindObject } from '../wind';
@@ -81,13 +80,6 @@ function lodBuildKey(lod: boolean | ForestLodOptions | undefined): string | null
   if (!lod) return null;
   const options: Partial<ForestLodOptions> = lod === true ? {} : lod;
   return JSON.stringify([options.impostorAtlas ?? null, options.lightDefinition ?? null]);
-}
-
-/** The live part of `lod` (every default filled in; `tallest`: the tallest Variant's trunk height), or null when lod is off. */
-function lodUpdate(lod: boolean | ForestLodOptions | undefined, tallest: () => number): Required<ForestLodUpdate> | null {
-  if (!lod) return null;
-  if (lod === true) return { ...defaultDetailLevelDistances(tallest()), fade: DEFAULT_LOD_FADE, camera: null };
-  return { light: lod.light, impostor: lod.impostor, fade: lod.fade ?? DEFAULT_LOD_FADE, camera: lod.camera ?? null };
 }
 
 /**
@@ -166,16 +158,14 @@ export function Forest({
     forest.wind = wind ?? sceneWind;
   }, [forest, wind]);
 
-  const tallest = useMemo(() => {
-    let height: number | undefined;
-    return () => (height ??= Math.max(...forest.variants.map((v) => trunkHeight(v.data.skeleton))));
-  }, [forest]);
-  const live = lodUpdate(lod, tallest);
+  // The live part of `lod`, with the defaults the forest itself fills in.
+  const live = forest.resolveLod(lod);
   useLayoutEffect(() => {
     const current = forest.lod;
     if (!live || !current) return;
-    if (live.light !== current.light || live.impostor !== current.impostor || live.fade !== current.fade || live.camera !== current.camera) {
-      forest.lod = live;
+    const { light, impostor, fade, camera } = live;
+    if (light !== current.light || impostor !== current.impostor || fade !== current.fade || camera !== current.camera) {
+      forest.lod = { light, impostor, fade, camera };
     }
   }, [forest, live?.light, live?.impostor, live?.fade, live?.camera]);
 

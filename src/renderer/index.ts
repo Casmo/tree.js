@@ -1,3 +1,5 @@
+import type { Renderer } from 'three/webgpu';
+
 /** Thrown when a tree is drawn by anything other than `WebGPURenderer` (ADR 0002). */
 export class UnsupportedRendererError extends Error {
   constructor(what: string) {
@@ -20,4 +22,13 @@ export function assertWebGPURenderer(renderer: unknown): void {
   const r = renderer as RendererLike | null | undefined;
   if (r?.isWebGPURenderer === true) return;
   throw new UnsupportedRendererError(r?.isWebGLRenderer ? 'the classic WebGLRenderer' : 'an unknown renderer');
+}
+
+/**
+ * @internal The renderer an `onBeforeRender` callback receives (typed as the classic renderer by
+ * three's types), as the `WebGPURenderer` it must be. Throws {@link UnsupportedRendererError} otherwise.
+ */
+export function webgpuRenderer(renderer: unknown): Renderer {
+  assertWebGPURenderer(renderer);
+  return renderer as Renderer;
 }

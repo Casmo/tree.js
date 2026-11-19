@@ -225,6 +225,24 @@ function layerTarget(size: number, channels: readonly ImpostorChannel[]): Render
   return target;
 }
 
+/** What the Impostor of one Variant is made from. */
+export interface VariantImpostorOptions {
+  definition: TreeDefinition;
+  /** The Variant's vertex data the bake draws (shared: never disposed by the Impostor). */
+  sources: { wood: BufferGeometry; leaves: BufferGeometry };
+  /** The tree's centre and the half size of a frame: `impostorBounds` of the wood and leaves. */
+  bounds: ImpostorBounds;
+  atlas: Required<ImpostorAtlasOptions>;
+  /** Name of the card mesh. */
+  name: string;
+  /** Where the Definition's textures load from. */
+  textures?: TextureOptions;
+  /** The Forest's live Material Feature uniforms and the Variant's Crown Volume; null when none is on. */
+  features?: ImpostorFeatures | null;
+  /** The Wind the cards sway with and the Variant's response to it. */
+  wind?: { source: WindSource; response: WindResponse };
+}
+
 /**
  * The Impostor of one Variant: the atlases (allocated at once, filled by `bake`), the card material
  * that samples them, and the card geometry. `part` is what the Variant's Impostor Detail Level draws.
@@ -239,21 +257,18 @@ export class VariantImpostor {
   readonly channels: readonly ImpostorChannel[];
   /** The Impostor level's single mesh: a card per tree. */
   readonly part: LevelPart;
+  private readonly definition: TreeDefinition;
+  private readonly sources: { wood: BufferGeometry; leaves: BufferGeometry };
+  private readonly textures: TextureOptions | undefined;
   private readonly layers: readonly ImpostorLayer[];
   private baked = false;
 
-  constructor(
-    private readonly definition: TreeDefinition,
-    private readonly sources: { wood: BufferGeometry; leaves: BufferGeometry },
-    buffers: { wood: GeometryBuffers; leaves: GeometryBuffers },
-    atlas: Required<ImpostorAtlasOptions>,
-    name: string,
-    private readonly textures?: TextureOptions,
-    features: ImpostorFeatures | null = null,
-    wind?: { source: WindSource; response: WindResponse },
-  ) {
+  constructor({ definition, sources, bounds, atlas, name, textures, features = null, wind }: VariantImpostorOptions) {
+    this.definition = definition;
+    this.sources = sources;
+    this.textures = textures;
     this.frames = atlas.frames;
-    this.bounds = impostorBounds([buffers.wood, buffers.leaves]);
+    this.bounds = bounds;
     const layer = (kinds: ImpostorLayer['kinds'], channels: ImpostorChannel[]): ImpostorLayer => ({ kinds, channels, target: layerTarget(atlas.size, channels) });
     this.layers = [layer(['wood', 'leaves'], impostorChannels(this.bounds, features)), layer(['wood'], impostorWoodChannels())];
     this.channels = this.layers.flatMap((l) => l.channels);
