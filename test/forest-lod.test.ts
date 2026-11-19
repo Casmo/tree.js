@@ -496,9 +496,10 @@ describe('Impostors', () => {
     const done = bakes(renderer);
     expect(done).toHaveLength(3);
     for (const { target, meshes } of done) {
-      // Colour (with coverage) and normal atlases at the default 2048², 12 × 12 frames of wood and leaves.
+      // Colour (with coverage) and normal atlases at the default 2048², 12 × 12 frames of wood and leaves,
+      // plus the Material Feature atlas (the Definition sets Crown Normals and Structural Occlusion).
       expect([target.width, target.height]).toEqual([2048, 2048]);
-      expect(target.textures.map((t) => t.name)).toEqual(['output', 'normal']);
+      expect(target.textures.map((t) => t.name)).toEqual(['output', 'normal', 'features']);
       expect(meshes.map((m) => m.count)).toEqual([144, 144]);
     }
     // The renderer is left as it was: its render target is restored after each bake.
