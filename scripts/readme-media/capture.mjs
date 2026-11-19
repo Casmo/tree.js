@@ -44,6 +44,7 @@ const JOBS = {
   'example-forest': { url: '/examples/forest/?season=0.6', width: 480, height: 300, ready: 'forestExample' },
   'example-large-forest': { url: '/examples/large-forest/?frames=3&orbit=30', width: 480, height: 300, ready: 'largeForestExample', hide: ['#panel'] },
   'example-effects': { url: '/examples/effects/?style=stylized', width: 480, height: 300, ready: 'effectsExample' },
+  'example-custom-effect': { url: '/examples/custom-effect/', width: 480, height: 300, ready: 'customEffectExample' },
   'example-material-features': { url: '/examples/material-features/?style=realistic', width: 480, height: 300, ready: 'featuresExample' },
   'example-scene-pipeline': { url: '/examples/scene-pipeline/?style=realistic', width: 480, height: 300, ready: 'scenePipelineExample' },
   'example-species': { url: '/examples/species/?species=maple&style=stylized&season=0.62', width: 480, height: 300, ready: 'speciesExample' },
