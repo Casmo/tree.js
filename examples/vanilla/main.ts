@@ -346,7 +346,7 @@ async function main(): Promise<void> {
   );
   const snow = params.get("snow");
   if (snow !== null)
-    setSnow((hooks) => (tree.shaderHooks = hooks), {
+    await setSnow((hooks) => (tree.shaderHooks = hooks), {
       hook: "snow",
       amount: Number(snow),
     });
@@ -449,7 +449,9 @@ async function main(): Promise<void> {
     setShaderHooks,
     setVisible,
     setSnow: (options) =>
-      draw(() => setSnow((hooks) => (tree.shaderHooks = hooks), options)),
+      setSnow((hooks) => (tree.shaderHooks = hooks), options).then(() =>
+        draw(() => {}),
+      ),
     trees: burstTrees,
     burst,
     setWindTime,

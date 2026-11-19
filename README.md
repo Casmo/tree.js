@@ -726,36 +726,35 @@ turned with the card's sway the same way.
 
 ### Snow Cover
 
-Snow Cover is a ready-made Tree Shader Hook that whitens the surfaces of trees that face up, by one
-scene-wide snow amount (0..1) that your weather sets, the way `sceneWind` is shared. It lives in
-`@casmo/tree.js/weather`, which nothing else in the library imports: a game without weather never loads it.
+Snow Cover is a ready-made Tree Shader Hook that whitens the surfaces of trees that face up, by a
+scene-wide snow amount from 0 (none) to 1 (full cover). The amount is shared the way `sceneWind` is:
+`sceneSnow`, or a `Snow` of your own. It lives in its own entry point, `@casmo/tree.js/weather`, which
+nothing else in the library imports, so a game without weather never loads it:
 
 ```ts
 import { setSceneShaderHooks } from '@casmo/tree.js';
-import { sceneSnow, SnowCover } from '@casmo/tree.js/weather';
+import { sceneSnow, snowCoverHooks } from '@casmo/tree.js/weather';
 
-const snowCover = new SnowCover({
+const snow = snowCoverHooks();
+setSceneShaderHooks(snow); // every Tree and Forest, near and far (Impostors too); or `tree.shaderHooks = snow`
+sceneSnow.amount = 0.8;    // driven by your weather: a uniform, no rebuild
+
+// Settings are live too (uniform writes):
+snow.set({
   color: '#f4f8ff',  // sRGB, like any three.js colour
   slope: 60,         // the steepest surface (degrees from level) that still holds snow
-  softness: 0.35,    // 0: a hard edge at `slope`, 1: fading in from `slope` to level
+  softness: 25,      // degrees over which the snow thins out towards `slope` (0: a hard edge)
   strength: { bark: 1, leaves: 1, fruit: 0.5 }, // how much snow each part takes
 });
-setSceneShaderHooks(snowCover); // every Tree and Forest; or `tree.shaderHooks = snowCover`
-
-sceneSnow.amount = 0.8;  // your weather: 0 = no snow (exactly today's look), 1 = full cover
-snowCover.slope = 45;    // settings are uniforms too: live, no rebuild
 ```
 
-It is a set of hooks (`bark`, `leaves`, `fruit`), so it stacks like any other (`stackShaderHooks(snowCover,
-{ leaves: myHook })`) and always runs before the app's own hooks. It follows the tree's Style: hard flat caps
-in low-poly, toon bands in stylized, soft lit snow with a slight sparkle in realistic. Snow is read from the
-`normal` after Wind, so it sways with the branches, lies on bare winter branches when the leaves are gone,
-and the undersides stay bare. It works on Trees, every Forest Detail Level and far Impostors, on WebGPU and
-the WebGL2 fallback. `new SnowCover({ snow: new Snow() })` follows a snow amount of its own instead of
-`sceneSnow`.
-
-To write your own snow, start from `snowCoverShading`: the body of the ready-made hook, which only uses the
-hook's inputs and the settings you give it.
+It draws to suit the Style: hard flat caps on low-poly, toon bands on stylized, soft lit snow with a slight
+sparkle on realistic. Snow is read from the `normal` after Wind, so it sways with the branches, lies on bare
+winter branches when the leaves are gone, and undersides stay bare. It stacks like any hooks and always runs
+before your own. At amount 0, or without the hooks set, trees look exactly as before.
+`snowCoverHooks({ snow })` follows another `Snow` than `sceneSnow`. For snow of your own, start from
+`snowCoverShading`, the body of the ready-made hook, which only uses the hook's inputs and the settings you
+give it.
 
 ### Wetness
 

@@ -1,18 +1,19 @@
 // Shared by the vanilla and forest examples (and e2e/snow-cover.spec.ts): Snow Cover, the ready-made Tree
-// Shader Hook from the opt-in `@casmo/tree.js/weather` entry, on the scene-wide snow amount.
+// Shader Hook from the opt-in `@casmo/tree.js/weather` entry, on the scene-wide snow amount. The entry is
+// loaded only once snow is asked for.
 import { select, vec3 } from 'three/tsl';
 import type { TreeShaderHook, TreeShaderHooks } from '@casmo/tree.js';
-import { sceneSnow, SnowCover, type SnowCoverOptions } from '@casmo/tree.js/weather';
+import type { SnowCoverHooks, SnowCoverSettings } from '@casmo/tree.js/weather';
 
 /** What `setSnow` changes: which hooks are set, the scene-wide amount and the Snow Cover settings. */
 export interface SnowExampleOptions {
   /** 'snow': Snow Cover; 'facing': the facing test hook (below); 'none': no hook. */
   hook?: 'snow' | 'facing' | 'none';
   amount?: number;
-  settings?: Omit<SnowCoverOptions, 'snow'>;
+  settings?: SnowCoverSettings;
 }
 
-const snowCover = new SnowCover();
+let snowCover: SnowCoverHooks | undefined;
 
 /**
  * A test hook that paints what a surface faces, by the same world normal Snow Cover reads: magenta where
@@ -25,8 +26,13 @@ const facing: TreeShaderHook = ({ color, normal }) => {
 const facingHooks: TreeShaderHooks = { bark: facing, leaves: facing, fruit: facing };
 
 /** Applies `options` with `setHooks` (the Tree's or Forest's `shaderHooks`). */
-export function setSnow(setHooks: (hooks: TreeShaderHooks) => void, { hook, amount, settings }: SnowExampleOptions): void {
-  if (hook) setHooks(hook === 'snow' ? snowCover : hook === 'facing' ? facingHooks : {});
+export async function setSnow(setHooks: (hooks: TreeShaderHooks) => void, { hook, amount, settings }: SnowExampleOptions): Promise<void> {
+  if (hook === 'facing') setHooks(facingHooks);
+  if (hook === 'none') setHooks({});
+  if (hook !== 'snow' && amount === undefined && !settings) return;
+  const { sceneSnow, snowCoverHooks } = await import('@casmo/tree.js/weather');
+  snowCover ??= snowCoverHooks();
+  if (hook === 'snow') setHooks(snowCover);
   if (amount !== undefined) sceneSnow.amount = amount;
   if (settings) snowCover.set(settings);
 }

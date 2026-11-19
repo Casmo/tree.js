@@ -316,7 +316,7 @@ async function main(): Promise<void> {
       await renderer.renderAsync(scene, camera);
     },
     setSnow: async (options) => {
-      setSnow((hooks) => (forest.shaderHooks = hooks), options);
+      await setSnow((hooks) => (forest.shaderHooks = hooks), options);
       await renderer.renderAsync(scene, camera);
     },
     burst: async (options) => {

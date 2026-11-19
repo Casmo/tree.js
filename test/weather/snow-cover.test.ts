@@ -8,7 +8,7 @@ import type { MeshStandardNodeMaterial, Node } from 'three/webgpu';
 import { createTree, setSceneShaderHooks, stackShaderHooks, type Tree, type TreeShaderHook } from '../../src/index';
 import { pear } from '../../src/species';
 import stylized from '../../src/styles/stylized';
-import { sceneSnow, Snow, SnowCover } from '../../src/weather';
+import { sceneSnow, Snow, snowCoverHooks } from '../../src/weather';
 
 afterEach(() => setSceneShaderHooks({}));
 
@@ -51,7 +51,7 @@ describe('Snow Cover', () => {
   it('is a set of Tree Shader Hooks for bark, leaves and fruit that follows the scene-wide snow amount', () => {
     const tree = createTree(stylized.apply(pear), { seed: 2 });
     const plain = Object.fromEntries(PARTS.map((part) => [part, materialsOf(tree)[part].colorNode]));
-    const snow = new SnowCover();
+    const snow = snowCoverHooks();
     expect(snow.snow).toBe(sceneSnow);
     tree.shaderHooks = snow;
     for (const part of PARTS) {
@@ -67,14 +67,14 @@ describe('Snow Cover', () => {
   it('follows another snow amount when given one', () => {
     const tree = createTree(stylized.apply(pear), { seed: 2 });
     const own = new Snow({ amount: 1 });
-    tree.shaderHooks = new SnowCover({ snow: own });
+    tree.shaderHooks = snowCoverHooks({ snow: own });
     expect(reads(tree.leaves.material.colorNode as Node, own.uniforms.amount)).toBe(true);
     expect(reads(tree.leaves.material.colorNode as Node, sceneSnow.uniforms.amount)).toBe(false);
     tree.dispose();
   });
 
   it("is ready-made: it runs before the app's own hooks, in whatever order they are stacked or set", () => {
-    const snow = new SnowCover();
+    const snow = snowCoverHooks();
     const app = vi.fn<TreeShaderHook>(({ color }) => color.mul(vec3(1, 0, 1)));
     const tree = createTree(stylized.apply(pear), { seed: 2, shaderHooks: stackShaderHooks({ leaves: app }, snow) });
     expect(reads(app.mock.calls[0]![0].color, sceneSnow.uniforms.amount)).toBe(true); // the app sees the snowed colour
@@ -86,33 +86,30 @@ describe('Snow Cover', () => {
   });
 
   it('takes its settings live (uniforms): no node graph is rebuilt', () => {
-    const snow = new SnowCover({ color: '#eef4ff', slope: 50, softness: 0.2, strength: { fruit: 0.5 } });
-    expect(snow.color.getHexString()).toBe('eef4ff');
-    expect([snow.slope, snow.softness]).toEqual([50, 0.2]);
-    expect(snow.strength).toEqual({ bark: 1, leaves: 1, fruit: 0.5 });
+    const snow = snowCoverHooks({ color: '#eef4ff', slope: 50, softness: 20, strength: { fruit: 0.5 } });
+    expect(snow.settings.color.getHexString()).toBe('eef4ff');
+    expect(snow.settings).toMatchObject({ slope: 50, softness: 20, strength: { bark: 1, leaves: 1, fruit: 0.5 } });
     const tree = createTree(stylized.apply(pear), { seed: 2, shaderHooks: snow });
     const versions = PARTS.map((part) => materialsOf(tree)[part].version);
     const nodes = PARTS.map((part) => materialsOf(tree)[part].colorNode);
-    snow.color = 0xffffff;
-    snow.slope = 30;
-    snow.softness = 0.6;
-    snow.strength = { leaves: 0 };
-    expect(snow.set({ slope: 70 })).toBe(snow);
-    expect(snow.color.getHex()).toBe(0xffffff);
-    expect([snow.slope, snow.softness]).toEqual([70, 0.6]);
-    expect(snow.strength).toEqual({ bark: 1, leaves: 0, fruit: 0.5 });
+    expect(snow.set({ color: 0xffffff, slope: 30, softness: 0, strength: { leaves: 0 } })).toBe(snow);
+    snow.set({ slope: 70 });
+    expect(snow.settings.color.getHex()).toBe(0xffffff);
+    expect(snow.settings).toMatchObject({ slope: 70, softness: 0, strength: { bark: 1, leaves: 0, fruit: 0.5 } });
     expect(PARTS.map((part) => materialsOf(tree)[part].version)).toEqual(versions);
     expect(PARTS.map((part) => materialsOf(tree)[part].colorNode)).toEqual(nodes);
     tree.dispose();
   });
 
-  it('rejects settings out of range', () => {
-    const snow = new SnowCover();
-    expect(() => (snow.slope = 95)).toThrow(RangeError);
-    expect(() => (snow.slope = -1)).toThrow(RangeError);
-    expect(() => (snow.softness = 1.5)).toThrow(RangeError);
-    expect(() => (snow.strength = { bark: -0.5 })).toThrow(RangeError);
-    expect(() => new SnowCover({ softness: Number.NaN })).toThrow(RangeError);
+  it('rejects settings out of range, and then changes nothing', () => {
+    const snow = snowCoverHooks();
+    const before = snow.settings;
+    expect(() => snow.set({ slope: 95 })).toThrow(RangeError);
+    expect(() => snow.set({ slope: -1 })).toThrow(RangeError);
+    expect(() => snow.set({ softness: -5 })).toThrow(RangeError);
+    expect(() => snow.set({ slope: 40, strength: { bark: -0.5 } })).toThrow(RangeError);
+    expect(snow.settings).toEqual(before);
+    expect(() => snowCoverHooks({ softness: Number.NaN })).toThrow(RangeError);
   });
 });
 

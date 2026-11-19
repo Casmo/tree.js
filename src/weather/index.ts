@@ -9,4 +9,14 @@ export {
   type WetnessOptions,
   type WetnessSettings,
 } from './wetness';
-export { Snow, sceneSnow, SnowCover, type SnowOptions, type SnowCoverOptions, type SnowStrength, snowCoverShading, type SnowCoverShadingSettings } from './snow';
+export {
+  sceneSnow,
+  Snow,
+  snowCoverHooks,
+  snowCoverShading,
+  type SnowCoverHooks,
+  type SnowCoverLook,
+  type SnowCoverSettings,
+  type SnowCoverShadingSettings,
+  type SnowOptions,
+} from './snow';
