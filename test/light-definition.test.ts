@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { parseDefinition } from '../src/index';
-import { lightDefinition } from '../src/generator';
+import { parseDefinition, type SpeciesDefinition, type TreeDefinition } from '../src/index';
+import { generateLightTree, generateTree, lightDefinition, type GeometryBuffers } from '../src/generator';
+import * as collection from '../src/species';
+import lowPoly from '../src/styles/low-poly';
+import stylized from '../src/styles/stylized';
+import realistic from '../src/styles/realistic';
 
 const full = parseDefinition({ schemaVersion: 3 });
 
@@ -39,11 +43,12 @@ describe('lightDefinition', () => {
     expect(empty.leaves).toMatchObject({ count: 1, size: 0.25 });
   });
 
-  it('draws Fruit coarse (at most 5 sides)', () => {
+  it('draws Fruit coarse (half the sides, at most 5, at least 3)', () => {
     const fruit = (sides?: number) => lightDefinition(parseDefinition({ schemaVersion: 3, fruit: sides === undefined ? {} : { sides } })).fruit!.sides;
     expect(fruit()).toBe(5);
     expect(fruit(12)).toBe(5);
-    expect(fruit(4)).toBe(4);
+    expect(fruit(4)).toBe(3);
+    expect(fruit(3)).toBe(3);
     expect(lightDefinition(full).fruit).toBeUndefined();
   });
 
@@ -70,5 +75,24 @@ describe('lightDefinition', () => {
     const copy = structuredClone(full);
     lightDefinition(full, { trunk: { sides: 7 } });
     expect(full).toEqual(copy);
+  });
+});
+
+const triangles = (g: GeometryBuffers) => g.indices.length / 3;
+const camelCase = (id: string) => id.replace(/-(\w)/g, (_, c: string) => c.toUpperCase());
+/** Every bundled Species in every Style. */
+const bundled: [string, TreeDefinition][] = collection.SPECIES_NAMES.flatMap((id) => {
+  const species = (collection as unknown as Record<string, SpeciesDefinition>)[camelCase(id)]!;
+  return [lowPoly, stylized, realistic].map((style) => [`${id} (${style.name})`, style.apply(species)] as [string, TreeDefinition]);
+});
+
+describe('generateLightTree', () => {
+  it.each(bundled)('%s: Light wood, leaves and Fruit have fewer triangles than Full', (_, definition) => {
+    const full = generateTree(definition, 7);
+    const light = generateLightTree(definition, 7);
+    expect(triangles(light.wood)).toBeLessThan(triangles(full.wood));
+    expect(triangles(light.leaves)).toBeLessThan(triangles(full.leaves));
+    if (triangles(full.fruit) > 0) expect(triangles(light.fruit)).toBeLessThan(triangles(full.fruit));
+    else expect(triangles(light.fruit)).toBe(0);
   });
 });
