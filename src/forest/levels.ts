@@ -190,13 +190,16 @@ export class VariantLevels {
 
   /**
    * Gives `level` its meshes (at most MAX_LEVEL_PARTS parts), one per part, each drawn
-   * indirectly from the level's list. Returns them; the caller adds them to the scene.
+   * indirectly from the level's list. A part without indices (e.g. the leaves of a bare
+   * Definition) gets no mesh: WebGPU would draw it with an index count of 0. Returns the meshes;
+   * the caller adds them to the scene.
    */
   setLevel(level: DetailLevel, parts: readonly LevelPart[]): Mesh[] {
     if (parts.length > MAX_LEVEL_PARTS) throw new RangeError(`A Detail Level has at most ${MAX_LEVEL_PARTS} meshes`);
     if (this.levels.some((l) => l.level === level)) throw new Error(`Detail Level ${level} already has its meshes`);
     const array = this.args.array as Uint32Array;
-    const meshes = parts.map((part, i) => {
+    const drawn = parts.filter((part) => (part.geometry.getIndex()?.count ?? 0) > 0);
+    const meshes = drawn.map((part, i) => {
       const draw = (level * MAX_LEVEL_PARTS + i) * ARGS_STRIDE;
       const geometry = new BufferGeometry();
       for (const [name, attribute] of Object.entries(part.geometry.attributes)) geometry.setAttribute(name, attribute);

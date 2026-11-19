@@ -363,7 +363,7 @@ export class ForestVariant {
         { name: `forest wood ${this.index} ${level}`, geometry: wood, material: this.barkMaterial },
         { name: `forest leaves ${this.index} ${level}`, geometry: leaves, material: this.leafMaterial },
       ];
-      if (fruit && this.fruitMaterial && fruit.getIndex()!.count > 0) {
+      if (fruit && this.fruitMaterial) {
         list.push({ name: `forest fruit ${this.index} ${level}`, geometry: fruit, material: this.fruitMaterial });
       }
       return list;

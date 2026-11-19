@@ -350,6 +350,16 @@ describe('Detail Levels on WebGPU', () => {
     expect(new Set(offsets).size).toBe(offsets.length);
   });
 
+  it('draws no mesh for an empty part (a WebGPU draw of 0 indices): a bare Definition has no leaf meshes', async () => {
+    const bare = createForest({ ...definition, leaves: { count: 0 }, fruit: undefined }, placements, { variants: 2, lod: { light: 10, impostor: 40 } });
+    render(bare, 'webgpu');
+    await bare.lodReady;
+    const meshes = levelMeshes(bare);
+    expect(meshes.length).toBeGreaterThan(0);
+    for (const mesh of meshes) expect(mesh.geometry.getIndex()!.count).toBeGreaterThan(0);
+    expect(meshes.filter((m) => m.name.includes('leaves'))).toEqual([]);
+  });
+
   it('builds the same Light meshes for the same Definition and Variant Seed', async () => {
     const a = levelMeshes(await lodForest());
     const b = levelMeshes(await lodForest());
