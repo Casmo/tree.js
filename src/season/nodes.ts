@@ -64,6 +64,15 @@ export function createSeasonNodes(profile: SeasonProfileDefinition, season: Floa
   };
 }
 
+/**
+ * The Season Profile's leaf colour (vec3, linear) at Season `season`, for a whole tree: no per-leaf
+ * timing shift, coverage or blossom (those need the leaf's `aSeason`). An Impostor colours its leaves
+ * with it at the tree's Season.
+ */
+export function seasonLeafColor(profile: SeasonProfileDefinition, season: FloatNode<'float'>): Node {
+  return keyframeNode(season, profile.leafColor, (v) => uniform(new Color(v)));
+}
+
 /** The part's own Season: the Season input plus the `aSeason.x` timing shift, wrapped around the year (as `wrapSeason`). */
 function shiftedSeason(season: Node, aSeason: Node): Node {
   const shifted = season.add(aSeason.x);

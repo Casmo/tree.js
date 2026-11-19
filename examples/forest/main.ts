@@ -19,6 +19,7 @@
 //   Detail Levels (ADR 0010, WebGPU; on ?backend=webgl the forest draws every tree in full):
 //   ?lod=1  the default distances (6 and 20 trunk heights)
 //   ?lod=<light>,<impostor>[,<fade>]  Light from <light>, Impostor from <impostor> world units (fade default 0.1)
+//   ?atlas=<frames>,<size>  (with distances) the Impostor atlas (default 12 frames at 2048)
 //   ?lodCamera=1  (with distances) pick the Detail Levels for a camera 40 m behind the view (lod.camera)
 //   ?shadows=1  the sun casts shadows (the shadow pass reuses the frame's Detail Levels)
 //   ?plant=<n>  (with lod) plant n more trees in a row in front after Detail Levels are on, then cut every 4th
@@ -28,7 +29,6 @@ import * as THREE from 'three/webgpu';
 import {
   createForest,
   createRandom,
-  DetailLevel,
   extendDefinition,
   loadStyle,
   sceneWind,
@@ -62,10 +62,12 @@ declare global {
       roots?: number;
       /** With ?lod: trees drawn at each Detail Level by the GPU (a tree in a cross-fade counts at both). */
       levels?: { full: number; light: number; impostor: number };
-      /** With ?lod: the same counts from the CPU's selectDetailLevel (Impostors draw Light until they exist). */
+      /** With ?lod: the same counts from the CPU's selectDetailLevel. */
       expectedLevels?: { full: number; light: number; impostor: number };
       /** Draws the frame again (the page is otherwise still), resolving once it is drawn. */
       renderAgain?: () => Promise<void>;
+      /** With ?lod: sets the Growth of the whole forest, draws it and updates `levels` and `expectedLevels`. */
+      setGrowth?: (growth: number) => Promise<void>;
     };
   }
 }
@@ -163,10 +165,12 @@ function lodOption(): true | ForestLodOptions | undefined {
   const camera = params.get('lodCamera') === '1' ? { camera: lodCamera } : {};
   if (lod === '1') return true;
   const [light, impostor, fade] = lod.split(',').map(Number);
-  return { light: light!, impostor: impostor!, ...(fade !== undefined ? { fade } : {}), ...camera };
+  const atlas = params.get('atlas')?.split(',').map(Number);
+  const impostorAtlas = atlas ? { impostorAtlas: { frames: atlas[0]!, size: atlas[1]! } } : {};
+  return { light: light!, impostor: impostor!, ...(fade !== undefined ? { fade } : {}), ...camera, ...impostorAtlas };
 }
 
-/** Trees per Detail Level as the CPU selects them for `camera` (Impostors draw Light until they exist). */
+/** Trees per Detail Level as the CPU selects them for `camera`. */
 function expectedLevels(forest: Forest): { full: number; light: number; impostor: number } {
   const counts = [0, 0, 0];
   const settings = forest.lod!;
@@ -174,8 +178,7 @@ function expectedLevels(forest: Forest): { full: number; light: number; impostor
   for (const tree of forest.trees) {
     const [x, y, z] = tree.placement.position as [number, number, number];
     const distance = eye.distanceTo(new THREE.Vector3(x, y, z));
-    let { level, fade } = selectDetailLevel(distance, tree.placement.scale ?? 1, forest.instanceState(tree).growth, settings);
-    if (level >= DetailLevel.Light) [level, fade] = [DetailLevel.Light, 0];
+    const { level, fade } = selectDetailLevel(distance, tree.placement.scale ?? 1, forest.instanceState(tree).growth, settings);
     counts[level]! += 1;
     if (fade > 0) counts[level + 1]! += 1;
   }
@@ -224,6 +227,10 @@ async function main(): Promise<void> {
 
   await renderer.renderAsync(scene, camera);
   let levels: Window['forestExample']['levels'];
+  const countLevels = async () => {
+    const [full, light, impostor] = await forest.detailLevelCounts(renderer);
+    return { full: full!, light: light!, impostor: impostor! };
+  };
   if (lod) {
     // The first frame finds the backend (and draws every tree in full); Detail Levels draw from the next.
     await forest.lodReady;
@@ -244,10 +251,7 @@ async function main(): Promise<void> {
       cutTrees();
       await renderer.renderAsync(scene, camera);
     }
-    if (backend === 'webgpu') {
-      const [full, light, impostor] = await forest.detailLevelCounts(renderer);
-      levels = { full: full!, light: light!, impostor: impostor! };
-    }
+    if (backend === 'webgpu') levels = await countLevels();
   }
   const drawCalls = renderer.info.render.drawCalls;
   statusEl.textContent = `WebGPURenderer (${backend}) - ${forest.size} trees, ${forest.variants.length} Variants, ${drawCalls} draw calls`;
@@ -262,6 +266,15 @@ async function main(): Promise<void> {
     roots,
     ...(levels ? { levels, expectedLevels: expectedLevels(forest) } : {}),
     renderAgain: () => renderer.renderAsync(scene, camera),
+    ...(levels
+      ? {
+          setGrowth: async (growth: number) => {
+            forest.growth = growth;
+            await renderer.renderAsync(scene, camera);
+            Object.assign(window.forestExample, { levels: await countLevels(), expectedLevels: expectedLevels(forest) });
+          },
+        }
+      : {}),
   };
   if (sceneWind.strength > 0 && windTime === null) renderer.setAnimationLoop(() => renderer.render(scene, camera));
 }

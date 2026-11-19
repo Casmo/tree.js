@@ -86,6 +86,19 @@ export function levelVisible(): Node<'bool'> {
   );
 }
 
+/**
+ * The tree's base in forest space, on a Detail Level mesh (the Impostor card places itself from it).
+ * Throws when built for any other object: the instanced meshes get their position from three.js.
+ */
+export function levelTreePosition(): Node<'vec3'> {
+  return perInstance(
+    () => {
+      throw new Error('levelTreePosition() only works on a Detail Level mesh');
+    },
+    (instance) => instance.position,
+  );
+}
+
 /** Rotates `v` by the quaternion `q` (`inverse` = by its conjugate). */
 export function rotateByQuaternion(q: Node<'vec4'>, v: Node<'vec3'>, inverse = false): Node<'vec3'> {
   const u = inverse ? q.xyz.negate() : q.xyz;

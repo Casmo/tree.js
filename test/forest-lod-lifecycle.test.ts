@@ -22,9 +22,20 @@ const placements: ForestPlacement[] = Array.from({ length: 30 }, (_, i) => ({
 }));
 const options = { variants: 3, seed: 5, lod: { light: 10, impostor: 40 } } as const;
 
-/** Draws every instanced mesh once on WebGPU (finds the backend), then waits for the Detail Levels. */
+/**
+ * A WebGPURenderer as the Forest sees it on its first frame: the backend, and `render` plus no-op
+ * getters/setters for the Impostor bake (which saves and restores the renderer's state).
+ */
+function bakingRenderer() {
+  const target = { isWebGPURenderer: true, backend: { isWebGPUBackend: true }, render: vi.fn() };
+  return new Proxy(target, {
+    get: (t, key) => (key in t ? t[key as keyof typeof t] : typeof key === 'string' && /^(get|set)[A-Z]/.test(key) ? () => undefined : undefined),
+  });
+}
+
+/** Draws every instanced mesh once on WebGPU (finds the backend), then waits for the Detail Levels and the Impostor bake. */
 async function drawing(forest: Forest): Promise<Forest> {
-  const renderer = { isWebGPURenderer: true, backend: { isWebGPUBackend: true } };
+  const renderer = bakingRenderer();
   forest.traverse((o) => {
     if (o instanceof InstancedMesh) (o.onBeforeRender as (...args: unknown[]) => void)(renderer, null, null, o.geometry, o.material, null);
   });
@@ -179,7 +190,7 @@ describe('Detail Levels through the Forest lifecycle', () => {
     expect(gpuForest(forest)).toEqual(start);
   });
 
-  it('dispose() frees the Light and Full level geometry, the compute pass and every GPU buffer', async () => {
+  it('dispose() frees the Light and Full level geometry, the Impostor atlases, the compute pass and every GPU buffer', async () => {
     const forest = await lodForest();
     // Grow one Variant first: dispose must free the buffers in use, not only the first ones.
     const variant = forest.variants[1]!;
@@ -192,14 +203,19 @@ describe('Detail Levels through the Forest lifecycle', () => {
     const buffers = forest.variants.flatMap((v) => Object.values(v.levels!.buffers).map(disposals));
     const dispatches = forest.variants.flatMap((v) => v.levels!.dispatches.map(disposals));
     const instanced = forest.variants.flatMap((v) => v.meshes.map((m) => disposals(m.geometry)));
+    const impostors = forest.variants.map((v) => v.impostor!);
+    // The atlases are the attachments of one render target per Variant: disposing it frees them all.
+    const atlases = impostors.map((i) => disposals(i.atlases.textures.output!.renderTarget as EventDispatcher<{ dispose: object }>));
+    const cards = impostors.flatMap((i) => [disposals(i.part.geometry), disposals(i.part.material)]);
     const allGeometries = vi.spyOn(BufferGeometry.prototype, 'dispose');
     try {
       forest.dispose();
-      for (const counts of [geometries, buffers, dispatches, instanced]) expect(counts.map((n) => n())).toEqual(counts.map(() => 1));
+      for (const counts of [geometries, buffers, dispatches, instanced, atlases, cards]) expect(counts.map((n) => n())).toEqual(counts.map(() => 1));
+      expect(forest.variants.every((v) => v.impostor === null)).toBe(true);
       expect(meshes.every((m) => m.parent === null)).toBe(true);
       expect(forest.variants.every((v) => v.levels === null)).toBe(true);
       // Light vertex data (3 parts per Variant) is freed besides the level meshes and the Variant's own.
-      const variantGeometries = forest.variants.length * (3 /* Full sources */ + 3 /* Light sources */ + 3 /* instanced */);
+      const variantGeometries = forest.variants.length * (3 /* Full sources */ + 3 /* Light sources */ + 3 /* instanced */ + 1 /* Impostor card */);
       expect(allGeometries.mock.calls.length).toBe(meshes.length + variantGeometries);
     } finally {
       allGeometries.mockRestore();
