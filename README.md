@@ -43,7 +43,7 @@ npm install @casmo/tree.js three
 | `@casmo/tree.js/species` | the 28 Species (`oak`, `douglasFir`, ...), `loadSpecies`, `SPECIES_NAMES`; JSON files |
 | `@casmo/tree.js/effects` | Tree Effects (post-processing) |
 | `@casmo/tree.js/scene` | Scene Pipeline: the Style's suggested Tree Effects and Scene Effects (tone mapping, SMAA/FXAA, fog, ...) in one opt-in pipeline |
-| `@casmo/tree.js/react` | `<Tree>`, `<Forest>`, `<Wind>`, `useTreeStyle` for React Three Fiber |
+| `@casmo/tree.js/react` | `<Tree>`, `<Forest>`, `<Wind>`, `useTreeStyle`, `<ScenePipeline>` for React Three Fiber |
 
 ## Quick start
 
@@ -911,6 +911,35 @@ createRoot(document.getElementById('root')!).render(<App />);
 - `<Forest>` diffs its `placements` by id: changing the array plants and cuts trees without touching the others; per-tree `growth`/`season` override the forest's.
 - Use `shadows="percentage"` (plain `shadows` asks for a shadow type WebGPURenderer no longer has).
 
+`<ScenePipeline>` renders the canvas through a [Scene Pipeline](#scene-pipeline) (same options as
+`createScenePipeline`). It takes over rendering (`useFrame` priority 1), follows the camera, calls `set()`
+when `style`/`treeEffects`/`sceneEffects` change and disposes of the pipeline on unmount. `sun` takes a
+light or a ref. The `ref` and `useScenePipeline()` (for children) give the `ScenePipeline` (`null` until
+built). It loads `@casmo/tree.js/scene` on first render (suspends), so apps without it don't bundle it.
+
+```tsx
+import { useRef } from 'react';
+import type { DirectionalLight } from 'three/webgpu';
+import { ScenePipeline, useScenePipeline } from '@casmo/tree.js/react';
+
+function PickOnClick() {
+  const pipeline = useScenePipeline(); // needs `treeId` for pick()
+  return <mesh onClick={(e) => void pipeline?.pick(e.nativeEvent.offsetX, e.nativeEvent.offsetY)} />;
+}
+
+function Look() {
+  const sun = useRef<DirectionalLight>(null);
+  return (
+    <>
+      <directionalLight ref={sun} position={[5, 8, 3]} castShadow />
+      <ScenePipeline style="realistic" sun={sun} treeId>
+        <PickOnClick />
+      </ScenePipeline>
+    </>
+  );
+}
+```
+
 ## Without a bundler: import map (CDN)
 
 ![The import map example: dragging the Growth slider shrinks the trees to saplings and grows them back](docs/images/cdn.gif)
@@ -1045,7 +1074,7 @@ a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branche
 | --- | --- | --- | --- |
 | [`examples/vanilla`](examples/vanilla/main.ts) | `/examples/vanilla/` | one tree in plain three.js; `?style=low-poly&form=conifer&seed=2&growth=0.6&season=0.7&wind=0.5` | <img src="docs/images/example-vanilla.png" alt="examples/vanilla" width="160"> |
 | [`examples/cdn`](examples/cdn/index.html) | `/examples/cdn/` | no bundler: a single HTML page with an import map | <img src="docs/images/example-cdn.png" alt="examples/cdn" width="160"> |
-| [`examples/react`](examples/react/main.tsx) | `/examples/react/` | React Three Fiber: `<Tree>`, `<Wind>`, `useTreeStyle`; `?scene=forest` for `<Forest>` | <img src="docs/images/example-react.png" alt="examples/react" width="160"> |
+| [`examples/react`](examples/react/main.tsx) | `/examples/react/` | React Three Fiber: `<Tree>`, `<Wind>`, `useTreeStyle`; `?scene=forest` for `<Forest>`, `?scene=pipeline` for `<ScenePipeline>` | <img src="docs/images/example-react.png" alt="examples/react" width="160"> |
 | [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
 | [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` | <img src="docs/images/example-effects.png" alt="examples/effects" width="160"> |
 | [`examples/material-features`](examples/material-features/main.ts) | `/examples/material-features/` | the same tree with Material Features off and on (`SUGGESTED_MATERIAL_FEATURES`); `?style=realistic&species=oak` | <img src="docs/images/example-material-features.png" alt="examples/material-features" width="160"> |

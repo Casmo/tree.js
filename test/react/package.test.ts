@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 
 const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
@@ -15,6 +15,15 @@ describe('/react packaging', () => {
       expect(pkg.peerDependenciesMeta?.[name]).toEqual({ optional: true });
       expect(pkg.dependencies?.[name]).toBeUndefined();
     }
+  });
+
+  it('loads the Scene Pipeline (and its three addons) only when <ScenePipeline> renders', () => {
+    for (const file of readdirSync(new URL('../../src/react/', import.meta.url))) {
+      const source = read(`src/react/${file}`);
+      // Type imports and the dynamic `import('../scene')` only: no static import of the scene entry.
+      expect(source, file).not.toMatch(/^import (?!type )[^;]*from '\.\.\/(scene|effects)[/']/m);
+    }
+    expect(read('src/react/ScenePipeline.tsx')).toMatch(/import\('\.\.\/scene'\)/);
   });
 
   it('is not pulled in by the core entry, so vanilla users never load react', () => {
