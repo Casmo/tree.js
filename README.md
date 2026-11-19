@@ -532,6 +532,19 @@ renderer.setAnimationLoop(() => effects.render()); // instead of renderer.render
 effects.set({ outline: { color: '#203018', thickness: 2 }, grade: { saturation: 1.1 } }); // or null = none
 ```
 
+Each Style has a suggested combination (`SUGGESTED_TREE_EFFECTS`): `low-poly` has a colour grade, ink
+[Inner Lines](#inner-lines) and a dark outline that is also drawn [between overlapping trees](#outline-between-overlapping-trees);
+`stylized` has a warm grade, a leaf glow, soft Inner Lines and a soft outline; `realistic` only a gentle
+grade and a faint leaf glow (no ink).
+
+> **Changed in this release:** the `low-poly` and `stylized` suggestions now include Inner Lines, and
+> `low-poly` also `outline.betweenTrees`. Apps that use either suggestion get a changed look (ink lines
+> inside the crown, and for low-poly between overlapping trees) and extra channels in the scene pass:
+> the `normal` channel for both, and for low-poly also the [Tree ID](#tree-id) channel (a scene pass with
+> the Tree ID renders without MSAA). In your own pipeline, request those channels from `treeEffectsPass`
+> (see below). Use your own settings, e.g. `{ ...SUGGESTED_TREE_EFFECTS.stylized, innerLines: undefined }`,
+> to keep the old look.
+
 Pass `selection: [tree]` to outline only some trees. In your own pipeline, the effects are nodes that
 compose with your other effects:
 
@@ -541,7 +554,8 @@ import { float, screenUV, vec4 } from 'three/tsl';
 import { applyTreeEffects, SUGGESTED_TREE_EFFECTS, treeEffectsPass } from '@casmo/tree.js/effects';
 
 const pipeline = new THREE.RenderPipeline(renderer);
-const input = treeEffectsPass(scene, camera); // { pass, color, mask }
+// The low-poly suggestion's Inner Lines need the normal channel, its betweenTrees outline the Tree ID.
+const input = treeEffectsPass(scene, camera, null, { normal: true, treeId: true }); // { pass, color, mask, ... }
 const trees = applyTreeEffects(input, SUGGESTED_TREE_EFFECTS['low-poly']); // or treeOutline / leafGlow / treeColorGrade
 const vignette = float(1).sub(screenUV.sub(0.5).length().mul(0.9).pow(2)); // your own effect on top
 pipeline.outputNode = vec4(trees.rgb.mul(vignette), 1);
@@ -550,6 +564,177 @@ renderer.setAnimationLoop(() => pipeline.render());
 
 To add the tree mask to a scene pass you already have, merge `treeMaskMRT()` into its MRT and read the
 mask with `scenePass.getTextureNode(TREE_MASK)`.
+
+### Tree ID
+
+To tell trees apart on screen (GPU picking, your own per-tree effects), add the opt-in **Tree ID**
+channel: an extra MRT target in which every tree writes its own number. Each Tree has one ID for all
+its parts (wood, leaves, Fruit), and each tree of a Forest has its own. Nothing else changes: the tree
+mask, its format and the `treeEffectsPass` default stay as they are.
+
+```ts
+import { mrt, output, pass } from 'three/tsl';
+import { readTreeId, TREE_ID, treeFromId, treeIdMRT, treeIdTexture, treeMaskMRT } from '@casmo/tree.js/effects';
+
+const scenePass = pass(scene, camera);
+scenePass.setMRT(mrt({ output }).merge(treeMaskMRT()).merge(treeIdMRT()));
+treeIdTexture(scenePass); // makes the target one 32-bit unsigned integer per pixel
+const ids = scenePass.getTextureNode(TREE_ID); // read it with exact texel loads (ids.load(...)), never filtered
+
+renderer.domElement.addEventListener('click', async (event) => {
+  const id = await readTreeId(renderer, scenePass, event.offsetX, event.offsetY); // CSS pixels
+  const tree = treeFromId(id); // the Tree or ForestTree, or undefined (0 = no tree)
+});
+```
+
+- **Encoding:** `r32uint`, 0 = not a tree. A Forest Variant reserves a block of IDs the size of its
+  capacity, and its trees write block start + instance index.
+- **No MSAA:** an integer target cannot be multisampled, so turning on the Tree ID turns MSAA off on
+  that scene pass: `treeIdTexture` sets `samples: 0`, also with an `antialias: true` renderer. This
+  applies wherever the ID channel is on: `treeIdTexture`, `treeEffectsPass(..., { treeId: true })`,
+  and in `TreeEffects` the `treeId: true` option, `outline.betweenTrees`, `highlight` and the
+  `low-poly` suggestion (which uses `betweenTrees`). Add FXAA or SMAA after the pass if you need
+  smooth edges there.
+- **Limits:** IDs are handed out by one registry for the whole page on first use: the first time a
+  tree is drawn with the channel or asked for with `treeIdOf(tree)`, whichever comes first. They are
+  never reused: about 4.29 billion per session. The registry keeps no tree alive. The ID ignores the
+  outline's `selection`.
+- **Frame-relative:** a Forest tree's ID follows its instance slot. Removing a tree (the last tree
+  moves into its slot) or a Variant growing past its capacity can change the IDs of other trees. So
+  resolve an ID with `treeFromId` in the frame it was read, and ask `treeIdOf(tree)` for a tree's
+  current ID; a removed tree resolves to `undefined`.
+- `readTreeId` reads the pixel under a point of the canvas from the last render of the pass (it
+  handles the target's index, the y flip and the device pixel ratio). It works on WebGPU and on the
+  WebGL2 fallback.
+- **WebGL2 fallback:** three clears every target there as floats, which is invalid for an integer
+  target, so `treeIdTexture` makes the pass clear the ID target itself right before every render (a
+  frame with nothing drawn reads 0). three's own clear still logs a GL warning
+  (a `GL_INVALID_OPERATION` from `clearBufferfv`) in the console each frame; it is harmless.
+
+#### Picking with `TreeEffects` and the opt-in channels
+
+The ready-made pipeline only renders the channels its settings need. Without them (`effects: null`,
+or grade, glow and outline without `betweenTrees`) the scene pass is exactly `{ output, treeMask }` with the 8-bit mask, as
+always. Pass `treeId: true` to keep the Tree ID channel on without any effect needing it, then pick
+with one call:
+
+```ts
+import { createTreeEffects } from '@casmo/tree.js/effects';
+
+const effects = createTreeEffects(renderer, scene, camera, { effects: 'stylized', treeId: true });
+renderer.domElement.addEventListener('pointermove', async (event) => {
+  const tree = await effects.pick(event.offsetX, event.offsetY); // Tree, ForestTree or undefined
+});
+```
+
+`pick` reads the ID from the last render and resolves it right away (IDs are frame-relative). Without
+the Tree ID channel it throws an error that names the `treeId` option. The scene pass's MRT (and with
+it the compiled materials of your scene) only changes when `set()` needs a different set of channels;
+switching between settings that need the same channels keeps it. When the channels do change,
+`effects.scenePass` is a new pass (three cannot remove a target from a pass, nor turn MSAA back on
+for it), so read `effects.scenePass` again after such a `set()` instead of keeping the old one. In your own pipeline,
+`treeEffectsPass(scene, camera, selection, { treeId: true })` adds the channel and fills in the
+effects' `treeId` input.
+
+#### Outline between overlapping trees
+
+By default the outline goes around all trees together, so trees that overlap on screen merge into one
+shape. With `betweenTrees` the outline is also drawn where a tree lies in front of another one, for a
+Tree and a Tree, two Forest trees, or a Tree and a Forest tree:
+
+```ts
+import { createTreeEffects } from '@casmo/tree.js/effects';
+
+const effects = createTreeEffects(renderer, scene, camera, {
+  effects: { outline: { color: '#18230f', thickness: 2, betweenTrees: true } },
+});
+```
+
+The line is drawn on a selected tree pixel when the pixel `thickness` px away is another tree (a
+different Tree ID) that is further away, so it lies on the front tree's side, with the outline's own
+colour, thickness and strength (with a standard, reversed or logarithmic depth buffer). It is off by
+default (the outline stays as it was). It needs the Tree
+ID: `TreeEffects` turns the channel on for it, and switching `betweenTrees` on or off builds a new
+graph. In your own pipeline, use `treeEffectsPass(scene, camera, selection, { treeId: true })`, which
+also fills in the `depth` input; `treeOutline` throws when the `treeId` or `depth` input is missing.
+
+### Inner Lines
+
+**Inner Lines** are ink lines inside the trees where the surface folds or steps away from the viewer,
+such as around each leaf clump, on top of the outline around the tree. They come from depth edges
+(a relative step `|Δz| / z`, so they look the same near and far) and normal edges (`1 − dot`), are
+only drawn on tree pixels of every tree (whatever the `selection`) and only from neighbours that are
+tree pixels too: the silhouette is left to the outline. They work with a standard, reversed
+(`reversedDepthBuffer`) or logarithmic (`logarithmicDepthBuffer`) depth buffer.
+
+```ts
+import { createTreeEffects } from '@casmo/tree.js/effects';
+
+const effects = createTreeEffects(renderer, scene, camera, {
+  effects: { outline: {}, innerLines: { color: '#1d2a14', thickness: 1, strength: 1, normalThreshold: 0.4, depthThreshold: 0.02 } },
+});
+```
+
+Inner Lines need view normals, so with `innerLines` the ready-made pipeline adds a `normal` channel
+(RGBA8) to its scene pass; without it the pass stays `{ output, treeMask }`. Order of the effects:
+grade, glow, inner lines, outline. In your own pipeline, `treeEffectsPass(scene, camera, selection, { normal: true })`
+fills in the `normal`, `depth` and `camera` inputs, or merge `treeNormalMRT()` into your scene pass.
+`innerLines()` throws an error naming the missing input when `normal`, `depth` or `camera` is missing.
+
+If your pipeline already renders normals (for GTAO, SSR and the like), pass that texture instead of
+rendering them twice, with its encoding: `'color'` (default, `directionToColor(normalView)` in an
+RGBA8 target) or `'direction'` (the normal itself, e.g. in a float target):
+
+```ts
+import * as THREE from 'three/webgpu';
+import { mrt, normalView, output, pass } from 'three/tsl';
+import { innerLines, TREE_MASK, treeMaskMRT, treeOutline } from '@casmo/tree.js/effects';
+
+const scenePass = pass(scene, camera);
+scenePass.setMRT(mrt({ output, normal: normalView }).merge(treeMaskMRT())); // your MRT, plus the tree mask
+scenePass.getTexture(TREE_MASK).type = THREE.UnsignedByteType;
+const normal = scenePass.getTextureNode('normal'); // also feeds your GTAO / SSR
+const input = {
+  color: scenePass.getTextureNode('output'),
+  mask: scenePass.getTextureNode(TREE_MASK),
+  depth: scenePass.getTextureNode('depth'),
+  camera,
+  normal,
+  normalEncoding: 'direction' as const,
+};
+const lined = innerLines(input, { strength: 0.8 });
+const pipeline = new THREE.RenderPipeline(renderer);
+pipeline.outputNode = treeOutline({ ...input, color: lined });
+```
+
+### Highlight
+
+**Highlight** marks the trees you point out, such as the one under the cursor: it brightens and tints
+them and draws a ring just outside them, optionally pulsing. It is the one Tree Effect that also
+changes pixels next to a tree (its ring). It is never on by default and in no suggestion. It needs
+the Tree ID, so `highlight` turns that channel on (and with it `pick`):
+
+```ts
+import { createTreeEffects } from '@casmo/tree.js/effects';
+
+const effects = createTreeEffects(renderer, scene, camera, {
+  effects: { outline: {}, highlight: { color: '#ffe066', tint: 0.25, brightness: 1.25, outlineColor: '#ffd23f', thickness: 2, pulse: 0 } },
+});
+renderer.domElement.addEventListener('pointermove', async (event) => {
+  const tree = await effects.pick(event.offsetX, event.offsetY);
+  effects.highlighted.splice(0, effects.highlighted.length, ...(tree ? [tree] : [])); // read every frame, no recompile
+});
+```
+
+- `highlighted` (an option, or the `effects.highlighted` list) holds Trees and Forest trees, not a
+  Forest or a group. Change it in place; it is read every frame. At most 64 trees are highlighted at
+  once (one console warning beyond that). Removed, disposed and undrawn trees are skipped.
+- Options: `color` and `tint` (0..1) of the tint, `brightness` (a multiplier), `outlineColor` and
+  `thickness` (px) of the ring, `strength` (0..1) and `pulse` (Hz, 0 = off): tint and brightness swing
+  between their value and half of it, the ring stays solid.
+- It is applied last (grade, glow, inner lines, outline, then highlight), so it is always on top. In your own
+  pipeline: `treeHighlight(input, highlighted, options)`, with the `treeId` input of
+  `treeEffectsPass(scene, camera, null, { treeId: true })`, or `applyTreeEffects(input, settings, highlighted)`.
 
 ## React Three Fiber
 

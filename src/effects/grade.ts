@@ -1,5 +1,6 @@
 import { Color, type ColorRepresentation, type Node } from 'three/webgpu';
-import { color as tslColor, float, luminance, mix, select, vec3, vec4 } from 'three/tsl';
+import { luminance, mix, select, uniform, vec3, vec4 } from 'three/tsl';
+import type { LiveTreeEffect } from './live';
 import type { TreeEffectInput } from './mask';
 
 /** Tree colour grading settings (all optional; the defaults change nothing). */
@@ -21,9 +22,26 @@ const MID_GREY = 0.18; // linear
  * Returns the graded colour where the tree mask is set and `input.color` unchanged elsewhere.
  */
 export function treeColorGrade(input: TreeEffectInput, options: TreeColorGradeOptions = {}): Node<'vec4'> {
-  const { exposure = 1, saturation = 1, contrast = 1, tint = '#ffffff' } = options;
-  const tinted = input.color.rgb.mul(tslColor(new Color(tint))).mul(exposure);
+  return liveTreeColorGrade(input, options).node;
+}
+
+/** {@link treeColorGrade} with its settings as uniforms. */
+export function liveTreeColorGrade(input: TreeEffectInput, options: TreeColorGradeOptions = {}): LiveTreeEffect<TreeColorGradeOptions> {
+  const tint = uniform(new Color());
+  const exposure = uniform(0);
+  const saturation = uniform(0);
+  const contrast = uniform(0);
+  const update = (o: TreeColorGradeOptions): void => {
+    tint.value.set(o.tint ?? '#ffffff');
+    exposure.value = o.exposure ?? 1;
+    saturation.value = o.saturation ?? 1;
+    contrast.value = o.contrast ?? 1;
+  };
+  update(options);
+
+  const tinted = input.color.rgb.mul(tint).mul(exposure);
   const saturated = mix(vec3(luminance(tinted)), tinted, saturation).max(0);
-  const contrasted = saturated.div(MID_GREY).pow(vec3(float(contrast))).mul(MID_GREY);
-  return select(input.mask.r.greaterThan(0.5), vec4(contrasted, input.color.a), input.color);
+  const contrasted = saturated.div(MID_GREY).pow(vec3(contrast)).mul(MID_GREY);
+  const node = select(input.mask.r.greaterThan(0.5), vec4(contrasted, input.color.a), input.color);
+  return { node, update };
 }

@@ -1,16 +1,5 @@
-import {
-  UnsignedByteType,
-  Vector4,
-  type Camera,
-  type Material,
-  type MRTNode,
-  type Node,
-  type Object3D,
-  type PassNode,
-  type Scene,
-  type TextureNode,
-} from 'three/webgpu';
-import { mrt, output, pass, uniform } from 'three/tsl';
+import { Vector4, type Camera, type Material, type MRTNode, type Node, type Object3D, type TextureNode } from 'three/webgpu';
+import { mrt, uniform } from 'three/tsl';
 
 /** Name of the tree mask output in a pass's MRT (`scenePass.getTextureNode(TREE_MASK)`). */
 export const TREE_MASK = 'treeMask';
@@ -67,21 +56,26 @@ export interface TreeEffectInput {
   color: Node<'vec4'>;
   /** Tree mask texture (see {@link createTreeMask}), e.g. `scenePass.getTextureNode(TREE_MASK)`. */
   mask: TextureNode;
-}
-
-/** A scene pass that renders the colour and the tree mask, ready for the Tree Effects. */
-export interface TreeEffectsPass extends TreeEffectInput {
-  pass: PassNode;
-}
-
-/**
- * Creates `pass(scene, camera)` with MRT `{ output, treeMask }` and returns it with its colour and
- * mask texture nodes. `selection`: the trees to outline (default `null` = all trees), see
- * {@link createTreeMask}. If your pipeline already has a scene pass, merge {@link treeMaskMRT} into it instead.
- */
-export function treeEffectsPass(scene: Scene, camera: Camera, selection: readonly Object3D[] | null = null): TreeEffectsPass {
-  const scenePass = pass(scene, camera);
-  scenePass.setMRT(mrt({ output }).merge(treeMaskMRT(selection)));
-  scenePass.getTexture(TREE_MASK).type = UnsignedByteType;
-  return { pass: scenePass, color: scenePass.getTextureNode('output'), mask: scenePass.getTextureNode(TREE_MASK) };
+  /**
+   * Tree ID texture (`r32uint`, see `treeIdMRT`), e.g. `scenePass.getTextureNode(TREE_ID)`; only
+   * needed by effects that tell trees apart. Read it with exact texel loads, never filtered.
+   */
+  treeId?: TextureNode;
+  /**
+   * Scene depth texture, e.g. `scenePass.getTextureNode('depth')`; only needed by effects that
+   * compare distances (the outline's `betweenTrees`, and Inner Lines with `camera`).
+   */
+  depth?: TextureNode;
+  /** The camera the scene pass renders with (its near and far turn `depth` into view Z). */
+  camera?: Camera;
+  /**
+   * View-space normal texture, e.g. `scenePass.getTextureNode('normal')` (see `treeNormalMRT`, or
+   * your own normal MRT); only needed by Inner Lines. Encoded as `normalEncoding` says.
+   */
+  normal?: TextureNode;
+  /**
+   * How `normal` stores the view normal: `'color'` (default) = `directionToColor(normalView)`, as in
+   * an RGBA8 target; `'direction'` = the normal itself, as in a float target.
+   */
+  normalEncoding?: 'color' | 'direction';
 }

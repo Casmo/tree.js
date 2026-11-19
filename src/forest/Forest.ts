@@ -79,6 +79,8 @@ export class ForestTree implements ForestTreeTraits {
   readonly windPhase: number;
   /** @internal Slot in the Variant's instance buffers. */
   slot = -1;
+  /** @internal The Variant drawing this tree, null once it is removed. */
+  owner: ForestVariant | null = null;
   private growthValue: number;
   private seasonValue: number;
 
@@ -254,6 +256,7 @@ export class ForestVariant {
   add(tree: ForestTree): void {
     if (this.trees.length === this.capacity) this.allocate(this.capacity * 2);
     tree.slot = this.trees.length;
+    tree.owner = this;
     this.trees.push(tree);
     this.write(tree);
     this.setCount();
@@ -268,6 +271,7 @@ export class ForestVariant {
       this.write(last);
     }
     tree.slot = -1;
+    tree.owner = null;
     this.setCount();
   }
 

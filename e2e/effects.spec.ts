@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-type EffectsExample = { status: string; backend?: string; error?: string };
+type EffectsExample = { status: string; backend?: string; error?: string; rebuilt?: boolean };
 
 /** Loads the effects example and returns a screenshot of the canvas (status text hidden). */
 async function shot(page: Page, query: string): Promise<Buffer> {
@@ -74,6 +74,16 @@ for (const backend of backends) {
   }
 }
 
+for (const style of styles) {
+  test(`set() with other colours and numbers for the same effects updates the look without a new graph (${style})`, async ({ page }) => {
+    await shot(page, `style=${style}&from=tweaked`);
+    const example = await page.evaluate(() => (window as unknown as { effectsExample: EffectsExample }).effectsExample);
+    expect(example.rebuilt, 'the same output node').toBe(false);
+    // Pixel-identical to the pipeline built with these settings from the start.
+    await expect(page.locator('canvas')).toHaveScreenshot(`${style}-style-webgpu.png`);
+  });
+}
+
 test('Tree Effects compose with a hand-built pipeline and the user\'s own effects', async ({ page }) => {
   const mask = await shot(page, 'style=stylized&view=mask');
   const none = await shot(page, 'style=stylized&pipeline=custom&effects=none');
@@ -133,4 +143,120 @@ async function onlyIn(page: Page, a: Buffer, b: Buffer): Promise<Buffer> {
     [a.toString('base64'), b.toString('base64')] as const,
   );
   return Buffer.from(base64, 'base64');
+}
+
+for (const backend of backends) {
+  test(`the Tree ID channel gives every Tree and Forest tree its own ID, read back under a point (${backend.name})`, async ({ page }) => {
+    await shot(page, `style=low-poly&view=treeId${backend.query}`);
+    const reads = await page.evaluate(() => window.effectsExample.readTreeIds!());
+    expect(reads.map((r) => r.name)).toEqual(['tree', 'second', 'f0', 'f1']);
+    for (const read of reads) {
+      expect(read.id, `${read.name}: its own ID under its trunk`).toBe(read.expected);
+      expect(read.resolved, `${read.name}: the ID resolves to it`).toBe(read.name);
+    }
+    expect(new Set(reads.map((r) => r.id)).size).toBe(reads.length);
+    if (backend.name === 'webgl2') await expect(page.locator('canvas')).toHaveScreenshot('low-poly-tree-id-webgl2.png');
+    // A tree that is no longer drawn leaves no ID behind (the integer target is cleared every frame).
+    await page.evaluate(() => window.effectsExample.hideTree!());
+    const after = await page.evaluate(() => window.effectsExample.readTreeIds!());
+    expect(after[0]!.id, "nothing is drawn under the hidden tree's trunk").toBe(0);
+    expect(after.slice(1)).toEqual(reads.slice(1));
+    // A frame in which nothing is drawn at all leaves no IDs behind either.
+    await page.evaluate(() => window.effectsExample.hideAll!());
+    const empty = await page.evaluate(() => window.effectsExample.readTreeIds!());
+    expect(empty.map((r) => r.id), 'no tree is drawn').toEqual([0, 0, 0, 0]);
+  });
+}
+
+for (const backend of backends) {
+  test(`effects.pick() resolves the Tree or Forest tree under a point (${backend.name})`, async ({ page }) => {
+    for (const name of ['f0', 'f1', 'second']) {
+      await shot(page, `style=low-poly&pick=${name}${backend.query}`);
+      const picked = await page.evaluate(() => window.effectsExample.picked);
+      expect(picked?.name, `the tree under ${name}'s trunk`).toBe(name);
+    }
+  });
+}
+
+test('outline.betweenTrees draws the outline between overlapping Trees and Forest trees', async ({ page }) => {
+  const mask = await shot(page, 'style=low-poly&overlap=plain&view=mask');
+  const plain = await shot(page, 'style=low-poly&overlap=plain&effects=outline');
+  const between = await shot(page, 'style=low-poly&overlap=between&effects=outline');
+  const result = await compare(page, plain, between, mask);
+  expect(result, 'only tree pixels change').toMatchObject({ otherChanged: 0 });
+  expect(result.treeChanged, 'lines where the trees overlap').toBeGreaterThan(300);
+  await expect(page.locator('canvas')).toHaveScreenshot('low-poly-between-trees-webgpu.png');
+});
+
+for (const depth of ['reversed', 'log']) {
+  test(`betweenTrees and Inner Lines look the same with a ${depth} depth buffer`, async ({ page }) => {
+    for (const query of ['style=low-poly&overlap=between&effects=outline', 'style=low-poly&effects=inner-lines']) {
+      const mask = await shot(page, `${query}&view=mask`);
+      const standard = await shot(page, query);
+      const image = await shot(page, `${query}&depth=${depth}`);
+      const result = await compare(page, standard, image, mask);
+      expect(result.treePixels, 'the trees are in view').toBeGreaterThan(2000);
+      expect(result.treeChanged, `${query}: the same lines`).toBeLessThan(20);
+    }
+  });
+}
+
+for (const style of styles) {
+  test(`Inner Lines draw inside the tree from depth and normal edges, only on tree pixels (${style})`, async ({ page }) => {
+    const mask = await shot(page, `style=${style}&view=mask`);
+    const none = await shot(page, `style=${style}&effects=none`);
+    const image = await shot(page, `style=${style}&effects=inner-lines`);
+    const result = await compare(page, none, image, mask);
+    expect(result, 'non-tree pixels unchanged').toMatchObject({ otherChanged: 0 });
+    expect(result.treeChanged, 'lines inside the tree').toBeGreaterThan(300);
+    await expect(page.locator('canvas')).toHaveScreenshot(`${style}-inner-lines-webgpu.png`);
+  });
+}
+
+/** The pixels that differ between two screenshots (decoded in the page): how many, and their bounding box. */
+async function changedPixels(page: Page, a: Buffer, b: Buffer) {
+  return page.evaluate(
+    async ([pa, pb]) => {
+      const decode = async (base64: string) => {
+        const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${base64}`)).blob());
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+        const context = canvas.getContext('2d')!;
+        context.drawImage(bitmap, 0, 0);
+        return context.getImageData(0, 0, bitmap.width, bitmap.height);
+      };
+      const [ia, ib] = await Promise.all([decode(pa), decode(pb)]);
+      const box = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
+      let count = 0;
+      for (let i = 0; i < ia.data.length; i += 4) {
+        const diff = Math.max(Math.abs(ia.data[i]! - ib.data[i]!), Math.abs(ia.data[i + 1]! - ib.data[i + 1]!), Math.abs(ia.data[i + 2]! - ib.data[i + 2]!));
+        if (diff === 0) continue;
+        const x = (i / 4) % ia.width;
+        const y = Math.floor(i / 4 / ia.width);
+        count++;
+        box.left = Math.min(box.left, x);
+        box.right = Math.max(box.right, x);
+        box.top = Math.min(box.top, y);
+        box.bottom = Math.max(box.bottom, y);
+      }
+      return { count, box, width: ia.width };
+    },
+    [a.toString('base64'), b.toString('base64')] as const,
+  );
+}
+
+for (const backend of backends) {
+  test(`a Forest tree picked through effects.pick() is highlighted, the rest only gets its ring (${backend.name})`, async ({ page }) => {
+    const plain = await shot(page, `style=low-poly&pick=f0${backend.query}`);
+    const image = await shot(page, `style=low-poly&highlight=f0${backend.query}`);
+    const picked = await page.evaluate(() => window.effectsExample.picked);
+    expect(picked?.name, 'pick() returns the Forest tree under its trunk').toBe('f0');
+    await expect(page.locator('canvas')).toHaveScreenshot(`low-poly-highlight-f0-${backend.name}.png`);
+    // Only the highlighted tree and its ring change: around the picked point, not the other trees.
+    const changed = await changedPixels(page, plain, image);
+    expect(changed.count, 'the highlighted tree changes').toBeGreaterThan(300);
+    expect(changed.box.left).toBeLessThanOrEqual(picked!.x);
+    expect(changed.box.right).toBeGreaterThanOrEqual(picked!.x);
+    expect(changed.box.bottom).toBeGreaterThanOrEqual(picked!.y);
+    expect(changed.box.right - changed.box.left, 'one tree changes').toBeLessThan(changed.width / 2);
+  });
 }

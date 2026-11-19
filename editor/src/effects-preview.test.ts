@@ -39,7 +39,7 @@ function setup(source = 'stylized/broadleaf') {
 describe('Tree Effects preview', () => {
   it('starts with every effect off and draws without post-processing', () => {
     const { effects, draw, pipelines } = setup();
-    expect(effects.toggles).toEqual({ grade: false, glow: false, outline: false });
+    expect(effects.toggles).toEqual({ grade: false, glow: false, innerLines: false, outline: false });
     expect(draw()).toBe('plain');
     expect(pipelines).toHaveLength(0);
   });
@@ -61,8 +61,8 @@ describe('Tree Effects preview', () => {
     const { effects, draw, pipelines } = setup('low-poly/conifer');
     expect(effects.style).toBe('low-poly');
     effects.applySuggested();
-    expect(effects.toggles).toEqual({ grade: true, glow: false, outline: true });
-    expect(draw()).toBe('effects:grade+outline');
+    expect(effects.toggles).toEqual({ grade: true, glow: false, innerLines: true, outline: true });
+    expect(draw()).toBe('effects:grade+innerLines+outline');
     expect(pipelines.at(-1)!.settings).toEqual(SUGGESTED_TREE_EFFECTS['low-poly']);
   });
 
