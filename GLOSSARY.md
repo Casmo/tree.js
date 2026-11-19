@@ -76,6 +76,10 @@ _Avoid_: Season preset, season style
 The sway of branches and leaves, set by a scene-wide direction and strength and a per-tree response.
 _Avoid_: Sway, animation
 
+**Wind Burst**:
+A short, local push of air from a point on the ground, such as where a building is placed, that bends nearby trees away from it and fades out within a second or two, on top of the scene-wide Wind.
+_Avoid_: Blast, gust, impulse
+
 **Tree Effect**:
 An opt-in post-processing effect that only alters the pixels of trees, such as an outline or leaf glow; the one exception is the thin ring a Highlight draws just around its trees.
 _Avoid_: Post preset, filter
@@ -103,6 +107,18 @@ _Avoid_: Object id, instance id, pick id
 **Material Feature**:
 An opt-in change to how a tree's own materials are lit or shaded, such as Crown Normals, Leaf Translucency or Structural Occlusion; unlike a Tree Effect it needs no extra pass and works with the app's own lights.
 _Avoid_: Shader effect, material effect, post effect
+
+**Tree Shader Hook**:
+A piece of shading the app hands to the library for one tree part (bark, leaves or fruit) that changes the surface colour of every tree it is set on, near or far, without the app touching the tree's materials.
+_Avoid_: Material patch, onBeforeCompile, custom material
+
+**Snow Cover**:
+A ready-made, opt-in Tree Shader Hook that whitens the upward-facing surfaces of trees by a scene-wide snow amount, drawn to suit the tree's Style.
+_Avoid_: Weather, frost, winter
+
+**Wetness**:
+A ready-made, opt-in Tree Shader Hook that darkens trees and gives them a sheen by a scene-wide wetness amount, as after rain, drawn to suit the tree's Style.
+_Avoid_: Rain, weather, wet look
 
 **Crown Volume**:
 The single smooth ellipsoid that encloses a tree's leaves when fully grown, used to light and shade the crown as one shape.
