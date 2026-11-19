@@ -15,6 +15,9 @@
 //                    (scenePass.velocity); `scenePipelineExample.regions` has the front tree's crown and
 //                    a strip of ground to check it in
 //   ?velocity=1  with ?scene=none|style: the Scene Pipeline's velocity option (the frame must not change)
+//   ?scene=godrays  god rays alone (sceneGodrays on the shadow-casting sun), with the realistic
+//                   suggestion's settings (with ?sun=back for visible shafts)
+//   ?sun=back  a low sun behind the Forest, shining towards the camera
 //   ?scene=gtao  ambient occlusion alone (sceneAO: pre-pass + GTAO + the scene pass's lighting context)
 //   ?scene=bloom  bloom alone (sceneBloom), likewise: the Style's suggested bloom or sceneBloom's
 //                 defaults (low-poly suggests none), with the renderer's normal output transform
@@ -22,6 +25,10 @@
 //                     (renderOutput), in a hand-made RenderPipeline
 //   ?antialias=fxaa,smaa  with ?scene=style: after the first frames, set() the suggestion with each
 //                         anti-aliasing mode in turn (smaa|fxaa|none), rendering in between
+//   ?scene=fog  fog alone: sceneFog with the Style's suggested settings as the app's scene.fogNode
+//   ?appFog=1  the app sets its own scene.fogNode first; ?dispose=1  dispose() the pipeline after
+//              rendering: `scenePipelineExample.fog` says whether scene.fogNode was the app's while
+//              the pipeline rendered and after dispose() (the pipeline restores the app's value)
 //   ?treeEffects=style  with ?scene=none: the Style's suggested Tree Effects only (no Scene Effects)
 //   ?via=tree-effects  render ?scene=none&treeEffects=... through createTreeEffects instead (the
 //                      Scene Pipeline must give the same image, the same pick and the same highlight)
@@ -32,7 +39,7 @@
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?wind=<strength>&windTime=<s>  scene-wide Wind; windTime pins its clock (default: no Wind)
 import * as THREE from 'three/webgpu';
-import { abs, mrt, output, pass, renderOutput, vec4 } from 'three/tsl';
+import { abs, color, fog, mrt, output, pass, rangeFogFactor, renderOutput, vec4 } from 'three/tsl';
 import {
   createForest,
   createTree,
@@ -50,6 +57,8 @@ import {
   sceneAO,
   sceneAntialias,
   sceneBloom,
+  sceneFog,
+  sceneGodrays,
   sceneToneMapping,
   SUGGESTED_SCENE_EFFECTS,
   WIND_VELOCITY,
@@ -80,6 +89,8 @@ declare global {
       regions?: Record<'crown' | 'ground', { x0: number; y0: number; x1: number; y1: number }>;
       /** `?antialias=<modes>`: the anti-aliasing modes set() switched through at runtime. */
       antialias?: string[];
+      /** Whether `scene.fogNode` was the app's own value while the pipeline rendered, and after `?dispose=1`. */
+      fog?: { during: boolean; after?: boolean };
     };
   }
 }
@@ -123,6 +134,8 @@ async function main(): Promise<void> {
   // The app's own shadow-casting sun: the pipeline never changes lights or shadows.
   const sun = new THREE.DirectionalLight('#fff4e0', 3.5);
   sun.position.copy(centre).add(new THREE.Vector3(6, 10, 2).multiplyScalar(width / 3));
+  // ?sun=back: a low sun behind the Forest, shining towards the camera (light shafts for god rays).
+  if (params.get('sun') === 'back') sun.position.copy(centre).addScaledVector(back, width * 4).addScaledVector(side, width).setY(width * 2.2);
   sun.target.position.copy(centre);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
@@ -136,6 +149,9 @@ async function main(): Promise<void> {
   rock.castShadow = rock.receiveShadow = true;
   for (const object of [tree, forest]) object.traverse((o) => (o.castShadow = o.receiveShadow = true));
   scene.add(ground, rock, tree, forest);
+  // ?appFog=1: the app's own fog node (a thin warm haze), which the pipeline must give back.
+  if (params.get('appFog') === '1') scene.fogNode = fog(color('#e0c8a0'), rangeFogFactor(40, 200).mul(0.3));
+  const appFogNode = scene.fogNode;
 
   const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 300);
   const distance = (size.y / 2 / Math.tan((camera.fov * Math.PI) / 360)) * 1.5;
@@ -188,6 +204,7 @@ async function main(): Promise<void> {
   let pick: ((x: number, y: number) => Promise<Tree | ForestTree | undefined>) | undefined;
   let highlighted: (Tree | ForestTree)[] | undefined;
   let switchAntialias: ((mode: SceneAntialiasMode | null) => void) | undefined;
+  let dispose: (() => void) | undefined;
   if (sceneParam === 'plain') {
     render = () => renderer.render(scene, camera);
   } else if (sceneParam === 'tone-mapping') {
@@ -210,6 +227,12 @@ async function main(): Promise<void> {
     pipeline.outputNode = vec4(abs(velocity.xy).mul(200), 0, 1);
     pipeline.outputColorTransform = false;
     render = () => pipeline.render();
+  } else if (sceneParam === 'godrays') {
+    // God rays alone: the app's own shadow-casting sun, the scene pass's colour and depth.
+    const pipeline = new THREE.RenderPipeline(renderer);
+    const scenePass = pass(scene, camera);
+    pipeline.outputNode = sceneGodrays(scenePass.getTextureNode(), scenePass.getTextureNode('depth'), camera, sun, SUGGESTED_SCENE_EFFECTS.realistic.godrays);
+    render = () => pipeline.render();
   } else if (sceneParam === 'gtao') {
     // AO alone: the pre-pass and GTAO feed the scene pass's lighting (only ambient light darkens).
     const pipeline = new THREE.RenderPipeline(renderer);
@@ -227,6 +250,10 @@ async function main(): Promise<void> {
     const pipeline = new THREE.RenderPipeline(renderer);
     pipeline.outputNode = sceneBloom(pass(scene, camera).getTextureNode(), SUGGESTED_SCENE_EFFECTS[styleName].bloom);
     render = () => pipeline.render();
+  } else if (sceneParam === 'fog') {
+    // Fog alone: the stand-alone builder as the app's own scene.fogNode, rendered as usual.
+    scene.fogNode = sceneFog(SUGGESTED_SCENE_EFFECTS[styleName].fog, scene.background);
+    render = () => renderer.render(scene, camera);
   } else if (sceneParam === 'none' || sceneParam === 'style') {
     // The Style's suggested Tree Effects (with the Highlight for ?highlight=1), or none.
     const suggested = params.get('treeEffects') === 'style' || (sceneParam === 'style' && highlight);
@@ -246,6 +273,7 @@ async function main(): Promise<void> {
       pick = (x, y) => pipeline.pick(x, y);
       highlighted = pipeline.highlighted;
       switchAntialias = (antialias) => pipeline.set({ style: styleName, sceneEffects: { ...SUGGESTED_SCENE_EFFECTS[styleName], antialias } });
+      dispose = () => pipeline.dispose();
     }
   } else {
     throw new Error(`Unknown scene "${sceneParam}"`);
@@ -287,7 +315,12 @@ async function main(): Promise<void> {
       }
     }
   }
-  window.scenePipelineExample = { status: 'rendered', backend, picked, antialias, renderer: { before, after: rendererState() } };
+  const fogState: NonNullable<typeof window.scenePipelineExample.fog> = { during: scene.fogNode === appFogNode };
+  if (params.get('dispose') === '1' && dispose) {
+    dispose();
+    fogState.after = scene.fogNode === appFogNode;
+  }
+  window.scenePipelineExample = { status: 'rendered', backend, picked, antialias, fog: fogState, renderer: { before, after: rendererState() } };
   if (sceneParam === 'velocity') window.scenePipelineExample.regions = regions();
   if (sceneWind.strength > 0 && windTime === null) renderer.setAnimationLoop(render);
 }

@@ -1,4 +1,4 @@
-import type { Camera, Node, TextureNode } from 'three/webgpu';
+import type { Camera, Light, Node, TextureNode } from 'three/webgpu';
 import type { SceneEffectsSettings } from './settings';
 
 /**
@@ -10,6 +10,8 @@ export interface SceneEffectInput {
   color: Node<'vec4'>;
   depth?: TextureNode;
   camera?: Camera;
+  /** The shadow-casting sun for god rays (never changed). */
+  sun?: Light;
   /** Wind-aware velocity (NDC units per frame, see `windVelocityMRT`), for TRAA and motion blur. */
   velocity?: TextureNode;
 }

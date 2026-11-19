@@ -9,6 +9,7 @@ type SceneExample = {
   picked?: { name: string | null; x: number; y: number };
   regions?: Record<'crown' | 'ground', Rect>;
   antialias?: string[];
+  fog?: { during: boolean; after?: boolean };
 };
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 
@@ -78,6 +79,14 @@ test('tone mapping alone, through sceneToneMapping in a hand-made pipeline (real
   await expect(page.locator('canvas')).toHaveScreenshot('realistic-tone-mapping-webgpu.png');
 });
 
+test('god rays alone, through sceneGodrays on the shadow-casting sun (realistic, WebGPU)', async ({ page }) => {
+  const plain = await load(page, 'style=realistic&sun=back&scene=plain');
+  const rays = await load(page, 'style=realistic&sun=back&scene=godrays');
+  expect(rays.example.renderer!.after, 'shadows and lights are the app\'s').toEqual(rays.example.renderer!.before);
+  expect((await difference(page, plain.image, rays.image)).changed, 'god rays change the frame').toBeGreaterThan(10_000);
+  await expect(page.locator('canvas')).toHaveScreenshot('realistic-godrays-webgpu.png');
+});
+
 test('ambient occlusion alone, through sceneAO in a hand-made pipeline (realistic, WebGPU)', async ({ page }) => {
   const plain = await load(page, 'style=realistic&scene=plain');
   const occluded = await load(page, 'style=realistic&scene=gtao');
@@ -115,6 +124,20 @@ test('bloom alone, through sceneBloom in a hand-made pipeline (realistic, WebGPU
   expect((await difference(page, plain.image, bloomed.image)).changed, 'bloom changes the frame').toBeGreaterThan(10_000);
   await expect(page.locator('canvas')).toHaveScreenshot('realistic-bloom-webgpu.png');
 });
+
+test('fog alone, through sceneFog as the app\'s scene.fogNode (realistic, WebGPU)', async ({ page }) => {
+  const plain = await load(page, 'style=realistic&scene=plain');
+  const fogged = await load(page, 'style=realistic&scene=fog');
+  expect((await difference(page, plain.image, fogged.image)).changed, 'fog changes the frame').toBeGreaterThan(10_000);
+  await expect(page.locator('canvas')).toHaveScreenshot('realistic-fog-webgpu.png');
+});
+
+for (const appFog of [false, true]) {
+  test(`after dispose(), scene.fogNode is the app's value again (${appFog ? 'its own fog node' : 'no fog node'})`, async ({ page }) => {
+    const { example } = await load(page, `style=realistic&scene=style&dispose=1${appFog ? '&appFog=1' : ''}`);
+    expect(example.fog).toEqual({ during: false, after: true });
+  });
+}
 
 test.describe('the Scene Pipeline behaves as TreeEffects for its Tree Effects part', () => {
   const cases = [

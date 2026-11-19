@@ -14,5 +14,7 @@ export { sceneBloom, type SceneBloomOptions } from './bloom';
 export { SUGGESTED_SCENE_EFFECTS } from './suggested';
 export { applySceneEffects } from './stack';
 export { type SceneEffectInput } from './stage';
+export { sceneFog, type SceneFogOptions, type SceneMistFarLayerOptions, type SceneMistOptions } from './fog';
 export { sceneToneMapping, type SceneToneMappingCurve, type SceneToneMappingOptions } from './tone-mapping';
+export { sceneGodrays, type SceneGodraysOptions, type SceneGodraysSun } from './godrays';
 export { windVelocity, windVelocityMRT, WIND_VELOCITY, type ScenePass } from './velocity';

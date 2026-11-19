@@ -1,6 +1,7 @@
 import type { Node } from 'three/webgpu';
 import type { SceneEffectsSettings } from './settings';
 import type { LiveSceneEffect, SceneEffectInput, SceneEffectStage } from './stage';
+import { godraysStage } from './godrays';
 import { antialiasStage } from './antialias';
 import { bloomStage } from './bloom';
 import { toneMappingStage } from './tone-mapping';
@@ -12,7 +13,7 @@ import { toneMappingStage } from './tone-mapping';
  * space -> SMAA / FXAA.
  */
 const STACK: readonly SceneEffectStage[] = [
-  // god rays
+  godraysStage,
   // motion blur
   bloomStage,
   // TRAA (before tone mapping)

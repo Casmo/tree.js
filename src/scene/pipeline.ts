@@ -15,7 +15,9 @@ import type { StyleName } from '../styles/registry';
 import type { ForestTree } from '../forest';
 import type { Tree } from '../tree';
 import { resolveSceneEffects, type SceneEffectsChoice, type SceneEffectsSettings } from './settings';
+import { godraysSunProblem, warnGodraysSkipped } from './godrays';
 import { liveSceneAO } from './ao';
+import { liveSceneFog } from './fog';
 import { liveSceneEffects, sceneEffectsShape, type LiveSceneEffects } from './stack';
 import { scenePass, type ScenePass, type ScenePassChannels } from './velocity';
 
@@ -97,6 +99,10 @@ export class ScenePipeline {
   private input!: { channels: string; pass: ScenePass };
   /** Nothing is on (no effects, no extra channel): render with `renderer.render()` itself. */
   private passThrough = true;
+  /** The pipeline's fog while it is on, and the app's `scene.fogNode` it replaced (restored when off). */
+  private fog: { live: ReturnType<typeof liveSceneFog>; app: Node | null | undefined } | null = null;
+  /** God rays were skipped for want of a shadow-casting sun, and that was said once. */
+  private warnedSun = false;
 
   constructor(
     private readonly renderer: Renderer,
@@ -135,22 +141,24 @@ export class ScenePipeline {
         pass: scenePass(this.scene, this.camera, this.options.selection ?? null, channelsOf(this.current, this.options)),
       };
     }
-    this.passThrough = channels === '' && isEmpty(this.current);
-    const { ao: aoSettings } = this.current.sceneEffects;
+    const sceneEffects = this.usableSceneEffects(this.current.sceneEffects);
+    this.passThrough = channels === '' && isEmpty({ ...this.current, sceneEffects });
+    this.setFog();
+    const { ao: aoSettings } = sceneEffects;
     const shape = JSON.stringify([
       treeEffectsShape(this.current.treeEffects, this.scenePass),
-      sceneEffectsShape(this.current.sceneEffects),
+      sceneEffectsShape(sceneEffects),
       aoSettings !== undefined,
     ]);
     if (this.graph?.shape === shape) {
       this.graph.tree.update(this.current.treeEffects);
-      this.graph.scene.update(this.current.sceneEffects);
+      this.graph.scene.update(sceneEffects);
       if (aoSettings) this.graph.ao?.update(aoSettings);
       return;
     }
     this.disposeGraph();
     const tree = liveTreeEffects(this.scenePass, this.current.treeEffects, this.highlighted);
-    const scene = liveSceneEffects({ ...this.scenePass, color: tree.node }, this.current.sceneEffects);
+    const scene = liveSceneEffects({ ...this.scenePass, color: tree.node, sun: this.options.sun }, sceneEffects);
     // AO only darkens ambient light: a pre-pass, GTAO, and its context on the scene pass's lighting.
     const ao = aoSettings ? liveSceneAO(this.scene, this.camera, aoSettings) : null;
     this.scenePass.pass.contextNode = ao?.context ?? null;
@@ -180,9 +188,40 @@ export class ScenePipeline {
   }
 
   dispose(): void {
+    this.restoreFog();
     this.disposeGraph();
     this.scenePass.pass.dispose();
     this.pipeline.dispose();
+  }
+
+  /** Fog is the one scene change (ADR 0010): take over `scene.fogNode`, remembering the app's value. */
+  private setFog(): void {
+    const settings = this.current.sceneEffects.fog;
+    if (!settings) return this.restoreFog();
+    if (this.fog) return this.fog.live.update(settings, this.scene.background);
+    const live = liveSceneFog(settings, this.scene.background);
+    this.fog = { live, app: this.scene.fogNode };
+    this.scene.fogNode = live.node;
+  }
+
+  /** Gives `scene.fogNode` back to the app (unless the app replaced the pipeline's fog meanwhile). */
+  private restoreFog(): void {
+    if (!this.fog) return;
+    if (this.scene.fogNode === this.fog.live.node) this.scene.fogNode = this.fog.app;
+    this.fog = null;
+  }
+
+  /**
+   * The Scene Effects that can run: without a shadow-casting `sun`, god rays are left out (with one
+   * console warning per pipeline). Shadows and lights are never changed.
+   */
+  private usableSceneEffects(settings: SceneEffectsSettings): SceneEffectsSettings {
+    if (!settings.godrays) return settings;
+    const problem = godraysSunProblem(this.options.sun);
+    if (!problem) return settings;
+    if (!this.warnedSun) warnGodraysSkipped(problem);
+    this.warnedSun = true;
+    return { ...settings, godrays: undefined };
   }
 
   private disposeGraph(): void {
