@@ -39,6 +39,7 @@ const JOBS = {
   'example-cdn': { url: 'https://example.test/', width: 480, height: 300, ready: 'cdn' },
   'example-react': { url: '/examples/react/?scene=forest', width: 480, height: 300, ready: 'reactExample' },
   'example-forest': { url: '/examples/forest/?season=0.6', width: 480, height: 300, ready: 'forestExample' },
+  'example-large-forest': { url: '/examples/large-forest/?frames=3&orbit=30', width: 480, height: 300, ready: 'largeForestExample', hide: ['#panel'] },
   'example-effects': { url: '/examples/effects/?style=stylized', width: 480, height: 300, ready: 'effectsExample' },
   'example-material-features': { url: '/examples/material-features/?style=realistic', width: 480, height: 300, ready: 'featuresExample' },
   'example-species': { url: '/examples/species/?species=maple&style=stylized&season=0.62', width: 480, height: 300, ready: 'speciesExample' },
@@ -74,7 +75,7 @@ async function open(browser, job) {
   if (job.ready === 'cdn') await serveCdnExample(page);
   await page.goto(job.url.startsWith('http') ? job.url : BASE + job.url);
   // No overlays: the examples' status lines are for the tests, not for the pictures.
-  await page.addStyleTag({ content: '#status { display: none !important; }' });
+  await page.addStyleTag({ content: `${['#status', ...(job.hide ?? [])].join(', ')} { display: none !important; }` });
   if (job.ready === 'cdn') {
     await page.waitForFunction(() => document.body.dataset.status !== undefined, null, { timeout: 120_000 });
   } else if (job.ready === 'treeEditor') {
