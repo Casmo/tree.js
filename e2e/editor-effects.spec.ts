@@ -31,6 +31,14 @@ async function changedPixels(page: Page, a: Buffer, b: Buffer): Promise<number> 
   );
 }
 
+const SCENE_LABELS = ['Tone mapping', 'Ambient occlusion', 'Bloom', 'Fog', 'God rays'];
+
+/** Switches the Scene group off (Tree Effects only, as before the Scene group). */
+async function sceneOff(page: Page): Promise<void> {
+  for (const label of SCENE_LABELS) await page.getByLabel(label, { exact: true }).uncheck();
+  await page.getByLabel('Anti-aliasing').selectOption('Off');
+}
+
 test('each Tree Effect can be toggled in the preview', async ({ page }) => {
   await page.goto('/editor/?start=stylized/broadleaf&seed=1');
   const none = await shot(page);
@@ -72,6 +80,9 @@ test("applies the current Style's suggested combination with one action", async 
   await expect(page.getByLabel('Leaf glow', { exact: true })).not.toBeChecked();
   await expect(page.getByLabel('Inner lines', { exact: true })).toBeChecked();
   await expect(page.getByLabel('Outline', { exact: true })).toBeChecked();
+  // The suggestion includes the Scene Effects (see the Scene tests); here the Tree Effects alone.
+  await sceneOff(page);
+  await shot(page);
   await expect(page.locator('#preview canvas')).toHaveScreenshot('low-poly-suggested.png');
 
   // A new Style brings its settings; its suggestion is one click away.
@@ -84,6 +95,8 @@ test("applies the current Style's suggested combination with one action", async 
   await page.getByRole('button', { name: 'Apply stylized suggestion' }).click();
   await expect(page.getByLabel('Leaf glow', { exact: true })).toBeChecked();
   await expect(page.getByLabel('Inner lines', { exact: true })).toBeChecked();
+  await sceneOff(page);
+  await shot(page);
   await expect(page.locator('#preview canvas')).toHaveScreenshot('stylized-suggested.png');
 });
 
@@ -94,4 +107,52 @@ test('Tree Effects preview works on the WebGL2 fallback', async ({ page }) => {
   const styled = await shot(page);
   expect(await page.evaluate(() => window.treeEditor.backend)).toBe('webgl2');
   expect(await changedPixels(page, none, styled)).toBeGreaterThan(300);
+});
+
+test.describe('Scene group', () => {
+  for (const [style, species] of [['low-poly', 'conifer'], ['stylized', 'broadleaf'], ['realistic', 'broadleaf']] as const) {
+    test(`applies the ${style} suggestion of both groups (full suggestion screenshot)`, async ({ page }) => {
+      await page.goto(`/editor/?start=${species}/${style}&seed=1`);
+      const none = await shot(page);
+      await page.getByRole('button', { name: `Apply ${style} suggestion` }).click();
+      const suggested = await shot(page);
+      expect(await changedPixels(page, none, suggested)).toBeGreaterThan(300);
+      await expect(page.getByLabel('Tone mapping', { exact: true })).toBeChecked();
+      await expect(page.getByLabel('Fog', { exact: true })).toBeChecked();
+      await expect(page.getByLabel('God rays', { exact: true })).toBeChecked({ checked: style === 'realistic' });
+      await expect(page.getByLabel('Anti-aliasing')).toHaveValue('smaa');
+      // God rays make the preview sun cast shadows.
+      expect(await page.evaluate(() => window.treeEditor.preview!.sun.castShadow)).toBe(style === 'realistic');
+      await expect(page.locator('#preview canvas')).toHaveScreenshot(`${style}-scene-suggested.png`);
+    });
+  }
+
+  test('each Scene Effect and the AA choice can be toggled, and leave nothing behind', async ({ page }) => {
+    await page.goto('/editor/?start=broadleaf/realistic&seed=1');
+    const none = await shot(page);
+    const definition = await page.evaluate(() => JSON.stringify(window.treeEditor.store!.state.definition));
+    for (const label of SCENE_LABELS) {
+      const toggle = page.getByLabel(label, { exact: true });
+      await toggle.check();
+      expect(await changedPixels(page, none, await shot(page)), `${label} changes the preview`).toBeGreaterThan(300);
+      await toggle.uncheck();
+      expect(await changedPixels(page, none, await shot(page)), `${label} off again`).toBe(0);
+    }
+    for (const mode of ['SMAA', 'FXAA']) {
+      await page.getByLabel('Anti-aliasing').selectOption(mode);
+      expect(await changedPixels(page, none, await shot(page)), `${mode} changes the preview`).toBeGreaterThan(50);
+    }
+    await page.getByLabel('Anti-aliasing').selectOption('Off');
+    expect(await changedPixels(page, none, await shot(page)), 'AA off again').toBe(0);
+    const after = await page.evaluate(() => ({
+      definition: JSON.stringify(window.treeEditor.store!.state.definition),
+      canUndo: window.treeEditor.history!.canUndo,
+      fogNode: window.treeEditor.preview!.scene.fogNode ?? null,
+      castShadow: window.treeEditor.preview!.sun.castShadow,
+      shadowMap: window.treeEditor.preview!.renderer.shadowMap.enabled,
+      sceneSettings: window.treeEditor.effects!.sceneSettings,
+    }));
+    // Preview-only: the Definition and history are untouched; fog and the sun's shadows are given back.
+    expect(after).toEqual({ definition, canUndo: false, fogNode: null, castShadow: false, shadowMap: false, sceneSettings: null });
+  });
 });
