@@ -422,6 +422,61 @@ if (hit) console.log(forest.treeAt(hit)?.key);
 
 `forest.dispose()` frees everything. `forest.ready` resolves once its textures have loaded.
 
+### Detail Levels
+
+Far trees cover a few pixels but still cost their full mesh. With `lod` a Forest draws each tree at a
+**Detail Level** for its distance from the camera: **Full** up close, **Light** (the same Variant
+regenerated with fewer faces and larger leaves, every branch in place) in the middle distance, and an
+**Impostor** far away: one camera-facing card per tree, lit by your lights from baked normals. Neighbouring
+levels cross-fade with an ordered dither, so trees never pop. A compute pass picks the levels on the GPU
+every frame and fills indirect draws, so there is no per-tree work on the CPU. A tree that is not fully
+grown is never an Impostor.
+
+```ts
+import { createForest, type ForestPlacement } from '@casmo/tree.js';
+import lowPoly from '@casmo/tree.js/styles/low-poly';
+
+declare const placements: ForestPlacement[]; // thousands of trees
+
+// Light from 30 m, Impostor from 90 m (distances are divided by a tree's placement scale),
+// cross-fading over 10% of the switch distance. `lod: true` uses 6 and 20 trunk heights.
+const forest = createForest(lowPoly.broadleaf, placements, { variants: 4, lod: { light: 30, impostor: 90, fade: 0.1 } });
+scene.add(forest);
+renderer.render(scene, camera); // the first frame bakes the Impostors (far trees draw Light until then)
+await forest.lodReady;
+
+forest.lod = { impostor: 120 }; // distances, fade and the LOD camera are live: no rebuild
+```
+
+- Detail Levels need WebGPU (compute and indirect draws). On WebGPURenderer's WebGL2 fallback a `lod`
+  Forest draws every tree in full, exactly as without `lod`, with one console warning. Without `lod` nothing
+  changes: no extra meshes, buffers or bake.
+- One camera picks every tree's level: the first non-shadow camera that draws the Forest in a frame, or
+  `lod.camera`. Shadow passes and other cameras reuse its levels.
+- Raycasting, `forest.treeAt` and `addTree`/`removeTree` work as without `lod`.
+- **Memory**: the Impostors are baked into atlases, per Variant, of `impostorAtlas.size`² pixels
+  (default 2048, `frames` 12 × 12 directions). Each atlas is RGBA8 with mipmaps, about 21 MiB at 2048,
+  and a Variant has one per baked channel (colour, normals, Season data, plus Material Feature inputs when
+  the Definition sets them) and a depth buffer of the same size: roughly 60 to 120 MiB of GPU memory per
+  Variant, so 240 to 480 MiB for 4 Variants. Halving `size` quarters it: `lod: { light: 30, impostor: 90, impostorAtlas: { size: 1024 } }`.
+  `forest.dispose()` frees them.
+
+[`examples/large-forest`](examples/large-forest/main.ts) draws 10,000 trees under an orbiting camera and
+rebuilds the Forest with Detail Levels on or off, measuring both runs side by side. One example run
+(not a guarantee; measure on your own hardware):
+
+| 10,000 trees, 4 Variants | Detail Levels off | Detail Levels on (`lod: true`) |
+| --- | --- | --- |
+| frame time, average / p95 | 3,812 / 9,774 ms | 245 / 387 ms |
+| draw calls | 10 | 22 |
+| triangles drawn | 12,520,003 | 450,869 |
+| trees Full / Light / Impostor | 10,000 / 0 / 0 | 40 / 1,639 / 8,630 |
+
+*Measured with `?orbit=30` (camera pinned), 120 frames at 640 × 480, in headless Chromium whose WebGPU
+runs on SwiftShader, a CPU rasterizer, on an AMD Ryzen 9 7900 that was also running other jobs. That is why
+the frames take seconds; on a GPU every number is far lower, and the ratio differs. The extra draw calls are
+the indirect draws of every Variant and level, drawn even when a level is empty.*
+
 ## Material Features
 
 ![The same stylized tree without (left) and with (right) the suggested Material Features: the crown is lit as one rounded shape, glows at its edge against the low sun and is darker inside](docs/images/material-features.png)
@@ -938,6 +993,7 @@ a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branche
 | [`examples/cdn`](examples/cdn/index.html) | `/examples/cdn/` | no bundler: a single HTML page with an import map | <img src="docs/images/example-cdn.png" alt="examples/cdn" width="160"> |
 | [`examples/react`](examples/react/main.tsx) | `/examples/react/` | React Three Fiber: `<Tree>`, `<Wind>`, `useTreeStyle`; `?scene=forest` for `<Forest>` | <img src="docs/images/example-react.png" alt="examples/react" width="160"> |
 | [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
+| [`examples/large-forest`](examples/large-forest/main.ts) | `/examples/large-forest/` | 10,000 trees with Detail Levels on and off: frame times, draw calls, triangles and trees per Detail Level; `?trees=&lod=0&frames=&orbit=` | <img src="docs/images/example-large-forest.png" alt="examples/large-forest" width="160"> |
 | [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` | <img src="docs/images/example-effects.png" alt="examples/effects" width="160"> |
 | [`examples/material-features`](examples/material-features/main.ts) | `/examples/material-features/` | the same tree with Material Features off and on (`SUGGESTED_MATERIAL_FEATURES`); `?style=realistic&species=oak` | <img src="docs/images/example-material-features.png" alt="examples/material-features" width="160"> |
 | [`examples/species`](examples/species/main.ts) | `/examples/species/` | a Species x Style picker over the whole collection; `?species=douglas-fir&style=realistic` | <img src="docs/images/example-species.png" alt="examples/species" width="160"> |
