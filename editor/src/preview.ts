@@ -10,6 +10,9 @@ import { framingBox } from './framing';
 import { liveMaterialFeatureChange } from './material-features';
 import type { EditorState, EditorStore } from './store';
 
+/** Where the sun stands (its target is the origin): only its direction matters for the light. */
+const SUN_DIRECTION = new THREE.Vector3(5, 8, 3);
+
 export type PreviewStatus = 'loading' | 'rendered' | 'error';
 
 export interface PreviewOptions {
@@ -26,6 +29,10 @@ export class Preview {
   readonly controls: OrbitControls;
   /** The tree on show (replaced when the Definition or Seed changes). */
   tree: Tree | null = null;
+  /** The preview's sun (casts shadows only while asked to, see {@link setSunShadows}). */
+  readonly sun = new THREE.DirectionalLight('#ffffff', 2.5);
+  /** The camera's distance from the framed tree (see {@link frame}), in metres. */
+  framingDistance = 10;
   /** Renders completed so far (handy for tests). */
   renders = 0;
   /**
@@ -37,10 +44,15 @@ export class Preview {
   private readonly container: HTMLElement;
   private readonly options: PreviewOptions;
   private frameRequested = false;
+  /** Frames still to draw for the last {@link requestRender}. */
+  private framesLeft = 0;
   /** Trees whose textures are still loading. */
   private pendingTextures = 0;
   private ready = false;
   private unsubscribe: () => void = () => {};
+  private readonly framedListeners = new Set<() => void>();
+  /** The box the camera was framed on (the sun's shadow camera covers it). */
+  private framed = new THREE.Box3(new THREE.Vector3(-5, 0, -5), new THREE.Vector3(5, 10, 5));
 
   constructor(container: HTMLElement, options: PreviewOptions = {}) {
     this.container = container;
@@ -52,9 +64,8 @@ export class Preview {
 
     this.scene.background = new THREE.Color('#cfe3f0');
     this.scene.add(new THREE.HemisphereLight('#ffffff', '#6a7a4a', 1.5));
-    const sun = new THREE.DirectionalLight('#ffffff', 2.5);
-    sun.position.set(5, 8, 3);
-    this.scene.add(sun);
+    this.sun.position.copy(SUN_DIRECTION);
+    this.scene.add(this.sun, this.sun.target);
     const ground = new THREE.Mesh(
       new THREE.CircleGeometry(8, 48).rotateX(-Math.PI / 2),
       new THREE.MeshStandardNodeMaterial({ color: '#7da05a' }),
@@ -129,20 +140,26 @@ export class Preview {
     }
   }
 
-  /** Schedules one frame (several requests in the same tick draw once). */
-  requestRender(): void {
+  /**
+   * Schedules `frames` frames in a row (default one; several requests in the same tick draw once).
+   * The status turns 'rendered' after the last.
+   */
+  requestRender(frames = 1): void {
     if (!this.ready) return;
     this.options.onStatus?.('loading');
+    this.framesLeft = Math.max(this.framesLeft, frames);
     if (this.frameRequested) return;
     this.frameRequested = true;
     requestAnimationFrame(() => {
       this.frameRequested = false;
+      this.framesLeft--;
       Promise.resolve()
         .then(() => this.renderFrame())
         .then(
           () => {
             this.renders++;
-            if (!this.frameRequested && this.pendingTextures === 0) this.options.onStatus?.('rendered');
+            if (this.framesLeft > 0) this.requestRender(0);
+            else if (!this.frameRequested && this.pendingTextures === 0) this.options.onStatus?.('rendered');
           },
           (error: unknown) => this.options.onStatus?.('error', error instanceof Error ? error : new Error(String(error))),
         );
@@ -162,6 +179,48 @@ export class Preview {
     this.camera.updateProjectionMatrix();
     this.controls.target.copy(centre);
     this.controls.update();
+    this.framingDistance = distance;
+    this.framed = box;
+    if (this.sun.castShadow) this.fitSunShadow();
+    for (const listener of this.framedListeners) listener();
+  }
+
+  /** Calls `listener` after every {@link frame}; returns the unsubscribe. */
+  onFramed(listener: () => void): () => void {
+    this.framedListeners.add(listener);
+    return () => void this.framedListeners.delete(listener);
+  }
+
+  /**
+   * Lets the sun cast shadows (with the renderer's shadow map) over the framed tree, e.g. for god
+   * rays, or switches that off again: then the preview renders exactly as without.
+   */
+  setSunShadows(on: boolean): void {
+    if (this.sun.castShadow === on) return;
+    this.sun.castShadow = on;
+    this.renderer.shadowMap.enabled = on;
+    const ground = this.scene.getObjectByName('ground');
+    if (ground) ground.receiveShadow = on;
+    if (on) this.fitSunShadow();
+    else {
+      this.sun.position.copy(SUN_DIRECTION);
+      this.sun.target.position.set(0, 0, 0);
+    }
+    this.requestRender();
+  }
+
+  /** The sun's shadow camera around the framed box (same light direction, from far enough away). */
+  private fitSunShadow(): void {
+    const sphere = this.framed.getBoundingSphere(new THREE.Sphere());
+    const reach = Math.max(sphere.radius, 1) * 1.2;
+    // Aim at the tree's centre from far enough away, along the same direction (the same light).
+    this.sun.target.position.copy(sphere.center);
+    this.sun.position.copy(SUN_DIRECTION).normalize().multiplyScalar(reach * 2).add(sphere.center);
+    const shadow = this.sun.shadow;
+    shadow.mapSize.set(2048, 2048);
+    Object.assign(shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: 0.1, far: reach * 4 });
+    shadow.camera.updateProjectionMatrix();
+    shadow.needsUpdate = true;
   }
 
   private resize(): void {
