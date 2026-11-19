@@ -1,0 +1,8 @@
+{"title":"Forest Detail Levels","kicker":"New · Forest Detail Levels","app":"tree-js",
+ "url":"http://127.0.0.1:5391/examples/large-forest/?trees=500&frames=10&lod=0",
+ "chapters":[
+  {"title":"Large forest: Detail Levels off, then rebuilt with them on","steps":[{"wait":5000},{"wait":4000},{"waitFor":"#toggle:not([disabled])"},{"click":"#toggle","zoom":true},{"wait":5000},{"wait":4000},{"waitFor":"#toggle:not([disabled])","zoom":true}]},
+  {"title":"Forest with Detail Levels at 40 and 60","steps":[{"goto":"/examples/forest/?lod=40,60"},{"wait":3000}]},
+  {"title":"Winter: Impostors follow the Season","steps":[{"goto":"/examples/forest/?lod=40,60&season=0.85"},{"wait":3000}]},
+  {"title":"Without lod: unchanged","steps":[{"goto":"/examples/forest/"},{"wait":3000}]}
+ ]}
