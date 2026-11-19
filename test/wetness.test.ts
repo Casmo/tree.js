@@ -40,23 +40,25 @@ describe('the Wetness hooks', () => {
     tree.dispose();
   });
 
-  it('run before the app’s own hooks, whatever order they are stacked in', () => {
-    const seen: Node[] = [];
-    const app: TreeShaderHook = ({ color, roughness }) => {
-      seen.push(roughness);
-      return color;
-    };
-    const tree = createTree(stylized.apply(pear), { seed: 2, shaderHooks: stackShaderHooks({ leaves: app }, wetnessHooks()) });
-    // The app's hook got the roughness Wetness returned, so the material keeps it.
-    expect(tree.leaves.material.roughnessNode).toBe(seen[0]);
-    tree.dispose();
+  it('run before the app’s own hooks on every part, whatever order they are stacked in', () => {
+    for (const [part, mesh] of [['bark', 'wood'], ['leaves', 'leaves'], ['fruit', 'fruit']] as const) {
+      const seen: Node[] = [];
+      const app: TreeShaderHook = ({ color, roughness }) => {
+        seen.push(roughness);
+        return color;
+      };
+      const tree = createTree(stylized.apply(pear), { seed: 2, shaderHooks: stackShaderHooks({ [part]: app }, wetnessHooks()) });
+      // The app's hook got the roughness Wetness returned, so the material keeps it.
+      expect((tree[mesh].material as MeshStandardNodeMaterial).roughnessNode, part).toBe(seen[0]);
+      tree.dispose();
+    }
   });
 });
 
 describe('the Wetness settings', () => {
   it('start at the defaults and change live, without rebuilding a material', () => {
     const hooks = wetnessHooks({ darkening: 0.5 });
-    expect(hooks.settings).toMatchObject({ slope: 110, softness: 60, darkening: 0.5, sheen: 0.6, strength: { bark: 1, leaves: 0.8, fruit: 0.5 } });
+    expect(hooks.settings).toMatchObject({ slope: 140, softness: 60, darkening: 0.5, sheen: 0.6, strength: { bark: 1, leaves: 0.8, fruit: 0.5 } });
     expect(hooks.wetness).toBe(sceneWetness);
     const tree = createTree(stylized.apply(pear), { seed: 2, shaderHooks: hooks });
     const versions = () => [tree.wood, tree.leaves, tree.fruit].map((mesh) => mesh.material.version);
@@ -76,7 +78,12 @@ describe('the Wetness settings', () => {
     expect(() => hooks.set({ strength: { bark: 1.5 } })).toThrow(RangeError);
     expect(() => hooks.set({ softness: -5 })).toThrow(RangeError);
     expect(() => hooks.set({ color: '#000000', slope: 10, sheen: 2 })).toThrow(RangeError);
-    expect(hooks.settings).toMatchObject({ darkening: 0.4, sheen: 0.6, slope: 110 }); // a bad value changes nothing
+    // `slope` as in Snow Cover: degrees of the surface from level (its normal from straight up), here up
+    // to 180 (facing straight down), since sides and undersides get wet too.
+    expect(() => hooks.set({ slope: 181 })).toThrow(RangeError);
+    expect(() => hooks.set({ slope: -1 })).toThrow(RangeError);
+    expect(() => hooks.set({ softness: Number.POSITIVE_INFINITY })).toThrow(RangeError);
+    expect(hooks.settings).toMatchObject({ darkening: 0.4, sheen: 0.6, slope: 140 }); // a bad value changes nothing
     expect(hooks.settings.color.getHexString()).not.toBe('000000');
   });
 

@@ -69,7 +69,7 @@ describe('<Wetness>', () => {
     renderer = await ReactThreeTestRenderer.create(<Wetness ref={ref} amount={0.6} darkening={0.5} sheen={0.7} />, { gl });
     const wet = ref.current!;
     expect(sceneWetness.amount).toBeCloseTo(0.6);
-    expect(wet.settings).toMatchObject({ darkening: 0.5, sheen: 0.7, slope: 110 });
+    expect(wet.settings).toMatchObject({ darkening: 0.5, sheen: 0.7, slope: 140 });
     expect(getSceneShaderHooks()).toEqual({ bark: [wet.bark], leaves: [wet.leaves], fruit: [wet.fruit] });
 
     await renderer.update(<Wetness ref={ref} amount={0.6} />);

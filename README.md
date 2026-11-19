@@ -754,8 +754,8 @@ sceneSnow.amount = 0.8;    // driven by your weather: a uniform, no rebuild
 // Settings are live too (uniform writes):
 snow.set({
   color: '#f4f8ff',  // sRGB, like any three.js colour
-  slope: 60,         // the steepest surface (degrees from level) that still holds snow
-  softness: 25,      // degrees over which the snow thins out towards `slope` (0: a hard edge)
+  slope: 60,         // the steepest surface (degrees from level, 0..90) that still holds snow
+  softness: 25,      // degrees below `slope` over which the snow thins out to none (0: a hard edge)
   strength: { bark: 1, leaves: 1, fruit: 0.5 }, // how much snow each part takes
 });
 ```
@@ -787,8 +787,8 @@ sceneWetness.amount = 0.8; // driven by your weather: a uniform, no rebuild
 // Settings are live too (uniform writes):
 wet.set({
   color: '#d8e0ea',  // the tint wet surfaces take on
-  slope: 110,        // degrees from straight up a surface may face and still get fully wet
-  softness: 60,      // degrees over which it fades out around `slope` (0: a hard edge)
+  slope: 140,        // the steepest surface (degrees from level, 0..180: facing down) that still gets wet
+  softness: 60,      // degrees below `slope` over which it dries out to none (0: a hard edge)
   strength: { bark: 1, leaves: 0.8, fruit: 0.5 }, // how much each part takes
   darkening: 0.4,    // how much darker a soaked surface gets
   sheen: 0.6,        // how much its roughness drops
@@ -798,6 +798,10 @@ wet.set({
 const mine: TreeShaderHook = ({ color }) => color.mul(1.1);
 const tree = createTree(stylized.broadleaf, { shaderHooks: stackShaderHooks({ leaves: mine }, wet) });
 ```
+
+`slope` and `softness` mean the same as Snow Cover's: the angle of a surface from level (its normal from
+straight up), fully wet up to `slope - softness` and dry from `slope` on. Unlike snow, rain also wets
+sides and undersides, so Wetness's `slope` goes up to 180 (Snow Cover's to 90).
 
 It draws to suit the Style: smooth on realistic, whole facets on low-poly, and toon bands with a light
 glint band on top on stylized (toon lighting has no highlights for the sheen to show in). At amount 0, or

@@ -9,6 +9,7 @@ import type {
   WetnessHooks,
   WetnessSettings,
 } from '../weather';
+import type { TreeShaderHooks } from '../materials/shader-hooks';
 import { useSceneShaderHooks } from './SceneShaderHooks';
 
 type WeatherModule = typeof import('../weather');
@@ -63,6 +64,23 @@ function useSettings<S>(hooks: { readonly settings: object; set(settings: S): un
   }, [hooks, defaults, key]);
 }
 
+/**
+ * What `<SnowCover>` and `<Wetness>` share: the ready-made hooks with `settings` applied, `amount` written
+ * to `source`, the hooks set scene-wide while mounted and handed to `ref`.
+ */
+function useWeatherHooks<H extends TreeShaderHooks & { readonly settings: object; set(settings: S): unknown }, S>(
+  hooks: H,
+  source: Amount,
+  amount: number | undefined,
+  settings: S,
+  ref: Ref<H | null> | undefined,
+): void {
+  useSettings<S>(hooks, settings);
+  useAmount(source, amount);
+  useSceneShaderHooks(hooks);
+  useImperativeHandle(ref, () => hooks, [hooks]);
+}
+
 export interface SnowCoverProps extends SnowCoverSettings {
   /** The snow amount, 0 (none) .. 1 (full cover): written to `snow`. Unset: leave as is (default 0). */
   amount?: number;
@@ -83,14 +101,11 @@ export interface SnowCoverProps extends SnowCoverSettings {
  * <SnowCover amount={0.8} slope={60} />
  * ```
  */
-export function SnowCover({ amount, snow, ref, color, slope, softness, strength }: SnowCoverProps): null {
+export function SnowCover({ amount, snow, ref, ...settings }: SnowCoverProps): null {
   const { sceneSnow, snowCoverHooks } = use(weatherResource());
   const source = snow ?? sceneSnow;
   const hooks = useMemo(() => snowCoverHooks({ snow: source }), [snowCoverHooks, source]);
-  useSettings<SnowCoverSettings>(hooks, { color, slope, softness, strength });
-  useAmount(source, amount);
-  useSceneShaderHooks(hooks);
-  useImperativeHandle(ref, () => hooks, [hooks]);
+  useWeatherHooks<SnowCoverHooks, SnowCoverSettings>(hooks, source, amount, settings, ref);
   return null;
 }
 
@@ -114,13 +129,10 @@ export interface WetnessProps extends WetnessSettings {
  * <Wetness amount={0.6} sheen={0.7} />
  * ```
  */
-export function Wetness({ amount, wetness, ref, color, slope, softness, strength, darkening, sheen }: WetnessProps): null {
+export function Wetness({ amount, wetness, ref, ...settings }: WetnessProps): null {
   const { sceneWetness, wetnessHooks } = use(weatherResource());
   const source = wetness ?? sceneWetness;
   const hooks = useMemo(() => wetnessHooks({ wetness: source }), [wetnessHooks, source]);
-  useSettings<WetnessSettings>(hooks, { color, slope, softness, strength, darkening, sheen });
-  useAmount(source, amount);
-  useSceneShaderHooks(hooks);
-  useImperativeHandle(ref, () => hooks, [hooks]);
+  useWeatherHooks<WetnessHooks, WetnessSettings>(hooks, source, amount, settings, ref);
   return null;
 }
