@@ -25,5 +25,6 @@ export function createTree(
     wind: options.wind,
     season: options.season,
     textures: options.textures,
+    shaderHooks: options.shaderHooks,
   });
 }

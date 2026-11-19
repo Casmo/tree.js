@@ -23,8 +23,10 @@
 //   ?occlusion=<0..1>  Structural Occlusion at that strength (overrides the suggestion)
 //   ?baked=1  show the tree as a Baked Tree: exportBakedTree, loaded back with three's GLTFLoader
 //   ?occlusionInVertexColors=1  with ?baked=1: multiply Structural Occlusion into the vertex colours
+//   ?hook=leaves|bark|fruit[,...]  a Tree Shader Hook on those parts that tints them magenta
 import * as THREE from 'three/webgpu';
 import { MeshStandardMaterial, WebGLRenderer } from 'three';
+import { mix, vec3 } from 'three/tsl';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
   createTree,
@@ -42,6 +44,8 @@ import {
   type StyleName,
   type TreeDefinition,
   type TreeDefinitionInput,
+  type TreeShaderHook,
+  type TreeShaderHooks,
   type TreeStyle,
 } from '@casmo/tree.js';
 import { loadSpecies, type SpeciesName } from '@casmo/tree.js/species';
@@ -66,6 +70,10 @@ declare global {
       fruitVertices?: number;
       /** Sets `tree.season` and re-renders (status goes 'loading' -> 'rendered'). */
       setSeason?: (season: number) => void;
+      /** Sets the magenta Tree Shader Hook on these parts only (none: removes them) and re-renders. */
+      setShaderHooks?: (parts: string[]) => void;
+      /** Shows or hides one part's mesh ('wood', 'leaves', 'fruit') and re-renders. */
+      setVisible?: (mesh: string, visible: boolean) => void;
     };
   }
 }
@@ -218,10 +226,19 @@ async function baked(tree: ReturnType<typeof createTree>): Promise<THREE.Object3
   return gltf.scene;
 }
 
+/** `?hook=`: a Tree Shader Hook that tints a part magenta (the colour only; lighting stays). */
+const magenta: TreeShaderHook = ({ color }) => mix(color, vec3(1, 0, 1), 0.8);
+const hooksFor = (parts: string[]): TreeShaderHooks => Object.fromEntries(parts.map((part) => [part, magenta]));
+
 async function main(): Promise<void> {
   const textureBase = params.get('textureBase');
   if (textureBase) setTextureOptions({ basePath: textureBase });
-  const tree = createTree(withFeatures(withFruit(withCustomTextures(await loadDefinition()))), { seed, growth, season });
+  const tree = createTree(withFeatures(withFruit(withCustomTextures(await loadDefinition()))), {
+    seed,
+    growth,
+    season,
+    shaderHooks: hooksFor(params.get('hook')?.split(',') ?? []),
+  });
   await tree.ready; // textures (realistic Style, custom maps) are loaded before the first frame
   const shown = params.get('baked') === '1' ? await baked(tree) : tree;
   scene.add(shown);
@@ -260,8 +277,19 @@ async function main(): Promise<void> {
     tree.season = value; // a uniform update: no regeneration
     void renderer.renderAsync(scene, camera).then(() => (window.treeExample.status = 'rendered'));
   };
+  const rerender = (change: () => void): void => {
+    window.treeExample.status = 'loading';
+    change();
+    void renderer.renderAsync(scene, camera).then(() => (window.treeExample.status = 'rendered'));
+  };
+  const setShaderHooks = (parts: string[]): void => rerender(() => (tree.shaderHooks = hooksFor(parts)));
+  const setVisible = (mesh: string, visible: boolean): void =>
+    rerender(() => {
+      const object = tree.getObjectByName(mesh);
+      if (object) object.visible = visible;
+    });
   const fruitVertices = tree.fruit.geometry.getAttribute('position').count;
-  window.treeExample = { status: 'rendered', backend, leafGeometryId, fruitVertices, setSeason };
+  window.treeExample = { status: 'rendered', backend, leafGeometryId, fruitVertices, setSeason, setShaderHooks, setVisible };
   // A swaying tree needs a render loop; with a pinned Wind clock one frame is enough.
   if (windStrength > 0 && windTime === null) renderer.setAnimationLoop(() => renderer.render(scene, camera));
 }

@@ -17,6 +17,7 @@ import { trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { clampGrowth, growthPosition } from '../growth';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
 import { LiveMaterialFeatures } from '../materials/material-features';
+import { LiveShaderHooks, type TreeShaderHooks } from '../materials/shader-hooks';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes, type SeasonUniform } from '../season';
 import { checkedSeason } from '../season/check';
@@ -85,6 +86,8 @@ export interface TreeOptions {
    * the app-wide `setTextureOptions`. Only Definitions with textures (e.g. the realistic Style) use it.
    */
   textures?: TextureOptions;
+  /** The Tree Shader Hook per tree part (see {@link Tree.shaderHooks}). Default: none. */
+  shaderHooks?: TreeShaderHooks;
 }
 
 /**
@@ -111,6 +114,7 @@ export class Tree extends Group {
   readonly windResponse: WindResponse;
   private readonly windBinding: WindBinding;
   private readonly features: LiveMaterialFeatures;
+  private readonly hooks: LiveShaderHooks;
 
   /**
    * Resolves once every texture of this tree has loaded (at once for a tree without textures);
@@ -163,6 +167,33 @@ export class Tree extends Group {
     this.features = new LiveMaterialFeatures(definition, [
       { leaf, materials: [bark, leaf, fruit], crown: data.crown, growth: this.growthUniform },
     ]);
+    const target = (part: 'bark' | 'leaves' | 'fruit', mesh: Mesh<BufferGeometry, MeshStandardNodeMaterial>) => ({
+      part,
+      material: mesh.material,
+      vertexColors: mesh.material.vertexColors && mesh.geometry.hasAttribute('color'),
+      season: this.seasonUniform,
+      growth: this.growthUniform,
+    });
+    this.hooks = new LiveShaderHooks(
+      [target('bark', this.wood as Mesh<BufferGeometry, MeshStandardNodeMaterial>), target('leaves', this.leaves), target('fruit', this.fruit)],
+      definition.materials.shading,
+    );
+    if (options.shaderHooks) this.hooks.hooks = options.shaderHooks;
+  }
+
+  /**
+   * The Tree Shader Hook per tree part (GLOSSARY, ADR 0012), e.g. `{ leaves: ({ color }) => color.mul(0.8) }`:
+   * a TSL function that gets the part's base colour, world normal, world positions, Season and Growth and
+   * returns a new colour (optionally with a roughness). Assign a new object to set, change or remove hooks
+   * (a part left out has none): only the parts whose hook changed rebuild their node graph, once; the
+   * geometry is never rebuilt. Without a hook a part is drawn exactly as before.
+   */
+  get shaderHooks(): TreeShaderHooks {
+    return this.hooks.hooks;
+  }
+
+  set shaderHooks(value: TreeShaderHooks) {
+    this.hooks.hooks = value;
   }
 
   /**
