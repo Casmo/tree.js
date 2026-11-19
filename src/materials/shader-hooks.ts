@@ -15,9 +15,9 @@ import {
   vec4,
   vertexColor,
 } from 'three/tsl';
-import type { MeshStandardNodeMaterial, Node } from 'three/webgpu';
+import { Group, type BufferGeometry, type MeshStandardNodeMaterial, type Node } from 'three/webgpu';
 import type { Shading } from '../definition';
-import type { TreePart } from '../effects/mask';
+import { TREE_PARTS, type TreePart } from '../effects/mask';
 import { setWindMotion, windMotionOf } from '../wind/motion';
 
 /** What a {@link TreeShaderHook} is given: TSL nodes of the fragment it shades, and which tree part it shades. */
@@ -73,8 +73,6 @@ export type TreeShaderHook = (input: TreeShaderInput) => Node<'vec3'> | TreeShad
  */
 export type TreeShaderHooks = Partial<Record<TreePart, TreeShaderHook | readonly TreeShaderHook[] | null>>;
 
-const PARTS = ['bark', 'leaves', 'fruit'] as const;
-
 // The hooks the library ships (Snow Cover, Wetness): they run before the app's own.
 const readyMade = new WeakSet<TreeShaderHook>();
 
@@ -109,7 +107,7 @@ export function shaderHookOrder(scene: TreeShaderHooks, own: TreeShaderHooks, pa
  */
 export function stackShaderHooks(...sets: readonly TreeShaderHooks[]): TreeShaderHooks {
   const stacked: TreeShaderHooks = {};
-  for (const part of PARTS) {
+  for (const part of TREE_PARTS) {
     const hooks = sets.flatMap((set) => listOf(set[part]));
     if (hooks.length > 0) stacked[part] = hooks;
     else if (sets.some((set) => set[part] === null)) stacked[part] = null;
@@ -120,7 +118,7 @@ export function stackShaderHooks(...sets: readonly TreeShaderHooks[]): TreeShade
 /** A copy of `hooks` without the parts that are `undefined`. */
 function cleaned(hooks: TreeShaderHooks): TreeShaderHooks {
   const copy: TreeShaderHooks = {};
-  for (const part of PARTS) {
+  for (const part of TREE_PARTS) {
     const value = hooks[part];
     if (value !== undefined) copy[part] = Array.isArray(value) ? [...(value as TreeShaderHook[])] : value;
   }
@@ -176,6 +174,19 @@ export interface ShaderHookTarget {
    * Default: the one registered with the material's `positionNode` (`setWindMotion`).
    */
   sway?: Node<'vec3'> | null;
+}
+
+/**
+ * The {@link ShaderHookTarget} of one tree part drawn by `material` from `geometry` (a Tree's part, or a
+ * Forest Variant's): it multiplies in vertex colours when the material uses them and the geometry has them.
+ */
+export function partHookTarget(
+  part: TreePart,
+  material: MeshStandardNodeMaterial,
+  geometry: BufferGeometry,
+  inputs: Pick<ShaderHookTarget, 'season' | 'growth' | 'treeBase'>,
+): ShaderHookTarget {
+  return { parts: [part], material, vertexColors: material.vertexColors && geometry.hasAttribute('color'), ...inputs };
 }
 
 const isNode = (value: Node<'vec3'> | TreeShaderOutput): value is Node<'vec3'> => (value as { isNode?: boolean }).isNode === true;
@@ -260,7 +271,7 @@ export class LiveShaderHooks {
   /** Re-resolves the hooks (after the own or the scene-wide default ones changed) and rebuilds what changed. */
   refresh(): void {
     const next = this.resolve();
-    const changed = PARTS.filter((part) => next[part].length !== this.stacks[part].length || next[part].some((h, i) => h !== this.stacks[part][i]));
+    const changed = TREE_PARTS.filter((part) => next[part].length !== this.stacks[part].length || next[part].some((h, i) => h !== this.stacks[part][i]));
     this.stacks = next;
     for (const target of this.targets) if (target.parts.some((part) => changed.includes(part))) this.apply(target);
   }
@@ -362,5 +373,29 @@ export class LiveShaderHooks {
     material.colorNode = vec4(color, tinted.a);
     material.vertexColors = false;
     if (roughnessChanged) material.roughnessNode = rough;
+  }
+}
+
+/** @internal What a Tree and a Forest share: a group of tree meshes with Tree Shader Hooks. */
+export abstract class ShaderHookedGroup extends Group {
+  protected abstract readonly hooks: LiveShaderHooks;
+
+  /**
+   * The Tree Shader Hook per tree part (GLOSSARY, ADR 0012), e.g. `{ leaves: ({ color }) => color.mul(0.8) }`:
+   * a TSL function (or a list of them, which stack) that gets the part's base colour, world normal, world
+   * positions, Season and Growth and returns a new colour (optionally with a roughness). Assign a new
+   * object to set, change or remove hooks: a part left out has only the scene-wide default hooks
+   * (`setSceneShaderHooks`), its own run after those, and `null` runs none at all. Only the parts whose
+   * hooks changed rebuild their node graph, once; the geometry is never rebuilt. Without a hook a part is
+   * drawn exactly as before. On a Forest they reach every tree at every Detail Level, and the Impostors,
+   * which apply them at draw time to their baked colour, normals and Season data (changing a hook never
+   * rebakes).
+   */
+  get shaderHooks(): TreeShaderHooks {
+    return this.hooks.hooks;
+  }
+
+  set shaderHooks(value: TreeShaderHooks) {
+    this.hooks.hooks = value;
   }
 }

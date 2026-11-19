@@ -1,7 +1,6 @@
 import {
   BufferAttribute,
   BufferGeometry,
-  Group,
   InterleavedBuffer,
   InterleavedBufferAttribute,
   Mesh,
@@ -17,7 +16,7 @@ import { trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { clampGrowth, growthPosition } from '../growth';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
 import { LiveMaterialFeatures } from '../materials/material-features';
-import { LiveShaderHooks, type ShaderHookTarget, type TreeShaderHooks } from '../materials/shader-hooks';
+import { LiveShaderHooks, partHookTarget, ShaderHookedGroup, type TreeShaderHooks } from '../materials/shader-hooks';
 import { assertWebGPURenderer } from '../renderer';
 import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes, type SeasonUniform } from '../season';
 import { checkedSeason } from '../season/check';
@@ -94,7 +93,7 @@ export interface TreeOptions {
  * A generated tree as a three.js object. Add it to a scene rendered by `WebGPURenderer`.
  * `growth`, `season` and the Wind only update uniforms: no regeneration, no recompile.
  */
-export class Tree extends Group {
+export class Tree extends ShaderHookedGroup {
   readonly isTree = true;
   readonly definition: TreeDefinition;
   readonly seed: number;
@@ -114,7 +113,7 @@ export class Tree extends Group {
   readonly windResponse: WindResponse;
   private readonly windBinding: WindBinding;
   private readonly features: LiveMaterialFeatures;
-  private readonly hooks: LiveShaderHooks;
+  protected readonly hooks: LiveShaderHooks;
 
   /**
    * Resolves once every texture of this tree has loaded (at once for a tree without textures);
@@ -167,35 +166,16 @@ export class Tree extends Group {
     this.features = new LiveMaterialFeatures(definition, [
       { leaf, materials: [bark, leaf, fruit], crown: data.crown, growth: this.growthUniform },
     ]);
-    const target = (part: 'bark' | 'leaves' | 'fruit', mesh: Mesh<BufferGeometry, MeshStandardNodeMaterial>): ShaderHookTarget => ({
-      parts: [part],
-      material: mesh.material,
-      vertexColors: mesh.material.vertexColors && mesh.geometry.hasAttribute('color'),
-      season: this.seasonUniform,
-      growth: this.growthUniform,
-    });
+    const inputs = { season: this.seasonUniform, growth: this.growthUniform };
     this.hooks = new LiveShaderHooks(
-      [target('bark', this.wood as Mesh<BufferGeometry, MeshStandardNodeMaterial>), target('leaves', this.leaves), target('fruit', this.fruit)],
+      [
+        partHookTarget('bark', bark, this.wood.geometry, inputs),
+        partHookTarget('leaves', leaf, this.leaves.geometry, inputs),
+        partHookTarget('fruit', fruit, this.fruit.geometry, inputs),
+      ],
       definition.materials.shading,
       options.shaderHooks,
     );
-  }
-
-  /**
-   * The Tree Shader Hook per tree part (GLOSSARY, ADR 0012), e.g. `{ leaves: ({ color }) => color.mul(0.8) }`:
-   * a TSL function (or a list of them, which stack) that gets the part's base colour, world normal, world
-   * positions, Season and Growth and returns a new colour (optionally with a roughness). Assign a new
-   * object to set, change or remove hooks: a part left out has only the scene-wide default hooks
-   * (`setSceneShaderHooks`), its own run after those, and `null` runs none at all. Only the parts whose
-   * hooks changed rebuild their node graph, once; the geometry is never rebuilt. Without a hook a part is
-   * drawn exactly as before.
-   */
-  get shaderHooks(): TreeShaderHooks {
-    return this.hooks.hooks;
-  }
-
-  set shaderHooks(value: TreeShaderHooks) {
-    this.hooks.hooks = value;
   }
 
   /**
@@ -247,7 +227,8 @@ export class Tree extends Group {
 
   /**
    * The Wind this tree sways with (shared with every other tree using it). Assigning another
-   * Wind only rebinds uniforms: no regeneration, no recompile.
+   * Wind only rebinds uniforms: no regeneration, no recompile (except the one-time node-graph rebuild
+   * when the tree first follows a Wind that has had a Wind Burst, see `Wind.burst`).
    */
   get wind(): Wind {
     return this.windBinding.wind;

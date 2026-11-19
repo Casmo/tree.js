@@ -405,10 +405,22 @@ sceneWind.burst({ x: 1, z: 0, strength: -0.5 }); // reduced motion: lean away an
 console.log(sceneWind.bursts.length); // the bursts running now
 ```
 
+A negative strength is the reduced-motion mode, for players who turn motion down: trees within reach
+lean away from the point all at once and settle, with no front travelling outward and no swing back; the
+size of the value is the strength (and sets the default radius). A weaker positive strength simply
+pushes less.
+
 Up to 8 bursts (`MAX_WIND_BURSTS`) run at once per Wind; another one replaces the oldest. A burst starts
 at the Wind's current time (its pinned `time`, or the renderer clock), so a pinned clock holds it still.
-It only writes uniforms: with no burst running the shader loop runs zero times and trees look exactly
-as without bursts. The Wind-aware velocity channel (TRAA, motion blur) includes burst motion.
+The Wind-aware velocity channel (TRAA, motion blur) includes burst motion.
+
+Wind Bursts are opt-in at the material level: until a Wind has had its first `burst()`, the trees swaying
+with it have no burst nodes at all, and their materials are exactly as without Wind Bursts. The first
+burst on a Wind (or binding a tree or Forest to a Wind that has had one) rebuilds the node graphs of
+those trees once, on Trees, every Forest Detail Level, Impostors and the velocity channel, so expect one
+shader compile then; the geometry is never rebuilt. Call `burst()` once during loading (e.g. with a
+small radius far away) to have that compile happen up front. After that a burst only writes uniforms,
+and with no burst running the shader loop runs zero times.
 
 Forests take the bursts of their Wind too: every Forest tree bends away from the burst point from its
 own position and rotation, at every Detail Level, and Impostors sway with it, so the whole park reacts:
@@ -742,8 +754,8 @@ sceneSnow.amount = 0.8;    // driven by your weather: a uniform, no rebuild
 // Settings are live too (uniform writes):
 snow.set({
   color: '#f4f8ff',  // sRGB, like any three.js colour
-  slope: 60,         // the steepest surface (degrees from level) that still holds snow
-  softness: 25,      // degrees over which the snow thins out towards `slope` (0: a hard edge)
+  slope: 60,         // the steepest surface (degrees from level, 0..90) that still holds snow
+  softness: 25,      // degrees below `slope` over which the snow thins out to none (0: a hard edge)
   strength: { bark: 1, leaves: 1, fruit: 0.5 }, // how much snow each part takes
 });
 ```
@@ -775,8 +787,8 @@ sceneWetness.amount = 0.8; // driven by your weather: a uniform, no rebuild
 // Settings are live too (uniform writes):
 wet.set({
   color: '#d8e0ea',  // the tint wet surfaces take on
-  slope: 110,        // degrees from straight up a surface may face and still get fully wet
-  softness: 60,      // degrees over which it fades out around `slope` (0: a hard edge)
+  slope: 140,        // the steepest surface (degrees from level, 0..180: facing down) that still gets wet
+  softness: 60,      // degrees below `slope` over which it dries out to none (0: a hard edge)
   strength: { bark: 1, leaves: 0.8, fruit: 0.5 }, // how much each part takes
   darkening: 0.4,    // how much darker a soaked surface gets
   sheen: 0.6,        // how much its roughness drops
@@ -786,6 +798,10 @@ wet.set({
 const mine: TreeShaderHook = ({ color }) => color.mul(1.1);
 const tree = createTree(stylized.broadleaf, { shaderHooks: stackShaderHooks({ leaves: mine }, wet) });
 ```
+
+`slope` and `softness` mean the same as Snow Cover's: the angle of a surface from level (its normal from
+straight up), fully wet up to `slope - softness` and dry from `slope` on. Unlike snow, rain also wets
+sides and undersides, so Wetness's `slope` goes up to 180 (Snow Cover's to 90).
 
 It draws to suit the Style: smooth on realistic, whole facets on low-poly, and toon bands with a light
 glint band on top on stylized (toon lighting has no highlights for the sheen to show in). At amount 0, or
@@ -1029,7 +1045,7 @@ import { mix, uniform, vec4 } from 'three/tsl';
 import { createTreeEffects, type CustomTreeEffect } from '@casmo/tree.js/effects';
 
 const foliage: CustomTreeEffect<{ strength: number }> = {
-  before: 'outline', // where it runs among the built-in effects (default: last, under the Highlight)
+  before: 'outline', // where it runs among the built-in effects (default: last, under the Highlight; 'end': over it)
   // channels: { treeId: true, normal: true }, // only if it reads them: the scene pass adds them
   build(input, options) {
     const strength = uniform(options.strength);
@@ -1046,9 +1062,10 @@ effects.removeEffect(foliage);
 ```
 
 - `before` names a built-in effect (`'grade'`, `'glow'`, `'innerLines'`, `'outline'` or `'highlight'`);
-  the custom effect runs right before it, whether that one is on or not. Custom effects at the same
-  place run in the order they were added. The default, `'highlight'`, runs it after every other
-  built-in effect and under the Highlight.
+  the custom effect runs right before it, whether that one is on or not. `'end'` runs it after every
+  built-in Tree Effect, the Highlight too (so it also changes the Highlight's tint and ring). Custom
+  effects at the same place run in the order they were added. The default, `'highlight'`, runs it after
+  every other built-in effect and under the Highlight.
 - The input has the colour so far (`color`), the tree mask (`mask`), `depth` and `camera`, plus the
   optional channels it declares in `channels` (`treeId`, `normal` with `normalEncoding`), which the scene
   pass then adds (a new scene pass, as for the built-in effects). Undeclared channels are never in its
@@ -1136,8 +1153,8 @@ createScenePipeline(renderer, scene, camera, {
 ### Custom Tree Effects in the Scene Pipeline
 
 A [custom Tree Effect](#custom-tree-effects) goes into the Scene Pipeline the same way as into
-`TreeEffects`. It runs among the Tree Effects, at the place its `before` names, so on tree pixels and
-before every Scene Effect (god rays, bloom, tone mapping and anti-aliasing see its result):
+`TreeEffects`. It runs among the Tree Effects, at the place its `before` names (`'end'`: after the
+Highlight), so on tree pixels and before every Scene Effect (god rays, bloom, tone mapping and anti-aliasing see its result):
 
 ```ts
 import { vec4 } from 'three/tsl';

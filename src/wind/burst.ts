@@ -1,9 +1,9 @@
-import type { Node, UniformArrayNode } from 'three/webgpu';
-import { cos, exp, Fn, int, Loop, modelWorldMatrix, modelWorldMatrixInverse, select, smoothstep, step, vec2, vec4 } from 'three/tsl';
-import { WIND_BURST_LIFETIME } from './Wind';
+import { Node, type Material, type NodeBuilder, type UniformArrayNode } from 'three/webgpu';
+import { cos, exp, Fn, int, Loop, modelWorldMatrix, modelWorldMatrixInverse, nodeObject, select, smoothstep, step, vec2, vec4 } from 'three/tsl';
+import { WIND_BURST_LIFETIME, type BurstListener } from './Wind';
 import type { WindSource } from './node';
 
-// The shape of a Wind Burst, after fernweh's placement blast.
+// The shape of a Wind Burst: a front travelling out from the burst point, a quick rise and a short swing back.
 /** Metres per second the front travels outward from the burst point. */
 const SPEED = 30;
 /** Seconds the push takes to rise as the front passes, and to decay after. */
@@ -73,4 +73,58 @@ export function objectBurstFrame(): WindBurstFrame {
       return local.mul(world.length().div(local.length().max(1e-6)));
     },
   };
+}
+
+/**
+ * A Wind displacement that only takes Wind Bursts once they are used: it is `still` (the displacement
+ * without bursts, exactly as before Wind Bursts existed) until the first burst on `source`'s Wind, then
+ * `withBursts()`, built once. The switch is one-time: every material built with it is marked for a
+ * rebuild of its node graph (`needsUpdate`), never its geometry. The node is transparent: it builds to,
+ * traverses and hashes as the displacement it holds.
+ */
+class WindBurstSwitchNode extends Node implements BurstListener {
+  static get type(): string {
+    return 'WindBurstSwitchNode';
+  }
+
+  /** The displacement drawn now (the only child, so traversal sees only what is drawn). */
+  node: Node<'vec3'>;
+  #withBursts: (() => Node<'vec3'>) | null;
+  readonly #materials = new Set<WeakRef<Material>>();
+
+  constructor(source: WindSource, still: Node<'vec3'>, withBursts: () => Node<'vec3'>) {
+    super('vec3');
+    this.node = still;
+    this.#withBursts = withBursts;
+    source.uniforms.bursts.used.listen(this);
+  }
+
+  burstsUsed(): void {
+    if (!this.#withBursts) return;
+    this.node = this.#withBursts();
+    this.#withBursts = null;
+    this.needsUpdate = true;
+    for (const ref of this.#materials) {
+      const material = ref.deref();
+      if (material) material.needsUpdate = true;
+    }
+    this.#materials.clear();
+  }
+
+  override getCacheKey(force?: boolean, ignores?: Set<Node>): number {
+    return this.node.getCacheKey(force, ignores);
+  }
+
+  override setup(builder: NodeBuilder): Node {
+    if (this.#withBursts && builder.material) this.#materials.add(new WeakRef(builder.material));
+    return this.node;
+  }
+}
+
+/**
+ * TSL node: the Wind displacement `still`, plus Wind Bursts once `source`'s Wind has had one: then
+ * `withBursts()` (built at that moment, once). See {@link WindBurstSwitchNode}.
+ */
+export function withWindBursts(source: WindSource, still: Node<'vec3'>, withBursts: () => Node<'vec3'>): Node<'vec3'> {
+  return nodeObject(new WindBurstSwitchNode(source, still, withBursts)) as unknown as Node<'vec3'>;
 }

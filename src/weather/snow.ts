@@ -1,7 +1,8 @@
-import { Color, type ColorRepresentation, type Node, type UniformNode } from 'three/webgpu';
+import { Color, type ColorRepresentation, type Node } from 'three/webgpu';
 import { cameraPosition, float, hash, smoothstep, step, uniform } from 'three/tsl';
-import type { TreePart } from '../effects/mask';
+import { TREE_PARTS, type TreePart } from '../effects/mask';
 import { readyMadeShaderHook, type TreeShaderHook, type TreeShaderInput, type TreeShaderOutput } from '../materials/shader-hooks';
+import { degreesValue, slopeRange, softnessValue, strengthsWith, WeatherAmount } from './shared';
 
 export interface SnowOptions {
   /** How much snow lies on the trees: 0 = none (default), 1 = full cover. */
@@ -13,28 +14,9 @@ export interface SnowOptions {
  * is shared by the trees swaying with it. Changing it only writes a uniform (no recompile). Snow Cover
  * follows {@link sceneSnow} unless it is given another one.
  */
-export class Snow {
-  /** The shared TSL uniforms Snow Cover reads. Write through the setters, not here. */
-  readonly uniforms: { readonly amount: UniformNode<'float', number> };
-
+export class Snow extends WeatherAmount {
   constructor(options: SnowOptions = {}) {
-    this.uniforms = { amount: uniform(0) };
-    this.set(options);
-  }
-
-  get amount(): number {
-    return this.uniforms.amount.value;
-  }
-
-  set amount(value: number) {
-    if (!(value >= 0 && value <= 1)) throw new RangeError(`Snow amount must be a number from 0 to 1, got ${value}`);
-    this.uniforms.amount.value = value;
-  }
-
-  /** Sets the amount; returns this. */
-  set(options: SnowOptions): this {
-    if (options.amount !== undefined) this.amount = options.amount;
-    return this;
+    super('Snow amount', options);
   }
 }
 
@@ -47,10 +29,13 @@ export interface SnowCoverSettings {
   color?: ColorRepresentation;
   /**
    * The steepest surface that still holds snow, in degrees from level (0..90; the same as how far its
-   * normal is from facing straight up). Default 60.
+   * normal is from facing straight up), as Wetness's `slope`. Default 60.
    */
   slope?: number;
-  /** Degrees (>= 0) over which the snow fades out towards `slope`: below `slope - softness` it is full. Default 25; 0 is a hard edge. */
+  /**
+   * Degrees (>= 0) below `slope` over which the snow fades out towards it: full up to `slope - softness`,
+   * none from `slope` on, as Wetness's `softness`. Default 25; 0 is a hard edge.
+   */
   softness?: number;
   /** How much snow each tree part takes (0..1). Default 1 for bark, leaves and fruit. */
   strength?: Partial<Record<TreePart, number>>;
@@ -86,11 +71,6 @@ const DEFAULTS: SnowCoverLook = {
   softness: 25,
   strength: { bark: 1, leaves: 1, fruit: 1 },
 };
-
-const PARTS = ['bark', 'leaves', 'fruit'] as const;
-
-/** The cosine of an angle in degrees, clamped to 0..90. */
-const cosOf = (degrees: number): number => Math.cos((Math.min(90, Math.max(0, degrees)) * Math.PI) / 180);
 
 /**
  * Makes the ready-made Snow Cover hooks: they whiten the surfaces of trees that face up by the amount of
@@ -132,23 +112,16 @@ export function snowCoverHooks(settings: SnowCoverSettings & { snow?: Snow } = {
     },
     set(next: SnowCoverSettings) {
       // Checked in full before anything is written, so a bad value changes nothing.
-      if (next.slope !== undefined && !(next.slope >= 0 && next.slope <= 90)) throw new RangeError(`Snow Cover slope must be 0..90 degrees, got ${next.slope}`);
-      if (next.softness !== undefined && !(next.softness >= 0 && Number.isFinite(next.softness))) {
-        throw new RangeError(`Snow Cover softness must be a finite number >= 0, got ${next.softness}`);
-      }
-      const strength = { ...look.strength };
-      for (const part of PARTS) {
-        const value = next.strength?.[part];
-        if (value === undefined) continue;
-        if (!(value >= 0 && value <= 1)) throw new RangeError(`Snow Cover ${part} strength must be a number in 0..1, got ${value}`);
-        strength[part] = value;
-      }
+      const slope = next.slope === undefined ? look.slope : degreesValue('Snow Cover slope', next.slope, 90);
+      const softness = next.softness === undefined ? look.softness : softnessValue('Snow Cover softness', next.softness);
+      const strength = strengthsWith('Snow Cover', look.strength, next.strength);
       if (next.color !== undefined) look.color.set(next.color);
-      Object.assign(look, { slope: next.slope ?? look.slope, softness: next.softness ?? look.softness, strength });
+      Object.assign(look, { slope, softness, strength });
       u.color.value.copy(look.color);
-      u.bare.value = cosOf(look.slope);
-      u.covered.value = Math.max(cosOf(look.slope - look.softness), u.bare.value + 1e-4);
-      for (const part of PARTS) u.strength[part].value = look.strength[part];
+      const range = slopeRange(look.slope, look.softness);
+      u.bare.value = range.none;
+      u.covered.value = range.full;
+      for (const part of TREE_PARTS) u.strength[part].value = look.strength[part];
       return this;
     },
   };
