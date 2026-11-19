@@ -1,4 +1,5 @@
 import type { WindBurstOptions } from "@casmo/tree.js";
+import type { WetnessSettings } from "@casmo/tree.js/weather";
 
 export {};
 declare global {
@@ -23,6 +24,8 @@ declare global {
       setShaderHooks?: (parts: string[]) => void;
       /** Shows or hides one part's mesh ('wood', 'leaves', 'fruit') and re-renders. */
       setVisible?: (mesh: string, visible: boolean) => void;
+      /** With ?wetness: sets the scene-wide wetness amount, Wetness's settings, and whether its hooks are set, then draws again. */
+      setWetness?: (options: { amount?: number; hooks?: boolean; settings?: WetnessSettings }) => Promise<void>;
     };
   }
 }

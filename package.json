@@ -59,6 +59,10 @@
       "types": "./dist/scene/index.d.ts",
       "import": "./dist/scene.js"
     },
+    "./weather": {
+      "types": "./dist/weather/index.d.ts",
+      "import": "./dist/weather.js"
+    },
     "./species": {
       "types": "./dist/species/index.d.ts",
       "import": "./dist/species.js"
