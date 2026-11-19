@@ -383,8 +383,11 @@ export class ForestVariant {
 
   /** @internal Frees the GPU resources. */
   dispose(): void {
+    // Detail Levels: the level meshes' geometry, the GPU buffers and compute pass, then the Light vertex data.
     this.levels?.dispose();
+    this.levels = null;
     for (const source of this.lightSources) source.dispose();
+    this.lightSources = [];
     this.disposeMeshes();
     this.woodSource.dispose();
     this.leafSource.dispose();
