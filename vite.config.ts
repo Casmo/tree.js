@@ -62,7 +62,7 @@ export default defineConfig(({ command }) => ({
         effects: resolve(import.meta.dirname, 'src/effects/index.ts'),
         // Scene Pipeline: opt-in Scene Effects (depends on effects, never the other way round).
         scene: resolve(import.meta.dirname, 'src/scene/index.ts'),
-        // Weather: opt-in ready-made Tree Shader Hooks (Wetness), loaded only by games that import it.
+        // Weather: opt-in ready-made Tree Shader Hooks (Snow Cover, Wetness), loaded only by games that import it.
         weather: resolve(import.meta.dirname, 'src/weather/index.ts'),
         // Species collection: one named export per Species, loadSpecies, SPECIES_NAMES.
         species: resolve(import.meta.dirname, 'src/species/index.ts'),

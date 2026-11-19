@@ -25,6 +25,7 @@
 //   ?baked=1  show the tree as a Baked Tree: exportBakedTree, loaded back with three's GLTFLoader
 //   ?occlusionInVertexColors=1  with ?baked=1: multiply Structural Occlusion into the vertex colours
 //   ?hook=leaves|bark|fruit[,...]  a Tree Shader Hook on those parts that tints them magenta
+//   ?snow=<0..1>  Snow Cover (from @casmo/tree.js/weather) at that scene-wide snow amount
 //   ?wetness=<0..1>  ready-made Wetness as the scene-wide default hooks, at that amount (window.treeExample.setWetness)
 import * as THREE from "three/webgpu";
 import { MeshStandardMaterial, WebGLRenderer } from "three";
@@ -55,6 +56,7 @@ import {
 import { loadSpecies, type SpeciesName } from "@casmo/tree.js/species";
 import type { WetnessSettings } from "@casmo/tree.js/weather";
 import { framingBox } from "../framing";
+import { setSnow, type SnowExampleOptions } from "../snow";
 
 // Built-in Styles are separate chunks, fetched only when asked for.
 const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
@@ -85,6 +87,8 @@ declare global {
       setShaderHooks?: (parts: string[]) => void;
       /** Shows or hides one part's mesh ('wood', 'leaves', 'fruit') and re-renders. */
       setVisible?: (mesh: string, visible: boolean) => void;
+      /** Sets Snow Cover (or the facing test hook), the snow amount and settings, and draws the frame again. */
+      setSnow?: (options: SnowExampleOptions) => Promise<void>;
       /**
        * With ?wetness: sets the scene-wide wetness amount, Wetness's settings, and whether its hooks are
        * set at all (`hooks: false` removes them), then draws the frame again.
@@ -340,6 +344,12 @@ async function main(): Promise<void> {
       shaderHooks: hooksFor(params.get("hook")?.split(",") ?? []),
     },
   );
+  const snow = params.get("snow");
+  if (snow !== null)
+    await setSnow((hooks) => (tree.shaderHooks = hooks), {
+      hook: "snow",
+      amount: Number(snow),
+    });
   await tree.ready; // textures (realistic Style, custom maps) are loaded before the first frame
   const shown = params.get("baked") === "1" ? await baked(tree) : tree;
   scene.add(shown);
@@ -438,6 +448,10 @@ async function main(): Promise<void> {
     setSeason,
     setShaderHooks,
     setVisible,
+    setSnow: (options) =>
+      setSnow((hooks) => (tree.shaderHooks = hooks), options).then(() =>
+        draw(() => {}),
+      ),
     trees: burstTrees,
     burst,
     setWindTime,

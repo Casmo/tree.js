@@ -56,6 +56,7 @@ import {
   type WindBurstOptions,
 } from '@casmo/tree.js';
 import { loadSpecies, type SpeciesName } from '@casmo/tree.js/species';
+import { setSnow, type SnowExampleOptions } from '../snow';
 
 declare global {
   interface Window {
@@ -85,6 +86,8 @@ declare global {
        * instead) and how strongly it tints (a uniform: no rebuild), then draws the frame again.
        */
       setShaderHooks?: (options: { parts?: string[]; sceneParts?: string[]; amount?: number }) => Promise<void>;
+      /** Sets Snow Cover (or the facing test hook) on the forest, the snow amount and settings, and draws the frame again. */
+      setSnow?: (options: SnowExampleOptions) => Promise<void>;
       /** Starts a Wind Burst on the scene-wide Wind (at its current time) and draws the frame again. */
       burst?: (options: WindBurstOptions) => Promise<void>;
       /** Pins the scene-wide Wind clock to `seconds` and draws the frame again. */
@@ -310,6 +313,10 @@ async function main(): Promise<void> {
       if (parts !== undefined) forest.shaderHooks = hooksFor(parts);
       if (sceneParts !== undefined) setSceneShaderHooks(hooksFor(sceneParts));
       if (amount !== undefined) hookAmount.value = amount;
+      await renderer.renderAsync(scene, camera);
+    },
+    setSnow: async (options) => {
+      await setSnow((hooks) => (forest.shaderHooks = hooks), options);
       await renderer.renderAsync(scene, camera);
     },
     burst: async (options) => {
