@@ -152,6 +152,22 @@ describe('Wind Bursts in the velocity channel', () => {
       expect(nodes.has(previous)).toBe(true);
     }
   });
+
+  it('the Wind motion of a Forest tree includes its running bursts, evaluated at the previous Wind time too', () => {
+    const wind = new Wind();
+    wind.time = 4;
+    const forest = createForest(definition, [{ position: [0, 0, 0] }, { position: [3, 0, 0] }], { seed: 1, wind });
+    const variant = forest.variants[0]!;
+    const meshes = [variant.barkMaterial, variant.leafMaterial, variant.fruitMaterial!].map((material) => new Mesh(undefined, material));
+    const previous = uniform(3.9);
+    expect(shiftUniforms(meshes[1]!, previous, 0).values).not.toContain(1);
+    wind.burst({ x: 1, z: 1 });
+    for (const mesh of meshes) {
+      const { values, nodes } = shiftUniforms(mesh, previous, 0);
+      expect(values).toContain(1); // the one running burst
+      expect(nodes.has(previous)).toBe(true);
+    }
+  });
 });
 
 function findMesh(root: { traverse(f: (o: unknown) => void): void }, name: string): Mesh | undefined {
