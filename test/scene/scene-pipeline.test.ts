@@ -45,6 +45,14 @@ describe('SUGGESTED_SCENE_EFFECTS', () => {
     expect(subtle).toBeDefined();
     expect(subtle.strength!).toBeLessThan(soft.strength!);
   });
+
+  it('suggests exactly the spec\'s Scene Effects per Style, with light GTAO for low-poly', () => {
+    const parts = (style: keyof typeof SUGGESTED_SCENE_EFFECTS) => Object.keys(SUGGESTED_SCENE_EFFECTS[style]).sort();
+    expect(parts('low-poly')).toEqual(['antialias', 'ao', 'fog', 'toneMapping']);
+    expect(parts('stylized')).toEqual(['antialias', 'ao', 'bloom', 'fog', 'toneMapping']);
+    expect(parts('realistic')).toEqual(['antialias', 'ao', 'bloom', 'fog', 'godrays', 'toneMapping']);
+    expect(SUGGESTED_SCENE_EFFECTS['low-poly'].ao!.scale!).toBeLessThan(SUGGESTED_SCENE_EFFECTS.stylized.ao!.scale!);
+  });
 });
 
 describe('ScenePipeline settings', () => {

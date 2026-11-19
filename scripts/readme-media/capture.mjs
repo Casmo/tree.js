@@ -30,6 +30,9 @@ const JOBS = {
   forest: shot('forest', 960, 400),
   'material-features': { url: '/examples/material-features/?style=stylized', width: 960, height: 400, ready: 'featuresExample' },
   effects: { side: [shot('effects', 480, 360, '&effects=0'), shot('effects', 480, 360, '&effects=1')] },
+  'scene-pipeline': {
+    side: ['plain', 'style'].map((scene) => ({ url: `/examples/scene-pipeline/?style=stylized&scene=${scene}`, width: 480, height: 360, ready: 'scenePipelineExample' })),
+  },
   baked: { ...shot('baked', 400, 360), gif: { fps: 15, colors: 64 } },
   textures: shot('textures', 960, 400),
   react: { url: '/examples/react/', width: 720, height: 405, ready: 'reactExample' },
@@ -41,6 +44,7 @@ const JOBS = {
   'example-forest': { url: '/examples/forest/?season=0.6', width: 480, height: 300, ready: 'forestExample' },
   'example-effects': { url: '/examples/effects/?style=stylized', width: 480, height: 300, ready: 'effectsExample' },
   'example-material-features': { url: '/examples/material-features/?style=realistic', width: 480, height: 300, ready: 'featuresExample' },
+  'example-scene-pipeline': { url: '/examples/scene-pipeline/?style=realistic', width: 480, height: 300, ready: 'scenePipelineExample' },
   'example-species': { url: '/examples/species/?species=maple&style=stylized&season=0.62', width: 480, height: 300, ready: 'speciesExample' },
 };
 

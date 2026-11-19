@@ -71,6 +71,23 @@ for (const style of ['low-poly', 'stylized', 'realistic']) {
   });
 }
 
+for (const style of ['low-poly', 'stylized', 'realistic']) {
+  for (const backend of backends) {
+    test(`the full suggestion of the ${style} Style (${backend.name})`, async ({ page }) => {
+      const warnings: string[] = [];
+      page.on('console', (message) => {
+        if (message.type() === 'error' || message.text().includes('tree.js')) warnings.push(message.text());
+      });
+      const plain = await load(page, `style=${style}&scene=plain${backend.query}`);
+      const suggested = await load(page, `style=${style}&scene=style${backend.query}`);
+      expect(suggested.example.backend).toBe(backend.name);
+      expect(warnings, 'no errors and no skipped god rays (the example passes its shadow-casting sun)').toEqual([]);
+      expect((await difference(page, plain.image, suggested.image)).changed, 'the suggestion changes the frame').toBeGreaterThan(10_000);
+      await expect(page.locator('canvas')).toHaveScreenshot(`${style}-style-${backend.name}.png`);
+    });
+  }
+}
+
 test('tone mapping alone, through sceneToneMapping in a hand-made pipeline (realistic, WebGPU)', async ({ page }) => {
   const plain = await load(page, 'style=realistic&scene=plain');
   const toneMapped = await load(page, 'style=realistic&scene=tone-mapping');
