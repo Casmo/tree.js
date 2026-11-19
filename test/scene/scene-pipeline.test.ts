@@ -7,6 +7,7 @@ import {
   applySceneEffects,
   createScenePipeline,
   sceneAntialias,
+  sceneBloom,
   sceneToneMapping,
   SUGGESTED_SCENE_EFFECTS,
   type ScenePipeline,
@@ -32,6 +33,15 @@ describe('SUGGESTED_SCENE_EFFECTS', () => {
 
   it('suggests SMAA for every Style (the Tree ID channel turns MSAA off)', () => {
     for (const settings of Object.values(SUGGESTED_SCENE_EFFECTS)) expect(settings.antialias).toBe('smaa');
+  });
+
+  it('suggests soft bloom for stylized, subtle bloom for realistic and none for low-poly', () => {
+    expect(SUGGESTED_SCENE_EFFECTS['low-poly'].bloom).toBeUndefined();
+    const soft = SUGGESTED_SCENE_EFFECTS.stylized.bloom!;
+    const subtle = SUGGESTED_SCENE_EFFECTS.realistic.bloom!;
+    expect(soft).toBeDefined();
+    expect(subtle).toBeDefined();
+    expect(subtle.strength!).toBeLessThan(soft.strength!);
   });
 });
 
@@ -138,6 +148,20 @@ describe('ScenePipeline set(): rebuild versus uniform-only update', () => {
     expect(disposed).toHaveBeenCalledTimes(blurs.length);
   });
 
+  it('updates bloom numbers as uniforms and frees the bloom render targets when bloom goes off', () => {
+    const pipeline = create({ treeEffects: null, sceneEffects: { bloom: { strength: 0.3 } } });
+    const before = pipeline.pipeline.outputNode;
+    const blooms = findNodes(before, (node) => node.constructor.name === 'BloomNode');
+    expect(blooms).toHaveLength(1);
+    const disposed = vi.fn();
+    blooms[0]!.addEventListener('dispose', disposed);
+    pipeline.set({ treeEffects: null, sceneEffects: { bloom: { strength: 0.8, radius: 0.6, threshold: 0.5 } } });
+    expect(pipeline.pipeline.outputNode).toBe(before);
+    expect(disposed).not.toHaveBeenCalled();
+    pipeline.set({ treeEffects: null, sceneEffects: {} });
+    expect(disposed).toHaveBeenCalledTimes(1);
+  });
+
   it('replaces the scene pass only when the set of channels changes', () => {
     const pipeline = create({ style: 'realistic' });
     const plain = pipeline.scenePass;
@@ -206,6 +230,13 @@ describe('Scene Effects as nodes', () => {
     const input = { color: vec4(0.2, 0.4, 0.1, 1) };
     expect(applySceneEffects(input, {})).toBe(input.color);
     expect(applySceneEffects(input, { toneMapping: {} })).not.toBe(input.color);
+    expect(applySceneEffects(input, { bloom: {} })).not.toBe(input.color);
+  });
+
+  it('sceneBloom returns a new colour node, with or without options', () => {
+    const color = vec4(2, 1, 0.5, 1);
+    expect(sceneBloom(color)).not.toBe(color);
+    expect(sceneBloom(color, { strength: 0.5, radius: 0.4, threshold: 0.9 })).not.toBe(color);
   });
 
   it('applySceneEffects and sceneAntialias anti-alias the colour with SMAA or FXAA', () => {

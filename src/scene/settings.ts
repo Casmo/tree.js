@@ -1,5 +1,6 @@
 import type { StyleName } from '../styles/registry';
 import type { SceneAntialiasMode } from './antialias';
+import type { SceneBloomOptions } from './bloom';
 import type { SceneToneMappingOptions } from './tone-mapping';
 import { SUGGESTED_SCENE_EFFECTS } from './suggested';
 
@@ -10,6 +11,8 @@ import { SUGGESTED_SCENE_EFFECTS } from './suggested';
 export interface SceneEffectsSettings {
   /** Tone mapping and the output colour space, applied inside the pipeline. */
   toneMapping?: SceneToneMappingOptions;
+  /** Bloom: a soft glare around the bright parts of the frame, before tone mapping. */
+  bloom?: SceneBloomOptions;
   /** Post anti-aliasing of the display colours, last in the stack; `null` = none. */
   antialias?: SceneAntialiasMode | null;
 }
