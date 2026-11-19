@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Mesh, PerspectiveCamera, Scene, type Material, type Node, type NodeMaterial, type Renderer } from 'three/webgpu';
 import { createForest, createTree, Wind, type TreeDefinitionInput } from '../../src/index';
 import { TREE_MASK } from '../../src/effects';
 import { createScenePipeline, windVelocity, windVelocityMRT, WIND_VELOCITY } from '../../src/scene';
+
+// SMAA (in the suggestions) loads its lookup textures through `new Image()`, which Node does not have.
+vi.stubGlobal('Image', class {
+  src = '';
+});
 
 const renderer = { isWebGPURenderer: true } as unknown as Renderer;
 const definition: TreeDefinitionInput = {
