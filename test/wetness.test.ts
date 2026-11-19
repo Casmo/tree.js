@@ -130,6 +130,8 @@ describe('Wetness packaging', () => {
     const files = readdirSync(new URL('src/', root), { recursive: true, encoding: 'utf8' }).filter(
       (file) => /\.tsx?$/.test(file) && !file.startsWith('weather') && !file.endsWith('.test.ts'),
     );
-    for (const file of files) expect(read(`src/${file}`), file).not.toMatch(/from '[./]*\/weather['/]/);
+    // Type-only imports are erased (`@casmo/tree.js/react` loads it with a dynamic import, on first use).
+    const runtime = (source: string) => source.replace(/^import type [^;]*;/gm, '');
+    for (const file of files) expect(runtime(read(`src/${file}`)), file).not.toMatch(/from '[./]*\/weather['/]/);
   });
 });

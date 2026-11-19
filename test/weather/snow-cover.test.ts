@@ -125,8 +125,10 @@ describe('/weather packaging', () => {
   it('is imported by no other part of the library, so a game without weather never loads it', () => {
     const imports = /from '\.\.?\/(\.\.\/)*weather/;
     const files = readdirSync(new URL('../../src', import.meta.url), { recursive: true, encoding: 'utf8' });
+    // Type-only imports are erased (`@casmo/tree.js/react` loads it with a dynamic import, on first use).
+    const runtime = (source: string) => source.replace(/^import type [^;]*;/gm, '');
     for (const file of files.filter((f) => /\.tsx?$/.test(f) && !f.startsWith('weather'))) {
-      expect(read(`src/${file}`), file).not.toMatch(imports);
+      expect(runtime(read(`src/${file}`)), file).not.toMatch(imports);
     }
     expect(read('src/index.ts')).not.toMatch(/weather/);
   });

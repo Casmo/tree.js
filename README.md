@@ -1208,7 +1208,7 @@ node for your own MRT. TRAA changes your scene pass: `sceneAntialias(color, 'tra
 
 ![Two low-poly trees rendered with React Three Fiber](docs/images/react.png)
 
-`@casmo/tree.js/react` has `<Tree>`, `<Forest>`, `<Wind>` and `useTreeStyle`. Trees use TSL node
+`@casmo/tree.js/react` has `<Tree>`, `<Forest>`, `<Wind>` and `useTreeStyle` (and, opt-in, the [hooks, weather, Wind Bursts and custom Tree Effects](#tree-shader-hooks-weather-wind-bursts-and-custom-tree-effects-in-react)). Trees use TSL node
 materials, so give `<Canvas>` a `WebGPURenderer` (it falls back to WebGL2 by itself). R3F v9 takes an
 async `gl` factory, which must `await renderer.init()` before it returns:
 
@@ -1300,6 +1300,72 @@ function Look() {
   );
 }
 ```
+
+### Tree Shader Hooks, weather, Wind Bursts and custom Tree Effects in React
+
+All of these are opt-in: a React app that uses none of them renders exactly as before.
+
+```tsx
+import { useState } from 'react';
+import { mix, vec3, vec4 } from 'three/tsl';
+import {
+  SceneShaderHooks,
+  ScenePipeline,
+  SnowCover,
+  Tree,
+  TreeEffect,
+  Wetness,
+  useWindBurst,
+  type CustomTreeEffect,
+  type TreeShaderHooks,
+} from '@casmo/tree.js/react';
+
+// Module scope (or useMemo): a new function is a new hook, and a new hook rebuilds the node graph.
+const autumn: TreeShaderHooks = { leaves: ({ color }) => mix(color, vec3(0.9, 0.5, 0.1), 0.5) };
+const dusk: TreeShaderHooks = { bark: ({ color }) => color.mul(vec3(1, 0.85, 0.7)) };
+const foliage: CustomTreeEffect<{ strength: number }> = {
+  before: 'outline',
+  build: (input) => ({ node: vec4(input.color.rgb, input.color.a), update: () => {} }), // your look here
+};
+
+function Park({ snow, rain }: { snow: number; rain: number }) {
+  const burst = useWindBurst(); // on the scene-wide Wind, or useWindBurst(otherWind)
+  const [fall, setFall] = useState(false);
+  return (
+    <>
+      <SceneShaderHooks hooks={dusk} />
+      <SnowCover amount={snow} slope={60} />
+      <Wetness amount={rain} sheen={0.7} />
+      <Tree style="stylized" seed={1} shaderHooks={fall ? autumn : undefined} onClick={() => setFall(!fall)} />
+      <mesh rotation-x={-Math.PI / 2} onClick={(e) => burst({ x: e.point.x, z: e.point.z, strength: 1, radius: 6 })}>
+        <planeGeometry args={[40, 40]} />
+      </mesh>
+      <ScenePipeline style="stylized">
+        <TreeEffect effect={foliage} options={{ strength: 0.5 }} />
+      </ScenePipeline>
+    </>
+  );
+}
+```
+
+- `<Tree shaderHooks>` and `<Forest shaderHooks>` set the [Tree Shader Hooks](#tree-shader-hook) of that tree
+  or every tree of the forest (`tree.shaderHooks`, `forest.shaderHooks`); unset is none. Only the parts
+  whose hooks change rebuild their node graph; the tree is never regenerated.
+- `<SceneShaderHooks hooks>` sets scene-wide default hooks while mounted (`setSceneShaderHooks`). Several
+  stack in the order they mounted, after the hooks the scene already had, which the last one to unmount
+  puts back. Don't call `setSceneShaderHooks` yourself while they are mounted.
+- `<SnowCover>` and `<Wetness>` put the ready-made [Snow Cover](#snow-cover) and [Wetness](#wetness)
+  hooks on every tree while mounted (scene-wide, before the app's own hooks). `amount` is written to
+  `sceneSnow` / `sceneWetness` (or the `snow` / `wetness` prop) and put back on unmount; the settings
+  (`color`, `slope`, `softness`, `strength`, and Wetness's `darkening`, `sheen`) are live, an unset one is
+  its default. Their `ref` gives the hooks (`SnowCoverHooks`, `WetnessHooks`). They load
+  `@casmo/tree.js/weather` with a dynamic import on first use, so apps without weather never bundle it:
+  they suspend like `<ScenePipeline>` (call `preloadWeather()` to start the download early).
+- `useWindBurst(wind?)` returns a stable function that starts a [Wind Burst](#wind-burst).
+- `<TreeEffect effect options>` inside a `<ScenePipeline>` adds a [custom Tree
+  Effect](#custom-tree-effects-in-the-scene-pipeline) while mounted. New `options` (compared by value) go
+  through `updateEffect` (no new graph); it stays through Style changes, moves into a rebuilt pipeline, and
+  is removed on unmount. Several at the same place run in the order they mounted.
 
 ## Without a bundler: import map (CDN)
 
