@@ -74,7 +74,9 @@ function channelsOf(settings: ScenePipelineSettings, options: ScenePipelineOptio
 /** Whether the scene pass renders Wind-aware velocity (ADR 0011): only when something reads it. */
 function wantsVelocity(settings: ScenePipelineSettings, options: ScenePipelineOptions): boolean {
   // TRAA and motion blur add themselves here (`antialias === 'traa'`, `motionBlur`).
-  return options.velocity === true || settings.sceneEffects.antialias === 'traa';
+  return options.velocity === true
+    || !!settings.sceneEffects.motionBlur
+    || settings.sceneEffects.antialias === 'traa';
 }
 
 /**

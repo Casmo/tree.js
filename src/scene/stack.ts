@@ -4,6 +4,7 @@ import type { LiveSceneEffect, SceneEffectInput, SceneEffectStage } from './stag
 import { godraysStage } from './godrays';
 import { antialiasStage, traaStage } from './antialias';
 import { bloomStage } from './bloom';
+import { motionBlurStage } from './motion-blur';
 import { toneMappingStage } from './tone-mapping';
 
 /**
@@ -14,7 +15,7 @@ import { toneMappingStage } from './tone-mapping';
  */
 const STACK: readonly SceneEffectStage[] = [
   godraysStage,
-  // motion blur
+  motionBlurStage,
   bloomStage,
   traaStage, // TRAA (before tone mapping)
   toneMappingStage,

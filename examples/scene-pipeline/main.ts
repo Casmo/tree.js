@@ -14,6 +14,12 @@
 //                    ?via=scene-pipeline the channel of createScenePipeline(..., { velocity: true })
 //                    (scenePass.velocity); `scenePipelineExample.regions` has the front tree's crown and
 //                    a strip of ground to check it in
+//   ?scene=motion-blur  motion blur alone (sceneMotionBlur on windVelocityMRT's channel of a hand-made
+//                       scene pass), or with ?via=scene-pipeline createScenePipeline with only
+//                       { motionBlur: {} } (which requests the velocity channel itself); use a pinned
+//                       Wind and/or ?cameraStep for motion
+//   ?cameraStep=<m>  the camera slides sideways by <m> metres every frame, ending at the usual view, so
+//                    the last frame has one step of camera motion (pinned, for motion blur screenshots)
 //   ?velocity=1  with ?scene=none|style: the Scene Pipeline's velocity option (the frame must not change)
 //   ?scene=godrays  god rays alone (sceneGodrays on the shadow-casting sun), with the realistic
 //                   suggestion's settings (with ?sun=back for visible shafts)
@@ -63,6 +69,7 @@ import {
   sceneBloom,
   sceneFog,
   sceneGodrays,
+  sceneMotionBlur,
   sceneToneMapping,
   SUGGESTED_SCENE_EFFECTS,
   WIND_VELOCITY,
@@ -89,7 +96,7 @@ declare global {
       renderer?: { before: RendererState; after: RendererState };
       /** `?pick=<name>`: the point picked (CSS pixels) and the name of the tree pick() resolved to. */
       picked?: { name: string | null; x: number; y: number };
-      /** `?scene=velocity`: where to check the velocity (CSS pixels): the front tree's crown, a strip of ground. */
+      /** `?scene=velocity|motion-blur`: where to check the velocity (CSS pixels): the front tree's crown, a strip of ground. */
       regions?: Record<'crown' | 'ground', { x0: number; y0: number; x1: number; y1: number }>;
       /** `?antialias=<modes>`: the anti-aliasing modes set() switched through at runtime. */
       antialias?: string[];
@@ -159,8 +166,17 @@ async function main(): Promise<void> {
 
   const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 300);
   const distance = (size.y / 2 / Math.tan((camera.fov * Math.PI) / 360)) * 1.5;
-  camera.position.copy(centre).addScaledVector(direction, distance);
-  camera.lookAt(centre.clone().addScaledVector(back, width * 0.4));
+  const view = centre.clone().addScaledVector(direction, distance);
+  const target = centre.clone().addScaledVector(back, width * 0.4);
+  camera.position.copy(view);
+  camera.lookAt(target);
+  // ?cameraStep=<m>: the camera's sideways offset at the frame `stepsLeft` frames before the last one.
+  const cameraStep = Number(params.get('cameraStep') ?? 0);
+  const slideCamera = (stepsLeft: number) => {
+    const offset = side.clone().multiplyScalar(-cameraStep * stepsLeft);
+    camera.position.copy(view).add(offset);
+    camera.lookAt(target.clone().add(offset));
+  };
 
   const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: params.get('backend') === 'webgl' });
   renderer.setPixelRatio(1);
@@ -231,6 +247,18 @@ async function main(): Promise<void> {
     pipeline.outputNode = vec4(abs(velocity.xy).mul(200), 0, 1);
     pipeline.outputColorTransform = false;
     render = () => pipeline.render();
+  } else if (sceneParam === 'motion-blur') {
+    if (params.get('via') === 'scene-pipeline') {
+      const pipeline = createScenePipeline(renderer, scene, camera, { sceneEffects: { motionBlur: {} } });
+      render = () => pipeline.render();
+    } else {
+      // Motion blur alone: the scene pass with the Wind-aware velocity channel, blurred along it.
+      const scenePass = pass(scene, camera);
+      scenePass.setMRT(mrt({ output }).merge(windVelocityMRT()));
+      const pipeline = new THREE.RenderPipeline(renderer);
+      pipeline.outputNode = sceneMotionBlur(scenePass.getTextureNode(), scenePass.getTextureNode(WIND_VELOCITY));
+      render = () => pipeline.render();
+    }
   } else if (sceneParam === 'godrays') {
     // God rays alone: the app's own shadow-casting sun, the scene pass's colour and depth.
     const pipeline = new THREE.RenderPipeline(renderer);
@@ -300,7 +328,9 @@ async function main(): Promise<void> {
   // Render a few frames so pipelines that build on first use show the settled image.
   const frames = params.get('frames');
   const antialias = params.get('antialias')?.split(',');
-  for (let i = 0; i < Number((antialias ? null : frames) ?? 4); i++) {
+  const first = Number((antialias ? null : frames) ?? 4);
+  for (let i = 0; i < first; i++) {
+    if (cameraStep) slideCamera(first - 1 - i);
     render();
     await new Promise(requestAnimationFrame);
   }
@@ -334,7 +364,7 @@ async function main(): Promise<void> {
     fogState.after = scene.fogNode === appFogNode;
   }
   window.scenePipelineExample = { status: 'rendered', backend, picked, antialias, fog: fogState, renderer: { before, after: rendererState() } };
-  if (sceneParam === 'velocity') window.scenePipelineExample.regions = regions();
+  if (sceneParam === 'velocity' || sceneParam === 'motion-blur') window.scenePipelineExample.regions = regions();
   if (sceneWind.strength > 0 && windTime === null) renderer.setAnimationLoop(render);
 }
 
