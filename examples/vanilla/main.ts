@@ -25,6 +25,7 @@
 //   ?baked=1  show the tree as a Baked Tree: exportBakedTree, loaded back with three's GLTFLoader
 //   ?occlusionInVertexColors=1  with ?baked=1: multiply Structural Occlusion into the vertex colours
 //   ?hook=leaves|bark|fruit[,...]  a Tree Shader Hook on those parts that tints them magenta
+//   ?wetness=<0..1>  ready-made Wetness as the scene-wide default hooks, at that amount (window.treeExample.setWetness)
 import * as THREE from "three/webgpu";
 import { MeshStandardMaterial, WebGLRenderer } from "three";
 import { mix, vec3 } from "three/tsl";
@@ -36,6 +37,7 @@ import {
   type LeafType,
   extendDefinition,
   sceneWind,
+  setSceneShaderHooks,
   SEASON_PROFILES,
   setTextureOptions,
   SUGGESTED_MATERIAL_FEATURES,
@@ -51,6 +53,7 @@ import {
   type WindBurstOptions,
 } from "@casmo/tree.js";
 import { loadSpecies, type SpeciesName } from "@casmo/tree.js/species";
+import type { WetnessSettings } from "@casmo/tree.js/weather";
 import { framingBox } from "../framing";
 
 // Built-in Styles are separate chunks, fetched only when asked for.
@@ -82,6 +85,11 @@ declare global {
       setShaderHooks?: (parts: string[]) => void;
       /** Shows or hides one part's mesh ('wood', 'leaves', 'fruit') and re-renders. */
       setVisible?: (mesh: string, visible: boolean) => void;
+      /**
+       * With ?wetness: sets the scene-wide wetness amount, Wetness's settings, and whether its hooks are
+       * set at all (`hooks: false` removes them), then draws the frame again.
+       */
+      setWetness?: (options: { amount?: number; hooks?: boolean; settings?: WetnessSettings }) => Promise<void>;
     };
   }
 }
@@ -304,7 +312,23 @@ const magenta: TreeShaderHook = ({ color }) => mix(color, vec3(1, 0, 1), 0.8);
 const hooksFor = (parts: string[]): TreeShaderHooks =>
   Object.fromEntries(parts.map((part) => [part, magenta]));
 
+/** `?wetness=`: ready-made Wetness as the scene-wide default (the weather entry is loaded only then). */
+async function wetness() {
+  const amount = params.get("wetness");
+  if (amount === null) return undefined;
+  const { sceneWetness, wetnessHooks } = await import("@casmo/tree.js/weather");
+  const hooks = wetnessHooks();
+  sceneWetness.amount = Number(amount);
+  setSceneShaderHooks(hooks);
+  return (options: { amount?: number; hooks?: boolean; settings?: WetnessSettings }) => {
+    if (options.amount !== undefined) sceneWetness.amount = options.amount;
+    if (options.settings) hooks.set(options.settings);
+    if (options.hooks !== undefined) setSceneShaderHooks(options.hooks ? hooks : {});
+  };
+}
+
 async function main(): Promise<void> {
+  const setWetnessNow = await wetness();
   const textureBase = params.get("textureBase");
   if (textureBase) setTextureOptions({ basePath: textureBase });
   const tree = createTree(
@@ -402,6 +426,10 @@ async function main(): Promise<void> {
     draw(() => sceneWind.burst(options));
   const setWindTime = (seconds: number) =>
     draw(() => (sceneWind.time = seconds));
+  const setWetness = setWetnessNow
+    ? (options: Parameters<typeof setWetnessNow>[0]) =>
+        draw(() => setWetnessNow(options))
+    : undefined;
   window.treeExample = {
     status: "rendered",
     backend,
@@ -413,6 +441,7 @@ async function main(): Promise<void> {
     trees: burstTrees,
     burst,
     setWindTime,
+    setWetness,
   };
   // A swaying tree needs a render loop; with a pinned Wind clock one frame is enough.
   if (windStrength > 0 && windTime === null)
