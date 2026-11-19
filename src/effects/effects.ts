@@ -28,7 +28,7 @@ export function applyTreeEffects(input: TreeEffectInput, settings: TreeEffectsSe
  * radius, the outline's `betweenTrees` and the normal encoding of Inner Lines). Settings of the same
  * shape only differ in uniforms.
  */
-function shapeOf(settings: TreeEffectsSettings, input: TreeEffectInput): string {
+export function treeEffectsShape(settings: TreeEffectsSettings, input: TreeEffectInput): string {
   const outline = settings.outline ? (drawsBetweenTrees(settings) ? 'between' : 'outline') : null;
   const innerLines = settings.innerLines ? (input.normalEncoding ?? 'color') : null;
   return JSON.stringify([!!settings.grade, settings.glow ? glowRadius(settings.glow) : null, outline, innerLines, !!settings.highlight]);
@@ -39,8 +39,11 @@ function drawsBetweenTrees(settings: TreeEffectsSettings): boolean {
   return settings.outline?.betweenTrees === true;
 }
 
-/** {@link applyTreeEffects} with every colour and number as a uniform; `update()` needs the same shape. */
-function liveTreeEffects(
+/**
+ * {@link applyTreeEffects} with every colour and number as a uniform; `update()` needs the same shape.
+ * Internal (not in the /effects index): shared with the Scene Pipeline (`src/scene`).
+ */
+export function liveTreeEffects(
   input: TreeEffectInput,
   settings: TreeEffectsSettings,
   highlighted: readonly (Tree | ForestTree)[],
@@ -79,7 +82,8 @@ function liveTreeEffects(
 /** The suggested combination of a built-in Style, or the settings themselves; `null` = no effects. */
 export type TreeEffectsChoice = StyleName | TreeEffectsSettings | null;
 
-function resolveEffects(choice: TreeEffectsChoice): TreeEffectsSettings {
+/** The settings of a choice; throws for an unknown Style. Internal, shared with the Scene Pipeline. */
+export function resolveTreeEffects(choice: TreeEffectsChoice): TreeEffectsSettings {
   if (choice === null) return {};
   if (typeof choice !== 'string') return choice;
   const settings = (SUGGESTED_TREE_EFFECTS as Record<string, TreeEffectsSettings | undefined>)[choice];
@@ -114,7 +118,7 @@ export interface TreeEffectsOptions {
  * The extra channels the scene pass needs for `settings` (with the `treeId` option). Only this
  * set decides the scene pass's MRT: settings that need the same channels keep it.
  */
-function channelsFor(settings: TreeEffectsSettings, options: TreeEffectsOptions): TreeEffectsChannels {
+export function channelsFor(settings: TreeEffectsSettings, options: Pick<TreeEffectsOptions, 'treeId'>): TreeEffectsChannels {
   return {
     treeId: options.treeId === true || drawsBetweenTrees(settings) || !!settings.highlight,
     normal: !!settings.innerLines,
@@ -122,7 +126,7 @@ function channelsFor(settings: TreeEffectsSettings, options: TreeEffectsOptions)
 }
 
 /** A key that is equal for equal sets of channels. */
-function channelsKey(channels: TreeEffectsChannels): string {
+export function channelsKey(channels: object): string {
   return Object.entries(channels)
     .filter(([, on]) => on === true)
     .map(([name]) => name)
@@ -182,7 +186,7 @@ export class TreeEffects {
    * otherwise a new graph is built and the old one freed.
    */
   set(effects: TreeEffectsChoice): void {
-    this.current = resolveEffects(effects);
+    this.current = resolveTreeEffects(effects);
     const channels = channelsFor(this.current, this.options);
     const key = channelsKey(channels);
     if (this.input?.channels !== key) {
@@ -192,7 +196,7 @@ export class TreeEffects {
       this.input = { channels: key, pass: treeEffectsPass(this.scene, this.camera, this.options.selection ?? null, channels) };
       this.graph = null;
     }
-    const shape = shapeOf(this.current, this.scenePass);
+    const shape = treeEffectsShape(this.current, this.scenePass);
     if (this.graph?.shape === shape) {
       this.graph.effects.update(this.current);
       return;
@@ -234,7 +238,7 @@ export class TreeEffects {
 }
 
 /** The render-target owning nodes (blur) in an effects graph, to dispose them on change. */
-function collectEffectNodes(output: Node, stop: Node): Node[] {
+export function collectEffectNodes(output: Node, stop: Node): Node[] {
   const found = new Set<Node>();
   const visit = (node: Node, seen: Set<Node>): void => {
     if (seen.has(node) || node === stop) return;

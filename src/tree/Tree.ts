@@ -7,6 +7,7 @@ import {
   Mesh,
   type Material,
   type MeshStandardNodeMaterial,
+  type Node,
   type NodeMaterial,
   type UniformNode,
 } from 'three/webgpu';
@@ -22,6 +23,7 @@ import { checkedSeason } from '../season/check';
 import { textureReady, type TextureOptions } from '../textures';
 import { seedRandom } from '../random';
 import { applyWind, sceneWind, windOffset, Wind, WindBinding, WindResponse } from '../wind';
+import { setWindMotion } from '../wind/motion';
 
 /**
  * The Generator's per-vertex part attributes (`aLevel`, `aSeason`, `aWind`, ...) go into one
@@ -154,6 +156,9 @@ export class Tree extends Group {
     fruit.colorNode = fruitSeason.color;
     fruit.positionNode = growthPosition(this.growthUniform, fruitSeason.position);
     applyWind(fruit, offset);
+    // Wind-aware velocity (ADR 0011): only read by a scene pass with a velocity channel.
+    const motion = { source: this.windBinding, shift: (previous: Node<'float'>) => windOffset(this.windBinding, this.windResponse, { time: previous }).sub(offset) };
+    for (const material of [bark, leaf, fruit]) setWindMotion(material.positionNode as Node, motion);
     this.season = options.season ?? 0;
     this.features = new LiveMaterialFeatures(definition, [
       { leaf, materials: [bark, leaf, fruit], crown: data.crown, growth: this.growthUniform },

@@ -42,7 +42,8 @@ npm install @casmo/tree.js three
 | `@casmo/tree.js/styles/low-poly` (`stylized`, `realistic`) | a built-in Style: one Tree Definition per Form (a few kB of data) |
 | `@casmo/tree.js/species` | the 28 Species (`oak`, `douglasFir`, ...), `loadSpecies`, `SPECIES_NAMES`; JSON files |
 | `@casmo/tree.js/effects` | Tree Effects (post-processing) |
-| `@casmo/tree.js/react` | `<Tree>`, `<Forest>`, `<Wind>`, `useTreeStyle` for React Three Fiber |
+| `@casmo/tree.js/scene` | Scene Pipeline: the Style's suggested Tree Effects and Scene Effects (tone mapping, SMAA/FXAA, fog, ...) in one opt-in pipeline |
+| `@casmo/tree.js/react` | `<Tree>`, `<Forest>`, `<Wind>`, `useTreeStyle`, `<ScenePipeline>` for React Three Fiber |
 
 ## Quick start
 
@@ -802,6 +803,117 @@ renderer.domElement.addEventListener('pointermove', async (event) => {
   pipeline: `treeHighlight(input, highlighted, options)`, with the `treeId` input of
   `treeEffectsPass(scene, camera, null, { treeId: true })`, or `applyTreeEffects(input, settings, highlighted)`.
 
+## Scene Pipeline
+
+![A stylized tree in front of a small Forest without (left) and with (right) the Scene Pipeline's stylized suggestion: AgX tone mapping, ground-contact AO, a soft bloom, distance fog and a low mist](docs/images/scene-pipeline.png)
+
+*Without (left) and with (right) `createScenePipeline(renderer, scene, camera, { style: 'stylized' })`.*
+
+Tree Effects only change tree pixels. `@casmo/tree.js/scene` adds the whole-scene part around them,
+the **Scene Effects**: tone mapping, anti-aliasing, ground-contact ambient occlusion (GTAO), bloom, fog
+and god rays, plus TRAA and motion blur that see Wind. The **Scene Pipeline** renders a Style's
+suggested Tree Effects and Scene Effects in one `RenderPipeline`. It is opt-in: nothing changes until
+you create one. It never changes your renderer (tone mapping and the output colour space are applied
+inside the pipeline; shadows and lights are yours). Its only scene change is fog (`scene.fogNode`),
+and it gives your own value back.
+
+```ts
+import * as THREE from 'three/webgpu';
+import { createScenePipeline } from '@casmo/tree.js/scene';
+
+const sun = new THREE.DirectionalLight('#fff4e0', 3.5); // your own light; for god rays it casts shadows
+sun.castShadow = true;
+scene.add(sun);
+const pipeline = createScenePipeline(renderer, scene, camera, { style: 'stylized', sun });
+renderer.setAnimationLoop(() => pipeline.render()); // instead of renderer.render(scene, camera)
+pipeline.set({ style: 'realistic' }); // same parts on: only uniforms change, no recompile
+pipeline.dispose(); // also restores your scene.fogNode
+```
+
+`ScenePipeline` replaces `TreeEffects` (use one or the other): the same options (`selection`, `treeId`,
+`highlighted`) and the same `set`, `pick`, `highlighted`, `scenePass`, `settings`, `render` and `dispose`,
+plus `pipeline` (the `RenderPipeline`).
+With no `style` and no overrides it adds nothing and renders exactly like `renderer.render()`.
+
+The suggestion per Style (`SUGGESTED_SCENE_EFFECTS`, plain data). Fog is in metres, tuned for a small
+forest (trees 10-30 m away); scale it up for large worlds:
+
+| Style | Tone mapping | AA | AO | Bloom | Fog | God rays |
+| --- | --- | --- | --- | --- | --- | --- |
+| `low-poly` | Neutral | SMAA | light | - | distance | - |
+| `stylized` | AgX | SMAA | yes | soft | distance + low mist | - |
+| `realistic` | AgX | SMAA | yes | subtle | distance + mist + far haze | yes (needs `sun`) |
+
+SMAA is in every suggestion because the [Tree ID](#tree-id) channel turns MSAA off. TRAA and motion
+blur are never suggested. Override a whole group with `treeEffects` or `sceneEffects` (a Style name,
+settings or `null`; no deep merge, so spread the suggestion to change a part):
+
+```ts
+import type { DirectionalLight } from 'three/webgpu';
+import { createScenePipeline, SUGGESTED_SCENE_EFFECTS } from '@casmo/tree.js/scene';
+
+const sun = scene.getObjectByName('sun') as DirectionalLight;
+createScenePipeline(renderer, scene, camera, {
+  treeEffects: 'low-poly', // or null: no Tree Effects
+  sceneEffects: { ...SUGGESTED_SCENE_EFFECTS.realistic, antialias: 'traa', fog: { near: 60, far: 600 } },
+  sun, // a DirectionalLight or PointLight that already casts shadows
+});
+```
+
+- **God rays** need a `sun` that already casts shadows (with `renderer.shadowMap.enabled` and casting
+  objects). Without one they are skipped with one console warning; the pipeline never turns shadows on.
+  In the open they read as a faint warm haze, under a dense canopy as light shafts.
+- **Fog** takes its colour from `scene.background` when that is a plain `Color`, so far trees fade into
+  the sky. `fog: { near, far, color?, mist?: { height, strength, near?, far?, farLayer? } }`.
+- **TRAA** (`antialias: 'traa'`) and **motion blur** (`motionBlur: { strength?, samples? }`) turn on a
+  Wind-aware velocity channel in the scene pass: swaying leaves don't ghost under TRAA, and blur with
+  the sway. Without them tree materials are unchanged. Pass `velocity: true` to keep the channel on for
+  your own temporal effects (`pipeline.scenePass.velocity`).
+- The order is fixed: scene pass (fog in the materials, AO in the ambient light) -> Tree Effects -> god
+  rays -> motion blur -> bloom -> TRAA -> tone mapping and output colour space -> SMAA / FXAA.
+
+### Scene Effects in your own pipeline
+
+Every Scene Effect is also a stand-alone builder (every number and colour a uniform, every option with a
+default), for apps that already have a `RenderPipeline`. Pick by what you need:
+
+| Builder | Returns | Use it when |
+| --- | --- | --- |
+| `sceneToneMapping(color, { mapping, exposure })` | display colours | you want AgX / Neutral without setting `renderer.toneMapping`; set `pipeline.outputColorTransform = false` |
+| `sceneAntialias(color, 'smaa' \| 'fxaa')` | display colours | edges alias (MSAA is off with the Tree ID, or you render without it); give it display colours (after `sceneToneMapping`, or `renderOutput(color)`); SMAA is sharper, FXAA cheaper |
+| `sceneAntialias(color, 'traa', { depth, velocity, camera })` | linear colours | you want the smoothest still image and alpha-cut leaves; before tone mapping, velocity from `windVelocityMRT()`; sets `samples = 0` (no MSAA) on the scene pass of `depth` |
+| `sceneAO(scene, camera, options)` | `{ prePass, node, context }` | trees and rocks float on the ground; set `scenePass.contextNode = context` (only ambient light darkens; the scene is drawn twice) |
+| `sceneFog(options, scene.background)` | a fog node | depth and mist; set `scene.fogNode` yourself (no pipeline needed) |
+| `sceneGodrays(color, depth, camera, sun, options)` | linear colours | light shafts; needs the shadow-casting `sun` and the scene pass's depth |
+| `sceneMotionBlur(color, velocity, options)` | linear colours | fast camera or strong Wind; velocity from `windVelocityMRT()` |
+| `sceneBloom(color, options)` | linear colours | bright skies or emissive parts should glow; before tone mapping |
+| `applySceneEffects(input, settings)` | the whole stack as one node | you want a Style's look in your own pipeline (like `applyTreeEffects`) |
+
+```ts
+import * as THREE from 'three/webgpu';
+import { mrt, output, pass } from 'three/tsl';
+import { applyTreeEffects, SUGGESTED_TREE_EFFECTS, treeMaskMRT, TREE_MASK } from '@casmo/tree.js/effects';
+import { sceneAntialias, sceneBloom, sceneMotionBlur, sceneToneMapping, windVelocityMRT, WIND_VELOCITY } from '@casmo/tree.js/scene';
+
+const scenePass = pass(scene, camera);
+scenePass.setMRT(mrt({ output }).merge(treeMaskMRT()).merge(windVelocityMRT())); // Wind-aware velocity
+const color = scenePass.getTextureNode();
+const trees = applyTreeEffects({ color, mask: scenePass.getTextureNode(TREE_MASK) }, SUGGESTED_TREE_EFFECTS.realistic); // grade + leaf glow: no extra channels
+const blurred = sceneMotionBlur(trees, scenePass.getTextureNode(WIND_VELOCITY));
+const display = sceneToneMapping(sceneBloom(blurred, { strength: 0.1 }), { mapping: 'agx' });
+const pipeline = new THREE.RenderPipeline(renderer);
+pipeline.outputNode = sceneAntialias(display, 'smaa');
+pipeline.outputColorTransform = false; // tone mapping already output display colours
+```
+
+`applySceneEffects({ color, depth, camera, sun, velocity }, settings)` builds the same colour stack from
+settings (fog and AO are not colour steps: use `sceneFog` and `sceneAO` for them). The velocity channel
+(ADR 0011) is three's `velocity` (NDC per frame) plus the Wind sway since the previous frame:
+`windVelocityMRT()` adds it to a scene pass under the name `WIND_VELOCITY`, and `windVelocity` is the
+node for your own MRT. TRAA changes your scene pass: `sceneAntialias(color, 'traa', input)` sets its
+`options.samples = 0`, because TRAA copies the depth each frame and a multisampled depth cannot be copied
+(TRAA anti-aliases instead). The Scene Pipeline restores the old value when TRAA goes off.
+
 ## React Three Fiber
 
 ![Two low-poly trees rendered with React Three Fiber](docs/images/react.png)
@@ -867,6 +979,37 @@ createRoot(document.getElementById('root')!).render(<App />);
 - `<Forest>` diffs its `placements` by id: changing the array plants and cuts trees without touching the others; per-tree `growth`/`season` override the forest's.
 - `<Forest lod>` takes `createForest`'s `lod`. Switching it on or off (or a new `impostorAtlas`/`lightDefinition`) rebuilds the forest; new distances, `fade` or `camera` only write `forest.lod`.
 - Use `shadows="percentage"` (plain `shadows` asks for a shadow type WebGPURenderer no longer has).
+
+`<ScenePipeline>` renders the canvas through a [Scene Pipeline](#scene-pipeline) (same options as
+`createScenePipeline`). It takes over rendering (`useFrame` priority 1), follows the camera, calls `set()`
+when `style`/`treeEffects`/`sceneEffects` change and disposes of the pipeline on unmount. `sun` takes a
+light or a ref. The `ref` and `useScenePipeline()` (for children) give the `ScenePipeline` (`null` until
+built). It lazily loads `@casmo/tree.js/scene` (so apps without it don't bundle it) and suspends on
+its first render until that has loaded: put it inside a `<Suspense>` boundary (like `<Tree style>`), and
+call `preloadScenePipeline()` early (e.g. at module load) to start the download before it renders.
+
+```tsx
+import { useRef } from 'react';
+import type { DirectionalLight } from 'three/webgpu';
+import { ScenePipeline, useScenePipeline } from '@casmo/tree.js/react';
+
+function PickOnClick() {
+  const pipeline = useScenePipeline(); // needs `treeId` for pick()
+  return <mesh onClick={(e) => void pipeline?.pick(e.nativeEvent.offsetX, e.nativeEvent.offsetY)} />;
+}
+
+function Look() {
+  const sun = useRef<DirectionalLight>(null);
+  return (
+    <>
+      <directionalLight ref={sun} position={[5, 8, 3]} castShadow />
+      <ScenePipeline style="realistic" sun={sun} treeId>
+        <PickOnClick />
+      </ScenePipeline>
+    </>
+  );
+}
+```
 
 ## Without a bundler: import map (CDN)
 
@@ -1002,11 +1145,12 @@ a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branche
 | --- | --- | --- | --- |
 | [`examples/vanilla`](examples/vanilla/main.ts) | `/examples/vanilla/` | one tree in plain three.js; `?style=low-poly&form=conifer&seed=2&growth=0.6&season=0.7&wind=0.5` | <img src="docs/images/example-vanilla.png" alt="examples/vanilla" width="160"> |
 | [`examples/cdn`](examples/cdn/index.html) | `/examples/cdn/` | no bundler: a single HTML page with an import map | <img src="docs/images/example-cdn.png" alt="examples/cdn" width="160"> |
-| [`examples/react`](examples/react/main.tsx) | `/examples/react/` | React Three Fiber: `<Tree>`, `<Wind>`, `useTreeStyle`; `?scene=forest` for `<Forest>` | <img src="docs/images/example-react.png" alt="examples/react" width="160"> |
+| [`examples/react`](examples/react/main.tsx) | `/examples/react/` | React Three Fiber: `<Tree>`, `<Wind>`, `useTreeStyle`; `?scene=forest` for `<Forest>`, `?scene=pipeline` for `<ScenePipeline>` | <img src="docs/images/example-react.png" alt="examples/react" width="160"> |
 | [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
 | [`examples/large-forest`](examples/large-forest/main.ts) | `/examples/large-forest/` | 10,000 trees with Detail Levels on and off: frame times, draw calls, triangles and trees per Detail Level; `?trees=&lod=0&frames=&orbit=` | <img src="docs/images/example-large-forest.png" alt="examples/large-forest" width="160"> |
 | [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` | <img src="docs/images/example-effects.png" alt="examples/effects" width="160"> |
 | [`examples/material-features`](examples/material-features/main.ts) | `/examples/material-features/` | the same tree with Material Features off and on (`SUGGESTED_MATERIAL_FEATURES`); `?style=realistic&species=oak` | <img src="docs/images/example-material-features.png" alt="examples/material-features" width="160"> |
+| [`examples/scene-pipeline`](examples/scene-pipeline/main.ts) | `/examples/scene-pipeline/` | the opt-in [Scene Pipeline](#scene-pipeline) (`createScenePipeline`) per Style: `?style=low-poly\|stylized\|realistic`; one Scene Effect alone through its builder: `?scene=tone-mapping\|smaa\|fxaa\|traa\|gtao\|bloom\|fog\|godrays\|motion-blur` (`&sun=back` for light shafts); `?scene=none` (adds nothing) or `plain` (`renderer.render`); the Wind-aware velocity channel: `?scene=velocity&wind=1.5&windTime=3`; motion blur: `?scene=motion-blur&wind=3&windTime=3&cameraStep=0.5`; `?backend=webgl` | <img src="docs/images/example-scene-pipeline.png" alt="examples/scene-pipeline" width="160"> |
 | [`examples/species`](examples/species/main.ts) | `/examples/species/` | a Species x Style picker over the whole collection; `?species=douglas-fir&style=realistic` | <img src="docs/images/example-species.png" alt="examples/species" width="160"> |
 
 ```sh

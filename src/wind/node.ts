@@ -23,11 +23,14 @@ const LEAF_AMPLITUDE = 0.2;
 
 /**
  * Overrides for trees that are not one object each (Forest instances): the Wind direction in
- * the tree's own space and the tree's phase (radians), e.g. from per-instance attributes.
+ * the tree's own space and the tree's phase (radians), e.g. from per-instance attributes; and the
+ * Wind time (seconds) to evaluate the sway at (default the Wind's own clock), e.g. the previous
+ * frame's for Wind-aware velocity.
  */
 export interface WindFrame {
   direction?: Node<'vec3'>;
   phase?: Node<'float'>;
+  time?: Node<'float'>;
 }
 
 /** Anything holding Wind uniforms: a {@link Wind} or a {@link WindBinding} that follows one. */
@@ -52,7 +55,7 @@ export function objectWindDirection(wind: WindSource): Node<'vec3'> {
  * - leaves: flutter along their normal, more at the tip.
  * All of it is scaled by slow gusts. Wind direction is world space; it is turned into the tree's
  * object space (rotation only, so a scaled-up tree sways proportionally more). `frame` replaces
- * that direction and the response's phase (see {@link WindFrame}).
+ * that direction, the response's phase and the Wind time (see {@link WindFrame}).
  */
 export function windOffset(wind: WindSource, response: WindResponse, frame: WindFrame = {}): Node<'vec3'> {
   const weights = attribute('aWind', 'vec3');
@@ -84,7 +87,7 @@ interface WindMotion {
 
 function windMotion(wind: WindSource, response: WindResponse, frame: WindFrame): WindMotion {
   const r = response.uniforms;
-  const t = wind.uniforms.time.mul(r.frequency).add(frame.phase ?? r.phase);
+  const t = (frame.time ?? wind.uniforms.time).mul(r.frequency).add(frame.phase ?? r.phase);
   const direction = (frame.direction ?? objectWindDirection(wind)).normalize();
   const gust = sin(t.mul(0.37)).add(sin(t.mul(0.91).add(1.7))).mul(0.1).add(0.8);
   return { t, direction, gust, scale: wind.uniforms.strength.mul(r.height).mul(gust) };

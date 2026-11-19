@@ -3,15 +3,16 @@
 // Query parameters (used by the Playwright tests):
 //   ?scene=forest  a <Forest> of 49 trees instead of two <Tree>s (click a tree to cut it)
 //   ?scene=species  one Species tree: <Tree species={oak} style={lowPoly} seed={7} />
+//   ?scene=pipeline  stylized trees rendered through <ScenePipeline style="stylized" sun={sun} />
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?growth=<0..1>  Growth of the trees (default 1)
 //   ?season=<0..1>  Season (default 0.37, summer)
 //   ?wind=<strength>  Wind strength (default 0); ?windTime=<s> pins the Wind clock
 import * as THREE from 'three/webgpu';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Forest, Tree, Wind, useTreeStyle, type ForestTreePlacement } from '@casmo/tree.js/react';
+import { Forest, ScenePipeline, Tree, Wind, useScenePipeline, useTreeStyle, type ForestTreePlacement } from '@casmo/tree.js/react';
 import type { Forest as ForestObject } from '@casmo/tree.js';
 import { oak } from '@casmo/tree.js/species';
 
@@ -26,6 +27,8 @@ declare global {
       forest?: ForestObject;
       cutTree?: (id: string) => void;
       plantTree?: (placement: ForestTreePlacement) => void;
+      /** ?scene=pipeline: the Scene Effects the pipeline renders with (once it is built). */
+      sceneEffects?: string[];
     };
   }
 }
@@ -34,15 +37,15 @@ window.reactExample = { status: 'loading' };
 const params = new URLSearchParams(location.search);
 const forceWebGL = params.get('backend') === 'webgl';
 const windTime = params.get('windTime');
-const scene = params.get('scene') === 'forest' ? 'forest' : params.get('scene') === 'species' ? 'species' : 'trees';
+const scene = (['forest', 'species', 'pipeline'] as const).find((name) => name === params.get('scene')) ?? 'trees';
 
-function Trees({ growth }: { growth: number }) {
-  const lowPoly = useTreeStyle('low-poly');
+function Trees({ growth, styleName = 'low-poly' }: { growth: number; styleName?: 'low-poly' | 'stylized' }) {
+  const style = useTreeStyle(styleName);
   const season = Number(params.get('season') ?? 0.37);
   return (
     <>
-      <Tree style={lowPoly} form="broadleaf" seed={1} growth={growth} season={season} position={[-2.2, 0, 0]} />
-      <Tree style={lowPoly} form="conifer" seed={2} growth={growth} season={season} position={[2.2, 0, 0]} />
+      <Tree style={style} form="broadleaf" seed={1} growth={growth} season={season} position={[-2.2, 0, 0]} />
+      <Tree style={style} form="conifer" seed={2} growth={growth} season={season} position={[2.2, 0, 0]} />
     </>
   );
 }
@@ -99,14 +102,23 @@ function Woods({ growth }: { growth: number }) {
   );
 }
 
+/** Reports the Scene Effects of the enclosing <ScenePipeline> (useScenePipeline: null until it is built). */
+function PipelineStatus() {
+  const pipeline = useScenePipeline();
+  useEffect(() => {
+    if (pipeline) window.reactExample.sceneEffects = Object.keys(pipeline.settings.sceneEffects);
+  }, [pipeline]);
+  return null;
+}
+
 /** Mounted once the Suspense boundary resolved: reports the backend after the trees were drawn. */
 function Ready() {
   const gl = useThree((s) => s.gl) as unknown as THREE.WebGPURenderer;
   useEffect(() => {
-    // Two frames: one to compile and draw, one to be sure the canvas shows it.
+    // Two frames: one to compile and draw, one to be sure the canvas shows it (more for the pipeline).
     let frames = 0;
     let handle = requestAnimationFrame(function tick() {
-      if (++frames < 3) handle = requestAnimationFrame(tick);
+      if (++frames < (scene === 'pipeline' ? 8 : 3)) handle = requestAnimationFrame(tick);
       else {
         const backend = (gl.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'webgpu' : 'webgl2';
         document.getElementById('status')!.textContent = `R3F + WebGPURenderer (${backend})`;
@@ -120,6 +132,7 @@ function Ready() {
 
 function App() {
   const [growth, setGrowth] = useState(Number(params.get('growth') ?? 1));
+  const sun = useRef<THREE.DirectionalLight>(null);
   useEffect(() => {
     window.reactExample.setGrowth = setGrowth;
   }, []);
@@ -138,14 +151,20 @@ function App() {
     >
       <color attach="background" args={['#cfe3f0']} />
       <hemisphereLight args={['#ffffff', '#6a7a4a', 1.5]} />
-      <directionalLight position={[5, 8, 3]} intensity={2.5} castShadow shadow-mapSize={[1024, 1024]} />
+      <directionalLight ref={sun} position={[5, 8, 3]} intensity={2.5} castShadow shadow-mapSize={[1024, 1024]} />
       <mesh rotation-x={-Math.PI / 2} receiveShadow>
         <circleGeometry args={[7, 48]} />
         <meshStandardMaterial color="#7da05a" />
       </mesh>
       <Wind direction={[1, 0, -0.4]} strength={Number(params.get('wind') ?? 0)} time={windTime === null ? null : Number(windTime)} />
       <Suspense fallback={null}>
-        {scene === 'forest' ? <Woods growth={growth} /> : scene === 'species' ? <SpeciesTree growth={growth} /> : <Trees growth={growth} />}
+        {scene === 'forest' ? <Woods growth={growth} /> : scene === 'species' ? <SpeciesTree growth={growth} /> : scene === 'pipeline' ? <Trees growth={growth} styleName="stylized" /> : <Trees growth={growth} />}
+        {scene === 'pipeline' && (
+          // The stylized Style's suggested Tree Effects and Scene Effects; `sun` (a ref) is there for god rays.
+          <ScenePipeline style="stylized" sun={sun}>
+            <PipelineStatus />
+          </ScenePipeline>
+        )}
         <Ready />
       </Suspense>
     </Canvas>
