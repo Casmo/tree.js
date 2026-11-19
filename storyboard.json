@@ -1,0 +1,20 @@
+{ "title": "Opt-in weather, shader hooks, wind bursts and custom effects",
+  "kicker": "New · Tree features",
+  "app": "tree-js",
+  "url": "http://127.0.0.1:5391/examples/vanilla/",
+  "chapters": [
+    { "title": "Default tree: unchanged", "steps": [
+      { "waitFor": "#status:has-text(\"WebGPURenderer\")" }, { "wait": 1200 } ] },
+    { "title": "Snow Cover (?snow=1)", "steps": [
+      { "goto": "/examples/vanilla/?snow=1" }, { "waitFor": "#status:has-text(\"WebGPURenderer\")" }, { "wait": 1200 } ] },
+    { "title": "Wetness (?wetness=1)", "steps": [
+      { "goto": "/examples/vanilla/?wetness=1" }, { "waitFor": "#status:has-text(\"WebGPURenderer\")" }, { "wait": 1200 } ] },
+    { "title": "Tree Shader Hook on the leaves", "steps": [
+      { "goto": "/examples/vanilla/?hook=leaves" }, { "waitFor": "#status:has-text(\"WebGPURenderer\")" }, { "wait": 1200 } ] },
+    { "title": "A Wind Burst bends the near tree away", "steps": [
+      { "goto": "/__capture/burst" }, { "wait": 3500 },
+      { "click": "text=Strong burst" }, { "wait": 2000 },
+      { "click": "text=Strong burst" }, { "wait": 2000 } ] },
+    { "title": "Custom Tree Effect: off, then on", "steps": [
+      { "goto": "/examples/custom-effect/?effect=off" }, { "waitFor": "#status:has-text(\"custom Tree Effect\")" }, { "wait": 1000 },
+      { "goto": "/examples/custom-effect/?effect=on" }, { "waitFor": "#status:has-text(\"custom Tree Effect\")" }, { "wait": 1200 } ] } ] }

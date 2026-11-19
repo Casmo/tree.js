@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Default tree: unchanged",
+    "start": 2
+  },
+  {
+    "title": "Snow Cover (?snow=1)",
+    "start": 8.466666666666667
+  },
+  {
+    "title": "Wetness (?wetness=1)",
+    "start": 17.733333333333334
+  },
+  {
+    "title": "Tree Shader Hook on the leaves",
+    "start": 26.95
+  },
+  {
+    "title": "A Wind Burst bends the near tree away",
+    "start": 36.15
+  },
+  {
+    "title": "Custom Tree Effect: off, then on",
+    "start": 63.78333333333333
+  }
+]
