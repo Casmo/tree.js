@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
 import { sceneWind, Wind as WindObject, type Forest as ForestObject, type ForestTree, type Vec3 } from '../../src/index';
 import { Forest } from '../../src/react';
+import { trunkHeight } from '../../src/generator';
+import { PerspectiveCamera } from 'three/webgpu';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -194,6 +196,110 @@ describe('<Forest> (React Three Fiber)', () => {
     expect(fruit.parent).toBe(sceneForest(renderer));
     expect(fruit.count).toBe(40);
     expect([fruit.castShadow, fruit.receiveShadow]).toEqual([false, true]);
+  });
+
+  it('passes `lod` to the forest; toggling it on or off rebuilds the forest', async () => {
+    const placements = [{ id: 'a', position: [0, 0, 0] as Vec3 }];
+    renderer = await ReactThreeTestRenderer.create(<Forest definition={definition} variants={1} placements={placements} />, { gl });
+    const plain = sceneForest(renderer);
+    expect(plain.lod).toBeNull();
+    let disposals = 0;
+    plain.addEventListener('dispose', () => disposals++);
+
+    await renderer.update(<Forest definition={definition} variants={1} placements={placements} lod={{ light: 30, impostor: 90, fade: 0.2 }} />);
+    const withLod = sceneForest(renderer);
+    expect(withLod).not.toBe(plain);
+    expect(disposals).toBe(1);
+    expect(withLod.lod).toMatchObject({ light: 30, impostor: 90, fade: 0.2, camera: null });
+    expect(withLod.trees.map((t) => t.key)).toEqual(['a']);
+
+    await renderer.update(<Forest definition={definition} variants={1} placements={placements} lod={false} />);
+    const off = sceneForest(renderer);
+    expect(off).not.toBe(withLod);
+    expect(off.lod).toBeNull();
+  });
+
+  it('`lod={true}` uses the automatic distances', async () => {
+    const placements = [{ id: 'a', position: [0, 0, 0] as Vec3 }];
+    renderer = await ReactThreeTestRenderer.create(<Forest definition={definition} variants={2} placements={placements} lod />, { gl });
+    const forest = sceneForest(renderer);
+    const tallest = Math.max(...forest.variants.map((v) => trunkHeight(v.data.skeleton)));
+    expect(forest.lod).toMatchObject({ light: tallest * 6, impostor: tallest * 20, fade: 0.1 });
+  });
+
+  it('changing lod distances, fade or camera writes `forest.lod` without a rebuild', async () => {
+    const placements = [{ id: 'a', position: [0, 0, 0] as Vec3 }];
+    const camera = new PerspectiveCamera();
+    renderer = await ReactThreeTestRenderer.create(
+      <Forest definition={definition} variants={1} placements={placements} lod={{ light: 30, impostor: 90 }} />,
+      { gl },
+    );
+    const forest = sceneForest(renderer);
+    const uniforms = forest.lodUniforms!;
+    let disposals = 0;
+    forest.addEventListener('dispose', () => disposals++);
+
+    await renderer.update(
+      <Forest definition={definition} variants={1} placements={placements} lod={{ light: 40, impostor: 120, fade: 0.3, camera }} />,
+    );
+    expect(sceneForest(renderer)).toBe(forest);
+    expect(forest.lod).toMatchObject({ light: 40, impostor: 120, fade: 0.3, camera });
+    expect([uniforms.light.value, uniforms.impostor.value, uniforms.fade.value]).toEqual([40, 120, 0.3]);
+
+    // Dropping fade and camera goes back to their defaults; `true` to the automatic distances.
+    await renderer.update(<Forest definition={definition} variants={1} placements={placements} lod />);
+    expect(sceneForest(renderer)).toBe(forest);
+    const tallest = trunkHeight(forest.variants[0]!.data.skeleton);
+    expect(forest.lod).toMatchObject({ light: tallest * 6, impostor: tallest * 20, fade: 0.1, camera: null });
+    expect(disposals).toBe(0);
+  });
+
+  it('re-rendering with an equal lod object writes nothing', async () => {
+    const placements = [{ id: 'a', position: [0, 0, 0] as Vec3 }];
+    renderer = await ReactThreeTestRenderer.create(
+      <Forest definition={definition} variants={1} placements={placements} lod={{ light: 30, impostor: 90 }} />,
+      { gl },
+    );
+    const forest = sceneForest(renderer);
+    let writes = 0;
+    const real = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(forest), 'lod')!;
+    Object.defineProperty(forest, 'lod', {
+      get: () => real.get!.call(forest),
+      set: (v) => {
+        writes++;
+        real.set!.call(forest, v);
+      },
+    });
+    await renderer.update(<Forest definition={definition} variants={1} placements={placements} lod={{ light: 30, impostor: 90 }} />);
+    expect(sceneForest(renderer)).toBe(forest);
+    expect(writes).toBe(0);
+  });
+
+  it('a new impostorAtlas or lightDefinition rebuilds the forest', async () => {
+    const placements = [{ id: 'a', position: [0, 0, 0] as Vec3 }];
+    renderer = await ReactThreeTestRenderer.create(
+      <Forest definition={definition} variants={1} placements={placements} lod={{ light: 30, impostor: 90 }} />,
+      { gl },
+    );
+    const before = sceneForest(renderer);
+
+    await renderer.update(
+      <Forest definition={definition} variants={1} placements={placements} lod={{ light: 30, impostor: 90, impostorAtlas: { size: 1024 } }} />,
+    );
+    const atlas = sceneForest(renderer);
+    expect(atlas).not.toBe(before);
+    expect(atlas.lod!.impostorAtlas).toEqual({ frames: 12, size: 1024 });
+
+    await renderer.update(
+      <Forest
+        definition={definition}
+        variants={1}
+        placements={placements}
+        lod={{ light: 30, impostor: 90, impostorAtlas: { size: 1024 }, lightDefinition: { leaves: { count: 1 } } }}
+      />,
+    );
+    expect(sceneForest(renderer)).not.toBe(atlas);
+    expect(sceneForest(renderer).lod!.lightDefinition).toEqual({ leaves: { count: 1 } });
   });
 
   it('grows a Form of a Style', async () => {

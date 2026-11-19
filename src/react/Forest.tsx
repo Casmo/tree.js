@@ -5,6 +5,8 @@ import type { TreeStyle } from '../styles/types';
 import type { StyleName } from '../styles/registry';
 import { createForest, type Forest as ForestObject } from '../forest';
 import { forestTreeKey, type ForestPlacement } from '../forest/placement';
+import { DEFAULT_LOD_FADE, defaultDetailLevelDistances, type ForestLodOptions, type ForestLodUpdate } from '../forest/lod';
+import { trunkHeight } from '../generator';
 import { clampGrowth } from '../growth/evaluate';
 import { wrapSeason } from '../season/profile';
 import { sceneWind, type Wind as WindObject } from '../wind';
@@ -42,6 +44,12 @@ export interface ForestProps extends GroupProps {
   season?: number;
   /** The Wind the forest sways with. Default: the scene-wide `sceneWind` (what `<Wind>` sets). */
   wind?: WindObject;
+  /**
+   * Detail Levels (ADR 0010), as `createForest`'s `lod`: `true` for the automatic distances, or the
+   * distances. Switching it on or off, or a new `impostorAtlas` or `lightDefinition` (by value),
+   * rebuilds the forest; new `light`, `impostor`, `fade` or `camera` only write `forest.lod`.
+   */
+  lod?: boolean | ForestLodOptions;
   /** Whether the trees cast shadows. Default true. */
   castShadow?: boolean;
   /** Whether the trees receive shadows. Default true. */
@@ -66,6 +74,20 @@ function pose(p: ForestPlacement): string {
   const v = p.position;
   const position = Array.isArray(v) ? [v[0], v[1], v[2]] : [(v as { x: number }).x, (v as { y: number }).y, (v as { z: number }).z];
   return JSON.stringify([position, p.rotation ?? 0, p.scale ?? 1]);
+}
+
+/** What of `lod` needs a new forest: whether it is on, the Impostor atlas and the Light Definition. */
+function lodBuildKey(lod: boolean | ForestLodOptions | undefined): string | null {
+  if (!lod) return null;
+  const options: Partial<ForestLodOptions> = lod === true ? {} : lod;
+  return JSON.stringify([options.impostorAtlas ?? null, options.lightDefinition ?? null]);
+}
+
+/** The live part of `lod` (every default filled in; `tallest`: the tallest Variant's trunk height), or null when lod is off. */
+function lodUpdate(lod: boolean | ForestLodOptions | undefined, tallest: () => number): Required<ForestLodUpdate> | null {
+  if (!lod) return null;
+  if (lod === true) return { ...defaultDetailLevelDistances(tallest()), fade: DEFAULT_LOD_FADE, camera: null };
+  return { light: lod.light, impostor: lod.impostor, fade: lod.fade ?? DEFAULT_LOD_FADE, camera: lod.camera ?? null };
 }
 
 /**
@@ -98,7 +120,8 @@ function syncForest(forest: ForestObject, placements: readonly ForestTreePlaceme
 /**
  * Many trees of one Definition, drawn instanced (a `Forest`). Changing `placements` plants or cuts
  * only the affected trees; Growth, Season, Wind and shadow props only update instance data, uniforms
- * and meshes. A new `definition` (by value), `style`/`form`, `variants` or `seed` rebuilds the forest.
+ * and meshes; changing `lod` distances, fade or camera only writes `forest.lod`. A new `definition`
+ * (by value), `style`/`form`, `variants`, `seed`, or switching `lod` on or off rebuilds the forest.
  * The forest is disposed of on unmount.
  */
 export function Forest({
@@ -113,6 +136,7 @@ export function Forest({
   wind,
   castShadow = true,
   receiveShadow = true,
+  lod,
   ref,
   ...groupProps
 }: ForestProps) {
@@ -121,11 +145,13 @@ export function Forest({
   if (source === undefined) throw new Error('<Forest> needs a `definition` or a `style`.');
   const key = JSON.stringify(source);
 
+  const lodKey = lodBuildKey(lod);
+
   const [generation, setGeneration] = useState(0);
   const forest = useMemo(
-    () => createForest(JSON.parse(key) as TreeDefinitionInput, [], { variants, seed, wind, growth, season }),
-    // placements/growth/season/wind are synced by the layout effects below.
-    [key, variants, seed, generation],
+    () => createForest(JSON.parse(key) as TreeDefinitionInput, [], { variants, seed, wind, growth, season, lod }),
+    // placements/growth/season/wind and the live lod settings are synced by the layout effects below.
+    [key, variants, seed, lodKey, generation],
   );
 
   useEffect(() => {
@@ -139,6 +165,19 @@ export function Forest({
   useLayoutEffect(() => {
     forest.wind = wind ?? sceneWind;
   }, [forest, wind]);
+
+  const tallest = useMemo(() => {
+    let height: number | undefined;
+    return () => (height ??= Math.max(...forest.variants.map((v) => trunkHeight(v.data.skeleton))));
+  }, [forest]);
+  const live = lodUpdate(lod, tallest);
+  useLayoutEffect(() => {
+    const current = forest.lod;
+    if (!live || !current) return;
+    if (live.light !== current.light || live.impostor !== current.impostor || live.fade !== current.fade || live.camera !== current.camera) {
+      forest.lod = live;
+    }
+  }, [forest, live?.light, live?.impostor, live?.fade, live?.camera]);
 
   useLayoutEffect(() => {
     syncForest(forest, placements, growth, season);
