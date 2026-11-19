@@ -1,0 +1,90 @@
+{
+ "title": "Scene Pipeline: whole-scene post per Style",
+ "kicker": "New \u00b7 Scene Pipeline",
+ "app": "tree-js",
+ "url": "http://localhost:5291/examples/scene-pipeline/?style=realistic&scene=none",
+ "chapters": [
+  {
+   "title": "Plain render, then the realistic suggestion",
+   "steps": [
+    {
+     "wait": 1500
+    },
+    {
+     "goto": "/examples/scene-pipeline/?style=realistic&scene=style"
+    }
+   ]
+  },
+  {
+   "title": "Ambient occlusion (GTAO), then fog with height mist",
+   "steps": [
+    {
+     "goto": "/examples/scene-pipeline/?style=realistic&scene=gtao"
+    },
+    {
+     "goto": "/examples/scene-pipeline/?style=realistic&scene=fog"
+    }
+   ]
+  },
+  {
+   "title": "Bloom, then god rays (sun behind the trees)",
+   "steps": [
+    {
+     "goto": "/examples/scene-pipeline/?style=realistic&scene=bloom"
+    },
+    {
+     "goto": "/examples/scene-pipeline/?style=realistic&scene=godrays&sun=back"
+    }
+   ]
+  },
+  {
+   "title": "Wind-aware motion blur",
+   "steps": [
+    {
+     "goto": "/examples/scene-pipeline/?style=realistic&scene=motion-blur&wind=3&windTime=3&cameraStep=0.5"
+    }
+   ]
+  },
+  {
+   "title": "React: <ScenePipeline style=\"stylized\">",
+   "steps": [
+    {
+     "goto": "/examples/react/?scene=pipeline&season=0.37"
+    },
+    {
+     "wait": 4000
+    }
+   ]
+  },
+  {
+   "title": "Tree Editor: apply the realistic suggestion, toggle god rays and fog",
+   "steps": [
+    {
+     "goto": "http://localhost:5292/?start=broadleaf/realistic&seed=1"
+    },
+    {
+     "waitFor": "#effects-suggested"
+    },
+    {
+     "wait": 4000
+    },
+    {
+     "scroll": "#effects-suggested"
+    },
+    {
+     "click": "#effects-suggested",
+     "zoom": true
+    },
+    {
+     "click": "#scene-godrays"
+    },
+    {
+     "click": "#scene-fog"
+    },
+    {
+     "wait": 1500
+    }
+   ]
+  }
+ ]
+}

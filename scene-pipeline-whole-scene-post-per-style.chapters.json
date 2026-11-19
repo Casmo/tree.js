@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Plain render, then the realistic suggestion",
+    "start": 2
+  },
+  {
+    "title": "Ambient occlusion (GTAO), then fog with height mist",
+    "start": 9.4
+  },
+  {
+    "title": "Bloom, then god rays (sun behind the trees)",
+    "start": 17.583333333333332
+  },
+  {
+    "title": "Wind-aware motion blur",
+    "start": 24.116666666666667
+  },
+  {
+    "title": "React: <ScenePipeline style=\"stylized\">",
+    "start": 27.85
+  },
+  {
+    "title": "Tree Editor: apply the realistic suggestion, toggle god rays and fog",
+    "start": 37.583333333333336
+  }
+]
