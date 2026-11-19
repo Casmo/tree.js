@@ -23,6 +23,10 @@
 //                 defaults (low-poly suggests none), with the renderer's normal output transform
 //   ?scene=smaa|fxaa  anti-aliasing alone (sceneAntialias) on the renderer's output transform
 //                     (renderOutput), in a hand-made RenderPipeline
+//   ?scene=traa  TRAA alone (sceneAntialias(color, 'traa', { depth, velocity, camera })) on a hand-made
+//                scene pass with windVelocityMRT, before the renderer's output transform
+//   ?frames=<n>  render n frames before reporting `rendered` (default 4), or with ?antialias after each
+//                switch (default 3), e.g. for TRAA to settle
 //   ?antialias=fxaa,smaa  with ?scene=style: after the first frames, set() the suggestion with each
 //                         anti-aliasing mode in turn (smaa|fxaa|none), rendering in between
 //   ?scene=fog  fog alone: sceneFog with the Style's suggested settings as the app's scene.fogNode
@@ -246,6 +250,14 @@ async function main(): Promise<void> {
     pipeline.outputNode = sceneAntialias(renderOutput(pass(scene, camera).getTextureNode()), sceneParam);
     pipeline.outputColorTransform = false; // renderOutput above already did it
     render = () => pipeline.render();
+  } else if (sceneParam === 'traa') {
+    // TRAA alone: linear colours (before the output transform), the scene pass's depth and velocity.
+    const pipeline = new THREE.RenderPipeline(renderer);
+    const scenePass = pass(scene, camera);
+    scenePass.setMRT(mrt({ output }).merge(windVelocityMRT()));
+    const input = { depth: scenePass.getTextureNode('depth'), velocity: scenePass.getTextureNode(WIND_VELOCITY), camera };
+    pipeline.outputNode = sceneAntialias(scenePass.getTextureNode(), 'traa', input);
+    render = () => pipeline.render();
   } else if (sceneParam === 'bloom') {
     const pipeline = new THREE.RenderPipeline(renderer);
     pipeline.outputNode = sceneBloom(pass(scene, camera).getTextureNode(), SUGGESTED_SCENE_EFFECTS[styleName].bloom);
@@ -286,15 +298,16 @@ async function main(): Promise<void> {
   });
 
   // Render a few frames so pipelines that build on first use show the settled image.
-  for (let i = 0; i < 4; i++) {
+  const frames = params.get('frames');
+  const antialias = params.get('antialias')?.split(',');
+  for (let i = 0; i < Number((antialias ? null : frames) ?? 4); i++) {
     render();
     await new Promise(requestAnimationFrame);
   }
-  const antialias = params.get('antialias')?.split(',');
   if (antialias && switchAntialias) {
     for (const mode of antialias) {
       switchAntialias(mode === 'none' ? null : (mode as SceneAntialiasMode));
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < Number(frames ?? 3); i++) {
         render();
         await new Promise(requestAnimationFrame);
       }

@@ -20,7 +20,10 @@ export interface SceneEffectsSettings {
   ao?: SceneAOOptions;
   /** Bloom: a soft glare around the bright parts of the frame, before tone mapping. */
   bloom?: SceneBloomOptions;
-  /** Post anti-aliasing of the display colours, last in the stack; `null` = none. */
+  /**
+   * Anti-aliasing; `null` = none. SMAA / FXAA: of the display colours, last in the stack. TRAA:
+   * before tone mapping, with the Wind-aware velocity channel (never suggested).
+   */
   antialias?: SceneAntialiasMode | null;
   /** Distance fog and height mist, set as `scene.fogNode` (the app's value is restored). */
   fog?: SceneFogOptions;

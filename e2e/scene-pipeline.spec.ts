@@ -227,3 +227,29 @@ test.describe('Wind-aware velocity (ADR 0011)', () => {
     expect(await difference(page, without.image, withVelocity.image)).toEqual({ changed: 0, maxDiff: 0 });
   });
 });
+
+test.describe('TRAA (temporal anti-aliasing with Wind-aware velocity)', () => {
+  // A pinned Wind: leaves report a constant non-zero velocity (ADR 0011) while the image is still.
+  const wind = 'wind=1.5&windTime=3';
+  const cases = [
+    { name: 'sceneAntialias(color, "traa", input) in a hand-made pipeline', query: `style=realistic&scene=traa&${wind}` },
+    { name: 'the Scene Pipeline with antialias: "traa"', query: `style=realistic&scene=style&antialias=traa&${wind}` },
+  ];
+  for (const { name, query } of cases) {
+    test(`renders without errors and settles to a stable image (${name})`, async ({ page }) => {
+      test.setTimeout(180_000);
+      const errors: string[] = [];
+      page.on('console', (message) => message.type() === 'error' && errors.push(message.text()));
+      page.on('pageerror', (error) => errors.push(error.message));
+      const plain = await load(page, `style=realistic&scene=plain&${wind}`);
+      // TRAA jitters the camera through a cycle of 32 offsets: compare the same offset a cycle apart.
+      const settled = await load(page, `${query}&frames=64`);
+      const later = await load(page, `${query}&frames=96`);
+      expect(errors).toEqual([]);
+      expect((await difference(page, plain.image, settled.image)).changed, 'TRAA changes the frame').toBeGreaterThan(500);
+      const { changed, maxDiff } = await difference(page, settled.image, later.image);
+      expect(maxDiff, 'no ghosting or drift once settled').toBeLessThanOrEqual(16);
+      expect(changed).toBeLessThan(640 * 480 * 0.1);
+    });
+  }
+});
