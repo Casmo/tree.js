@@ -1,3 +1,3 @@
 export { Wind, WindBinding, sceneWind, type WindDirection, type WindOptions, type WindUniforms } from './Wind';
 export { WindResponse } from './response';
-export { windOffset, applyWind, objectWindDirection, type WindFrame, type WindSource } from './node';
+export { windOffset, treeSwayOffset, applyWind, objectWindDirection, type WindFrame, type WindSource } from './node';

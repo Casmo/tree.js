@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { InstancedMesh, Mesh, PerspectiveCamera, type MeshStandardNodeMaterial } from 'three/webgpu';
-import { createForest, DetailLevel, selectDetailLevel, type Forest, type ForestOptions, type ForestPlacement, type TreeDefinitionInput } from '../src/index';
+import { InstancedMesh, Mesh, PerspectiveCamera, Vector3, type MeshStandardNodeMaterial, type Node } from 'three/webgpu';
+import { createForest, DetailLevel, selectDetailLevel, Wind, type Forest, type ForestOptions, type ForestPlacement, type TreeDefinitionInput } from '../src/index';
 import { ditherThreshold, showsPixel } from '../src/forest/lod';
 
 // light 10, impostor 40, fade 0.2: bands 9..11 (Full -> Light) and 36..44 (Light -> Impostor).
@@ -475,12 +475,27 @@ describe('Detail Levels on WebGPU', () => {
 });
 
 /** The bake renders the renderer was asked for: the scene, and the render target set before it. */
+/** The values of every uniform in a node graph (per-render ones updated as the renderer would). */
+function uniformValues(root: Node): unknown[] {
+  const values: unknown[] = [];
+  root.traverse((node) => {
+    const n = node as unknown as { isUniformNode?: boolean; updateType: string; update?(frame: { time: number }): void; value?: unknown };
+    if (n.updateType === 'render' && n.update) n.update({ time: 100 });
+    if (n.isUniformNode) values.push(n.value instanceof Vector3 ? n.value.toArray() : n.value);
+  });
+  return values;
+}
+
+/** The bake renders per Variant: [tree layer, wood layer]. */
 function bakes(renderer: ReturnType<typeof fakeRenderer>) {
-  return renderer.render.mock.calls.map(([scene], i) => {
+  const renders = renderer.render.mock.calls.map(([scene], i) => {
     const target = renderer.setRenderTarget.mock.calls.filter(([t]) => t)[i]![0] as { width: number; height: number; textures: { name: string }[] };
     const meshes = (scene as { children: InstancedMesh[] }).children;
     return { target, meshes };
   });
+  const variants: (typeof renders)[] = [];
+  for (let i = 0; i < renders.length; i += 2) variants.push(renders.slice(i, i + 2));
+  return variants;
 }
 
 describe('Impostors', () => {
@@ -495,11 +510,17 @@ describe('Impostors', () => {
     const { forest, renderer } = await baked();
     const done = bakes(renderer);
     expect(done).toHaveLength(3);
-    for (const { target, meshes } of done) {
-      // Colour (with coverage) and normal atlases at the default 2048², 12 × 12 frames of wood and leaves.
-      expect([target.width, target.height]).toEqual([2048, 2048]);
-      expect(target.textures.map((t) => t.name)).toEqual(['output', 'normal']);
-      expect(meshes.map((m) => m.count)).toEqual([144, 144]);
+    for (const [tree, wood] of done) {
+      // The tree layer: colour (with coverage), normal (a = leaf flag) and Season (shift, coverage and blossom
+      // ranks, leaf flag) atlases at the default 2048², 12 × 12 frames of wood and leaves.
+      expect([tree!.target.width, tree!.target.height]).toEqual([2048, 2048]);
+      expect(tree!.target.textures.map((t) => t.name)).toEqual(['output', 'normal', 'season']);
+      expect(tree!.meshes.map((m) => m.count)).toEqual([144, 144]);
+      // The wood layer: the wood alone, so bare branches show where leaves have dropped.
+      expect([wood!.target.width, wood!.target.height]).toEqual([2048, 2048]);
+      expect(wood!.target.textures.map((t) => t.name)).toEqual(['woodOutput', 'woodNormal']);
+      expect(wood!.meshes.map((m) => m.count)).toEqual([144]);
+      expect(wood!.meshes[0]!.geometry.getIndex()).toBe(tree!.meshes[0]!.geometry.getIndex());
     }
     // The renderer is left as it was: its render target is restored after each bake.
     expect(renderer.setRenderTarget.mock.calls.at(-1)![0]).toBeUndefined();
@@ -509,9 +530,10 @@ describe('Impostors', () => {
 
   it('respects impostorAtlas', async () => {
     const { renderer } = await baked({ lod: { light: 10, impostor: 40, impostorAtlas: { frames: 4, size: 256 } } });
-    for (const { target, meshes } of bakes(renderer)) {
-      expect([target.width, target.height]).toEqual([256, 256]);
-      expect(meshes.map((m) => m.count)).toEqual([16, 16]);
+    for (const [tree, wood] of bakes(renderer)) {
+      expect([tree!.target.width, tree!.target.height]).toEqual([256, 256]);
+      expect([wood!.target.width, wood!.target.height]).toEqual([256, 256]);
+      expect(tree!.meshes.map((m) => m.count)).toEqual([16, 16]);
     }
   });
 
@@ -522,7 +544,7 @@ describe('Impostors', () => {
     expect(forest.lodUniforms!.farthest.value).toBe(DetailLevel.Light);
     expect(renderer.render).not.toHaveBeenCalled();
     await forest.lodReady;
-    expect(renderer.render).toHaveBeenCalledTimes(2);
+    expect(renderer.render).toHaveBeenCalledTimes(4); // tree and wood layer per Variant
     expect(forest.lodUniforms!.farthest.value).toBe(DetailLevel.Impostor);
   });
 
@@ -531,16 +553,34 @@ describe('Impostors', () => {
     for (const variant of forest.variants) {
       const cards = levelMeshes(forest).filter((m) => m.name === `forest impostor ${variant.index}`);
       expect(cards).toHaveLength(1);
-      expect(cards[0]!.geometry.getIndex()!.count).toBe(6);
+      // A card of 4 rows of quads (2 triangles each), so the Wind can bend it with height.
+      expect(cards[0]!.geometry.getIndex()!.count).toBe(4 * 6);
       expect(cards[0]!.geometry.indirect).toBe(levelMeshes(forest).find((m) => m.name === `forest wood ${variant.index} full`)!.geometry.indirect);
       expect(cards[0]!.castShadow).toBe(true);
       expect(cards[0]!.material).not.toBe(variant.leafMaterial);
     }
   });
 
+  it('sway with the Forest Wind and the Variant Wind response, in the vertex stage (shadows too)', async () => {
+    const { forest } = await baked();
+    const storm = new Wind({ direction: [0, 0, -1], strength: 3.5 });
+    storm.time = 7.25;
+    forest.wind = storm;
+    for (const variant of forest.variants) {
+      const card = levelMeshes(forest).find((m) => m.name === `forest impostor ${variant.index}`)!;
+      const material = card.material as MeshStandardNodeMaterial;
+      const values = uniformValues(material.positionNode as Node);
+      expect(values).toContain(3.5);
+      expect(values).toContain(7.25);
+      expect(values).toContainEqual([0, 0, -1]);
+      expect(values).toContain(variant.windResponse.uniforms.height.value);
+      expect(uniformValues(material.castShadowPositionNode as Node)).toContain(3.5);
+    }
+  });
+
   it('bake the same pictures for the same Definition and Variant Seeds', async () => {
     const picture = (renderer: ReturnType<typeof fakeRenderer>) =>
-      bakes(renderer).map(({ meshes }) =>
+      bakes(renderer).flat().map(({ meshes }) =>
         meshes.map((m) => [hashArray(m.instanceMatrix.array as Float32Array), hashArray(m.geometry.getIndex()!.array as Uint32Array), (m.material as MeshStandardNodeMaterial).type]),
       );
     const a = picture((await baked()).renderer);
@@ -589,14 +629,14 @@ describe('Impostors', () => {
 
   it('are freed on dispose: atlases, cards and their material', async () => {
     const { forest, renderer } = await baked();
-    const targets = bakes(renderer).map(({ target }) => target as unknown as Mesh & { addEventListener: Mesh['addEventListener'] });
+    const targets = bakes(renderer).flat().map(({ target }) => target as unknown as Mesh & { addEventListener: Mesh['addEventListener'] });
     const freed = vi.fn();
     for (const target of targets) target.addEventListener('dispose', freed);
     const cards = levelMeshes(forest).filter((m) => m.name.startsWith('forest impostor'));
     const materials = vi.fn();
     for (const card of cards) (card.material as MeshStandardNodeMaterial).addEventListener('dispose', materials);
     forest.dispose();
-    expect(freed).toHaveBeenCalledTimes(3);
+    expect(freed).toHaveBeenCalledTimes(6); // tree and wood layers
     expect(materials).toHaveBeenCalledTimes(3);
     expect(cards.every((m) => m.parent === null)).toBe(true);
   });
