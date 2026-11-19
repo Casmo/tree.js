@@ -3,6 +3,7 @@ import type { StyleName } from '../styles/registry';
 import { glowRadius, liveLeafGlow } from './glow';
 import { liveTreeColorGrade } from './grade';
 import type { LiveTreeEffect } from './live';
+import { CustomTreeEffectList, type CustomTreeEffect, type CustomTreeEffectOptions, type TreeEffectName } from './custom';
 import type { TreeEffectInput } from './mask';
 import { liveTreeHighlight } from './highlight';
 import { liveTreeOutline } from './outline';
@@ -28,10 +29,12 @@ export function applyTreeEffects(input: TreeEffectInput, settings: TreeEffectsSe
  * radius, the outline's `betweenTrees` and the normal encoding of Inner Lines). Settings of the same
  * shape only differ in uniforms.
  */
-export function treeEffectsShape(settings: TreeEffectsSettings, input: TreeEffectInput): string {
+export function treeEffectsShape(settings: TreeEffectsSettings, input: TreeEffectInput, custom?: CustomTreeEffectList): string {
   const outline = settings.outline ? (drawsBetweenTrees(settings) ? 'between' : 'outline') : null;
   const innerLines = settings.innerLines ? (input.normalEncoding ?? 'color') : null;
-  return JSON.stringify([!!settings.grade, settings.glow ? glowRadius(settings.glow) : null, outline, innerLines, !!settings.highlight]);
+  const shape = [!!settings.grade, settings.glow ? glowRadius(settings.glow) : null, outline, innerLines, !!settings.highlight];
+  const customShape = custom?.shape();
+  return JSON.stringify(customShape ? [...shape, customShape] : shape);
 }
 
 /** Whether the outline is also drawn between trees: part of the shape, and it needs the Tree ID channel. */
@@ -41,35 +44,45 @@ function drawsBetweenTrees(settings: TreeEffectsSettings): boolean {
 
 /**
  * {@link applyTreeEffects} with every colour and number as a uniform; `update()` needs the same shape.
- * Internal (not in the /effects index): shared with the Scene Pipeline (`src/scene`).
+ * Internal (not in the /effects index): shared with the Scene Pipeline (`src/scene`). `custom`: the
+ * app's own Tree Effects, built in at their places (their `update()` is the list's, not this one's).
  */
 export function liveTreeEffects(
   input: TreeEffectInput,
   settings: TreeEffectsSettings,
   highlighted: readonly (Tree | ForestTree)[],
+  custom?: CustomTreeEffectList,
 ): LiveTreeEffect<TreeEffectsSettings> {
   const updates: ((settings: TreeEffectsSettings) => void)[] = [];
   let color = input.color;
+  const before = (name: TreeEffectName): void => {
+    if (custom) color = custom.buildBefore(name, { ...input, color });
+  };
+  before('grade');
   if (settings.grade) {
     const grade = liveTreeColorGrade({ color, mask: input.mask }, settings.grade);
     updates.push((s) => grade.update(s.grade!));
     color = grade.node;
   }
+  before('glow');
   if (settings.glow) {
     const glow = liveLeafGlow({ color, mask: input.mask }, settings.glow);
     updates.push((s) => glow.update(s.glow!));
     color = glow.node;
   }
+  before('innerLines');
   if (settings.innerLines) {
     const lines = liveInnerLines({ ...input, color }, settings.innerLines);
     updates.push((s) => lines.update(s.innerLines!));
     color = lines.node;
   }
+  before('outline');
   if (settings.outline) {
     const outline = liveTreeOutline({ ...input, color }, settings.outline);
     updates.push((s) => outline.update(s.outline!));
     color = outline.node;
   }
+  before('highlight');
   // Highlight last, so it always sits on top.
   if (settings.highlight) {
     const highlight = liveTreeHighlight({ ...input, color }, highlighted, settings.highlight);
@@ -115,13 +128,19 @@ export interface TreeEffectsOptions {
 }
 
 /**
- * The extra channels the scene pass needs for `settings` (with the `treeId` option). Only this
- * set decides the scene pass's MRT: settings that need the same channels keep it.
+ * The extra channels the scene pass needs for `settings` (with the `treeId` option and the channels
+ * the custom effects declare). Only this set decides the scene pass's MRT: settings that need the
+ * same channels keep it.
  */
-export function channelsFor(settings: TreeEffectsSettings, options: Pick<TreeEffectsOptions, 'treeId'>): TreeEffectsChannels {
+export function channelsFor(
+  settings: TreeEffectsSettings,
+  options: Pick<TreeEffectsOptions, 'treeId'>,
+  custom?: CustomTreeEffectList,
+): TreeEffectsChannels {
+  const declared = custom?.channels();
   return {
-    treeId: options.treeId === true || drawsBetweenTrees(settings) || !!settings.highlight,
-    normal: !!settings.innerLines,
+    treeId: options.treeId === true || drawsBetweenTrees(settings) || !!settings.highlight || declared?.treeId === true,
+    normal: !!settings.innerLines || declared?.normal === true,
   };
 }
 
@@ -146,6 +165,7 @@ export class TreeEffects {
   readonly highlighted: (Tree | ForestTree)[];
   private nodes: Node[] = [];
   private current: TreeEffectsSettings = {};
+  private readonly custom = new CustomTreeEffectList();
   private graph: { shape: string; effects: LiveTreeEffect<TreeEffectsSettings> } | null = null;
   private input!: { channels: string; pass: TreeEffectsPass };
 
@@ -187,7 +207,37 @@ export class TreeEffects {
    */
   set(effects: TreeEffectsChoice): void {
     this.current = resolveTreeEffects(effects);
-    const channels = channelsFor(this.current, this.options);
+    this.rebuild();
+  }
+
+  /** The app's own Tree Effects, in the order they were added (see {@link addEffect}). */
+  get customEffects(): readonly CustomTreeEffect<never>[] {
+    return this.custom.effects;
+  }
+
+  /**
+   * Adds a Tree Effect of the app's own (see {@link CustomTreeEffect}) with its options, at the place
+   * it names among the built-in effects. It stays through {@link set} until {@link removeEffect}.
+   * Builds a new graph, and a new scene pass if it declares a channel that is not on yet.
+   */
+  addEffect<Options>(effect: CustomTreeEffect<Options>, ...[options]: CustomTreeEffectOptions<Options>): void {
+    this.custom.add(effect, options as Options);
+    this.rebuild();
+  }
+
+  /** Changes the options of an added custom effect live, through its `update()` (no new graph, no recompile). */
+  updateEffect<Options>(effect: CustomTreeEffect<Options>, options: Options): void {
+    this.custom.update(effect, options);
+  }
+
+  /** Removes a custom effect (nothing happens if it is not added); its channels go when nothing else needs them. */
+  removeEffect<Options>(effect: CustomTreeEffect<Options>): void {
+    if (this.custom.remove(effect as CustomTreeEffect<never>)) this.rebuild();
+  }
+
+  /** Brings the scene pass and the graph in line with the settings and the custom effects. */
+  private rebuild(): void {
+    const channels = channelsFor(this.current, this.options, this.custom);
     const key = channelsKey(channels);
     if (this.input?.channels !== key) {
       // Other channels: a new scene pass (new MRT), and a new graph that reads it.
@@ -196,13 +246,13 @@ export class TreeEffects {
       this.input = { channels: key, pass: treeEffectsPass(this.scene, this.camera, this.options.selection ?? null, channels) };
       this.graph = null;
     }
-    const shape = treeEffectsShape(this.current, this.scenePass);
+    const shape = treeEffectsShape(this.current, this.scenePass, this.custom);
     if (this.graph?.shape === shape) {
       this.graph.effects.update(this.current);
       return;
     }
     this.disposeNodes();
-    const live = liveTreeEffects(this.scenePass, this.current, this.highlighted);
+    const live = liveTreeEffects(this.scenePass, this.current, this.highlighted, this.custom);
     this.graph = { shape, effects: live };
     this.nodes = collectEffectNodes(live.node, this.scenePass.color);
     this.pipeline.outputNode = live.node;
