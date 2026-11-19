@@ -13,7 +13,7 @@ A number that, combined with a Tree Definition, picks one specific individual tr
 _Avoid_: Random, variation id
 
 **Style**:
-A visual look shipped with the library, such as low-poly, stylized or realistic, that can be applied to any Species: it sets how the tree is drawn (shading, leaf shape, textures, polygon detail), not what shape it grows.
+A visual look shipped with the library, such as low-poly, stylized, realistic or painterly, that can be applied to any Species: it sets how the tree is drawn (shading, leaf shape, textures, polygon detail) and may set its overall size, but never what shape it grows.
 _Avoid_: Theme, type, kind
 
 **Species**:
