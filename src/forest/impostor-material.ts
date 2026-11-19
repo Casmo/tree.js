@@ -31,7 +31,9 @@ import { crownAt } from '../materials/crown-nodes';
 import { applyLeafTranslucencyTerm } from '../materials/leaf-translucency-model';
 import type { MaterialFeatureNodes } from '../materials/material-features';
 import { setTreeLeafMask } from '../effects/mask';
-import { seasonLeafColor } from '../season';
+import { leafSeasonNode } from '../season';
+import { objectWindDirection, treeSwayOffset, type WindResponse, type WindSource } from '../wind';
+import { SEASON_SHIFT_SCALE } from './impostor-season';
 import { instanceRotate, instanceState, levelTreePosition, levelVisible } from './nodes';
 import type { Vec3 } from './octahedral';
 
@@ -133,8 +135,11 @@ export interface ImpostorView {
  * an orthographic camera such as a sun's shadow camera, its forward axis) in tree space, the card
  * across it, the four nearest frames and where each pictured the card's vertex (`frameUv`). In the
  * fragment stage: the atlases sampled in those frames and blended bilinearly.
+ *
+ * `sway`: a displacement (tree space) of a card point at its tree-space position (the Wind); the
+ * pictures move with the card.
  */
-export function impostorView(atlases: ImpostorAtlases): ImpostorView {
+export function impostorView(atlases: ImpostorAtlases, sway?: (point: Node<'vec3'>) => Node<'vec3'>): ImpostorView {
   const { frames, bounds } = atlases;
   const { half } = bounds;
   const center = vec3(...bounds.center);
@@ -152,7 +157,8 @@ export function impostorView(atlases: ImpostorAtlases): ImpostorView {
   // The card, across the view (corners of positionGeometry at ±1).
   const card = basis(view);
   const point = card.right.mul(positionGeometry.x).add(card.up.mul(positionGeometry.y)).mul(half);
-  const position = base.add(instanceRotate(center.add(point)).mul(scale));
+  const treePoint = center.add(point);
+  const position = base.add(instanceRotate(sway ? treePoint.add(sway(treePoint)) : treePoint).mul(scale));
   const shadowPosition = position.sub(viewForest.mul(half).mul(scale));
 
   // The frames around the view (`blendFrames`) and where each one pictured this vertex.
@@ -213,6 +219,12 @@ export function impostorView(atlases: ImpostorAtlases): ImpostorView {
 export const COLOR_CHANNEL = 'output';
 /** The normal atlas: rgb = tree-space normal (encoded 0..1), a = 1 on leaves, 0 on wood. */
 export const NORMAL_CHANNEL = 'normal';
+/** The Season atlas (`encodeSeasonTexel`): r = leaf timing shift, g = coverage rank, b = blossom rank, a = 1 on leaves. */
+export const SEASON_CHANNEL = 'season';
+/** The wood layer's colour atlas: the wood alone (rgb = colour, a = coverage), shown where leaves have dropped. */
+export const WOOD_COLOR_CHANNEL = 'woodOutput';
+/** The wood layer's normal atlas (as `NORMAL_CHANNEL`, a = 0). */
+export const WOOD_NORMAL_CHANNEL = 'woodNormal';
 
 /**
  * The Material Feature atlas (only baked when a Material Feature is on, ADR 0008): rgb = the pictured
@@ -246,16 +258,26 @@ export function hasImpostorFeatures(features: ImpostorFeatures | null | undefine
 
 /**
  * The material of a Variant's Impostor cards: the Definition's shading (smooth: the baked normals
- * carry the shape), the baked colour with the leaves in the Season Profile's leaf colour at the tree's
- * Season, the baked normal turned with the tree, bark or leaf roughness, cut out by the coverage and
- * the Detail Level cross-fade (in the shadow pass too, so the shadow is tree-shaped).
+ * carry the shape), the baked colour with each leaf texel in the Season Profile at the tree's Season
+ * plus the leaf's own timing shift (colour, blossom; a dropped leaf shows the wood layer behind it,
+ * or nothing), the baked normal turned with the tree, bark or leaf roughness, cut out by the coverage
+ * and the Detail Level cross-fade (in the shadow pass too, so the shadow is tree-shaped). With
+ * `wind`, the card bends with height as the tree sways, in the tree's own Wind phase.
  */
 export function createImpostorMaterial(
   definition: TreeDefinition,
   atlases: ImpostorAtlases,
   features: ImpostorFeatures | null = null,
+  wind?: { source: WindSource; response: WindResponse },
 ): MeshStandardNodeMaterial {
-  const view = impostorView(atlases);
+  const sway = wind
+    ? (point: Node<'vec3'>) =>
+        treeSwayOffset(wind.source, wind.response, point, {
+          direction: instanceRotate(objectWindDirection(wind.source), true),
+          phase: instanceState().windPhase,
+        })
+    : undefined;
+  const view = impostorView(atlases, sway);
   const material = createShadedMaterial(definition.materials.shading);
   material.name = 'tree.js impostor';
   material.flatShading = false;
@@ -264,23 +286,50 @@ export function createImpostorMaterial(
   material.positionNode = view.position;
   material.castShadowPositionNode = view.shadowPosition;
 
-  const normal = view.value(NORMAL_CHANNEL);
-  const leaf = normal.a.clamp(0, 1);
-  // Leaves take the Season colour per frame (frames blend wood and leaf texels; their tints are not the colour).
-  const leafColor = varying(seasonLeafColor(definition.season, instanceState().season)) as Node<'vec3'>;
-  const color = view.blend((frame) => {
-    const texel = frame.sample(COLOR_CHANNEL);
-    const flag = frame.sample(NORMAL_CHANNEL).a.div(max(texel.a, MIN_COVERAGE)).clamp(0, 1);
-    return vec4(texel.rgb.mul(mix(vec3(1), leafColor, flag)), texel.a);
-  });
-  material.colorNode = color.rgb.div(max(view.coverage, MIN_COVERAGE));
-  const treeNormal = normal.rgb.mul(2).sub(1).normalize();
+  // Per frame (frames blend wood and leaf texels, and leaves of different timing): each leaf texel at
+  // its own Season. A dropped leaf gives way to the wood layer.
+  const treeSeason = varying(instanceState().season) as Node<'float'>;
+  const leafSeason = leafSeasonNode(definition.season);
+  const maxShift = definition.variation.season;
+  const frameStates = new Map<ImpostorFrame, { color: Node<'vec4'>; normal: Node<'vec4'> }>();
+  const frameState = (frame: ImpostorFrame) => {
+    let state = frameStates.get(frame);
+    if (!state) {
+      const texel = frame.sample(COLOR_CHANNEL);
+      const normal = frame.sample(NORMAL_CHANNEL);
+      const flag = normal.a.div(max(texel.a, MIN_COVERAGE)).clamp(0, 1);
+      const season = frame.sample(SEASON_CHANNEL);
+      const leaves = max(season.a, MIN_COVERAGE);
+      // No leaf is shifted beyond the Definition's Season variation: that bounds the 8-bit error of
+      // texels with little leaf in them (the shift is premultiplied by the leaf share).
+      const shift = season.r.div(leaves).sub(0.5).div(SEASON_SHIFT_SCALE).clamp(-maxShift, maxShift);
+      const part = vec3(shift, season.g.div(leaves).clamp(0, 1), season.b.div(leaves).clamp(0, 1));
+      const leaf = leafSeason(treeSeason, part);
+      // How much of the texel is leaves that are not shown now: that share is the wood layer's.
+      const dropped = flag.mul(select(leaf.shown, float(0), float(1))).toVar();
+      const shown = vec4(texel.rgb.mul(mix(vec3(1), leaf.color, flag)), texel.a);
+      state = {
+        color: mix(shown, frame.sample(WOOD_COLOR_CHANNEL), dropped),
+        normal: mix(normal, frame.sample(WOOD_NORMAL_CHANNEL), dropped),
+      };
+      frameStates.set(frame, state);
+    }
+    return state;
+  };
+  const color = view.blend((frame) => frameState(frame).color);
+  const normal = view.blend((frame) => frameState(frame).normal);
+  const coverage = color.a;
+  const covered = max(coverage, MIN_COVERAGE);
+  material.colorNode = color.rgb.div(covered);
+  const leaf = normal.a.div(covered).clamp(0, 1);
+  const treeNormal = normal.rgb.div(covered).mul(2).sub(1).normalize();
   material.normalNode = transformNormalToView(instanceRotate(treeNormal)).normalize();
   material.roughnessNode = mix(float(definition.materials.bark.roughness), float(definition.materials.leaf.roughness), leaf);
   material.metalness = 0;
-  material.maskNode = and(view.coverage.greaterThan(ALPHA_CUT), levelVisible());
+  material.maskNode = and(coverage.greaterThan(ALPHA_CUT), levelVisible());
+  // Material Features: on a dropped leaf's texel the wood shows, and `leaf` (from the wood layer's flag) turns the leaf-only ones off there.
   if (hasImpostorFeatures(features)) applyImpostorFeatures(material, view, atlases.bounds, leaf, features);
-  // Tree Effects: tree pixels, leaves where the baked leaf flag says so (wood elsewhere).
+  // Tree Effects: tree pixels, leaves where the (Season-aware) leaf flag says so (wood elsewhere).
   material.userData.treePart = 'leaves';
   setTreeLeafMask(material, leaf);
   return material;

@@ -16,14 +16,46 @@ type Node = any;
  * never recompiles; only a different key count does.
  */
 function keyframeNode<V>(s: Node, track: readonly Keyframe<V>[], toUniform: (v: V) => Node): Node {
+  return keyframeSampler(track, toUniform)(s);
+}
+
+/** As `keyframeNode`, with the uniforms made once: the returned function samples the track at any Season node. */
+function keyframeSampler<V>(track: readonly Keyframe<V>[], toUniform: (v: V) => Node): (s: Node) => Node {
   const ts: Node[] = track.map((k) => uniform(k.t));
   const vs: Node[] = track.map((k) => toUniform(k.value));
-  let out: Node = vs[0];
-  for (let i = 0; i < track.length - 1; i++) {
-    const f = s.sub(ts[i]).div(ts[i + 1]!.sub(ts[i]).max(KEYFRAME_EPSILON)).clamp(0, 1);
-    out = mix(out, vs[i + 1], f);
-  }
-  return out;
+  return (s) => {
+    let out: Node = vs[0];
+    for (let i = 0; i < track.length - 1; i++) {
+      const f = s.sub(ts[i]).div(ts[i + 1]!.sub(ts[i]).max(KEYFRAME_EPSILON)).clamp(0, 1);
+      out = mix(out, vs[i + 1], f);
+    }
+    return out;
+  };
+}
+
+/** One leaf at one Season (TSL): see {@link leafSeasonNode}. */
+export interface LeafSeasonNode {
+  /** Leaf colour (vec3, linear) at the leaf's shifted Season, or the blossom colour for a blossom. */
+  color: Node;
+  /** True while the leaf is shown (coverage above its rank, or a blossom). */
+  shown: Node;
+}
+
+/**
+ * The TSL twin of `leafSeason` for a Season Profile: returns a function that evaluates one leaf from
+ * a Season node and its Season timing (vec3: shift, coverage rank, blossom rank, as `aSeason`). The
+ * Profile's uniforms are made once, so it can be called for many leaves (an Impostor's frames).
+ */
+export function leafSeasonNode(profile: SeasonProfileDefinition): (season: FloatNode<'float'>, part: Node) => LeafSeasonNode {
+  const leafColor = keyframeSampler(profile.leafColor, (v) => uniform(new Color(v)));
+  const coverage = keyframeSampler(profile.leafCoverage, (v) => uniform(v));
+  const blossom = keyframeSampler(profile.blossom, (v) => uniform(v));
+  const blossomColor = uniform(new Color(profile.blossomColor));
+  return (season, part) => {
+    const s = shiftedSeason(season, part);
+    const isBlossom = blossom(s).greaterThan(part.z);
+    return { color: select(isBlossom, blossomColor, leafColor(s)), shown: isBlossom.or(coverage(s).greaterThan(part.y)) };
+  };
 }
 
 /** The Season nodes of one tree's leaves; `S` is the Season input node (a uniform by default). */
@@ -47,30 +79,12 @@ export interface SeasonNodes<S extends FloatNode<'float'> = SeasonUniform> {
 export function createSeasonNodes(profile: SeasonProfileDefinition): SeasonNodes;
 export function createSeasonNodes<S extends FloatNode<'float'>>(profile: SeasonProfileDefinition, season: S): SeasonNodes<S>;
 export function createSeasonNodes(profile: SeasonProfileDefinition, season: FloatNode<'float'> = uniform(0)): SeasonNodes<FloatNode<'float'>> {
-  const aSeason = attribute('aSeason', 'vec3');
-  const s = shiftedSeason(season, aSeason);
-
-  const leafColor = keyframeNode(s, profile.leafColor, (v) => uniform(new Color(v)));
-  const coverage = keyframeNode(s, profile.leafCoverage, (v) => uniform(v));
-  const blossom = keyframeNode(s, profile.blossom, (v) => uniform(v));
-  const blossomColor = uniform(new Color(profile.blossomColor));
-
-  const isBlossom = blossom.greaterThan(aSeason.z);
-  const shown = isBlossom.or(coverage.greaterThan(aSeason.y));
+  const { color, shown } = leafSeasonNode(profile)(season, attribute('aSeason', 'vec3'));
   return {
     season,
-    color: varying(select(isBlossom, blossomColor, leafColor)),
+    color: varying(color),
     visible: varying(select(shown, float(1), float(0))).greaterThan(0.5),
   };
-}
-
-/**
- * The Season Profile's leaf colour (vec3, linear) at Season `season`, for a whole tree: no per-leaf
- * timing shift, coverage or blossom (those need the leaf's `aSeason`). An Impostor colours its leaves
- * with it at the tree's Season.
- */
-export function seasonLeafColor(profile: SeasonProfileDefinition, season: FloatNode<'float'>): Node {
-  return keyframeNode(season, profile.leafColor, (v) => uniform(new Color(v)));
 }
 
 /** The part's own Season: the Season input plus the `aSeason.x` timing shift, wrapped around the year (as `wrapSeason`). */

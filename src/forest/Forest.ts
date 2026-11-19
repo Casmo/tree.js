@@ -224,7 +224,7 @@ export class ForestVariant {
     definition: TreeDefinition,
     index: number,
     seed: number,
-    wind: WindSource,
+    private readonly wind: WindSource,
     capacity: number,
     private readonly textures?: TextureOptions,
   ) {
@@ -385,6 +385,7 @@ export class ForestVariant {
       `forest impostor ${this.index}`,
       this.textures,
       features ? { nodes: features, crown: this.data.crown } : null,
+      { source: this.wind, response: this.windResponse },
     );
     levels.setLevel(DetailLevel.Impostor, [this.impostor.part]);
 

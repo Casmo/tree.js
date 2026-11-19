@@ -34,9 +34,12 @@ async function baked(definition: TreeDefinitionInput) {
   return { forest, renderer };
 }
 
-/** The atlas names of every bake (one render target per Variant). */
+/** The atlas names of every bake's tree layer (one per Variant; the wood layer, `woodOutput` first, is left out). */
 function atlases(renderer: ReturnType<typeof fakeRenderer>): string[][] {
-  return renderer.setRenderTarget.mock.calls.filter(([t]) => t).map(([t]) => (t as { textures: { name: string }[] }).textures.map((x) => x.name));
+  return renderer.setRenderTarget.mock.calls
+    .filter(([t]) => t)
+    .map(([t]) => (t as { textures: { name: string }[] }).textures.map((x) => x.name))
+    .filter((names) => names[0] === 'output');
 }
 
 function cards(forest: Forest): MeshStandardNodeMaterial[] {
@@ -65,13 +68,13 @@ function uniformValues(root: Node | null): number[] {
 describe('Material Features on Impostors', () => {
   it('bake no extra atlas when no Material Feature is set', async () => {
     const { forest, renderer } = await baked(base);
-    expect(atlases(renderer)).toEqual([['output', 'normal'], ['output', 'normal']]);
+    expect(atlases(renderer)).toEqual([['output', 'normal', 'season'], ['output', 'normal', 'season']]);
     for (const material of cards(forest)) {
       expect(material.aoNode).toBeNull();
       expect(Object.hasOwn(material, 'setupLightingModel')).toBe(false);
     }
     // Crown Normals at 0 count as off: nothing is baked for them either.
-    expect(atlases((await baked(withMaterials({ leaf: { crownNormals: 0 } }))).renderer)).toEqual([['output', 'normal'], ['output', 'normal']]);
+    expect(atlases((await baked(withMaterials({ leaf: { crownNormals: 0 } }))).renderer)).toEqual([['output', 'normal', 'season'], ['output', 'normal', 'season']]);
   });
 
   it.each([
@@ -81,7 +84,7 @@ describe('Material Features on Impostors', () => {
     ['all three', { leaf: { crownNormals: 0.7, translucency }, occlusion: { strength: 0.6 } }],
   ])('bake one features atlas when %s is set', async (_, materials) => {
     const { renderer } = await baked(withMaterials(materials));
-    expect(atlases(renderer)).toEqual([['output', 'normal', 'features'], ['output', 'normal', 'features']]);
+    expect(atlases(renderer)).toEqual([['output', 'normal', 'season', 'features'], ['output', 'normal', 'season', 'features']]);
   });
 
   it('apply Crown Normals to the card normal, with the live amount', async () => {
