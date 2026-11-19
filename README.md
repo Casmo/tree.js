@@ -843,6 +843,9 @@ effects.removeEffect(foliage);
   builds a new graph. `effects.customEffects` lists them. Adding or removing one builds a new graph.
 - With no custom effect nothing changes: no channel, no pass. A custom effect itself adds no pass; it
   is part of the pipeline's output node.
+- The [Scene Pipeline](#scene-pipeline) takes the same custom effects, with the same `addEffect`,
+  `updateEffect`, `removeEffect` and `customEffects`: see [Custom Tree Effects in the Scene
+  Pipeline](#custom-tree-effects-in-the-scene-pipeline).
 - In your own pipeline, call `effect.build(input, options)` on the output of `applyTreeEffects` (or any
   colour) yourself. See [`examples/custom-effect`](examples/custom-effect/main.ts) for the bare setup of a
   foliage-only effect.
@@ -915,6 +918,35 @@ createScenePipeline(renderer, scene, camera, {
   your own temporal effects (`pipeline.scenePass.velocity`).
 - The order is fixed: scene pass (fog in the materials, AO in the ambient light) -> Tree Effects -> god
   rays -> motion blur -> bloom -> TRAA -> tone mapping and output colour space -> SMAA / FXAA.
+
+### Custom Tree Effects in the Scene Pipeline
+
+A [custom Tree Effect](#custom-tree-effects) goes into the Scene Pipeline the same way as into
+`TreeEffects`. It runs among the Tree Effects, at the place its `before` names, so on tree pixels and
+before every Scene Effect (god rays, bloom, tone mapping and anti-aliasing see its result):
+
+```ts
+import { vec4 } from 'three/tsl';
+import type { CustomTreeEffect } from '@casmo/tree.js/effects';
+import { createScenePipeline } from '@casmo/tree.js/scene';
+
+// The bare foliage-only setup of Custom Tree Effects above (put your look in place of `input.color.rgb`).
+const foliage: CustomTreeEffect<{ strength: number }> = {
+  before: 'outline',
+  build: (input) => ({ node: vec4(input.color.rgb, input.color.a), update: () => {} }),
+};
+
+const pipeline = createScenePipeline(renderer, scene, camera, { style: 'stylized' });
+pipeline.addEffect(foliage, { strength: 1 });
+pipeline.updateEffect(foliage, { strength: 0.5 }); // live: no new graph, no recompile
+pipeline.set({ style: 'realistic' }); // the custom effect stays, rebuilt with its latest options
+pipeline.removeEffect(foliage);
+```
+
+- The channels it declares (`treeId`, `normal`) are added to the scene pass by the same rule as for the
+  built-in effects, and go again when it is removed and nothing else needs them.
+- With no custom effect the pipeline is unchanged. A custom effect alone (no Style, no overrides) makes
+  the pipeline render through its `RenderPipeline` instead of `renderer.render()`.
 
 ### Scene Effects in your own pipeline
 
