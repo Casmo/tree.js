@@ -1,5 +1,7 @@
 // A Variant's Impostor (ADR 0010, GLOSSARY): the atlases baked from frames × frames directions at
-// Growth 1, and the card material that draws far trees with them.
+// Growth 1, and the card material that draws far trees with them. The directions are hemi-octahedral
+// (`octahedral.ts`): the upper hemisphere only, from the horizon to straight above; a view from below
+// uses the horizon frames.
 //
 // What is baked is a list of channels (one atlas each); the bake renders every channel of every
 // frame in one pass. Later features add channels (`impostorChannels`) and read them in the material

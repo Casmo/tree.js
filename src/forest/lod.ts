@@ -9,7 +9,11 @@ export type DetailLevel = (typeof DetailLevel)[keyof typeof DetailLevel];
 
 /** Resolution of a Variant's Impostor atlases. */
 export interface ImpostorAtlasOptions {
-  /** Octahedral directions per side (frames × frames pictures). Default 12. */
+  /**
+   * Directions per side (frames × frames pictures). They are hemi-octahedral: they cover the upper
+   * hemisphere only, from the horizon to straight above (a view from below uses the horizon frames).
+   * Default 12.
+   */
   frames?: number;
   /** Atlas width and height in pixels. Default 2048. */
   size?: number;

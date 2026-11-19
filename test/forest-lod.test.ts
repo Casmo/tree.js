@@ -260,6 +260,18 @@ describe('Detail Levels on the WebGL2 fallback', () => {
     }
   });
 
+  it('resolves lodReady on the first render, not before: the backend is only known when the Forest is drawn', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const forest = createForest(definition, placements, { variants: 2, lod: true });
+      expect(await settled(forest.lodReady)).toBe(false);
+      render(forest, 'webgl');
+      expect(await settled(forest.lodReady)).toBe(true);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it('warns nothing for a Forest without lod, nor on WebGPU', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
