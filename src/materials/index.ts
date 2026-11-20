@@ -6,11 +6,13 @@ import { fruitTracks } from '../season/profile';
 import type { TextureOptions } from '../textures';
 import { applyGroundTint } from './ground-tint';
 import { applyBarkMaps, applyLeafMap } from './maps';
+import { PaintedNodeMaterial, paintLeafMasses } from './painted';
 import { createShadedMaterial, isFlatShading } from './shading';
 
 export { createShadedMaterial } from './shading';
 export { applyCrownNormals } from './crown-normals';
 export { crownNodes, type CrownNodes } from './crown-nodes';
+export { PaintedNodeMaterial } from './painted';
 
 /**
  * Bark material: a TSL node material (ADR 0002). Growth/Season/Wind uniforms and
@@ -57,6 +59,7 @@ export function createLeafMaterial(definition: TreeDefinition, textures?: Textur
   material.roughness = definition.materials.leaf.roughness;
   material.metalness = 0;
   applyLeafMap(material, definition.materials.leaf, textures);
+  if (material instanceof PaintedNodeMaterial && definition.leaves.shape === 'mass') paintLeafMasses(material);
   return material;
 }
 

@@ -1,5 +1,6 @@
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import type { Shading } from '../definition';
+import { PaintedNodeMaterial } from './painted';
 import { SoftToonNodeMaterial } from './toon';
 
 /**
@@ -13,9 +14,12 @@ import { SoftToonNodeMaterial } from './toon';
  * - `standard` (realistic): smooth PBR shading.
  * - `toon` (stylized): soft two-tone toon lighting (`SoftToonNodeMaterial`, still a standard
  *   node material underneath), smooth normals so leaf clumps read as rounded.
+ * - `painted` (painterly): soft, warm wrap lighting without bands or specular (`PaintedNodeMaterial`);
+ *   a Leaf Mass crown is painted onto its gradient (`paintLeafMasses`).
  */
 export function createShadedMaterial(shading: Shading): MeshStandardNodeMaterial {
-  const material = shading === 'toon' ? new SoftToonNodeMaterial() : new MeshStandardNodeMaterial();
+  const material =
+    shading === 'toon' ? new SoftToonNodeMaterial() : shading === 'painted' ? new PaintedNodeMaterial() : new MeshStandardNodeMaterial();
   material.flatShading = shading === 'flat';
   return material;
 }

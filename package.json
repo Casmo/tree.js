@@ -47,6 +47,10 @@
       "types": "./dist/styles/realistic/index.d.ts",
       "import": "./dist/styles/realistic.js"
     },
+    "./styles/painterly": {
+      "types": "./dist/styles/painterly/index.d.ts",
+      "import": "./dist/styles/painterly.js"
+    },
     "./react": {
       "types": "./dist/react/index.d.ts",
       "import": "./dist/react.js"

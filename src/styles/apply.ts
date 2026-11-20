@@ -17,6 +17,7 @@ import type { SpeciesBarkDefinition, SpeciesDefinition, SpeciesFoliageDefinition
 import { styleOfShading, styleShading, type StyleName } from './names';
 import { materialFeaturesOf } from './material-features';
 import { BARK_TEXTURES, LEAF_TEXTURES } from './realistic/textures';
+import { BARK_TEXTURES as PAINTED_BARK, LEAF_TEXTURES as SPRAY_TEXTURES } from './painterly/textures';
 
 /** Polygon detail of one tree part. */
 interface Detail {
@@ -96,6 +97,22 @@ const LOOKS = {
       isNeedleLike(type)
         ? { shape: 'card', perDensity: 120, sizeScale: 1.7, material: { roughness: 0.7, map: LEAF_TEXTURES[type], alphaTest: 0.4 } }
         : { shape: 'card', perDensity: 80, sizeScale: 2.2, material: { roughness: 0.65, map: LEAF_TEXTURES[type], alphaTest: 0.4 } },
+  },
+  painterly: {
+    trunk: { sides: 10, sections: 6, flareSections: 3 },
+    branches: [{ sides: 6, sections: 3 }, { sides: 4, sections: 1 }, { sides: 3, sections: 1 }],
+    // Smooth painted bark per Bark Type (real colours, no normal map).
+    bark: (type) => ({ roughness: 1, map: PAINTED_BARK[type], normalMap: null }),
+    fruitSides: 6,
+    roots: { sides: 6, sections: 3 },
+    // Leaf Masses of painted spray cards (ADR 0014), a spray texture per Leaf Type. One card per leaf:
+    // many more leaves than the puffs, but 2 triangles each (puffs have 80).
+    leaf: (type) => {
+      const material = { roughness: 1, map: SPRAY_TEXTURES[type], alphaTest: 0.5 };
+      return isNeedleLike(type)
+        ? { shape: 'mass', perDensity: 120, sizeScale: 1.15, material }
+        : { shape: 'mass', perDensity: 160, sizeScale: 1.43, material };
+    },
   },
 } satisfies Record<StyleName, StyleLook>;
 

@@ -1,4 +1,4 @@
-export { BARK_TYPES, CURRENT_SCHEMA_VERSION, FRUIT_TYPES, LEAF_TYPES, MAX_BRANCH_LEVELS } from './types';
+export { BARK_TYPES, CURRENT_SCHEMA_VERSION, DEFAULT_LEAF_MASSES, FRUIT_TYPES, LEAF_TYPES, MAX_BRANCH_LEVELS } from './types';
 export type {
   TreeDefinition,
   TreeDefinitionInput,

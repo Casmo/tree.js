@@ -26,8 +26,9 @@ const create = (options?: ScenePipelineOptions) => createScenePipeline(renderer,
 const outputsOf = (pipeline: ScenePipeline) => Object.keys(pipeline.scenePass.pass.getMRT()!.outputNodes);
 
 describe('SUGGESTED_SCENE_EFFECTS', () => {
-  it('suggests Neutral tone mapping for low-poly and AgX for stylized and realistic', () => {
-    expect(Object.keys(SUGGESTED_SCENE_EFFECTS).sort()).toEqual(['low-poly', 'realistic', 'stylized']);
+  it('suggests Neutral tone mapping for low-poly and AgX for stylized, realistic and painterly', () => {
+    expect(Object.keys(SUGGESTED_SCENE_EFFECTS).sort()).toEqual(['low-poly', 'painterly', 'realistic', 'stylized']);
+    expect(SUGGESTED_SCENE_EFFECTS.painterly.toneMapping?.mapping).toBe('agx');
     expect(SUGGESTED_SCENE_EFFECTS['low-poly'].toneMapping?.mapping).toBe('neutral');
     expect(SUGGESTED_SCENE_EFFECTS.stylized.toneMapping?.mapping).toBe('agx');
     expect(SUGGESTED_SCENE_EFFECTS.realistic.toneMapping?.mapping).toBe('agx');
