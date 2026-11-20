@@ -3,7 +3,7 @@
 // withMaterialFeatures. The sun stands low behind the trees, so Leaf Translucency shows as well as
 // Crown Normals and Structural Occlusion. Nothing else changes: same renderer, scene, lights.
 // Query parameters (used by the Playwright tests):
-//   ?style=low-poly|stylized|realistic  the trees' Style (default stylized)
+//   ?style=low-poly|stylized|realistic|painterly  the trees' Style (default stylized)
 //   ?species=<id>  that Species (loadSpecies, e.g. oak) instead of the Style's own broadleaf
 //   ?form=conifer  the Style's conifer instead of its broadleaf
 //   ?seed=<n>  the Seed of both trees (default 1)
