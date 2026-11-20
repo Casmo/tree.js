@@ -29,3 +29,17 @@ test('a Baked Tree with Material Features on, loaded back with GLTFLoader', asyn
   expect(on.equals(off)).toBe(false);
   expect(errors).toEqual([]);
 });
+
+// A Painterly Baked Tree (#120): an approximation of the painted shading (bent Leaf Mass normals, the crown
+// gradient in COLOR_0, the spray strokes as a brightness map), loaded back with GLTFLoader.
+for (const form of ['broadleaf', 'conifer']) {
+  test(`a painterly ${form} Baked Tree, loaded back with GLTFLoader`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error') errors.push(m.text());
+    });
+    await renderTree(page, `style=painterly&form=${form}&seed=42&view=tycoon&baked=1`);
+    await expect(page.locator('canvas')).toHaveScreenshot(`painterly-${form}-baked.png`, mask(page));
+    expect(errors).toEqual([]);
+  });
+}

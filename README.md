@@ -1481,6 +1481,27 @@ vertex colours show the occlusion without a custom shader. The trade-off: `COLOR
 direct sunlight included, while Structural Occlusion in tree.js (and `_OCCLUSION` used as AO) darkens only
 ambient and indirect light. Leave it off when your engine can read `_OCCLUSION`, or keep the strength lower.
 
+### Painterly Baked Trees are an approximation
+
+A Painterly tree (`shading: 'painted'`) bakes to a valid glTF like any other, but standard glTF materials cannot
+carry its live shading (soft wrap lighting, and the crown gradient that direct light moves towards the warm tips).
+The Baked Tree gets as close as standard channels allow:
+
+- `NORMAL` of the Leaf Mass cards is bent towards their mass (as live). Live both sides of a card are lit with that
+  normal, so each card is in the mesh twice, once each way round, with a single-sided leaf material (glTF
+  `doubleSided: false`): engines would flip it on the back of a double-sided one.
+- `COLOR_0` has the crown gradient painted in (deep and cool inside the masses, warm on the tops), as lit by a
+  sun straight above; your engine's lighting then comes on top.
+- The leaf texture holds the spray's brush strokes as a brightness map (alpha cut-out as live): the Painterly
+  spray is a grey paint value, not a colour, and multiplying it in as is would darken every leaf.
+- `_MASS_NORMAL` (vec3, the Leaf Mass normal) and `_PAINT` (vec4: height in the crown, how buried, tip light,
+  random per mass) for engines that rebuild the shading, with the settings in `extras.treejs.painted`:
+  `wrap`, `warm` (bark and leaf materials) and, on the leaves, `leafMasses { masses, massLayering, bend, sunlit,
+  leafShadow, paintValue, paintSun }`.
+
+Bark and Fruit are standard materials with their painted colours and textures. Expect a baked Painterly tree to
+look flatter and a little darker than the live one; for the real look, render it with tree.js.
+
 ## Textures
 
 ![The realistic Style up close: textured bark and leaf cards on a broadleaf, needle cards on a conifer](docs/images/textures.png)
