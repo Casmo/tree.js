@@ -33,6 +33,14 @@ describe('starting points', () => {
     expect(parseDefinition(definition)).toEqual(definition);
   });
 
+  it('a Painterly Species start is Painterly applied to the Species (at its Painterly size)', async () => {
+    expect(parseStartId('oak/painterly')).toEqual({ id: 'oak/painterly', tree: { kind: 'species', id: 'oak' }, style: 'painterly' });
+    const definition = await loadStart('oak/painterly');
+    expect(definition).toEqual((await loadStyle('painterly')).apply(oak));
+    expect(definition).toMatchObject({ species: 'oak', materials: { shading: 'painted' }, leaves: { shape: 'mass' } });
+    expect(definition.trunk.length).toBeLessThan(oak.trunk.length * 0.5);
+  });
+
   it.each(STYLE_NAMES.flatMap((style) => (['broadleaf', 'conifer'] as const).map((form) => [style, form] as const)))(
     'generic %s %s is that Style\'s own Definition, by the new and the old id',
     async (styleName, form) => {
