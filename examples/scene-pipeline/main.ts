@@ -3,7 +3,7 @@
 // (`@casmo/tree.js/scene`): the Style's suggested Tree Effects and Scene Effects in one pipeline.
 // The trees use the Style's SUGGESTED_MATERIAL_FEATURES.
 // Query parameters (used by the Playwright tests):
-//   ?style=low-poly|stylized|realistic  the trees' Style (default stylized)
+//   ?style=low-poly|stylized|realistic|painterly  the trees' Style (default stylized)
 //   ?scene=style  createScenePipeline with { style } (default): the Style's whole suggestion
 //   ?scene=none  createScenePipeline without a style or overrides (must equal ?scene=plain)
 //   ?scene=plain  no pipeline at all: renderer.render(scene, camera)

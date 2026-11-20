@@ -40,10 +40,12 @@ describe('suggested settings for painterly', () => {
     expect(SUGGESTED_MATERIAL_FEATURES.painterly).toBeDefined();
   });
 
-  it('suggests no line effects and no bloom: painterly needs no post (ADR 0014)', () => {
+  it('suggests no line effects, no bloom and no tone mapping curve: painterly needs no post (ADR 0014)', () => {
     expect(SUGGESTED_TREE_EFFECTS.painterly.outline).toBeUndefined();
     expect(SUGGESTED_TREE_EFFECTS.painterly.innerLines).toBeUndefined();
     expect(SUGGESTED_SCENE_EFFECTS.painterly.bloom).toBeUndefined();
+    // No tone mapping curve: the painted colours keep their saturation.
+    expect(SUGGESTED_SCENE_EFFECTS.painterly.toneMapping).toBeUndefined();
   });
 });
 
