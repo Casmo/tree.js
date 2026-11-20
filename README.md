@@ -1487,7 +1487,10 @@ URLs) load them relative to the package's `dist/textures/` by default. To serve 
 folder and point tree.js at it, app-wide or per tree. `realistic.apply` picks a leaf card per Leaf Type
 (`realistic/leaf.png`, `leaf-lobed.png`, `leaf-palmate.png`, `leaf-compound.png`, `needles.png`,
 `scale.png`) and a colour + normal pair per Bark Type (`realistic/bark.png` for furrowed, `bark-smooth.png`,
-`bark-papery.png`, `bark-fibrous.png`, `bark-plated.png`, each with its `-normal.png`); all are made by
+`bark-papery.png`, `bark-fibrous.png`, `bark-plated.png`, each with its `-normal.png`). `painterly.apply`
+draws every Leaf Type as Leaf Masses of a painted spray card (`painterly/spray-<LeafType>.png`; needle and scale
+crowns in 12 flat, layered masses) and paints each Bark Type smooth (`painterly/bark-<BarkType>.png`, no
+normal map); all are made by
 `scripts/generate-textures.mjs` (MIT, reproducible):
 
 ```ts
