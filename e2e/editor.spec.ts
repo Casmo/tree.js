@@ -115,6 +115,32 @@ test('?start=<species>/<style> starts from a Species', async ({ page }) => {
   await expect(page.getByLabel('Style', { exact: true })).toHaveValue('realistic');
 });
 
+test('?start=<species>/painterly: switch away and back keeps the Painterly size, and the export keeps it', async ({ page }) => {
+  await page.goto('/editor/?start=oak/painterly&seed=1');
+  const start = await waitForEditor(page);
+  expect(start.status).toBe('rendered');
+  expect(start.state?.definition).toMatchObject({ species: 'oak', materials: { shading: 'painted' }, leaves: { shape: 'mass' } });
+  await expect(page.getByLabel('Species', { exact: true })).toHaveValue('oak');
+  const style = page.getByLabel('Style', { exact: true });
+  await expect(style).toHaveValue('painterly');
+  const painterly = start.state!.definition;
+  expect(painterly.trunk.length).toBeLessThan(2.5); // a ~14 m oak drawn about 3 m tall
+
+  await style.selectOption('realistic');
+  await expect.poll(async () => (await waitForEditor(page)).state?.source).toBe('oak/realistic');
+  const realistic = await waitForEditor(page);
+  expect(realistic.status).toBe('rendered');
+  expect(realistic.state?.definition).toMatchObject({ materials: { shading: 'standard' }, trunk: { length: painterly.trunk.length } });
+  await style.selectOption('painterly');
+  await expect.poll(async () => (await waitForEditor(page)).state?.source).toBe('oak/painterly');
+  expect((await waitForEditor(page)).state?.definition.trunk.length).toBe(painterly.trunk.length);
+
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export JSON' }).click();
+  const exported = parseDefinition(await readFile((await (await downloading).path())!, 'utf8'));
+  expect(exported).toMatchObject({ species: 'oak', materials: { shading: 'painted' }, trunk: { length: painterly.trunk.length, radius: painterly.trunk.radius } });
+});
+
 test('imports a JSON Tree Definition (older schema versions migrate)', async ({ page }) => {
   await page.goto('/editor/?seed=1');
   await waitForEditor(page);

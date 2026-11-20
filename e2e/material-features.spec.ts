@@ -20,7 +20,7 @@ async function render(page: Page, path: string, hook: string) {
 
 const mask = (page: Page) => ({ mask: [page.locator('#status')] });
 
-for (const style of ['low-poly', 'stylized', 'realistic']) {
+for (const style of ['low-poly', 'stylized', 'realistic', 'painterly']) {
   test(`${style}: suggested Material Features off and on`, async ({ page }) => {
     const query = `vanilla/?style=${style}&form=broadleaf&seed=1&backlight=1`;
     const off = await render(page, query, 'treeExample');

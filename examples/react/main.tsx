@@ -1,9 +1,11 @@
-// React Three Fiber example: a low-poly Style loaded with useTreeStyle (Suspense), <Tree> and <Wind>;
+// React Three Fiber example: a built-in Style (low-poly unless ?style) loaded with useTreeStyle (Suspense), <Tree> and <Wind>;
 // with ?scene=forest a <Forest> whose trees are planted and cut by changing its placements.
 // Query parameters (used by the Playwright tests):
+//   ?style=low-poly|stylized|realistic|painterly  the Style of the trees, the Species tree and the pipeline
+//                   (defaults: low-poly; stylized for ?scene=pipeline)
 //   ?scene=forest  a <Forest> of 49 trees instead of two <Tree>s (click a tree to cut it)
 //   ?scene=species  one Species tree: <Tree species={oak} style={lowPoly} seed={7} />
-//   ?scene=pipeline  stylized trees rendered through <ScenePipeline style="stylized" sun={sun} />
+//   ?scene=pipeline  stylized trees rendered through <ScenePipeline style="stylized" sun={sun} /> (or ?style's)
 //   ?scene=weather  two low-poly trees, with setters for <SnowCover>, <Wetness>, a <Tree shaderHooks>,
 //                   a Wind Burst (useWindBurst) and a foliage-only <TreeEffect> in a <ScenePipeline>
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
@@ -31,7 +33,7 @@ import {
   type TreeShaderHooks,
   type WindBurstOptions,
 } from '@casmo/tree.js/react';
-import type { Forest as ForestObject } from '@casmo/tree.js';
+import { STYLE_NAMES, type Forest as ForestObject, type StyleName } from '@casmo/tree.js';
 import { oak } from '@casmo/tree.js/species';
 
 declare global {
@@ -61,9 +63,11 @@ window.reactExample = { status: 'loading' };
 const params = new URLSearchParams(location.search);
 const forceWebGL = params.get('backend') === 'webgl';
 const windTime = params.get('windTime');
+const styleParam = STYLE_NAMES.find((name) => name === params.get('style'));
+const pipelineStyle = styleParam ?? 'stylized';
 const scene = (['forest', 'species', 'pipeline', 'weather'] as const).find((name) => name === params.get('scene')) ?? 'trees';
 
-function Trees({ growth, styleName = 'low-poly' }: { growth: number; styleName?: 'low-poly' | 'stylized' }) {
+function Trees({ growth, styleName = styleParam ?? 'low-poly' }: { growth: number; styleName?: StyleName }) {
   const style = useTreeStyle(styleName);
   const season = Number(params.get('season') ?? 0.37);
   return (
@@ -74,10 +78,10 @@ function Trees({ growth, styleName = 'low-poly' }: { growth: number; styleName?:
   );
 }
 
-/** A Species in a Style: an English oak, drawn low-poly. */
+/** A Species in a Style: an English oak, drawn low-poly (or in ?style). */
 function SpeciesTree({ growth }: { growth: number }) {
-  const lowPoly = useTreeStyle('low-poly');
-  return <Tree species={oak} style={lowPoly} seed={7} growth={growth} season={Number(params.get('season') ?? 0.37)} scale={0.55} />;
+  const style = useTreeStyle(styleParam ?? 'low-poly');
+  return <Tree species={oak} style={style} seed={7} growth={growth} season={Number(params.get('season') ?? 0.37)} scale={0.55} />;
 }
 
 /** A 7 x 7 grid; the middle row grows younger (per-tree Growth). */
@@ -236,10 +240,10 @@ function App() {
       </mesh>
       <Wind direction={[1, 0, -0.4]} strength={Number(params.get('wind') ?? 0)} time={time} />
       <Suspense fallback={null}>
-        {scene === 'forest' ? <Woods growth={growth} /> : scene === 'species' ? <SpeciesTree growth={growth} /> : scene === 'pipeline' ? <Trees growth={growth} styleName="stylized" /> : scene === 'weather' ? <WeatherScene weather={weather} /> : <Trees growth={growth} />}
+        {scene === 'forest' ? <Woods growth={growth} /> : scene === 'species' ? <SpeciesTree growth={growth} /> : scene === 'pipeline' ? <Trees growth={growth} styleName={pipelineStyle} /> : scene === 'weather' ? <WeatherScene weather={weather} /> : <Trees growth={growth} />}
         {scene === 'pipeline' && (
-          // The stylized Style's suggested Tree Effects and Scene Effects; `sun` (a ref) is there for god rays.
-          <ScenePipeline style="stylized" sun={sun}>
+          // The Style's suggested Tree Effects and Scene Effects; `sun` (a ref) is there for god rays.
+          <ScenePipeline style={pipelineStyle} sun={sun}>
             <PipelineStatus />
           </ScenePipeline>
         )}

@@ -41,6 +41,8 @@ async function changed(page: Page, a: Buffer, b: Buffer): Promise<{ left: number
 for (const backend of [
   { name: 'webgpu', query: '' },
   { name: 'webgl2', query: '&backend=webgl' },
+  // Painterly (#116): Leaf Masses sway (and settle back) with the burst like any crown.
+  { name: 'painterly, webgpu', query: '&style=painterly' },
 ]) {
   test(`a Wind Burst bends the trees near it, not those beyond its radius, and is over after its lifetime (${backend.name})`, async ({ page }) => {
     const before = await load(page, backend.query);
