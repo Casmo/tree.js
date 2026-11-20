@@ -55,3 +55,13 @@ test('a realistic tree drawn with a new Leaf Type and Bark Type loads and render
   expect(textures.sort()).toEqual(['realistic/bark-papery-normal.png', 'realistic/bark-papery.png', 'realistic/leaf-palmate.png']);
   await expect(page.locator('canvas')).toHaveScreenshot('realistic-palmate-papery.png', { mask: [page.locator('#status')] });
 });
+
+test('the painterly textures load through the texture loader and base path, like the realistic ones', async ({ page }) => {
+  const loaded: string[] = [];
+  page.on('response', (r) => {
+    if (r.url().includes('/textures/painterly/') && r.ok()) loaded.push(r.url().split('/textures/')[1]!);
+  });
+  await page.goto('/examples/vanilla/?style=realistic&form=broadleaf&seed=1&barkMap=painterly/bark-plated.png&leafMap=painterly/spray-broad.png');
+  expect(await waitForExample(page)).toMatchObject({ status: 'rendered' });
+  expect(loaded.sort()).toEqual(['painterly/bark-plated.png', 'painterly/spray-broad.png']);
+});
