@@ -1,6 +1,7 @@
 // Style.apply (ADR 0005): a Style turns a Style-neutral Species (or an existing Tree Definition)
 // into a complete Tree Definition by choosing only the look: shading, polygon detail, how the
-// Leaf Type and Bark Type are drawn, and textures. Shape fields pass through untouched.
+// Leaf Type and Bark Type are drawn, and textures. Shape fields pass through untouched; only Painterly
+// also sets the overall size (ADR 0013, ./painterly/height.ts).
 import { extendDefinition, parseDefinition, type DefinitionPatch } from '../definition/parse';
 import {
   CURRENT_SCHEMA_VERSION,
@@ -17,6 +18,7 @@ import type { SpeciesBarkDefinition, SpeciesDefinition, SpeciesFoliageDefinition
 import { styleOfShading, styleShading, type StyleName } from './names';
 import { materialFeaturesOf } from './material-features';
 import { BARK_TEXTURES, LEAF_TEXTURES } from './realistic/textures';
+import { compressHeight } from './painterly/height';
 import { BARK_TEXTURES as PAINTED_BARK, LEAF_TEXTURES as SPRAY_TEXTURES } from './painterly/textures';
 
 /** Polygon detail of one tree part. */
@@ -216,7 +218,11 @@ function draw(name: StyleName, { base, foliage, bark, features }: Neutral): Tree
  * Pure: never mutates its inputs.
  */
 export function applyStyle(name: StyleName, source: StyleSource, overrides?: DefinitionPatch): TreeDefinition {
-  const neutral = 'schemaVersion' in source ? fromDefinition(source) : fromSpecies(source);
-  const definition = draw(name, neutral);
+  const isDefinition = 'schemaVersion' in source;
+  const neutral = isDefinition ? fromDefinition(source) : fromSpecies(source);
+  let definition = draw(name, neutral);
+  // Painterly sets the overall size (ADR 0013): real-sized trees shrink to 2-4 m. A Painterly Definition
+  // is already small; re-applying Painterly to it keeps its size.
+  if (name === 'painterly' && !(isDefinition && source.materials?.shading === 'painted')) definition = compressHeight(definition);
   return overrides ? extendDefinition(definition, overrides) : definition;
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { loadStyle } from '@casmo/tree.js';
+import { loadStyle, parseDefinition } from '@casmo/tree.js';
+import { definitionToJson } from './export-json';
 import { createHistory } from './history';
 import { loadStart } from './starts';
 import { createEditorStore } from './store';
@@ -67,5 +68,39 @@ describe('Style switch', () => {
     const { store, history } = await editor('oak/stylized');
     await switchStyle(store, 'stylized');
     expect(history.canUndo).toBe(false);
+  });
+
+  it('to Painterly: the tree shrinks to its Painterly size, keeps its shape, and the export keeps the size', async () => {
+    const { store, history } = await editor('oak/realistic');
+    store.editDefinition({ trunk: { stems: 2 } });
+    const realistic = store.state.definition;
+
+    await switchStyle(store, 'painterly');
+    const painterly = store.state.definition;
+    expect(store.state.source).toBe('oak/painterly');
+    expect(painterly).toMatchObject({ species: 'oak', materials: { shading: 'painted' }, leaves: { shape: 'mass' }, trunk: { stems: 2 } });
+    expect(painterly).toEqual((await loadStyle('painterly')).apply(realistic));
+    expect(painterly.trunk.length).toBeLessThan(realistic.trunk.length * 0.5); // a ~14 m oak drawn about 3 m tall
+
+    // The exported JSON is the small tree; loaded back (or Painterly applied again) it does not shrink twice.
+    const exported = parseDefinition(definitionToJson(painterly));
+    expect(exported).toEqual(painterly);
+    expect((await loadStyle('painterly')).apply(exported).trunk).toEqual(painterly.trunk);
+    const imported = createEditorStore({ definition: exported, source: 'oak.tree.json' });
+    await switchStyle(imported, 'painterly');
+    expect(imported.state.definition).toEqual(exported);
+
+    // Back to another Style: the size stays the Painterly one (accepted), and Painterly again keeps it.
+    await switchStyle(store, 'stylized');
+    const size = ({ trunk: { length, radius }, leaves }: typeof painterly) => ({ length, radius, leaves: leaves.size });
+    expect(store.state.definition.materials.shading).toBe('toon');
+    expect(size(store.state.definition)).toMatchObject({ length: painterly.trunk.length, radius: painterly.trunk.radius });
+    await switchStyle(store, 'painterly');
+    expect(size(store.state.definition)).toEqual(size(painterly));
+
+    history.undo();
+    history.undo();
+    history.undo();
+    expect(store.state.definition).toEqual(realistic);
   });
 });

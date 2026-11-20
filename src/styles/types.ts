@@ -16,6 +16,8 @@ export interface TreeStyle {
    * shading, polygon detail, leaf shape / count / size / texture (from the Leaf Type and density)
    * and bark (from the Bark Type and colour). Given a Tree Definition instead, it re-applies only
    * the look and keeps every shape field (trunk, branches, Crown Shape, Season, Wind, Sculpts).
+   * Painterly also scales the tree uniformly to 2-4 m (ADR 0013), unless the source is already a
+   * Painterly Definition or at most 4 m tall; the other Styles keep real sizes.
    * `overrides` are merged on top like `extendDefinition`. Pure.
    *
    * ```ts

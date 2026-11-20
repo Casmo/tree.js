@@ -232,14 +232,15 @@ export function impostorView(atlases: ImpostorAtlases, sway?: (point: Node<'vec3
 
 /**
  * The paint atlas (only baked for painted Leaf Masses, `paintsLeafMasses`): r = the leaf's place on the crown
- * gradient before light (`LeafMassPaint.shade`, encoded), g = its tone (encoded), a = 1 on painted leaves,
- * 0 on wood. The card paints its leaf texels at draw time from these and the Season colour.
+ * gradient before light (`LeafMassPaint.shade`, encoded), g = its mass's random number, b = its gap
+ * darkening, a = 1 on painted leaves, 0 on wood. The card paints its leaf texels at draw time from these and
+ * the Season colour.
  */
 export const PAINT_CHANNEL = 'paint';
 
-/** The paint atlas texel the bake writes for a Leaf Mass fragment: shade -1..1 and tone 0..2 into 0..1. */
+/** The paint atlas texel the bake writes for a Leaf Mass fragment (shade -1..1 into 0..1). */
 export function paintTexel(paint: LeafMassPaint): Node<'vec4'> {
-  return vec4(paint.shade.mul(0.5).add(0.5).clamp(0, 1), paint.tone.mul(0.5).clamp(0, 1), 0, 1);
+  return vec4(paint.shade.mul(0.5).add(0.5).clamp(0, 1), paint.mass, paint.gap, 1);
 }
 
 /** The colour atlas: the MRT `output` (rgb = colour, a = coverage). */
@@ -388,9 +389,8 @@ export function createImpostorMaterial(
 function paintImpostor(material: PaintedNodeMaterial, view: ImpostorView, leaf: Node<'float'>): void {
   const texel = view.blend((frame) => frame.sample(PAINT_CHANNEL));
   const painted = max(texel.a, MIN_COVERAGE);
-  const shade = texel.r.div(painted).mul(2).sub(1);
-  const tone = texel.g.div(painted).mul(2);
-  material.paint = (base, lit) => paintGradient(base, shade, lit, tone);
+  const paint = { shade: texel.r.div(painted).mul(2).sub(1), mass: texel.g.div(painted), gap: texel.b.div(painted) };
+  material.paint = (base, lit) => paintGradient(base, lit, paint);
   material.paintAmount = leaf;
   softenLeafShadows(material, leaf);
 }

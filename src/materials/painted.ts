@@ -42,6 +42,24 @@ const SUNLIT = 0.35;
  * speckles; the painted gradient already darkens the inside of the masses (concepts, ADR 0014).
  */
 const LEAF_SHADOW = 0.3;
+/**
+ * The sunlit tips of the leaf gradient (#116): the leaf colour, brighter, plus warm sunlight. Added, not
+ * mixed towards a fixed yellow-green, so the tips stay the Season's own hue: yellow-green in summer, gold
+ * and orange in autumn. Light (pale) colours, fresh spring green and blossom, fade towards a pale cream.
+ */
+const TIP_GAIN = 1.25;
+const TIP_SUN = [0.15, 0.13, 0] as const;
+const TIP_PALE = [1, 0.97, 0.8] as const;
+/** How much the tips of a light leaf colour fade to {@link TIP_PALE} (by its luminance, see `paintedTip`). */
+const TIP_PALENESS = 0.45;
+/** The deep inside of the leaf gradient: the leaf colour times this, cool, mixed a little towards {@link DEEP_COLOR}. */
+const DEEP = [0.22, 0.32, 0.45] as const;
+/** {@link DEEP} for light leaf colours (spring, blossom): lighter and less blue, so they stay pale. */
+const DEEP_PALE = [0.42, 0.42, 0.46] as const;
+const DEEP_COLOR = '#0b2427';
+/** Per-mass tint at either end of its random number: some masses a little warmer, some a little cooler. */
+const MASS_WARMER = [1.05, 1, 0.92] as const;
+const MASS_COOLER = [0.95, 1, 1.06] as const;
 /** Direct light warms bark and Fruit a little (multiplier on the lit colour). */
 const WARM = [1.06, 1.02, 0.9] as const;
 
@@ -131,6 +149,15 @@ export class PaintedLightingModel extends LightingModel {
   }
 }
 
+const luminanceOf = (c: Node): Node => c.dot(vec3(0.2126, 0.7152, 0.0722));
+
+/** The warm, sunlit tip colour of the leaf gradient for the (linear) leaf colour `base`: see {@link TIP_GAIN}. */
+function paintedTip(base: Node): Node {
+  const sunlit = base.mul(TIP_GAIN).add(vec3(...TIP_SUN));
+  const cream = vec3(...TIP_PALE).mul(luminanceOf(sunlit).max(0.5));
+  return mix(sunlit, cream, smoothstep(0.2, 0.6, luminanceOf(base)).mul(TIP_PALENESS));
+}
+
 /**
  * What paints one fragment of a Leaf Mass card, all fixed per point of the tree (an Impostor bakes them):
  * see `leafMassPaint`.
@@ -143,8 +170,10 @@ export interface LeafMassPaint {
    * on the sunlit tips is warm, buried and underneath is deep; the spray texture's paint value moves it.
    */
   shade: Node;
-  /** Multiplier on the painted colour: a little per-mass variation, the gaps between painted leaves darker. */
-  tone: Node;
+  /** The mass's random number (0..1): its per-mass tint and lightness. */
+  mass: Node;
+  /** Multiplier (0.6..1): the gaps between painted leaves a little darker. */
+  gap: Node;
 }
 
 /**
@@ -164,23 +193,27 @@ export function leafMassPaint(spray: Node | null): LeafMassPaint {
     .add(paint.z.sub(0.5).mul(0.25))
     .sub(paint.y.mul(0.6))
     .add(value.sub(0.5).mul(0.9 * TEXTURE));
-  // A little per-mass variation; the gaps between painted leaves a little darker.
-  const tone = paint.w.sub(0.5).mul(0.12).add(1).mul(mix(float(1), float(0.6), float(1).sub(coverage).mul(TEXTURE)));
-  return { normal, shade, tone };
+  const gap = mix(float(1), float(0.6), float(1).sub(coverage).mul(TEXTURE));
+  return { normal, shade, mass: paint.w, gap };
 }
 
 /**
- * The crown gradient: the Season colour `base` painted at `shade` (see `LeafMassPaint`) moved up by `lit`
- * (0..1, as direct light does), times `tone`. Deep, cool green inside and under the masses, the leaf colour
- * in the middle, warm yellow-green on the tips and tops; built relative to `base`, so it follows the Season.
+ * The crown gradient: the Season colour `base` painted at `paint.shade` (see `LeafMassPaint`) moved up by
+ * `lit` (0..1, as direct light does). Deep, cool green inside and under the masses, the leaf colour in the
+ * middle, warm sunlit tips; built relative to `base`, so it follows the Season.
  */
-export function paintGradient(base: Node, shade: Node, lit: Node, tone: Node): Node {
-  const deep = mix(base.mul(vec3(0.22, 0.32, 0.45)), color('#0b2427'), 0.35);
+export function paintGradient(base: Node, lit: Node, paint: Omit<LeafMassPaint, 'normal'>): Node {
+  // Light colours (fresh spring green, blossom) keep a lighter, less blue inside.
+  const pale = smoothstep(0.2, 0.6, luminanceOf(base));
+  const deep = mix(base.mul(mix(vec3(...DEEP), vec3(...DEEP_PALE), pale)), color(DEEP_COLOR), mix(0.35, 0.15, pale));
   const mid = base.mul(1.12);
-  const tip = mix(base, color('#bcd24a'), 0.5).mul(1.1);
-  const t = (shade as Node).add(lit).sub(0.5).mul(GRADIENT).add(0.5).clamp(0, 1);
+  const tip = paintedTip(base);
+  const t = (paint.shade as Node).add(lit).sub(0.5).mul(GRADIENT).add(0.5).clamp(0, 1);
   const ramp = mix(mix(deep, mid, smoothstep(0, 0.55, t)), tip, smoothstep(0.5, 1, t));
-  return ramp.mul(tone);
+  // A little per-mass variation (lighter or darker, warmer or cooler); the gaps between painted leaves a little darker.
+  const mass = paint.mass as Node;
+  const massTint = mix(vec3(...MASS_WARMER), vec3(...MASS_COOLER), mass);
+  return ramp.mul(massTint).mul(mass.sub(0.5).mul(0.12).add(1)).mul(paint.gap);
 }
 
 /** Softens a received shadow on painted leaves to `LEAF_SHADOW` (by `amount` 0..1 where only part is leaf, as on an Impostor). */
@@ -206,5 +239,5 @@ export function paintLeafMasses(material: PaintedNodeMaterial, toObject: (normal
   const massPaint = leafMassPaint(spray);
   material.massPaint = massPaint;
   material.normalNode = transformNormalToView(toObject(massPaint.normal)).normalize();
-  material.paint = (base, lit) => paintGradient(base, massPaint.shade, lit, massPaint.tone);
+  material.paint = (base, lit) => paintGradient(base, lit, massPaint);
 }

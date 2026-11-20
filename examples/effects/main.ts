@@ -1,6 +1,6 @@
 // Tree Effects example: one Style tree next to non-tree objects, rendered through a RenderPipeline.
 // Query parameters (used by the Playwright tests):
-//   ?style=low-poly|stylized|realistic  the tree's Style (default low-poly)
+//   ?style=low-poly|stylized|realistic|painterly  the tree's Style (default low-poly)
 //   ?form=conifer  conifer instead of broadleaf
 //   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (Tree Effects treat it as tree pixels)
 //   ?effects=none|outline|glow|grade|style  one effect, the Style's suggested combination (default), or none
@@ -50,6 +50,7 @@ const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
   'low-poly': () => import('@casmo/tree.js/styles/low-poly'),
   stylized: () => import('@casmo/tree.js/styles/stylized'),
   realistic: () => import('@casmo/tree.js/styles/realistic'),
+  painterly: () => import('@casmo/tree.js/styles/painterly'),
 };
 
 declare global {
@@ -190,7 +191,10 @@ async function main(): Promise<void> {
     const back = new THREE.Vector3(-direction.x, 0, -direction.z).normalize();
     const side = new THREE.Vector3(back.z, 0, -back.x);
     const second = createTree(definition, { seed: 2, season: 0.37 });
-    second.position.copy(centre).addScaledVector(back, size.x * 0.8).addScaledVector(side, size.x * 0.45).setY(0);
+    // Painterly crowns hang low and wide (ADR 0013): its second tree stands on the other side, where the
+    // first one's crown does not hide its trunk.
+    const [behind, aside] = styleName === 'painterly' ? [0.8, -0.7] : [0.8, 0.45];
+    second.position.copy(centre).addScaledVector(back, size.x * behind).addScaledVector(side, size.x * aside).setY(0);
     const spots = [-1.1, 1.1].map((k) => centre.clone().addScaledVector(back, size.x * 1.4).addScaledVector(side, size.x * k));
     const placements: ForestPlacement[] = spots.map((p, i) => ({ id: `f${i}`, position: [p.x, 0, p.z] }));
     let lod: ForestLodOptions | undefined;
