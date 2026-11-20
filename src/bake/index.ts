@@ -38,8 +38,8 @@ import type { Tree } from '../tree';
  * `extras`). With no Material Feature set, the result is exactly as without them.
  *
  * Painterly (`shading: 'painted'`, ADR 0014) is baked as an approximation: standard glTF cannot carry the
- * live shading (wrap lighting, the crown gradient moved by direct light). Painted Leaf Masses get their bent
- * normals, the crown gradient painted into the vertex colours (lit from above), a brightness spray map and
+ * live shading (wrap lighting, the crown gradient moved by direct light). Painted Leaf Masses get their lighting
+ * normals (bent towards their mass), the crown gradient painted into the vertex colours (lit from above), a brightness spray map and
  * `_MASS_NORMAL` / `_PAINT`; the look's settings go in `treejs.painted` (see {@link PaintedExtras}).
  */
 

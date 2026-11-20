@@ -31,8 +31,6 @@
 //   spray-<Leaf Type>.png 256x256 RGBA  square spray card per Leaf Type (broad, lobed, palmate, compound,
 //                                       needle, scale): grey paint value (dark low in the spray .. light
 //                                       tips), alpha cut-out; stem at (0.5, 0), tips towards v = 1
-//   mass-noise.png        256x256 RGBA  tileable painted leaf noise for a Leaf Mass surface / ragged
-//                                       edge: rgb = paint value, a = leaf coverage
 //   bark-<Bark Type>.png  128x256 RGB   tileable painted bark colour per Bark Type (furrowed, smooth,
 //                                       papery, fibrous, plated); no normal maps
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -919,47 +917,6 @@ function paintedSpray(type) {
   return bufferPng(buf, 4);
 }
 
-/**
- * Tileable painted leaf noise for the Leaf Mass surface (for world-space / triplanar sampling, and
- * the ragged edge): rgb = paint value (dark gaps .. light leaves on top), a = leaf coverage.
- */
-function massNoise() {
-  const S = SIZE;
-  const buf = canvasBuffer(S, S, { ss: 2, wrap: true, base: greyRgb(0.12) });
-  buf.cov.fill(0); // the dark base is the gaps between leaves: not covered
-  const rand = mulberry32(11);
-  const leaves = 700;
-  for (let i = 0; i < leaves; i++) {
-    const x = rand() * S;
-    const y = rand() * S;
-    const len = mix(17, 29, rand());
-    const wid = len * mix(0.4, 0.55, rand());
-    const rot = rand() * Math.PI * 2;
-    const value = 0.25 + 0.6 * (i / leaves) * mix(0.6, 1, rand()) + 0.15 * rand(); // later leaves lie on top: lighter
-    mark(buf, { x, y, rot, len, wid, inside: bladeInside(len, wid, pointedBlade), colour: litAcross(value, wid) });
-  }
-  // rgb averages the dark gaps in (unlike the cards, whose gaps are cut away).
-  const { cov } = buf;
-  const px = new Uint8Array(S * S * 4);
-  for (let y = 0; y < S; y++) {
-    for (let x = 0; x < S; x++) {
-      const sum = [0, 0, 0];
-      let c = 0;
-      for (let sy = 0; sy < 2; sy++) {
-        for (let sx = 0; sx < 2; sx++) {
-          const k = (y * 2 + sy) * buf.W + x * 2 + sx;
-          for (let n = 0; n < 3; n++) sum[n] += buf.col[k * 3 + n];
-          c += cov[k];
-        }
-      }
-      const i = ((S - 1 - y) * S + x) * 4;
-      for (let n = 0; n < 3; n++) px[i + n] = byte(sum[n] / 4);
-      px[i + 3] = byte(c / 4);
-    }
-  }
-  return png(S, S, 4, px);
-}
-
 /** sRGB hex -> [r, g, b] 0..1 (the image's own colour values). */
 const hex = (h) => [0, 2, 4].map((k) => parseInt(h.slice(1 + k, 3 + k), 16) / 255);
 
@@ -1098,7 +1055,7 @@ const realistic = () => {
   });
 };
 const painterly = () => {
-  const files = { 'mass-noise.png': massNoise() };
+  const files = {};
   for (const type of ['broad', 'lobed', 'palmate', 'compound', 'needle', 'scale']) files[`spray-${type}.png`] = paintedSpray(type);
   for (const type of ['furrowed', 'smooth', 'papery', 'fibrous', 'plated']) files[`bark-${type}.png`] = paintedBark(type);
   return files;

@@ -62,7 +62,7 @@ describe.each([
       // Still the painted shading, still painting the crown gradient.
       expect(set.leaf).toBeInstanceOf(PaintedNodeMaterial);
       expect(painted(set.leaf).paint).not.toBeNull();
-      // Crown Normals start from the Leaf Mass's bent normal and blend it towards the crown's.
+      // Crown Normals start from the Leaf Mass card's lighting normal (bent towards its mass) and blend it towards the crown's.
       expect(plain.leaf.normalNode).not.toBeNull();
       expect(set.leaf.normalNode).not.toBe(plain.leaf.normalNode);
       expect(set.bark.normalNode).toBeNull();

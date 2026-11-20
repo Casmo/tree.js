@@ -20,8 +20,8 @@ function fakeRenderer() {
   });
 }
 
-/** A lod Forest drawn once on WebGPU, with its Impostors baked. */
-async function baked(definition: TreeDefinition) {
+/** A Forest with Detail Levels drawn once on WebGPU, with its Impostors baked. */
+async function withDetailLevels(definition: TreeDefinition) {
   const forest = createForest(definition, placements, { variants: 2, seed: 3, lod: { light: 10, impostor: 40 } });
   const renderer = fakeRenderer();
   forest.traverse((o) => {
@@ -37,26 +37,26 @@ function passes(renderer: ReturnType<typeof fakeRenderer>): string[][] {
   return all.slice(0, all.length / 2);
 }
 
-const levelMeshes = (forest: Forest) => forest.children.filter((o): o is Mesh => o instanceof Mesh && !(o instanceof InstancedMesh));
-const impostorCards = (forest: Forest) => levelMeshes(forest).filter((o) => o.name.startsWith('forest impostor'));
+const detailLevelMeshes = (forest: Forest) => forest.children.filter((o): o is Mesh => o instanceof Mesh && !(o instanceof InstancedMesh));
+const impostors = (forest: Forest) => detailLevelMeshes(forest).filter((o) => o.name.startsWith('forest impostor'));
 
 describe('painterly Impostors', () => {
   it('bake the paint of the Leaf Masses next to the colour, normal and Season atlases', async () => {
-    const { renderer } = await baked(painterly.broadleaf);
+    const { renderer } = await withDetailLevels(painterly.broadleaf);
     expect(passes(renderer)).toEqual([['output', 'normal', 'season', 'paint'], ['woodOutput', 'woodNormal']]);
   });
 
   it('bake in two passes of at most four atlases when Material Features are on too', async () => {
-    const { renderer } = await baked(withMaterialFeatures(painterly.broadleaf, { crownNormals: 0.3, occlusion: { strength: 0.6 } }));
+    const { renderer } = await withDetailLevels(withMaterialFeatures(painterly.broadleaf, { crownNormals: 0.3, occlusion: { strength: 0.6 } }));
     expect(passes(renderer)).toEqual([['output', 'normal', 'season', 'features'], ['paint'], ['woodOutput', 'woodNormal']]);
   });
 
   it('paint their leaf texels on the crown gradient with the painted shading', async () => {
-    const { forest } = await baked(painterly.conifer);
-    const cards = impostorCards(forest);
-    expect(cards.length).toBe(2);
-    for (const card of cards) {
-      const material = card.material as PaintedNodeMaterial;
+    const { forest } = await withDetailLevels(painterly.conifer);
+    const drawn = impostors(forest);
+    expect(drawn.length).toBe(2);
+    for (const impostor of drawn) {
+      const material = impostor.material as PaintedNodeMaterial;
       expect(material).toBeInstanceOf(PaintedNodeMaterial);
       expect(material.paint).toBeTypeOf('function');
       expect(material.paintAmount).not.toBeNull();
@@ -64,7 +64,7 @@ describe('painterly Impostors', () => {
   });
 
   it('of other Styles bake no paint atlas', async () => {
-    const { renderer } = await baked(stylized.broadleaf);
+    const { renderer } = await withDetailLevels(stylized.broadleaf);
     expect(passes(renderer).flat()).not.toContain('paint');
   });
 });
@@ -85,8 +85,8 @@ describe('painterly in a Forest costs about what stylized does', () => {
   it('draw calls: the same meshes per Detail Level as stylized (wood, leaves, Fruit; one Impostor card)', async () => {
     const species = await loadSpecies('apple');
     const meshes = async (definition: TreeDefinition) => {
-      const { forest } = await baked(definition);
-      const names = levelMeshes(forest).map((o: Object3D) => o.name);
+      const { forest } = await withDetailLevels(definition);
+      const names = detailLevelMeshes(forest).map((o: Object3D) => o.name);
       forest.dispose();
       return names;
     };

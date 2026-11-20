@@ -383,7 +383,7 @@ export function createImpostorMaterial(
 
 /**
  * Paints an Impostor of painted Leaf Masses: its leaf texels (`leaf`, the Season-aware leaf flag) on the
- * crown gradient from the baked paint atlas and the drawn Season colour, lit through the baked bent normal,
+ * crown gradient from the baked paint atlas and the drawn Season colour, lit through the baked lighting normal (bent towards the mass),
  * with received shadows softened as on the tree's leaves.
  */
 function paintImpostor(material: PaintedNodeMaterial, view: ImpostorView, leaf: Node<'float'>): void {
