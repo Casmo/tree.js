@@ -43,12 +43,14 @@ export function hashCombine(...values: number[]): number {
   return h >>> 0;
 }
 
+/** Scratch for {@link seedToUint32} (called for every branch, leaf and Fruit): no allocation per call. */
+const SEED_VIEW = new DataView(new ArrayBuffer(8));
+
 /** Converts any finite number (including fractions and negatives) to a 32-bit seed. */
 export function seedToUint32(seed: number): number {
   if (!Number.isFinite(seed)) throw new TypeError(`Seed must be a finite number, got ${seed}`);
-  const view = new DataView(new ArrayBuffer(8));
-  view.setFloat64(0, seed, true);
-  return hashCombine(view.getUint32(0, true), view.getUint32(4, true));
+  SEED_VIEW.setFloat64(0, seed, true);
+  return hashCombine(SEED_VIEW.getUint32(0, true), SEED_VIEW.getUint32(4, true));
 }
 
 function fmix32(h: number): number {
