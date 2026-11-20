@@ -13,6 +13,19 @@ const backends = [
   { name: 'webgl2', query: '&backend=webgl' },
 ];
 
+// Painterly (#112): the broadleaf so far; its conifer, Growth and Season looks are their own tickets.
+const painterlyShots = [
+  ...backends.map((backend) => ({ name: `painterly broadleaf renders on ${backend.name}`, file: `painterly-broadleaf-${backend.name}.png`, query: backend.query, backend: backend.name })),
+  { name: 'painterly broadleaf from a tycoon camera (about 55°)', file: 'painterly-broadleaf-tycoon.png', query: '&view=tycoon', backend: 'webgpu' },
+];
+for (const shot of painterlyShots) {
+  test(shot.name, async ({ page }) => {
+    await page.goto(`/examples/vanilla/?style=painterly&form=broadleaf&seed=1${shot.query}`);
+    expect(await waitForExample(page)).toMatchObject({ status: 'rendered', backend: shot.backend });
+    await expect(page.locator('canvas')).toHaveScreenshot(shot.file, { mask: [page.locator('#status')] });
+  });
+}
+
 for (const style of styles) {
   for (const form of forms) {
     for (const backend of backends) {

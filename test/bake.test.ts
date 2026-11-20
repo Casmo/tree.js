@@ -7,6 +7,7 @@ import { bakeTree, createTree, crownNormal, exportBakedTree, extendDefinition, h
 import lowPoly from '../src/styles/low-poly';
 import realistic from '../src/styles/realistic';
 import stylized from '../src/styles/stylized';
+import painterly from '../src/styles/painterly';
 
 // GLTFExporter writes its buffers through FileReader, which plain Node lacks (browsers have it).
 beforeAll(() => {
@@ -38,6 +39,13 @@ describe('Baked Tree glTF export', () => {
     const glb = await exportBakedTree(tree);
     expect(glb).toBeInstanceOf(ArrayBuffer);
     const issues = await validate(glb);
+    expect(issues.numErrors, JSON.stringify(issues.messages.slice(0, 5))).toBe(0);
+    tree.dispose();
+  });
+
+  it('writes a valid glTF for a painterly tree (an approximation of its painted shading, #120)', async () => {
+    const tree = createTree(painterly.broadleaf, { seed: 42 });
+    const issues = await validate(await exportBakedTree(tree));
     expect(issues.numErrors, JSON.stringify(issues.messages.slice(0, 5))).toBe(0);
     tree.dispose();
   });
