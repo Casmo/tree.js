@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { validateBytes } from 'gltf-validator';
-import { Box3, Mesh, MeshStandardMaterial, NodeMaterial, Texture, Vector3, type BufferGeometry } from 'three/webgpu';
+import { Box3, FrontSide, Mesh, MeshStandardMaterial, NodeMaterial, Texture, Vector3, type BufferGeometry } from 'three/webgpu';
 import { loadSpecies, oak } from '../src/species';
 import { bakeTree, createTree, crownNormal, exportBakedTree, extendDefinition, hexToLinear, type Tree, type TreeDefinition } from '../src/index';
 import lowPoly from '../src/styles/low-poly';
@@ -456,20 +456,20 @@ describe('Baked Tree: Painterly (#120), an approximation of the painted shading'
     });
   }
 
-  it('bends the leaf normals towards their Leaf Mass, each card turned to face out of its mass', () => {
+  it('bends the leaf normals towards their Leaf Mass, the same on both sides of each card', () => {
     const tree = createTree(painterly.broadleaf, { seed: 42 });
-    const geometry = leavesOf(tree).geometry.toNonIndexed();
+    const mesh = leavesOf(tree);
+    const geometry = mesh.geometry.toNonIndexed();
+    const count = geometry.getAttribute('position').count;
     let sum = 0;
-    for (let v = 0; v < geometry.getAttribute('position').count; v++) sum += vec(geometry, 'normal', v).dot(vec(geometry, '_mass_normal', v));
-    expect(sum / geometry.getAttribute('position').count).toBeGreaterThan(0.95);
-    // Turned per card: (almost) every triangle's winding agrees with its normal, so the side seen from outside is lit.
-    let agree = 0;
-    const triangles = geometry.getAttribute('position').count / 3;
-    for (let t = 0; t < triangles * 3; t += 3) {
-      const [a, b, c] = [0, 1, 2].map((k) => vec(geometry, 'position', t + k));
-      if (b!.sub(a!).cross(c!.sub(a!)).dot(vec(geometry, 'normal', t)) > 0) agree++;
-    }
-    expect(agree / triangles).toBeGreaterThan(0.98);
+    for (let v = 0; v < count; v++) sum += vec(geometry, 'normal', v).dot(vec(geometry, '_mass_normal', v));
+    expect(sum / count).toBeGreaterThan(0.95);
+    // Live both sides of a card are lit with the bent normal; engines flip it on the back of a double-sided
+    // material. So each card is in twice, once each way round, with a single-sided material.
+    expect((mesh.material as MeshStandardMaterial).side).toBe(FrontSide);
+    const index = Array.from(mesh.geometry.index!.array);
+    const half = index.length / 2;
+    for (let t = 0; t < half; t += 3) expect(index.slice(half + t, half + t + 3)).toEqual([index[t], index[t + 2], index[t + 1]]);
     tree.dispose();
   });
 
@@ -500,7 +500,7 @@ describe('Baked Tree: Painterly (#120), an approximation of the painted shading'
     tree.dispose();
   });
 
-  it("bakes the spray's paint value into a brightness map about its mean, keeping its cut-out", () => {
+  it("bakes the spray's paint value into a brightness map, keeping its cut-out", () => {
     const tree = createTree(painterly.broadleaf, { seed: 42 });
     // Four texels (sRGB grey, alpha): three covered (paint values 64, 128, 200), one cut out.
     const spray = new Texture({ data: new Uint8Array([64, 64, 64, 255, 128, 128, 128, 255, 200, 200, 200, 255, 255, 255, 255, 0]), width: 2, height: 2 });
@@ -508,14 +508,14 @@ describe('Baked Tree: Painterly (#120), an approximation of the painted shading'
     const leaves = bakeTree(tree, { season: 0.3 }).getObjectByName('leaves') as Mesh;
     const material = leaves.material as MeshStandardMaterial;
     const texels = Array.from((material.map!.image as { data: Uint8Array }).data);
-    // Mean linear paint value of the covered texels: (0.0513 + 0.2159 + 0.5776) / 3.
-    expect((material.userData.treejs as { painted: { leafMasses: { paintValue: number } } }).painted.leafMasses.paintValue).toBeCloseTo(0.2816, 3);
+    // COLOR_0 is painted at the light end of the covered texels' paint values (linear 0.0513, 0.2159, 0.5776).
+    expect((material.userData.treejs as { painted: { leafMasses: { paintValue: number } } }).painted.leafMasses.paintValue).toBeCloseTo(0.5776, 3);
     expect(texels.filter((_, i) => i % 4 === 3)).toEqual([255, 255, 255, 0]); // the cut-out as it was
     const grey = texels.filter((_, i) => i % 4 === 0);
     expect(texels.filter((_, i) => i % 4 === 1)).toEqual(grey);
-    expect(grey[2]).toBe(255); // above the mean: white, the vertex colour as it is
-    expect(grey[0]).toBeLessThan(grey[1]!);
-    expect(grey[1]).toBeGreaterThan(200); // about the mean: hardly darker (a grey map would halve the colour)
+    expect(grey[2]).toBe(255); // at the painted value: white, the vertex colour as it is
+    expect(grey[0]).toBeLessThan(grey[1]!); // darker strokes darker
+    expect(grey[1]).toBeLessThan(grey[2]!);
     expect(spray.image.data[0]).toBe(64); // the tree's own texture is untouched
     tree.dispose();
   });
