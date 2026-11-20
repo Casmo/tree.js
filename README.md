@@ -139,9 +139,9 @@ scene.add(oak, pine, birch, tallPine);
 
 ## Species
 
-[![All 28 Species, each in the low-poly, stylized and realistic Styles](docs/species/contact-sheet.jpg)](docs/species/README.md)
+[![All 28 Species, each in the low-poly, stylized, realistic and painterly Styles](docs/species/contact-sheet.jpg)](docs/species/README.md)
 
-*Every Species in `low-poly`, `stylized` and `realistic`; the [Species gallery](docs/species/README.md) has larger
+*Every Species in `low-poly`, `stylized`, `realistic` and `painterly`; the [Species gallery](docs/species/README.md) has larger
 images (with Fruit or in autumn), a code example and the JSON of each.*
 
 28 real trees ship with the library, each described once by its shape (Stems, Crown Shape), Leaf Type, Bark
