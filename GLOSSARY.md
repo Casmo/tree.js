@@ -41,12 +41,8 @@ The kind of Fruit a Species bears: round, pear, nut, cone or berry; each Style d
 _Avoid_: Fruit shape
 
 **Leaf Mass**:
-One of the few large, ragged masses a Painterly crown is drawn as, lit and painted as one shape, standing in for many leaves.
-_Avoid_: Blob, clump, puff
-
-**Tier**:
-One drooping, ragged layer of a conifer drawn in Painterly, standing in for one whorl of branches with their needles.
-_Avoid_: Skirt, layer, shelf
+One of the few large, ragged masses a Painterly crown is drawn as: a clump of painted leaf-spray cards whose normals are bent to the clump, so it is lit and painted as one shape, standing in for many leaves (ADR 0014).
+_Avoid_: Blob, puff
 
 **Stem**:
 One of the trunks a tree grows from the ground; most trees have a single Stem, a juniper or an olive may have several.
