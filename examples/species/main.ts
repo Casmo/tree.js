@@ -2,7 +2,7 @@
 // Species into a Tree Definition (`style.apply(species)`) and createTree grows it.
 // Query parameters (also kept in sync with the pickers, so a view can be shared):
 //   ?species=<id>  a Species id (default oak), e.g. douglas-fir
-//   ?style=low-poly|stylized|realistic  (default low-poly)
+//   ?style=low-poly|stylized|realistic|painterly  (default low-poly)
 //   ?seed=<n>  (default 1)   ?season=<0..1>  (default 0.37, summer)
 import * as THREE from 'three/webgpu';
 import { createTree, loadStyle, STYLE_NAMES, type StyleName, type Tree } from '@casmo/tree.js';

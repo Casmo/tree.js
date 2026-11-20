@@ -581,6 +581,7 @@ const off = withMaterialFeatures(subtle, {}); // the plain Style tree again
 | `low-poly` | 0.5 | (off: it would soften the flat look) | `{ strength: 0.8 }` |
 | `stylized` | 1 | `{ strength: 0.3, edge: 0.8, ambient: 0.2 }` | `{ strength: 0.9 }` |
 | `realistic` | 0.6 | `{ strength: 0.45, edge: 0.7, ambient: 0.25 }` | `{ strength: 0.9 }` |
+| `painterly` | 0.3 (on top of its own Leaf Mass normals) | `{ strength: 0.3, edge: 0.8, ambient: 0.15 }` | `{ strength: 0.35 }` (it paints its own depth) |
 
 The fields are plain numbers, so they are saved in the Definition JSON (the Tree Editor exports them) and
 can be set with `extendDefinition` too (`{ materials: { leaf: { crownNormals: 1 } } }`). Validation
@@ -830,7 +831,8 @@ effects.set({ outline: { color: '#203018', thickness: 2 }, grade: { saturation: 
 Each Style has a suggested combination (`SUGGESTED_TREE_EFFECTS`): `low-poly` has a colour grade, ink
 [Inner Lines](#inner-lines) and a dark outline that is also drawn [between overlapping trees](#outline-between-overlapping-trees);
 `stylized` has a warm grade, a leaf glow, soft Inner Lines and a soft outline; `realistic` only a gentle
-grade and a faint leaf glow (no ink).
+grade and a faint leaf glow (no ink); `painterly` only a gentle warm grade: it is complete in its own
+materials, so an outline, Inner Lines or the Highlight are yours to add.
 
 > **Changed in this release:** the `low-poly` and `stylized` suggestions now include Inner Lines, and
 > `low-poly` also `outline.betweenTrees`. Apps that use either suggestion get a changed look (ink lines
@@ -1121,6 +1123,7 @@ forest (trees 10-30 m away); scale it up for large worlds:
 | `low-poly` | Neutral | SMAA | light | - | distance | - |
 | `stylized` | AgX | SMAA | yes | soft | distance + low mist | - |
 | `realistic` | AgX | SMAA | yes | subtle | distance + mist + far haze | yes (needs `sun`) |
+| `painterly` | - (the renderer's own; keeps the painted colours) | SMAA | light | - | distance | - |
 
 SMAA is in every suggestion because the [Tree ID](#tree-id) channel turns MSAA off. TRAA and motion
 blur are never suggested. Override a whole group with `treeEffects` or `sceneEffects` (a Style name,
@@ -1545,7 +1548,7 @@ a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branche
 | [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` | <img src="docs/images/example-effects.png" alt="examples/effects" width="160"> |
 | [`examples/custom-effect`](examples/custom-effect/main.ts) | `/examples/custom-effect/` | a foliage-only [custom Tree Effect](#custom-tree-effects) (the bare setup); `?effect=on\|pass-through\|off&effects=style&view=mask&backend=webgl` | <img src="docs/images/example-custom-effect.png" alt="examples/custom-effect" width="160"> |
 | [`examples/material-features`](examples/material-features/main.ts) | `/examples/material-features/` | the same tree with Material Features off and on (`SUGGESTED_MATERIAL_FEATURES`); `?style=realistic&species=oak` | <img src="docs/images/example-material-features.png" alt="examples/material-features" width="160"> |
-| [`examples/scene-pipeline`](examples/scene-pipeline/main.ts) | `/examples/scene-pipeline/` | the opt-in [Scene Pipeline](#scene-pipeline) (`createScenePipeline`) per Style: `?style=low-poly\|stylized\|realistic`; one Scene Effect alone through its builder: `?scene=tone-mapping\|smaa\|fxaa\|traa\|gtao\|bloom\|fog\|godrays\|motion-blur` (`&sun=back` for light shafts); `?scene=none` (adds nothing) or `plain` (`renderer.render`); the Wind-aware velocity channel: `?scene=velocity&wind=1.5&windTime=3`; motion blur: `?scene=motion-blur&wind=3&windTime=3&cameraStep=0.5`; `?backend=webgl` | <img src="docs/images/example-scene-pipeline.png" alt="examples/scene-pipeline" width="160"> |
+| [`examples/scene-pipeline`](examples/scene-pipeline/main.ts) | `/examples/scene-pipeline/` | the opt-in [Scene Pipeline](#scene-pipeline) (`createScenePipeline`) per Style: `?style=low-poly\|stylized\|realistic\|painterly`; one Scene Effect alone through its builder: `?scene=tone-mapping\|smaa\|fxaa\|traa\|gtao\|bloom\|fog\|godrays\|motion-blur` (`&sun=back` for light shafts); `?scene=none` (adds nothing) or `plain` (`renderer.render`); the Wind-aware velocity channel: `?scene=velocity&wind=1.5&windTime=3`; motion blur: `?scene=motion-blur&wind=3&windTime=3&cameraStep=0.5`; `?backend=webgl` | <img src="docs/images/example-scene-pipeline.png" alt="examples/scene-pipeline" width="160"> |
 | [`examples/species`](examples/species/main.ts) | `/examples/species/` | a Species x Style picker over the whole collection; `?species=douglas-fir&style=realistic` | <img src="docs/images/example-species.png" alt="examples/species" width="160"> |
 
 ```sh
