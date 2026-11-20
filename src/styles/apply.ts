@@ -8,6 +8,7 @@ import {
   type BarkMaterialDefinition,
   type MaterialFeatures,
   type BarkType,
+  type LeavesDefinition,
   type LeafMaterialDefinition,
   type LeafShape,
   type LeafType,
@@ -35,6 +36,8 @@ interface LeafLook {
   /** Leaf size = the Species' real leaf-spray size × this. */
   sizeScale: number;
   material: LeafMaterialDefinition;
+  /** `shape: 'mass'` only: how many Leaf Masses (`leaves.masses`) and their layering (`leaves.massLayering`). */
+  masses?: Pick<LeavesDefinition, 'masses' | 'massLayering'>;
 }
 
 /** The trunk's detail, plus the extra rings in its Root Flare (`trunk.flareSections`). */
@@ -108,11 +111,12 @@ const LOOKS = {
     fruitSides: 6,
     roots: { sides: 6, sections: 3 },
     // Leaf Masses of painted spray cards (ADR 0014), a spray texture per Leaf Type. One card per leaf:
-    // many more leaves than the puffs, but 2 triangles each (puffs have 80).
+    // many more leaves than the puffs, but 2 triangles each (puffs have 80). Needle / scale crowns get
+    // more masses, wide and flat and stacked in layers (#113), like the Painterly conifer.
     leaf: (type) => {
       const material = { roughness: 1, map: SPRAY_TEXTURES[type], alphaTest: 0.5 };
       return isNeedleLike(type)
-        ? { shape: 'mass', perDensity: 120, sizeScale: 1.15, material }
+        ? { shape: 'mass', perDensity: 120, sizeScale: 1.15, material, masses: { masses: 12, massLayering: 1.8 } }
         : { shape: 'mass', perDensity: 160, sizeScale: 1.43, material };
     },
   },
@@ -203,6 +207,7 @@ function draw(name: StyleName, { base, foliage, bark, features }: Neutral): Tree
       sizeVariation: foliage.sizeVariation,
       start: foliage.start,
       angle: foliage.angle,
+      ...leaf.masses,
     },
     materials: {
       shading: styleShading(name),

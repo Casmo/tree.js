@@ -4,6 +4,7 @@ import { generateTree } from '../../src/generator';
 import lowPoly from '../../src/styles/low-poly';
 import stylized from '../../src/styles/stylized';
 import realistic from '../../src/styles/realistic';
+import painterly from '../../src/styles/painterly';
 
 /** A small test Species: a short broadleaf with lobed leaves and plated bark. */
 const testOak: SpeciesDefinition = {
@@ -133,6 +134,33 @@ describe('Style.apply: each Style draws the Leaf Type and Bark Type its own way'
     const birch = realistic.apply(extendDefinition(oak, { leaves: { type: 'broad' }, materials: { bark: { type: 'papery' } } }));
     expect(birch.materials.leaf.map).toBe('realistic/leaf.png');
     expect(birch.materials.bark).toMatchObject({ map: 'realistic/bark-papery.png', normalMap: 'realistic/bark-papery-normal.png' });
+  });
+
+  it('painterly: Leaf Masses of a painted spray card per Leaf Type; conifer foliage in more, flatter, layered masses (ADR 0014)', () => {
+    for (const type of LEAF_TYPES) {
+      const d = painterly.apply(withLeaves(type));
+      expect(d.leaves.shape, type).toBe('mass');
+      expect(d.materials.leaf, type).toMatchObject({ map: `painterly/spray-${type}.png`, alphaTest: 0.5 });
+      const needleLike = type === 'needle' || type === 'scale';
+      // Broadleaf crowns: a few round masses; needle / scale crowns: 10-12 wide, flat masses in layers (#113).
+      expect(d.leaves.masses ?? 8, type).toBe(needleLike ? 12 : 8);
+      expect(d.leaves.massLayering ?? 1, type).toBe(needleLike ? 1.8 : 1);
+    }
+    expect(painterly.apply(testOak).materials.shading).toBe('painted');
+  });
+
+  it('painterly: smooth painted bark per Bark Type (a colour texture, no normal map), tinted by the Species colour', () => {
+    for (const type of BARK_TYPES) {
+      const bark = painterly.apply({ ...testOak, bark: { type, color: '#806040' } }).materials.bark;
+      expect(bark).toMatchObject({ type, color: '#806040', map: `painterly/bark-${type}.png`, normalMap: null });
+    }
+  });
+
+  it('painterly: re-styling a Definition from another Style picks the sprays and masses of its Leaf Type', () => {
+    expect(painterly.apply(realistic.apply(testFir)).leaves).toEqual(painterly.apply(testFir).leaves);
+    expect(painterly.apply(realistic.apply(testOak)).leaves).toEqual(painterly.apply(testOak).leaves);
+    // And back: other Styles do not keep the Leaf Masses.
+    expect(realistic.apply(painterly.apply(testFir)).leaves).not.toHaveProperty('masses');
   });
 
   it('every Style uses the Species bark colour and more foliage for a denser Species', () => {
