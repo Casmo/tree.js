@@ -41,7 +41,7 @@ const testFir: SpeciesDefinition = {
   variation: { color: 0.08, growth: 0.1, season: 0.05 },
 };
 
-const styles = { 'low-poly': lowPoly, stylized, realistic };
+const styles = { 'low-poly': lowPoly, stylized, realistic, painterly };
 
 describe('Leaf Types and Bark Types in the Tree Definition', () => {
   it('lists the six Leaf Types and five Bark Types', () => {
@@ -215,7 +215,19 @@ describe('Style.apply draws Fruit the Style\'s way', () => {
 
   it('keeps the Species\' Fruit (type, count, size, hang) and a fractional count', () => {
     const species = { ...withFruit('cone'), fruit: { type: 'cone' as const, count: 0.35, size: 0.2, sizeVariation: 0.1, hang: 0.8 } };
-    for (const style of Object.values(styles)) expect(style.apply(species).fruit).toMatchObject(species.fruit);
+    for (const style of [lowPoly, stylized, realistic]) expect(style.apply(species).fruit).toMatchObject(species.fruit);
+    // Painterly shrinks the whole tree (ADR 0013): the Fruit keeps its size relative to the trunk.
+    const { fruit, trunk } = painterly.apply(species);
+    expect(fruit).toMatchObject({ ...species.fruit, size: expect.any(Number) });
+    expect(fruit!.size / trunk.length).toBeCloseTo(species.fruit.size / species.trunk.length, 6);
+  });
+
+  it('painterly: Fruit is drawn smooth (6 sides) with the painted shading, like the stylized Style', () => {
+    expect(painterly.apply(withFruit('round')).fruit!.sides).toBe(stylized.apply(withFruit('round')).fruit!.sides);
+    const tree = createTree(painterly.apply(withFruit('round')), { seed: 1 });
+    expect(tree.data.skeleton.fruit.length).toBeGreaterThan(0);
+    expect(tree.fruit.material).toMatchObject({ isPaintedMaterial: true });
+    tree.dispose();
   });
 
   it('re-styling a Definition with Fruit redraws its Fruit in the new Style', () => {
@@ -243,6 +255,7 @@ describe('Style.apply draws the Root Flare the Style\'s way', () => {
       'low-poly': 2,
       stylized: 3,
       realistic: 3,
+      painterly: 3,
     });
     for (const style of Object.values(styles)) {
       expect(trunkRings(style.apply(flared)) - trunkRings(style.apply(testOak))).toBe(style.apply(flared).trunk.flareSections);
@@ -267,6 +280,7 @@ describe('Style.apply draws Roots the Style\'s way', () => {
       'low-poly': [3, 2],
       stylized: [6, 4],
       realistic: [8, 6],
+      painterly: [6, 3],
     });
     for (const style of Object.values(styles)) {
       const { skeleton } = generateTree(style.apply(rooted), 1);
@@ -300,13 +314,21 @@ describe('Style.apply on a Tree Definition re-applies only the look', () => {
     });
     const withSculpt = { ...edited, sculpts: [{ action: 'delete' as const, seed: 7, path: '0.1' }] };
     for (const style of Object.values(styles)) {
-      const restyled = style.apply(withSculpt);
+      let restyled = style.apply(withSculpt);
+      if (style === painterly) {
+        // Painterly also sets the overall size (ADR 0013): scaled uniformly, the shape is the same.
+        const factor = restyled.trunk.length / withSculpt.trunk.length;
+        expect(restyled.trunk.radius / withSculpt.trunk.radius).toBeCloseTo(factor, 6);
+        restyled = { ...restyled, trunk: { ...restyled.trunk, length: withSculpt.trunk.length, radius: withSculpt.trunk.radius } };
+      }
       expect(shapeOf(restyled)).toEqual(shapeOf(withSculpt));
       expect(restyled.branches[0]!.lengthProfile).toEqual(testOak.branches[0]!.lengthProfile);
       // The look is exactly what the Style gives the Species.
       const fresh = style.apply(testOak);
       expect(restyled.materials).toEqual(fresh.materials);
-      expect(restyled.leaves).toEqual(fresh.leaves);
+      // Painterly's leaf size follows the tree's height (ADR 0013), and this tree is taller than testOak.
+      expect({ ...restyled.leaves, size: 0 }).toEqual({ ...fresh.leaves, size: 0 });
+      if (style !== painterly) expect(restyled.leaves.size).toBe(fresh.leaves.size);
       expect(restyled.trunk.sides).toBe(fresh.trunk.sides);
       expect(restyled.branches.map((b) => b.sections)).toEqual(fresh.branches.map((b) => b.sections));
     }
