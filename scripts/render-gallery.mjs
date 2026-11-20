@@ -130,7 +130,7 @@ export function galleryPage(list) {
   return out.join('\n') + '\n';
 }
 
-/** HTML of the contact sheet: a grid of Species, each with its three Styles side by side (summer). */
+/** HTML of the contact sheet: a grid of Species, each with every Style side by side (summer). */
 function contactSheetHtml(list) {
   const tile = 120;
   const data = (file) => `data:image/jpeg;base64,${readFileSync(resolve(DOCS, file)).toString('base64')}`;
@@ -142,7 +142,7 @@ function contactSheetHtml(list) {
     .join('');
   return `<!doctype html><html><head><style>
     body { margin: 0; background: #f4f7f9; font: 600 15px system-ui, sans-serif; color: #23323d; }
-    main { display: grid; grid-template-columns: repeat(4, ${tile * 3}px); gap: 10px 14px; padding: 12px; width: max-content; }
+    main { display: grid; grid-template-columns: repeat(4, ${tile * STYLES.length}px); gap: 10px 14px; padding: 12px; width: max-content; }
     figure { margin: 0; } figure div { display: flex; } img { width: ${tile}px; height: ${tile}px; display: block; }
     figcaption { padding: 3px 2px 0; } header { grid-column: 1 / -1; font-weight: 400; }
   </style></head><body><main><header>tree.js Species · each: ${STYLES.join(', ')} · summer, Seed ${SEED}</header>${cells}</main></body></html>`;

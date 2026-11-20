@@ -217,11 +217,12 @@ const treeDefinition = obj<TreeDefinition>({
   leaves: obj<LeavesDefinition>({
     type: optional(oneOf(...LEAF_TYPES)),
     count: intAtLeast(0),
-    shape: oneOf('card', 'clump', 'needle', 'puff'),
+    shape: oneOf('card', 'clump', 'needle', 'puff', 'mass'),
     size: positive,
     sizeVariation: unit,
     start: unit,
     angle: range(0, 180),
+    masses: optional(intAtLeast(1)),
   }),
   fruit: optionalBlock<FruitDefinition>(
     obj<FruitDefinition>({
@@ -248,7 +249,7 @@ const treeDefinition = obj<TreeDefinition>({
     DEFAULT_ROOTS,
   ),
   materials: obj<MaterialsDefinition>({
-    shading: oneOf('standard', 'flat', 'toon'),
+    shading: oneOf('standard', 'flat', 'toon', 'painted'),
     bark: obj<BarkMaterialDefinition>({
       type: optional(oneOf(...BARK_TYPES)),
       color: hexColor,

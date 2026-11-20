@@ -109,7 +109,7 @@ for (const style of ['low-poly', 'stylized', 'realistic']) {
 }
 
 test.describe('examples/species: a Species x Style picker', () => {
-  test('lists every Species (grouped by Form) and the three Styles, and starts with the one in the URL', async ({ page }) => {
+  test('lists every Species (grouped by Form) and every Style, and starts with the one in the URL', async ({ page }) => {
     await page.goto('/examples/species/?species=birch&style=stylized');
     expect(await rendered(page, 'speciesExample')).toMatchObject({ status: 'rendered', species: 'birch', style: 'stylized' });
     const species = page.getByLabel('Species');
@@ -120,7 +120,7 @@ test.describe('examples/species: a Species x Style picker', () => {
       'Broadleaf',
       'Conifer',
     ]);
-    expect(await page.getByLabel('Style').locator('option').allTextContents()).toEqual(['low-poly', 'stylized', 'realistic']);
+    expect(await page.getByLabel('Style').locator('option').allTextContents()).toEqual(['low-poly', 'stylized', 'realistic', 'painterly']);
   });
 
   test('picking a Species and a Style grows that tree in that Style', async ({ page }) => {

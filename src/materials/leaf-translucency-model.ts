@@ -15,6 +15,7 @@ import {
   type LeafTranslucencyTerm,
   type LeafTranslucencyValues,
 } from './leaf-translucency';
+import { PaintedNodeMaterial } from './painted';
 import { SoftToonLightingModel, SoftToonNodeMaterial } from './toon';
 
 /**
@@ -45,7 +46,7 @@ class TranslucentLightingModel extends PhysicalLightingModel {
 /**
  * Gives a leaf material Leaf Translucency (`materials.leaf.translucency` as uniforms, a Material Feature, ADR 0008):
  * its lighting model becomes the translucent one (the physical model with the term for flat and standard
- * shading, the soft toon model with the same term for toon). The material keeps its class and every node.
+ * shading, the soft toon model with the same term for toon, the painted model's own term for painted). The material keeps its class and every node.
  * Only call it when the feature is set: without it the leaf material keeps today's lighting model.
  *
  * `crown` is the tree's Crown Volume (`TreeData.crown`); `growth` the Growth node the material's
@@ -65,6 +66,12 @@ export function applyLeafTranslucency(
  * it from a tree's vertices; an Impostor from its baked Crown Volume distance).
  */
 export function applyLeafTranslucencyTerm(material: MeshStandardNodeMaterial, term: LeafTranslucencyTerm): void {
+  if (material instanceof PaintedNodeMaterial) {
+    // The painted model takes the same term (and keeps its own lighting).
+    material.translucency = term;
+    material.needsUpdate = true;
+    return;
+  }
   const toon = material instanceof SoftToonNodeMaterial;
   // The declared return type is the physical model; the renderer only uses the LightingModel interface.
   material.setupLightingModel = () =>

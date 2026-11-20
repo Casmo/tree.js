@@ -5,8 +5,8 @@ import { buildBranches } from './branches';
 import { crownVolume } from './crown';
 import { fruitGeometry, fruitGrowth, placeFruit } from './fruit';
 import { growthTiming } from './growth';
-import { solidLeafGeometry } from './leaf-shapes';
-import { leafGeometry, placeLeaves } from './leaves';
+import { shapedLeafGeometry } from './leaf-shapes';
+import { placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
 import { bakeOcclusion } from './occlusion';
 import { growRoots, rootSides } from './roots';
@@ -67,10 +67,7 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
     ),
     ...roots.map((root, i) => sweepBranch(root, rootSides(definition), seedRandom(seed, root.path), woodSeason, growth.roots[i])),
   ]);
-  const leafBuffers =
-    definition.leaves.shape === 'card'
-      ? leafGeometry(leaves, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway)
-      : solidLeafGeometry(leaves, definition.leaves.shape, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway);
+  const leafBuffers = shapedLeafGeometry(leaves, definition.leaves, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway);
   const fruitBuffers = fruitGeometry(
     fruit,
     definition.fruit ?? { type: 'round' },

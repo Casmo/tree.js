@@ -13,7 +13,7 @@ import { crownNodes } from './crown-nodes';
  * - `toObject`: turns a tree-space normal into the mesh's own space (a Forest rotates it by the
  *   instance, as it does the Growth and Wind displacement); default: tree space is object space.
  *
- * The leaf normal is the material's view-space normal: the screen-space facet normal under flat
+ * The leaf normal is the material's own `normalNode` if it has one, else its view-space normal: the screen-space facet normal under flat
  * shading (so facets stay visible below 1), the smooth one facing the viewer otherwise.
  */
 export function applyCrownNormals(
@@ -24,7 +24,9 @@ export function applyCrownNormals(
   toObject: (normal: Node<'vec3'>) => Node<'vec3'> = (normal) => normal,
 ): void {
   const crownView = transformNormalToView(toObject(crownNodes(crown, growth).normal)).normalize();
-  const blend = mix(normalView, crownView, amount);
+  // A Style's own normal (painted Leaf Masses bend theirs to the mass) is the leaf normal it starts from.
+  const leafNormal = (material.normalNode as Node<'vec3'> | null) ?? normalView;
+  const blend = mix(leafNormal, crownView, amount);
   // A leaf normal facing exactly away from the crown's cancels out half way: fall back to the crown's.
   material.normalNode = select(length(blend).greaterThan(1e-4), blend.normalize(), crownView);
 }

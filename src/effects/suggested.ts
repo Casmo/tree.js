@@ -37,4 +37,8 @@ export const SUGGESTED_TREE_EFFECTS: Record<StyleName, TreeEffectsSettings> = {
     grade: { exposure: 1.05, contrast: 1.08, saturation: 0.95, tint: '#fff5e6' },
     glow: { color: '#e8ffc0', intensity: 0.35, threshold: 0.12, radius: 4 },
   },
+  // Complete in its own materials (ADR 0014): no post. Only a gentle warm grade.
+  painterly: {
+    grade: { contrast: 1.04, tint: '#fff6e8' },
+  },
 };

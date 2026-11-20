@@ -7,6 +7,7 @@ const STYLES = {
   'low-poly': { label: 'Low-poly', shading: 'flat' },
   stylized: { label: 'Stylized', shading: 'toon' },
   realistic: { label: 'Realistic', shading: 'standard' },
+  painterly: { label: 'Painterly', shading: 'painted' },
 } as const satisfies Record<string, { label: string; shading: Shading }>;
 
 /** Name of a built-in Style, e.g. 'low-poly'. */
