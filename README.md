@@ -122,8 +122,9 @@ A Style is a ready-made look with one Tree Definition per Form (`broadleaf`, `co
 Painterly is the one Style that also sets a tree's size: it scales every Species uniformly so that its
 height maps from the real one into 2-4 m (keeping the order between Species; its own `broadleaf` and
 `conifer` are 3 m and 3.5 m), so trees stay only a little taller than people in a tycoon view
-([ADR 0013](docs/adr/0013-painterly-compresses-tree-heights.md)). The other Styles keep real-world sizes. Its
-crowns are drawn to read from above as well as from the side
+([ADR 0013](docs/adr/0013-painterly-compresses-tree-heights.md)). It records the scale in the Definition's
+optional `styleScale`, so applying Painterly again, also after another Style, never shrinks a tree twice.
+The other Styles keep real-world sizes. Its crowns are drawn to read from above as well as from the side
 ([ADR 0014](docs/adr/0014-painterly-leaf-masses-are-clumped-spray-cards.md)):
 
 ![A painterly Forest from a tycoon camera, about 55 degrees down, and a painterly broadleaf from straight above](docs/images/painterly-views.png)
