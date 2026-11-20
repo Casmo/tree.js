@@ -81,6 +81,28 @@ describe("leaf shape 'mass': Leaf Masses of spray cards (ADR 0014)", () => {
     expect(distinct(wind, 3, 2)).toEqual(new Set([0, 1]));
   });
 
+  it('turns the outside of each Leaf Mass first through the year: warm autumn tips over a greener inside (#116)', () => {
+    const definition = parseDefinition({ ...massTree(), variation: { color: 0.1, growth: 0.1, season: 0 } }); // no Season variation of its own
+    const { leaves } = generateTree(definition, 3);
+    const paint = leaves.attributes.aPaint!.array;
+    const shift = leaves.attributes.aSeason!.array;
+    const outer: number[] = [];
+    const inner: number[] = [];
+    for (let card = 0; card < leaves.positions.length / 12; card++) {
+      const v = card * 4;
+      // One timing per card (all four corners), within a few days of the tree's.
+      for (let c = 1; c < 4; c++) expect(shift[(v + c) * 3]).toBe(shift[v * 3]);
+      expect(Math.abs(shift[v * 3]!)).toBeLessThanOrEqual(0.06);
+      const tipLight = paint[v * 4 + 2]!; // at the card's base: how far out in its mass the card sits
+      if (tipLight > 0.5) outer.push(shift[v * 3]!);
+      else if (tipLight < 0.4) inner.push(shift[v * 3]!);
+    }
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    expect(outer.length).toBeGreaterThan(20);
+    expect(inner.length).toBeGreaterThan(20);
+    expect(mean(outer) - mean(inner)).toBeGreaterThan(0.015);
+  });
+
   it('is deterministic, and the Light Detail Level draws Leaf Masses too', () => {
     expect(hashTreeData(generateTree(massTree(), 7))).toBe(hashTreeData(generateTree(massTree(), 7)));
     const light = generateLightTree(massTree(), 7);
