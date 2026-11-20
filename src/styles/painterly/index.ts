@@ -39,19 +39,20 @@ export const broadleaf: TreeDefinition = {
 };
 
 /**
- * Painterly conifer, 3.5 m at full Growth: a straight trunk with whorls that shrink towards the top (a cone
- * Crown Shape), drawn as stacked Leaf Masses of painted needle sprays. Evergreen Season Profile.
- * A first version; the Painterly conifer look is its own ticket (#113).
+ * Painterly conifer, 3.5 m at full Growth: a straight trunk with many level whorls that shrink towards the
+ * top (a cone Crown Shape), its needles grouped into a dozen wide, flat Leaf Masses stacked in layers
+ * (`massLayering`), each a ragged clump of painted needle sprays (ADR 0014: no Tier geometry).
+ * Evergreen Season Profile.
  */
 export const conifer: TreeDefinition = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   name: 'Painterly conifer',
   trunk: { length: 3.2, radius: 0.1, taper: 0.15, sides: 8, sections: 6, lengthVariation: 0.08, bend: 0.05, flare: 0.4, flareSections: 3 },
   branches: [
-    { count: 16, start: 0.15, end: 0.97, angle: 85, angleVariation: 0.1, spiral: 137.5, length: 0.35, lengthVariation: 0.1, radius: 0.35, taper: 0.35, sides: 4, sections: 2, bend: 0.1, gravity: 0.1,
+    { count: 24, start: 0.18, end: 0.98, angle: 90, angleVariation: 0.1, spiral: 137.5, length: 0.38, lengthVariation: 0.15, radius: 0.25, taper: 0.35, sides: 4, sections: 2, bend: 0.1, gravity: 0.08,
       lengthProfile: coneCurve(0.15) },
   ],
-  leaves: { type: 'needle', count: 60, shape: 'mass', size: 0.4, sizeVariation: 0.2, start: 0.1, angle: 30, masses: 9 },
+  leaves: { type: 'needle', count: 50, shape: 'mass', size: 0.48, sizeVariation: 0.2, start: 0, angle: 30, masses: 12, massLayering: 1.8 },
   materials: {
     shading: 'painted',
     bark: { type: 'plated', color: '#ffffff', roughness: 1, map: BARK_TEXTURES.plated, normalMap: null },
