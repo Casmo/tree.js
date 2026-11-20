@@ -1,6 +1,6 @@
 // Tree Effects example: one Style tree next to non-tree objects, rendered through a RenderPipeline.
 // Query parameters (used by the Playwright tests):
-//   ?style=low-poly|stylized|realistic  the tree's Style (default low-poly)
+//   ?style=low-poly|stylized|realistic|painterly  the tree's Style (default low-poly)
 //   ?form=conifer  conifer instead of broadleaf
 //   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (Tree Effects treat it as tree pixels)
 //   ?effects=none|outline|glow|grade|style  one effect, the Style's suggested combination (default), or none
@@ -50,6 +50,7 @@ const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
   'low-poly': () => import('@casmo/tree.js/styles/low-poly'),
   stylized: () => import('@casmo/tree.js/styles/stylized'),
   realistic: () => import('@casmo/tree.js/styles/realistic'),
+  painterly: () => import('@casmo/tree.js/styles/painterly'),
 };
 
 declare global {

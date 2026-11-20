@@ -26,6 +26,17 @@ for (const backend of backends) {
   });
 }
 
+test("React Three Fiber: useTreeStyle('painterly') renders Painterly trees and a Species", async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('/examples/react/?style=painterly&season=0.37');
+  expect(await waitForExample(page)).toMatchObject({ status: 'rendered', backend: 'webgpu' });
+  await expect(page.locator('canvas')).toHaveScreenshot('react-painterly-webgpu.png', { mask: [page.locator('#status')] });
+  await page.goto('/examples/react/?scene=species&style=painterly&season=0.37');
+  expect(await waitForExample(page)).toMatchObject({ status: 'rendered', backend: 'webgpu' });
+  expect(errors).toEqual([]);
+});
+
 test('React Three Fiber: a growth prop grows young trees', async ({ page }) => {
   await page.goto('/examples/react/?growth=0.4');
   expect(await waitForExample(page)).toMatchObject({ status: 'rendered' });
