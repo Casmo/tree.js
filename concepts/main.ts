@@ -7,7 +7,7 @@
 // window.showView(i) (re-frames and re-renders); concepts/capture.mjs screenshots every view.
 import * as THREE from 'three/webgpu';
 import {
-  abs, attribute, BRDF_Lambert, clamp, color, convertToTexture, diffuseColor, dot, float, Fn, fract, frontFacing,
+  abs, attribute, BRDF_Lambert, cameraWorldMatrix, clamp, color, convertToTexture, diffuseColor, dot, float, Fn, fract, frontFacing,
   max, min, mix, normalize, normalLocal, normalView, positionLocal, positionViewDirection, positionWorld, screenSize,
   screenUV, select, smoothstep, texture, transformNormalToView, uniform, uv, vec2, vec3, vec4,
 } from 'three/tsl';
@@ -167,6 +167,43 @@ function sprayTexture(size = 256, seed = 5, needle = false) {
 }
 
 /**
+ * Round 3 (smooth): a smooth, round card instead of a brushy spray. A main circle plus `lobes` round lobes on
+ * its rim (a scalloped circular outline); r = a smooth dome value (light in the middle and towards the top,
+ * darker at the rim), a = coverage (1 px soft edge). No brush marks. UV like sprayTexture (row 0 = v = 0).
+ */
+function discTexture(size = 256, seed = 31, lobes = 6) {
+  const r = createRandom(seed);
+  const circles = [[0.5, 0.5, 0.3, 1]];
+  for (let i = 0; i < lobes; i++) {
+    const a = (i / lobes) * Math.PI * 2 + r.range(-0.25, 0.25);
+    const rad = r.range(0.15, 0.19), dc = 0.48 - rad - r.range(0, 0.02);
+    circles.push([0.5 + Math.cos(a) * dc, 0.5 + Math.sin(a) * dc, rad, 0.85]);
+  }
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const u = (x + 0.5) / size, v = (y + 0.5) / size;
+    let dome = 0, cover = 0;
+    for (const [cx, cy, rad, w] of circles) {
+      const d = Math.hypot(u - cx, v - cy);
+      cover = Math.max(cover, clamp01((rad - d) * size + 0.5));
+      if (d < rad) dome = Math.max(dome, Math.sqrt(1 - (d / rad) ** 2) * w);
+    }
+    const value = clamp01(0.3 + 0.5 * dome + 0.2 * v);
+    const i = (y * size + x) * 4;
+    data[i] = data[i + 1] = data[i + 2] = Math.round(value * 255);
+    data[i + 3] = Math.round(cover * 255);
+  }
+  const t = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+  t.magFilter = THREE.LinearFilter;
+  t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.generateMipmaps = true;
+  t.flipY = false;
+  t.needsUpdate = true;
+  return t;
+}
+
+/**
  * Painted Tier (conifer layer) texture: u across the fan (0..1), v from the trunk (0) to the tip (1).
  * Needle strokes radiate outward; the outer edge is ragged with drooping spikes.
  */
@@ -248,8 +285,9 @@ const lighting = { wrap: 0.5 };
 
 /** Soft wrap-diffuse lighting: no toon bands, no specular. */
 class PaintedLightingModel extends THREE.LightingModel {
+  constructor(wrap = lighting.wrap) { super(); this.wrap = wrap; }
   direct({ lightDirection, lightColor, reflectedLight }) {
-    const w = float(lighting.wrap);
+    const w = float(this.wrap);
     const ndl = normalView.dot(lightDirection);
     const wrapped = ndl.add(w).div(w.add(1)).clamp(0, 1);
     const soft = wrapped.mul(wrapped).mul(float(3).sub(wrapped.mul(2))); // smooth, no band
@@ -262,7 +300,7 @@ class PaintedLightingModel extends THREE.LightingModel {
   }
 }
 class PaintedMaterial extends THREE.MeshStandardNodeMaterial {
-  setupLightingModel() { return new PaintedLightingModel(); }
+  setupLightingModel() { return new PaintedLightingModel(this.userData.wrap ?? lighting.wrap); }
 }
 
 // ================================================================ the cluster
@@ -377,6 +415,54 @@ function massGeometry(masses, crown, { scale = 1, lumpAmount = 0.2, seed = 1, de
   return mergeGeometries(parts);
 }
 
+/**
+ * Round 3 (smooth): one smooth Leaf Mass per cluster whose surface is a union of round lobes (spherical caps
+ * pushed out of the ellipsoid), so the silhouette is a scalloped circular edge, not a noisy one. Vertex
+ * normals are mixed `bend` towards the ellipsoid normal: one continuous, soft gradient over the mass.
+ */
+function scallopMassGeometry(masses, crown, { scale = 1, lobes = 16, amount = 0.2, spread = 0.62, seed = 1, detail = 14, bend = 0.5 } = {}) {
+  const parts = masses.map((m, mi) => {
+    const r = createRandom(seed * 97 + mi);
+    const dirs = [];
+    for (let i = 0; i < lobes; i++) {
+      // fibonacci sphere + jitter: evenly spread lobes, fewer underneath
+      const y = 1 - ((i + 0.5) / lobes) * 1.6, rr = Math.sqrt(1 - y * y), a = i * 2.39996 + r.range(-0.3, 0.3);
+      dirs.push([Math.cos(a) * rr, y, Math.sin(a) * rr, spread * r.range(0.8, 1.2), r.range(0.7, 1)]);
+    }
+    let g = new THREE.IcosahedronGeometry(1, detail);
+    g.deleteAttribute('normal'); g.deleteAttribute('uv');
+    g = mergeVertices(g);
+    const pos = g.attributes.position;
+    const paint = new Float32Array(pos.count * 4);
+    const rnd = hash3(mi, seed, 3, 9);
+    const lobeAt = new Float32Array(pos.count);
+    for (let i = 0; i < pos.count; i++) {
+      const d = [pos.getX(i), pos.getY(i), pos.getZ(i)];
+      let bump = 0;
+      for (const [x, y, z, a, h] of dirs) {
+        const ang = Math.acos(Math.min(1, d[0] * x + d[1] * y + d[2] * z));
+        if (ang < a) bump = Math.max(bump, Math.sqrt(1 - (ang / a) ** 2) * h);
+      }
+      lobeAt[i] = bump;
+      const l = 1 - amount * 0.6 + amount * bump;
+      const flat = d[1] < -0.25 ? 0.85 : 1;
+      const p = [m.centre[0] + d[0] * m.radii[0] * l * scale, m.centre[1] + d[1] * m.radii[1] * l * scale * flat, m.centre[2] + d[2] * m.radii[2] * l * scale];
+      pos.setXYZ(i, ...p);
+      paintAttr(paint, i, p, masses, mi, crown, 0.3 + bump * 0.4, rnd);
+    }
+    g.setAttribute('aPaint', new THREE.BufferAttribute(paint, 4));
+    g.computeVertexNormals();
+    const n = g.attributes.normal;
+    for (let i = 0; i < pos.count; i++) {
+      const en = ellipsoidNormal(m, [pos.getX(i), pos.getY(i), pos.getZ(i)]);
+      const own = new THREE.Vector3(n.getX(i), n.getY(i), n.getZ(i)).lerp(en, bend).normalize();
+      n.setXYZ(i, own.x, own.y, own.z);
+    }
+    return g;
+  });
+  return mergeGeometries(parts);
+}
+
 function mergeGeometries(parts) {
   let vCount = 0, iCount = 0;
   for (const g of parts) { vCount += g.attributes.position.count; iCount += g.index.count; }
@@ -400,9 +486,9 @@ function mergeGeometries(parts) {
  * Leaf-spray cards around / inside Leaf Masses (B shell, D clumps). Each card's vertex normals are the
  * normal of its mass's ellipsoid at that vertex (bent fully), `bend` mixes in the card's own normal.
  */
-function cardGeometry(masses, crown, { perMass = 60, shell = 0.95, depth = 0.0, size = 0.55, seed = 2, bend = 0.9, minCards = 14, maxCards = 200, outward = 0.6 } = {}) {
+function cardGeometry(masses, crown, { perMass = 60, shell = 0.95, depth = 0.0, size = 0.55, seed = 2, bend = 0.9, minCards = 14, maxCards = 200, outward = 0.6, billboard = false, cardTip = 0.4 } = {}) {
   const r = createRandom(seed);
-  const pos = [], nor = [], uvs = [], paint = [], idx = [];
+  const pos = [], nor = [], uvs = [], paint = [], idx = [], centres = [], offsets = [];
   const meanOf = (m) => (m.radii[0] + m.radii[1] + m.radii[2]) / 3;
   const avg = masses.reduce((s, m) => s + meanOf(m), 0) / masses.length;
   masses.forEach((m, mi) => {
@@ -436,6 +522,9 @@ function cardGeometry(masses, crown, { perMass = 60, shell = 0.95, depth = 0.0, 
       ];
       const cuv = [[0, 0], [1, 0], [1, 1], [0, 1]];
       const v0 = pos.length / 3;
+      // billboard (round 3): the card centre + its corner offset, turned to the camera in the vertex shader
+      const centre = base.clone().addScaledVector(tip, s * 0.5);
+      for (const [cu, cv] of cuv) { centres.push(centre.x, centre.y, centre.z); offsets.push((cu - 0.5) * s, (cv - 0.5) * s); }
       const depthLight = clamp01(ellipsoidDistance(m, p.toArray()));
       corners.forEach((q, k) => {
         pos.push(q.x, q.y, q.z);
@@ -443,7 +532,7 @@ function cardGeometry(masses, crown, { perMass = 60, shell = 0.95, depth = 0.0, 
         nor.push(vn.x, vn.y, vn.z);
         uvs.push(...cuv[k]);
         const pa = new Float32Array(4);
-        paintAttr(pa, 0, q.toArray(), masses, mi, crown, depthLight * 0.6 + cuv[k][1] * 0.4, rnd);
+        paintAttr(pa, 0, q.toArray(), masses, mi, crown, depthLight * (1 - cardTip) + cuv[k][1] * cardTip, rnd);
         pa[1] = clamp01(pa[1] + (1 - depthLight) * 0.6);
         paint.push(...pa);
       });
@@ -455,8 +544,18 @@ function cardGeometry(masses, crown, { perMass = 60, shell = 0.95, depth = 0.0, 
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   g.setAttribute('aPaint', new THREE.Float32BufferAttribute(paint, 4));
+  if (billboard) {
+    g.setAttribute('aCentre', new THREE.Float32BufferAttribute(centres, 3));
+    g.setAttribute('aOffset', new THREE.Float32BufferAttribute(offsets, 2));
+  }
   g.setIndex(idx);
   return g;
+}
+
+/** Camera-facing cards (trees are not rotated, so camera right / up in world = tree space directions). */
+function billboardPosition() {
+  const c = attribute('aCentre', 'vec3'), o = attribute('aOffset', 'vec2');
+  return c.add(cameraWorldMatrix[0].xyz.mul(o.x)).add(cameraWorldMatrix[1].xyz.mul(o.y));
 }
 
 /**
@@ -563,8 +662,9 @@ function triplanar(tex, scale) {
  * Leaf material for every concept. `paint`: tv (value 0..1), ta (coverage 0..1) nodes from the
  * concept's texture, `gradient` / `texture` strengths, `edgeCut` (A: ragged noise cut at the silhouette).
  */
-function paintedLeafMaterial({ base, saturation = 1, gradient = 0.8, textureStrength = 0.6, tv, ta, edgeCut = 0, alphaTest = 0, bentNormals = false, sunWeight = 0.35, insideDark = true }) {
+function paintedLeafMaterial({ base, saturation = 1, gradient = 0.8, textureStrength = 0.6, tv, ta, edgeCut = 0, alphaTest = 0, bentNormals = false, sunWeight = 0.35, insideDark = true, wrap }) {
   const m = new PaintedMaterial();
+  if (wrap !== undefined) m.userData.wrap = wrap;
   m.side = THREE.DoubleSide;
   m.userData.treePart = 'leaves';
   const pal = paletteNodes(base, saturation);
@@ -684,6 +784,18 @@ const LOOKS = {
     { name: 'BD2 · B masses + deep D cards (core 0.7, depth 0.5, size 0.65)', concept: 'B', gradient: 1, texture: 0.6, cards: 110, core: 0.7, shell: 1.0, depth: 0.5, size: 0.65, outward: 0.55 },
     { name: 'BD3 · in-between (+1 mass, core 0.75, 100 cards, size 0.6)', concept: 'B', gradient: 1, texture: 0.6, cards: 100, clumps: 1, core: 0.75, shell: 0.97, depth: 0.3, size: 0.6, outward: 0.6 },
   ],
+  // Round 3 (smooth): no brush texture; smooth round cards (discTexture), smooth scalloped cores
+  // (scallopMassGeometry), soft wrap 0.8 and only a weak, smooth dome value from the card (texture 0.3).
+  smooth: [
+    { name: 'S1 · B core + smooth circular cards (50 / mass, size 0.6)', concept: 'B', smooth: true, gradient: 1, texture: 0.2, cards: 50, size: 0.6 },
+    { name: 'S2 · D7-style clumps of smooth circles (110 / clump, depth 0.3)', concept: 'D', smooth: true, gradient: 1, texture: 0.2, cards: 110, depth: 0.3, size: 0.85 },
+    { name: 'S3 · BD1-style: smooth circles + small hidden core (0.55)', concept: 'D', smooth: true, gradient: 1, texture: 0.2, cards: 110, core: 0.55, size: 0.85 },
+    { name: 'S4 · smooth mass only, scalloped circular edge (no cards)', concept: 'B', smooth: true, gradient: 1, texture: 0, cards: 0, core: 1 },
+    { name: 'S5 · S3 with many small circles (220 / clump, size 0.55)', concept: 'D', smooth: true, gradient: 1, texture: 0.2, cards: 220, core: 0.55, size: 0.55 },
+    { name: 'S6 · S3 with few big circles (50 / clump, size 1.2)', concept: 'D', smooth: true, gradient: 1, texture: 0.2, cards: 50, core: 0.55, size: 1.2 },
+    { name: 'S7 · S3 with a softer gradient (0.6, wrap 1)', concept: 'D', smooth: true, gradient: 0.6, texture: 0.1, cards: 110, core: 0.55, size: 0.85, wrap: 1 },
+    { name: 'S8 · S3 with a bolder gradient (1.5)', concept: 'D', smooth: true, gradient: 1.5, texture: 0.2, cards: 110, core: 0.55, size: 0.85 },
+  ],
   Tier: [
     { name: 'Tier · soft (gradient 0.7, droop 0.25)', gradient: 0.7, texture: 0.4, droop: 0.25 },
     { name: 'Tier · medium (gradient 1, droop 0.35)', gradient: 1, texture: 0.6, droop: 0.35 },
@@ -733,14 +845,28 @@ async function buildTree(entry, look) {
       }
       if (bd) {
         const saturation = look.saturation ?? 1;
-        if (bd.core > 0) {
+        if (bd.smooth) {
+          const wrap = bd.wrap ?? 0.8;
+          if (bd.core > 0) {
+            const core = paintedLeafMaterial({ base, saturation, gradient: settings.gradient, textureStrength: 0, tv: float(0.5), ta: float(1), wrap });
+            group.add(new THREE.Mesh(scallopMassGeometry(masses, crown, { seed: 3, scale: bd.core, lobes: isPine ? 12 : 16 }), core));
+          }
+          if (bd.cards > 0) {
+            const dt = texture(tex('disc', () => discTexture()), uv());
+            const cards = paintedLeafMaterial({ base, saturation, gradient: settings.gradient, textureStrength: settings.texture, tv: dt.r, ta: dt.a, alphaTest: 0.5, bentNormals: true, insideDark: false, wrap });
+            cards.positionNode = billboardPosition(); // always round: discs face the camera
+            group.add(new THREE.Mesh(cardGeometry(masses, crown, { perMass: bd.cards, shell: bd.shell, depth: bd.depth, size: bd.size, seed: bd.cardSeed, bend: 1, outward: bd.outward, maxCards: bd.maxCards, billboard: true, cardTip: 0.15 }), cards));
+          }
+        } else if (bd.core > 0) {
           const tp = triplanar(massTex, texScale);
           const core = paintedLeafMaterial({ base, saturation, gradient: settings.gradient, textureStrength: settings.texture, tv: tp.r, ta: tp.a });
           group.add(new THREE.Mesh(massGeometry(masses, crown, { seed: 3, scale: bd.core }), core));
         }
+        if (!bd.smooth) {
         const st = texture(sprayTex, uv());
         const cards = paintedLeafMaterial({ base, saturation, gradient: settings.gradient, textureStrength: settings.texture, tv: st.r, ta: st.a, alphaTest: 0.5, bentNormals: true, insideDark: false });
         group.add(new THREE.Mesh(cardGeometry(masses, crown, { perMass: bd.cards, shell: bd.shell, depth: bd.depth, size: bd.size, seed: bd.cardSeed, bend: bd.bend, outward: bd.outward, maxCards: bd.maxCards }), cards));
+        }
       }
     }
   }
@@ -793,7 +919,8 @@ function fitFrame(trees) {
   const box = new THREE.Box3();
   for (const t of trees) box.expandByObject(t);
   const c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
-  frame = { target: c, radius: Math.max(sz.x, sz.z, sz.y * 0.8) * 0.5 * (trees.length > 1 ? 1.0 : 1.3), height: trees.length > 1 ? 3.4 : sz.y };
+  const single = trees.length === 1;
+  frame = { target: c, radius: Math.max(sz.x, sz.z, sz.y * (single ? 0.9 : 0.8)) * 0.5 * (single ? 1.3 : 1.0), height: single ? sz.y : 3.4, single };
 }
 
 function setView(camera, view) {
@@ -801,7 +928,9 @@ function setView(camera, view) {
   camera.fov = view.fov; camera.updateProjectionMatrix();
   const vFov = (view.fov * Math.PI) / 360;
   const hFov = Math.atan(Math.tan(vFov) * camera.aspect);
-  const target = new THREE.Vector3(frame.target.x, ((view.y ?? 0) * frame.height) / 3.4, frame.target.z);
+  // single trees: aim at the box centre (tall, narrow trees like the redwood were clipped at the top in 3/4)
+  const ty = frame.single && view.y ? frame.target.y * (view.elevation < 45 ? 1.05 : 1) : ((view.y ?? 0) * frame.height) / 3.4;
+  const target = new THREE.Vector3(frame.target.x, ty, frame.target.z);
   const r = view.elevation === 90 ? frame.radius * (4.4 / 3.7) : frame.radius;
   const dist = (r / Math.sin(Math.min(vFov, hFov))) * view.margin;
   const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
@@ -873,6 +1002,24 @@ const CONCEPTS = {
   grove: {
     variants: ['Grove · B medium', 'Grove · D medium', 'Grove · B medium, saturation 0.85', 'Grove · D medium, saturation 0.85', 'Grove · B medium, saturation 0.7', 'Grove · D medium, saturation 0.7'],
     looks: [['B', 1], ['D', 1], ['B', 0.85], ['D', 0.85], ['B', 0.7], ['D', 0.7]].map(([c, s]) => ({ concept: c, ...LOOKS[c][1], saturation: s, trees: GROVE, grove: true })),
+  },
+  // Round 3: smooth circular variants
+  smooth: { variants: LOOKS.smooth.map((l) => l.name), looks: LOOKS.smooth.map((l) => ({ ...l })) },
+  'smooth-compare': {
+    variants: [LOOKS.BD[0].name + ' (round 2)', LOOKS.smooth[2].name, LOOKS.Dmore[6].name + ' (round 2)', LOOKS.smooth[1].name],
+    looks: [{ ...LOOKS.BD[0] }, { ...LOOKS.smooth[2] }, { concept: 'D', ...LOOKS.Dmore[6] }, { ...LOOKS.smooth[1] }],
+  },
+  'smooth-saturation': {
+    variants: [[1, 1], [1, 0.85], [2, 1], [2, 0.85], [3, 1], [3, 0.85]].map(([i, sat]) => `${LOOKS.smooth[i].name.split(' · ')[0]} · saturation ${sat}`),
+    looks: [[1, 1], [1, 0.85], [2, 1], [2, 0.85], [3, 1], [3, 0.85]].map(([i, sat]) => ({ ...LOOKS.smooth[i], saturation: sat })),
+  },
+  'smooth-grove': {
+    variants: [[0, 1], [1, 1], [2, 1], [3, 1], [1, 0.85], [2, 0.85]].map(([i, sat]) => `Grove · ${LOOKS.smooth[i].name.split(' · ')[0]}, saturation ${sat}`),
+    looks: [[0, 1], [1, 1], [2, 1], [3, 1], [1, 0.85], [2, 0.85]].map(([i, sat]) => ({ ...LOOKS.smooth[i], saturation: sat, trees: GROVE, grove: true })),
+  },
+  'smooth-species': {
+    variants: SPECIES_ROWS.map((e) => `S3 · ${e.species.name} (${e.height} m)`),
+    looks: SPECIES_ROWS.map((e) => ({ ...LOOKS.smooth[2], trees: [{ ...e, position: [0, 0, 0] }] })),
   },
   tier: {
     variants: LOOKS.Tier.map((l) => `${l.name}\n(oak, birch: A medium)`),

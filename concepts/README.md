@@ -42,6 +42,28 @@ the ramp's contrast, "texture" how strongly the painted texture shifts it.
 ![D](images/D.png)
 ![tier](images/tier.png)
 
+## Round 3: smooth (owner: "more smooth shaders, no brush but smooth circular")
+
+No brush / leaf-stroke texture. Cards are **smooth round discs** (`discTexture`: a circle with 6 round lobes on its rim,
+value = a smooth dome, 1 px soft edge) that always **face the camera** (billboards, so they stay round from every
+view), normals fully bent to the Leaf Mass. Cores are **smooth scalloped masses** (`scallopMassGeometry`: the
+ellipsoid pushed out by ~16 round lobes = a scalloped circular silhouette, normals half bent to the ellipsoid).
+Lighting wrap 0.8 (softer), texture strength 0.2 (only the dome), so the shading is one continuous gradient.
+
+- **smooth** (oak/birch/pine): S1 B core + smooth circular cards · S2 D7-style clumps of smooth circles ·
+  S3 BD1-style circles + small hidden core · S4 smooth mass only (scalloped circular edge, no cards) ·
+  S5 S3 with many small circles · S6 S3 with few big circles · S7 S3 softer gradient (0.6, wrap 1) · S8 S3 bolder gradient (1.5).
+- **smooth-compare**: BD1 (round 2) vs S3, D7 (round 2) vs S2.
+- **smooth-saturation**: S2, S3, S4 at saturation 1 / 0.85.
+- **smooth-grove**: the eight round-2 Species: S1, S2, S3, S4 at 1, S2 and S3 at 0.85.
+- **smooth-species**: S3 per Species (single trees are now framed on their box centre: the redwood's 3/4 fits).
+
+![smooth](images/smooth.png)
+![smooth-compare](images/smooth-compare.png)
+![smooth-saturation](images/smooth-saturation.png)
+![smooth-grove](images/smooth-grove.png)
+![smooth-species](images/smooth-species.png)
+
 ## Round 2: more B and D (owner picked B and D)
 
 Every variant has a short name the owner can pick by (B1, D3, BD2, ...). Unless listed, settings are "medium".
