@@ -24,10 +24,11 @@ import {
   type Renderer,
   type Texture,
 } from 'three/webgpu';
-import { attribute, float, frontFacing, mrt, normalGeometry, output, positionGeometry, select, texture, uv, vec4 } from 'three/tsl';
+import { attribute, float, frontFacing, mrt, normalGeometry, output, positionGeometry, select, vec4 } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
 import type { GeometryBuffers } from '../generator';
-import { createBarkMaterial, createLeafMaterial } from '../materials';
+import { createBarkMaterial, createLeafMaterial, paintsLeafMasses } from '../materials';
+import { PaintedNodeMaterial, type LeafMassPaint } from '../materials/painted';
 import type { TextureOptions } from '../textures';
 import type { WindResponse, WindSource } from '../wind';
 import {
@@ -37,6 +38,8 @@ import {
   featureTexel,
   hasImpostorFeatures,
   NORMAL_CHANNEL,
+  PAINT_CHANNEL,
+  paintTexel,
   SEASON_CHANNEL,
   WOOD_COLOR_CHANNEL,
   WOOD_NORMAL_CHANNEL,
@@ -59,6 +62,8 @@ export interface ImpostorBakePart {
   geometry: BufferGeometry;
   /** The unlit bake material of the part: its colour, alpha cut and the Definition's maps. */
   material: MeshBasicNodeMaterial;
+  /** Painted Leaf Masses (leaves only): what paints them, baked into `PAINT_CHANNEL`; null otherwise. */
+  paint: LeafMassPaint | null;
 }
 
 /**
@@ -71,23 +76,31 @@ export interface ImpostorChannel {
   bake(part: ImpostorBakePart): Node<'vec4'>;
 }
 
-/** Leaves are two-sided: the normal of the side the frame sees, encoded 0..1. */
-const bakedNormal = () => select(frontFacing, normalGeometry, normalGeometry.negate()).normalize().mul(0.5).add(0.5);
+/**
+ * Leaves are two-sided: the normal of the side the frame sees, encoded 0..1. Painted Leaf Masses: the
+ * card's normal bent towards its mass, both sides alike (as the tree lights them).
+ */
+const bakedNormal = (part?: ImpostorBakePart) =>
+  (part?.paint ? part.paint.normal : select(frontFacing, normalGeometry, normalGeometry.negate())).normalize().mul(0.5).add(0.5);
+
+/** Most atlases one bake pass writes (WebGPU's default `maxColorAttachmentBytesPerSample` 32, 8 per RGBA8). */
+const MAX_ATTACHMENTS = 4;
 
 /**
  * The channels of the tree layer every Impostor bakes: colour (rgb, coverage in a), the tree-space
  * normal (a = leaf flag), the leaves' Season timing (`encodeSeasonTexel`: shift, coverage rank,
  * blossom rank, leaf flag; empty on wood), plus, only when a Material Feature is on, the features
- * atlas (`FEATURES_CHANNEL`: the pictured point and the raw Structural Occlusion).
+ * atlas (`FEATURES_CHANNEL`: the pictured point and the raw Structural Occlusion), and with `paint`
+ * (painted Leaf Masses) the paint atlas (`PAINT_CHANNEL`).
  *
- * Each channel is one RGBA8 attachment of a single render pass: WebGPU's default limit
- * (`maxColorAttachmentBytesPerSample` 32, 8 per RGBA8) allows 4, which these use up. More inputs need
- * another layer (as the wood layer, `impostorWoodChannels`).
+ * Each channel is one RGBA8 attachment of a render pass: WebGPU's default limit
+ * (`maxColorAttachmentBytesPerSample` 32, 8 per RGBA8) allows 4 per pass, so the Impostor draws the tree
+ * again for the channels past the fourth (`treeLayers`).
  */
-export function impostorChannels(bounds: ImpostorBounds, features: ImpostorFeatures | null = null): ImpostorChannel[] {
+export function impostorChannels(bounds: ImpostorBounds, features: ImpostorFeatures | null = null, paint = false): ImpostorChannel[] {
   const channels: ImpostorChannel[] = [
     { name: COLOR_CHANNEL, bake: () => output },
-    { name: NORMAL_CHANNEL, bake: (part) => vec4(bakedNormal(), float(part.kind === 'leaves' ? 1 : 0)) },
+    { name: NORMAL_CHANNEL, bake: (part) => vec4(bakedNormal(part), float(part.kind === 'leaves' ? 1 : 0)) },
     {
       name: SEASON_CHANNEL,
       bake: (part) => {
@@ -102,6 +115,7 @@ export function impostorChannels(bounds: ImpostorBounds, features: ImpostorFeatu
     const occlusion = features.nodes.occlusion ? attribute<'float'>('aOcclusion', 'float') : float(0);
     channels.push({ name: FEATURES_CHANNEL, bake: () => featureTexel(positionGeometry, occlusion, bounds) });
   }
+  if (paint) channels.push({ name: PAINT_CHANNEL, bake: (part) => (part.paint ? paintTexel(part.paint) : vec4(0)) });
   return channels;
 }
 
@@ -165,8 +179,14 @@ export function frameTransform(i: number, j: number, frames: number, bounds: Imp
   return m;
 }
 
-/** The unlit bake materials of the wood and the leaves (Growth 1, no Wind, no Season mask). */
-function bakeMaterials(definition: TreeDefinition, textures?: TextureOptions): { wood: MeshBasicNodeMaterial; leaves: MeshBasicNodeMaterial } {
+/**
+ * The unlit bake materials of the wood and the leaves (Growth 1, no Wind, no Season mask), and what
+ * paints the leaves when they are painted Leaf Masses (else null).
+ */
+function bakeMaterials(
+  definition: TreeDefinition,
+  textures?: TextureOptions,
+): { wood: MeshBasicNodeMaterial; leaves: MeshBasicNodeMaterial; paint: LeafMassPaint | null } {
   const bark = createBarkMaterial(definition, textures, float(1));
   const wood = new MeshBasicNodeMaterial();
   wood.name = 'tree.js impostor bake wood';
@@ -179,13 +199,15 @@ function bakeMaterials(definition: TreeDefinition, textures?: TextureOptions): {
   leaves.vertexColors = true; // the Seed's per-leaf tint; the Season colour is applied when drawn
   leaves.side = DoubleSide;
   if (leaf.map) {
-    // Card texture: its colour, cut at alphaTest; covered texels stay fully opaque (coverage).
-    const card = texture(leaf.map, uv());
+    // Card texture: its colour (white on painted Leaf Masses: the texture is paint values), cut at
+    // alphaTest; covered texels stay fully opaque (coverage).
+    const card = leaf.colorNode as Node<'vec4'>;
     leaves.colorNode = vec4(card.rgb, 1);
     leaves.maskNode = card.a.greaterThanEqual(leaf.alphaTest);
   }
+  const paint = leaf instanceof PaintedNodeMaterial ? leaf.massPaint : null;
   leaf.dispose();
-  return { wood, leaves };
+  return { wood, leaves, paint };
 }
 
 /** Rows of the card: the Wind bends it with height, so it needs more than one row of quads. */
@@ -249,8 +271,8 @@ export interface VariantImpostorOptions {
  * The Impostor of one Variant: the atlases (allocated at once, filled by `bake`), the card material
  * that samples them, and the card geometry. `part` is what the Variant's Impostor Detail Level draws.
  *
- * Two layers are baked: the tree (wood and leaves, with the leaves' Season timing) and the wood
- * alone, which shows where leaves have dropped.
+ * Two layers are baked: the tree (wood and leaves, with the leaves' Season timing; in two passes when it
+ * has more than four channels) and the wood alone, which shows where leaves have dropped.
  */
 export class VariantImpostor {
   readonly frames: number;
@@ -272,7 +294,12 @@ export class VariantImpostor {
     this.frames = atlas.frames;
     this.bounds = bounds;
     const layer = (kinds: ImpostorLayer['kinds'], channels: ImpostorChannel[]): ImpostorLayer => ({ kinds, channels, target: layerTarget(atlas.size, channels) });
-    this.layers = [layer(['wood', 'leaves'], impostorChannels(this.bounds, features)), layer(['wood'], impostorWoodChannels())];
+    // The tree's channels in passes of at most MAX_ATTACHMENTS, then the wood layer.
+    const tree = impostorChannels(this.bounds, features, paintsLeafMasses(definition));
+    const treeLayers = Array.from({ length: Math.ceil(tree.length / MAX_ATTACHMENTS) }, (_, i) =>
+      layer(['wood', 'leaves'], tree.slice(i * MAX_ATTACHMENTS, (i + 1) * MAX_ATTACHMENTS)),
+    );
+    this.layers = [...treeLayers, layer(['wood'], impostorWoodChannels())];
     this.channels = this.layers.flatMap((l) => l.channels);
     this.part = { name, geometry: cardGeometry(), material: createImpostorMaterial(definition, this.atlases, features, wind) };
   }
@@ -306,7 +333,7 @@ export class VariantImpostor {
         const source = this.sources[kind];
         if ((source.getIndex()?.count ?? 0) === 0) continue;
         const material = layerMaterials[kind];
-        const part: ImpostorBakePart = { kind, geometry: source, material };
+        const part: ImpostorBakePart = { kind, geometry: source, material, paint: kind === 'leaves' ? layerMaterials.paint : null };
         material.mrtNode = mrt(Object.fromEntries(channels.map((c) => [c.name, c.bake(part)])));
         // Shares the Variant's vertex data (never disposed here: that would free the shared buffers).
         const geometry = new BufferGeometry();
