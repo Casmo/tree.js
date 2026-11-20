@@ -159,8 +159,9 @@ const jitter = (r: Random, x: number, y0: number, y1: number, z: number): Vec3 =
  * `grouping.layering` times, see {@link clusterLeafMasses}), each leaf one square
  * spray card (UVs 0..1, stem at v = 0) inside its mass, towards the side of the mass the leaf is on,
  * between the shell and {@link DEPTH} inwards, its plane partly facing out and its tip out and up.
- * Each card keeps its leaf's tint, Growth window, Season timing and Wind sway; it sprouts and flutters
- * about its own base (`aOrigin`). Besides the usual part attributes the vertices carry:
+ * Each card keeps its leaf's tint, Growth window and Season timing; it sprouts and flutters about its own
+ * base (`aOrigin`), and sways with its whole mass (the mean branch sway of the mass's leaves).
+ * Besides the usual part attributes the vertices carry:
  * - `aMass` (vec3): the outward normal of the mass's ellipsoid there (the painted shading bends to it);
  * - `aPaint` (vec4): x = height in the crown (0 bottom .. 1 top), y = how buried (0 open .. 1 hidden),
  *   z = tip light (0 deep in the mass .. 1 at a card tip on the shell), w = a random number per mass.
@@ -193,6 +194,13 @@ export function massLeafGeometry(
   const { masses, assign } = clusterLeafMasses(centres, grouping.count, meanSize * 0.5, grouping.layering);
   const crown = massCrown(masses);
   const massRandom = masses.map((_, m) => seedRandom(seed, `mass/${m}`));
+  // Each mass sways as one (the mean branch sway of its leaves): its cards no longer sit on their own
+  // twigs, and different sways inside one clump would pull it apart in Wind and Wind Bursts (#116).
+  const leafSways = leaves.map((leaf) => leafSway(branchSway.get(leaf.branch) ?? NO_SWAY, leaf.attach));
+  const massSway = masses.map((_, m) => {
+    const own = leafSways.filter((_, l) => assign[l] === m);
+    return { base: own.reduce((sum, sway) => sum + sway.base, 0) / Math.max(own.length, 1), gain: 0, flutter: true };
+  });
   const random = createRandom(seed).fork('masses');
   const cornerUvs = [0, 0, 1, 0, 1, 1, 0, 1];
 
@@ -230,7 +238,7 @@ export function massLeafGeometry(
       origin: base,
       season: leafSeasonAttribute(seed, variation, leaf.id),
       growth: growth[l] ?? { start: 0, end: 0 },
-      sway: leafSway(branchSway.get(leaf.branch) ?? NO_SWAY, leaf.attach),
+      sway: massSway[m]!,
     };
     corners.forEach((q, c) => {
       const v = l * 4 + c;

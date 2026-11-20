@@ -63,6 +63,24 @@ describe("leaf shape 'mass': Leaf Masses of spray cards (ADR 0014)", () => {
     expect(paint[high * 4]).toBeGreaterThan(0.9);
   });
 
+  it('sways each Leaf Mass as one: every card of a mass has the same branch sway, so Wind never tears a mass apart (#116)', () => {
+    const { leaves } = generateTree(massTree(), 3);
+    const paint = leaves.attributes.aPaint!.array;
+    const wind = leaves.attributes.aWind!.array;
+    const sway = new Map<number, Set<number>>();
+    for (let v = 0; v < leaves.positions.length / 3; v++) {
+      const mass = paint[v * 4 + 3]!;
+      if (!sway.has(mass)) sway.set(mass, new Set());
+      sway.get(mass)!.add(wind[v * 3 + 1]!);
+    }
+    for (const values of sway.values()) expect(values.size).toBe(1);
+    // ... but the masses still sway with their branches (more out on the twigs than at the trunk).
+    const perMass = [...sway.values()].map((values) => [...values][0]!);
+    expect(Math.min(...perMass)).toBeGreaterThan(0);
+    // Leaf flutter stays per card: 0 at its base, 1 at its tip.
+    expect(distinct(wind, 3, 2)).toEqual(new Set([0, 1]));
+  });
+
   it('is deterministic, and the Light Detail Level draws Leaf Masses too', () => {
     expect(hashTreeData(generateTree(massTree(), 7))).toBe(hashTreeData(generateTree(massTree(), 7)));
     const light = generateLightTree(massTree(), 7);
