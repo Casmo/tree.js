@@ -4,7 +4,6 @@ import { validateBytes } from 'gltf-validator';
 import type { Mesh } from 'three/webgpu';
 import { bakeTree, createTree, CURRENT_SCHEMA_VERSION, parseDefinition } from '../src/index';
 import { STYLE_NAMES } from '../src/index';
-import { oak } from '../src/species';
 
 /** Waits until the preview has drawn the latest change, then returns the editor's state. */
 async function waitForEditor(page: Page) {
@@ -125,7 +124,7 @@ test('?start=<species>/painterly: switch away and back keeps the Painterly size,
   const style = page.getByLabel('Style', { exact: true });
   await expect(style).toHaveValue('painterly');
   const painterly = start.state!.definition;
-  expect(painterly.trunk.length).toBeLessThan(oak.trunk.length * 0.5);
+  expect(painterly.trunk.length).toBeLessThan(2.5); // a ~14 m oak drawn about 3 m tall
 
   await style.selectOption('realistic');
   await expect.poll(async () => (await waitForEditor(page)).state?.source).toBe('oak/realistic');
