@@ -37,14 +37,14 @@ const UNDERSIDE = -0.4;
 
 /**
  * Groups points (leaf centres) into at most `k` Leaf Masses: farthest-point seeds from the highest point,
- * then k-means. Returns the masses (empty clusters dropped) and each point's mass index. Deterministic.
+ * then k-means, with heights counted `layering` times (> 1: wide, flat masses in layers). Returns the masses (empty clusters dropped) and each point's mass index. Deterministic.
  * Radii are {@link SPREAD} standard deviations, at least `minRadius`, the height kept between 0.6 and 1.1
  * times the width (masses read as round clumps, not slivers).
  */
-export function clusterLeafMasses(points: readonly Vec3[], k: number, minRadius: number): { masses: LeafMass[]; assign: number[] } {
+export function clusterLeafMasses(points: readonly Vec3[], k: number, minRadius: number, layering = 1): { masses: LeafMass[]; assign: number[] } {
   if (points.length === 0) return { masses: [], assign: [] };
   const sq = (x: number) => x * x;
-  const d2 = (a: Vec3, b: Vec3) => sq(a[0] - b[0]) + sq(a[1] - b[1]) + sq(a[2] - b[2]);
+  const d2 = (a: Vec3, b: Vec3) => sq(a[0] - b[0]) + sq((a[1] - b[1]) * layering) + sq(a[2] - b[2]);
   const centres: Vec3[] = [[...points.reduce((a, b) => (b[1] > a[1] ? b : a))]];
   while (centres.length < Math.min(k, points.length)) {
     let best = points[0]!;
@@ -155,7 +155,8 @@ function occlusionAt(p: Vec3, masses: readonly LeafMass[], self: number, crown: 
 const jitter = (r: Random, x: number, y0: number, y1: number, z: number): Vec3 => [r.range(-x, x), r.range(y0, y1), r.range(-z, z)];
 
 /**
- * Leaf geometry for `shape: 'mass'`: the leaves grouped into `count` Leaf Masses, each leaf one square
+ * Leaf geometry for `shape: 'mass'`: the leaves grouped into `grouping.count` Leaf Masses (heights counted
+ * `grouping.layering` times, see {@link clusterLeafMasses}), each leaf one square
  * spray card (UVs 0..1, stem at v = 0) inside its mass, towards the side of the mass the leaf is on,
  * between the shell and {@link DEPTH} inwards, its plane partly facing out and its tip out and up.
  * Each card keeps its leaf's tint, Growth window, Season timing and Wind sway; it sprouts and flutters
@@ -167,7 +168,7 @@ const jitter = (r: Random, x: number, y0: number, y1: number, z: number): Vec3 =
  */
 export function massLeafGeometry(
   leaves: SkeletonLeaf[],
-  count: number,
+  grouping: { count: number; layering: number },
   level: number,
   seed: number,
   variation: Pick<VariationDefinition, 'season'> = { season: 0 },
@@ -189,7 +190,7 @@ export function massLeafGeometry(
 
   const centres = leaves.map((leaf) => add(leaf.position, scale(leaf.direction, leaf.size * LEAF_CENTRE)));
   const meanSize = leaves.reduce((s, leaf) => s + leaf.size, 0) / n;
-  const { masses, assign } = clusterLeafMasses(centres, count, meanSize * 0.5);
+  const { masses, assign } = clusterLeafMasses(centres, grouping.count, meanSize * 0.5, grouping.layering);
   const crown = massCrown(masses);
   const massRandom = masses.map((_, m) => seedRandom(seed, `mass/${m}`));
   const random = createRandom(seed).fork('masses');

@@ -98,7 +98,7 @@ const TEMPLATES: Record<SolidShape, SolidTemplate> = {
  */
 export function shapedLeafGeometry(
   leaves: SkeletonLeaf[],
-  definition: Pick<LeavesDefinition, 'shape' | 'masses'>,
+  definition: Pick<LeavesDefinition, 'shape' | 'masses' | 'massLayering'>,
   level: number,
   seed: number,
   variation: Pick<VariationDefinition, 'season'>,
@@ -107,7 +107,7 @@ export function shapedLeafGeometry(
 ): GeometryBuffers {
   const { shape } = definition;
   if (shape === 'card') return leafGeometry(leaves, level, seed, variation, growth, branchSway);
-  if (shape === 'mass') return massLeafGeometry(leaves, definition.masses ?? DEFAULT_LEAF_MASSES, level, seed, variation, growth, branchSway);
+  if (shape === 'mass') return massLeafGeometry(leaves, { count: definition.masses ?? DEFAULT_LEAF_MASSES, layering: definition.massLayering ?? 1 }, level, seed, variation, growth, branchSway);
   return solidLeafGeometry(leaves, shape, level, seed, variation, growth, branchSway);
 }
 
