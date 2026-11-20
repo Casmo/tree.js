@@ -6,7 +6,8 @@ import { generateTree } from '../../src/generator';
 import { SPECIES_BY_NAME, SPECIES_NAMES } from '../../src/species';
 import painterly from '../../src/styles/painterly';
 import realistic from '../../src/styles/realistic';
-import { scaleDefinition } from '../../src/styles/painterly/height';
+import lowPoly from '../../src/styles/low-poly';
+import { CATALOGUE_HEIGHTS, scaleDefinition } from '../../src/styles/painterly/height';
 
 const SEEDS = [1, 7, 42];
 
@@ -77,6 +78,26 @@ describe('Painterly size in Tree Definitions', () => {
     expect(painterly.apply(oak).trunk.length).toBe(oak.trunk.length);
     expect(painterly.apply(realistic.apply(oak)).trunk.length).toBe(oak.trunk.length);
     expect(painterly.apply(painterly.broadleaf).trunk).toEqual(painterly.broadleaf.trunk);
+  });
+
+  it('keeps the order for any height: a 3.9 m tree ends no taller than a 4.2 m one', () => {
+    // Peach drawn in Painterly before scaling is CATALOGUE_HEIGHTS.min tall (checked above): scale it to
+    // trees that are 3.9 m and 4.2 m tall as Painterly measures them, from a real-sized (realistic) Definition.
+    const real = realistic.apply(SPECIES_BY_NAME.peach);
+    const [low, high] = [3.9, 4.2].map((metres) => scaleDefinition(real, metres / CATALOGUE_HEIGHTS.min));
+    const [paintedLow, paintedHigh] = [meanTop(painterly.apply(low)), meanTop(painterly.apply(high))];
+    expect(paintedLow).toBeLessThanOrEqual(paintedHigh + 1e-6);
+    expect(paintedHigh).toBeGreaterThanOrEqual(2);
+    expect(paintedHigh).toBeLessThanOrEqual(4);
+  });
+
+  it('a Painterly Definition drawn in another Style and back keeps its size (round trip)', () => {
+    for (const style of [realistic, lowPoly]) {
+      const back = painterly.apply(style.apply(oak));
+      expect(back.trunk).toMatchObject({ length: oak.trunk.length, radius: oak.trunk.radius });
+      expect(meanTop(back)).toBeCloseTo(meanTop(oak), 1);
+    }
+    expect(painterly.apply(realistic.apply(painterly.conifer)).trunk).toMatchObject({ length: painterly.conifer.trunk.length, radius: painterly.conifer.trunk.radius });
   });
 
   it('a real-sized Definition from another Style shrinks to its Painterly height', () => {

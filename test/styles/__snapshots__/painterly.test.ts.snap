@@ -149,6 +149,7 @@ exports[`painterly Style (dynamic import of the /styles/painterly subpath) > bro
       },
     ],
   },
+  "styleScale": 1,
   "trunk": {
     "bend": 0.2,
     "flare": 0.6,
@@ -280,6 +281,7 @@ exports[`painterly Style (dynamic import of the /styles/painterly subpath) > con
       },
     ],
   },
+  "styleScale": 1,
   "trunk": {
     "bend": 0.05,
     "flare": 0.4,

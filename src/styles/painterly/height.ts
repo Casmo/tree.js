@@ -18,9 +18,6 @@ export const CATALOGUE_HEIGHTS = { min: 4.58, max: 15.42 } as const;
  */
 export const PAINTERLY_HEIGHTS = { min: 2.2, max: 3.8 } as const;
 
-/** A tree at most this tall (metres) is already Painterly-sized and keeps its size (no shrinking twice). */
-export const PAINTERLY_MAX_HEIGHT = 4;
-
 /** Seeds whose mean height is a tree's height. */
 const SEEDS = [1, 2, 3];
 
@@ -50,7 +47,11 @@ function measureHeight(definition: TreeDefinition): number {
   return sum / SEEDS.length;
 }
 
-/** The Painterly height for a real height: linear from the catalogue's range into the Painterly range, clamped. */
+/**
+ * The Painterly height for a real height: linear from the catalogue's range into the Painterly range, clamped.
+ * Monotonic for any height (a taller tree never ends lower), so it is applied to every real-sized tree,
+ * however tall; trees already sized for Painterly are recognised by their `styleScale`, not by their height.
+ */
 export function painterlyHeight(height: number): number {
   const t = Math.min(1, Math.max(0, (height - CATALOGUE_HEIGHTS.min) / (CATALOGUE_HEIGHTS.max - CATALOGUE_HEIGHTS.min)));
   return PAINTERLY_HEIGHTS.min + t * (PAINTERLY_HEIGHTS.max - PAINTERLY_HEIGHTS.min);
@@ -69,8 +70,14 @@ export function scaleDefinition(definition: TreeDefinition, factor: number): Tre
   });
 }
 
-/** Scales a real-sized tree to its Painterly height; a tree already at most 4 m tall is kept as is. */
+/**
+ * Scales a real-sized tree to its Painterly height and records the scale in `styleScale`. A tree that
+ * already has a `styleScale` is Painterly-sized (scaled before, or one of Painterly's own Definitions,
+ * possibly drawn in another Style since) and is kept as is: Painterly never shrinks a tree twice.
+ */
 export function compressHeight(definition: TreeDefinition): TreeDefinition {
+  if (definition.styleScale !== undefined) return definition;
   const height = treeHeight(definition);
-  return height <= PAINTERLY_MAX_HEIGHT ? definition : scaleDefinition(definition, painterlyHeight(height) / height);
+  const factor = painterlyHeight(height) / height;
+  return { ...scaleDefinition(definition, factor), styleScale: factor };
 }

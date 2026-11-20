@@ -404,6 +404,13 @@ export interface TreeDefinition {
   name: string;
   /** Id of the Species this Definition was made from by `Style.apply` (e.g. `'oak'`). Optional; never changes geometry. */
   species?: string;
+  /**
+   * The uniform scale a Style gave this tree's real size (> 0), set by Painterly (ADR 0013; 1 on its own
+   * hand-sized Definitions). The lengths here are already scaled, so it never changes geometry: it only
+   * records that the tree is Painterly-sized, so applying Painterly again (also after another Style) does
+   * not shrink it twice. Absent = real size.
+   */
+  styleScale?: number;
   trunk: TrunkDefinition;
   /** Branching levels below the trunk (0..{@link MAX_BRANCH_LEVELS} entries). */
   branches: BranchLevelDefinition[];
