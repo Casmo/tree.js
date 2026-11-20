@@ -1,6 +1,7 @@
 name: Publish to npm
 
-# Publishes the package when a GitHub release is published.
+# Publishes the package when a GitHub release is published, or by hand (Actions → Publish to npm →
+# Run workflow) for an existing release tag, e.g. to retry a release whose publish failed.
 # The version comes from the release tag (v1.2.3 or 1.2.3); package.json's version is ignored.
 # Uses npm trusted publishing (OIDC): no NPM_TOKEN secret is needed, but the package's
 # npmjs.com settings must list this repository and workflow file as a trusted publisher.
@@ -8,6 +9,16 @@ name: Publish to npm
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (e.g. v0.5.0)
+        required: true
+        type: string
+      dist-tag:
+        description: npm dist-tag (empty = "next" for pre-release versions like v1.2.3-beta.1, otherwise "latest")
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -16,22 +27,24 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ env.TAG }}
       - uses: actions/setup-node@v4
         with:
-          # Trusted publishing needs npm >= 11.5.1, which ships with Node 24.
-          node-version: 24
+          # Same Node as CI, so prepublishOnly's tests run where they're known to pass.
+          node-version: 22
           cache: npm
           registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm >= 11.5.1; Node 22 ships npm 10.
+      - run: npm install -g npm@^11.5.1
       - run: npm ci
 
       - name: Set package version from the release tag
         id: version
-        env:
-          TAG: ${{ github.event.release.tag_name }}
         run: |
           VERSION="${TAG#v}"
           if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
@@ -50,4 +63,6 @@ jobs:
       # GitHub pre-releases (and tags like v1.2.3-beta.1) go to the "next" dist-tag so they don't become "latest".
       - name: Publish
         if: steps.version.outputs.published != 'true'
-        run: npm publish --provenance --tag ${{ (github.event.release.prerelease || contains(github.event.release.tag_name, '-')) && 'next' || 'latest' }}
+        env:
+          DIST_TAG: ${{ inputs.dist-tag || ((github.event.release.prerelease || contains(env.TAG, '-')) && 'next' || 'latest') }}
+        run: npm publish --provenance --tag "$DIST_TAG"

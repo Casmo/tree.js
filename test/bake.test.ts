@@ -27,6 +27,17 @@ beforeAll(() => {
   (globalThis as Record<string, unknown>).FileReader = NodeFileReader;
 });
 
+// SHA-256 of a .glb that doesn't depend on the Node version: Math.pow and friends may differ in the
+// last bit between V8 releases, which shows up in the JSON chunk's float64 material factors. Numbers
+// there are rounded to 12 significant digits; the binary chunk (float32 geometry) is hashed as is.
+function glbHash(glb: ArrayBuffer) {
+  const view = new DataView(glb);
+  const jsonLength = view.getUint32(12, true);
+  const json = JSON.parse(new TextDecoder().decode(new Uint8Array(glb, 20, jsonLength))) as unknown;
+  const rounded = JSON.stringify(json, (_key, value: unknown) => (typeof value === 'number' ? Number(value.toPrecision(12)) : value));
+  return createHash('sha256').update(rounded).update(new Uint8Array(glb, 20 + jsonLength)).digest('hex');
+}
+
 async function validate(glb: ArrayBuffer) {
   const report = await validateBytes(new Uint8Array(glb), { maxIssues: 100 });
   return report.issues;
@@ -293,17 +304,17 @@ describe('Baked Tree: Material Features', () => {
 });
 
 describe('Baked Tree: Material Features off', () => {
-  // SHA-256 of the .glb as exported before Material Features existed: with none set, nothing changes.
+  // Hash (glbHash) of the .glb as exported before Material Features existed: with none set, nothing changes.
   const golden: [string, () => TreeDefinition, { seed: number; growth?: number; season?: number }, string][] = [
-    ['low-poly broadleaf', () => lowPoly.broadleaf, { seed: 42, growth: 0.8, season: 0.3 }, '4ba91755603268bb107a681320ef642178fadd5a11cd1f058d838817a5f28765'],
-    ['stylized broadleaf', () => stylized.broadleaf, { seed: 3, growth: 0.9, season: 0.02 }, '48577fbbf7b207d606990c2f14273c3f694902618d90372d29d9017d0080e0d2'],
-    ['low-poly oak with Fruit', () => extendDefinition(lowPoly.apply(oak), { fruit: { type: 'round', count: 2, size: 0.2 } }), { seed: 2, season: 0.5 }, '931c20e3679d243208cd0fe81d817cdc0e0da911d4d1abc896be9ae094695763'],
+    ['low-poly broadleaf', () => lowPoly.broadleaf, { seed: 42, growth: 0.8, season: 0.3 }, '68a85e2222cb1cba08f6b1131a84334fd68f0e8a52d704c94042a60f31dd3645'],
+    ['stylized broadleaf', () => stylized.broadleaf, { seed: 3, growth: 0.9, season: 0.02 }, '4e1f2517bb5684580e8eb5a754aec1e811422fa976897bd5cd4d9d31fc136bd7'],
+    ['low-poly oak with Fruit', () => extendDefinition(lowPoly.apply(oak), { fruit: { type: 'round', count: 2, size: 0.2 } }), { seed: 2, season: 0.5 }, '883a9d503b07178d2d7efe82df57d42002a45b72c12530be1fdb1e37c0dc2150'],
   ];
   for (const [name, definition, options, hash] of golden) {
     it(`exports the same glTF as before (${name})`, async () => {
       const tree = createTree(definition(), options);
       const glb = await exportBakedTree(tree, { occlusionInVertexColors: true });
-      expect(createHash('sha256').update(new Uint8Array(glb)).digest('hex')).toBe(hash);
+      expect(glbHash(glb)).toBe(hash);
       tree.dispose();
     });
   }
