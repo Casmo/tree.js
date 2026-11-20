@@ -33,13 +33,14 @@ const OUTWARD = 0.4;
 /** How much the card's own bottom-to-top (v) adds to its tip light: a little per-card gradient. */
 const CARD_TIP = 0.4;
 /**
- * Season timing spread over a mass (#116): a card on the shell is this much of the year ahead of one deep
- * inside, so the outside turns first (warm autumn tips over a greener inside) and each mass a little
- * differently ({@link MASS_SEASON}), instead of the whole crown turning one colour at once.
+ * Season timing spread over a mass (#116): a card on the shell is up to this much of the year ahead of one
+ * deep inside, so the outside turns first (warm autumn tips over a greener inside) and each mass a little
+ * differently ({@link MASS_SEASON}), instead of the whole crown turning one colour at once. Only ever ahead
+ * (never behind the tree's own timing), so in early spring no card wraps back into the end of winter.
  */
-const SHELL_SEASON = 0.1;
-/** Season timing spread between masses (the most a mass is ahead of or behind the others), in years. */
-const MASS_SEASON = 0.05;
+const SHELL_SEASON = 0.035;
+/** Season timing spread between masses (how far ahead of the tree a mass can be), in years. */
+const MASS_SEASON = 0.025;
 /** Below this (unit) height in its mass a card is often moved up: fewer cards underneath. */
 const UNDERSIDE = -0.4;
 
@@ -245,7 +246,7 @@ export function massLeafGeometry(
       attach: leaf.attach,
       random: seedRandom(seed, leaf.id),
       origin: base,
-      season: { ...season, shift: season.shift + (depthLight - 0.7) * SHELL_SEASON + (massRandom[m]! - 0.5) * MASS_SEASON },
+      season: { ...season, shift: season.shift + clamp01((depthLight - (1 - DEPTH)) / DEPTH) * SHELL_SEASON + massRandom[m]! * MASS_SEASON },
       growth: growth[l] ?? { start: 0, end: 0 },
       sway: massSway[m]!,
     };

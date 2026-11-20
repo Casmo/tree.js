@@ -92,7 +92,9 @@ describe("leaf shape 'mass': Leaf Masses of spray cards (ADR 0014)", () => {
       const v = card * 4;
       // One timing per card (all four corners), within a few days of the tree's.
       for (let c = 1; c < 4; c++) expect(shift[(v + c) * 3]).toBe(shift[v * 3]);
-      expect(Math.abs(shift[v * 3]!)).toBeLessThanOrEqual(0.06);
+      // Never behind the tree: in early spring an inner card must not wrap back into the end of winter.
+      expect(shift[v * 3]).toBeGreaterThanOrEqual(0);
+      expect(shift[v * 3]).toBeLessThanOrEqual(0.06);
       const tipLight = paint[v * 4 + 2]!; // at the card's base: how far out in its mass the card sits
       if (tipLight > 0.5) outer.push(shift[v * 3]!);
       else if (tipLight < 0.4) inner.push(shift[v * 3]!);
