@@ -9,6 +9,7 @@
 //   npm run gallery                    everything (a few minutes)
 //   npm run gallery -- oak birch       re-render only these Species (the page and contact sheet always)
 //   npm run gallery -- --no-render     only rewrite the page and the contact sheet from the images on disk
+//   npm run gallery -- --style=painterly   re-render only this Style's images
 //   --port=5197                        dev server port (default 5197)
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -159,7 +160,7 @@ async function main() {
   try {
     if (!options['no-render']) {
       for (const species of list.filter((s) => ids.length === 0 || ids.includes(s.id))) {
-        for (const shot of shots(species)) {
+        for (const shot of shots(species).filter((s) => !options.style || s.style === options.style)) {
           const path = resolve(DOCS, shot.file);
           await renderer.render({ id: species.id, style: shot.style, season: shot.season, seed: SEED, path, type: 'jpeg', quality: QUALITY });
           console.log(path);
