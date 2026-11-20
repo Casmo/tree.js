@@ -43,6 +43,24 @@ export const SUNLIT = 0.35;
  * speckles; the painted gradient already darkens the inside of the masses (concepts, ADR 0014).
  */
 export const LEAF_SHADOW = 0.3;
+/**
+ * The sunlit tips of the leaf gradient (#116): the leaf colour, brighter, plus warm sunlight. Added, not
+ * mixed towards a fixed yellow-green, so the tips stay the Season's own hue: yellow-green in summer, gold
+ * and orange in autumn. Light (pale) colours, fresh spring green and blossom, fade towards a pale cream.
+ */
+const TIP_GAIN = 1.25;
+const TIP_SUN = [0.15, 0.13, 0] as const;
+const TIP_PALE = [1, 0.97, 0.8] as const;
+/** How much the tips of a light leaf colour fade to {@link TIP_PALE} (by its luminance, see `paintedTip`). */
+const TIP_PALENESS = 0.45;
+/** The deep inside of the leaf gradient: the leaf colour times this, cool, mixed a little towards {@link DEEP_COLOR}. */
+const DEEP = [0.22, 0.32, 0.45] as const;
+/** {@link DEEP} for light leaf colours (spring, blossom): lighter and less blue, so they stay pale. */
+const DEEP_PALE = [0.42, 0.42, 0.46] as const;
+const DEEP_COLOR = '#0b2427';
+/** Per-mass tint at either end of its random number: some masses a little warmer, some a little cooler. */
+const MASS_WARMER = [1.05, 1, 0.92] as const;
+const MASS_COOLER = [0.95, 1, 1.06] as const;
 /** Direct light warms bark and Fruit a little (multiplier on the lit colour). */
 export const WARM = [1.06, 1.02, 0.9] as const;
 
@@ -115,6 +133,15 @@ export class PaintedLightingModel extends LightingModel {
   }
 }
 
+const luminanceOf = (c: Node): Node => c.dot(vec3(0.2126, 0.7152, 0.0722));
+
+/** The warm, sunlit tip colour of the leaf gradient for the (linear) leaf colour `base`: see {@link TIP_GAIN}. */
+function paintedTip(base: Node): Node {
+  const sunlit = base.mul(TIP_GAIN).add(vec3(...TIP_SUN));
+  const cream = vec3(...TIP_PALE).mul(luminanceOf(sunlit).max(0.5));
+  return mix(sunlit, cream, smoothstep(0.2, 0.6, luminanceOf(base)).mul(TIP_PALENESS));
+}
+
 /**
  * Makes a painted leaf material paint a Leaf Mass crown (leaf shape 'mass'): its normal bends from the
  * card's own towards its mass's (`aMass`, no back-face flip: both sides lit as the mass), and its colour is
@@ -135,9 +162,11 @@ export function paintLeafMasses(material: PaintedNodeMaterial): void {
   const paint = attribute('aPaint', 'vec4');
   const up = bent.y.mul(0.5).add(0.5);
   material.paint = (base, lit) => {
-    const deep = mix(base.mul(vec3(0.22, 0.32, 0.45)), color('#0b2427'), 0.35);
+    // Light colours (fresh spring green, blossom) keep a lighter, less blue inside.
+    const pale = smoothstep(0.2, 0.6, luminanceOf(base));
+    const deep = mix(base.mul(mix(vec3(...DEEP), vec3(...DEEP_PALE), pale)), color(DEEP_COLOR), mix(0.35, 0.15, pale));
     const mid = base.mul(1.12);
-    const tip = mix(base, color('#bcd24a'), 0.5).mul(1.1);
+    const tip = paintedTip(base);
     const t = float(-0.06)
       .add(paint.x.mul(0.2))
       .add(up.mul(0.34))
@@ -150,8 +179,9 @@ export function paintLeafMasses(material: PaintedNodeMaterial): void {
       .add(0.5)
       .clamp(0, 1);
     const ramp = mix(mix(deep, mid, smoothstep(0, 0.55, t)), tip, smoothstep(0.5, 1, t));
-    // A little per-mass variation; the gaps between painted leaves a little darker.
-    return ramp.mul(paint.w.sub(0.5).mul(0.12).add(1)).mul(mix(float(1), float(0.6), float(1).sub(coverage).mul(TEXTURE)));
+    // A little per-mass variation (lighter or darker, warmer or cooler); the gaps between painted leaves a little darker.
+    const massTint = mix(vec3(...MASS_WARMER), vec3(...MASS_COOLER), paint.w);
+    return ramp.mul(massTint).mul(paint.w.sub(0.5).mul(0.12).add(1)).mul(mix(float(1), float(0.6), float(1).sub(coverage).mul(TEXTURE)));
   };
 }
 
@@ -159,14 +189,15 @@ const smooth = (low: number, high: number, x: number): number => {
   const t = Math.min(Math.max((x - low) / (high - low), 0), 1);
   return t * t * (3 - 2 * t);
 };
-const DEEP = hexToLinear('#0b2427');
-const TIP = hexToLinear('#bcd24a');
+const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+const luminance = (c: readonly number[]): number => 0.2126 * c[0]! + 0.7152 * c[1]! + 0.0722 * c[2]!;
+const DEEP_LINEAR = hexToLinear(DEEP_COLOR);
 
 /**
  * The leaf paint of {@link paintLeafMasses} on the CPU, for the Baked Tree (#120): the painted colour of a Leaf
  * Mass vertex from its unpainted colour `base` (linear rgb), its `aPaint`, the y of its bent normal, the spray's
  * paint value and coverage, and `lit` (0 = no direct light, the material's diffuse colour). Keep it in step with
- * the TSL `paint` above (the same ramp, number for number).
+ * the TSL `paint` above and `paintedTip` (the same ramp, number for number).
  */
 export function paintLeafColor(
   base: readonly number[],
@@ -180,13 +211,17 @@ export function paintLeafColor(
   const raw = -0.06 + paint[0]! * 0.2 + up * 0.34 + (paint[2]! - 0.5) * 0.25 - paint[1]! * 0.6 + (value - 0.5) * 0.9 * TEXTURE + lit;
   const t = Math.min(Math.max((raw - 0.5) * GRADIENT + 0.5, 0), 1);
   const [toMid, toTip] = [smooth(0, 0.55, t), smooth(0.5, 1, t)];
-  const deepTint = [0.22, 0.32, 0.45];
-  const shade = (1 + (paint[3]! - 0.5) * 0.12) * (1 + (0.6 - 1) * (1 - coverage) * TEXTURE);
+  const pale = smooth(0.2, 0.6, luminance(base));
+  // paintedTip
+  const sunlit = [0, 1, 2].map((c) => base[c]! * TIP_GAIN + TIP_SUN[c]!);
+  const cream = Math.max(luminance(sunlit), 0.5);
+  const toCream = smooth(0.2, 0.6, luminance(base)) * TIP_PALENESS;
+  const shade = (1 + (paint[3]! - 0.5) * 0.12) * lerp(1, 0.6, (1 - coverage) * TEXTURE);
   return [0, 1, 2].map((c) => {
-    const deep = base[c]! * deepTint[c]! * 0.65 + DEEP[c]! * 0.35;
+    const deep = lerp(base[c]! * lerp(DEEP[c]!, DEEP_PALE[c]!, pale), DEEP_LINEAR[c]!, lerp(0.35, 0.15, pale));
     const mid = base[c]! * 1.12;
-    const tip = (base[c]! * 0.5 + TIP[c]! * 0.5) * 1.1;
-    const ramp = deep + (mid - deep) * toMid;
-    return (ramp + (tip - ramp) * toTip) * shade;
+    const tip = lerp(sunlit[c]!, TIP_PALE[c]! * cream, toCream);
+    const ramp = lerp(lerp(deep, mid, toMid), tip, toTip);
+    return ramp * lerp(MASS_WARMER[c]!, MASS_COOLER[c]!, paint[3]!) * shade;
   }) as [number, number, number];
 }

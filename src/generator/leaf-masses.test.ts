@@ -63,6 +63,48 @@ describe("leaf shape 'mass': Leaf Masses of spray cards (ADR 0014)", () => {
     expect(paint[high * 4]).toBeGreaterThan(0.9);
   });
 
+  it('sways each Leaf Mass as one: every card of a mass has the same branch sway, so Wind never tears a mass apart (#116)', () => {
+    const { leaves } = generateTree(massTree(), 3);
+    const paint = leaves.attributes.aPaint!.array;
+    const wind = leaves.attributes.aWind!.array;
+    const sway = new Map<number, Set<number>>();
+    for (let v = 0; v < leaves.positions.length / 3; v++) {
+      const mass = paint[v * 4 + 3]!;
+      if (!sway.has(mass)) sway.set(mass, new Set());
+      sway.get(mass)!.add(wind[v * 3 + 1]!);
+    }
+    for (const values of sway.values()) expect(values.size).toBe(1);
+    // ... but the masses still sway with their branches (more out on the twigs than at the trunk).
+    const perMass = [...sway.values()].map((values) => [...values][0]!);
+    expect(Math.min(...perMass)).toBeGreaterThan(0);
+    // Leaf flutter stays per card: 0 at its base, 1 at its tip.
+    expect(distinct(wind, 3, 2)).toEqual(new Set([0, 1]));
+  });
+
+  it('turns the outside of each Leaf Mass first through the year: warm autumn tips over a greener inside (#116)', () => {
+    const definition = parseDefinition({ ...massTree(), variation: { color: 0.1, growth: 0.1, season: 0 } }); // no Season variation of its own
+    const { leaves } = generateTree(definition, 3);
+    const paint = leaves.attributes.aPaint!.array;
+    const shift = leaves.attributes.aSeason!.array;
+    const outer: number[] = [];
+    const inner: number[] = [];
+    for (let card = 0; card < leaves.positions.length / 12; card++) {
+      const v = card * 4;
+      // One timing per card (all four corners), within a few days of the tree's.
+      for (let c = 1; c < 4; c++) expect(shift[(v + c) * 3]).toBe(shift[v * 3]);
+      // Never behind the tree: in early spring an inner card must not wrap back into the end of winter.
+      expect(shift[v * 3]).toBeGreaterThanOrEqual(0);
+      expect(shift[v * 3]).toBeLessThanOrEqual(0.06);
+      const tipLight = paint[v * 4 + 2]!; // at the card's base: how far out in its mass the card sits
+      if (tipLight > 0.5) outer.push(shift[v * 3]!);
+      else if (tipLight < 0.4) inner.push(shift[v * 3]!);
+    }
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    expect(outer.length).toBeGreaterThan(20);
+    expect(inner.length).toBeGreaterThan(20);
+    expect(mean(outer) - mean(inner)).toBeGreaterThan(0.015);
+  });
+
   it('is deterministic, and the Light Detail Level draws Leaf Masses too', () => {
     expect(hashTreeData(generateTree(massTree(), 7))).toBe(hashTreeData(generateTree(massTree(), 7)));
     const light = generateLightTree(massTree(), 7);
