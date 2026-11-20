@@ -14,7 +14,7 @@ const backends = [
 ];
 
 // Painterly (#112, #113): broadleaf and conifer on both backends, plus tycoon (about 55°) and top-down
-// views; its Growth and Season looks are their own tickets.
+// views. Its Growth and Season looks (#116) are with the other Styles' below.
 const painterlyShots = [
   ...forms.flatMap((form) =>
     backends.map((backend) => ({ name: `painterly ${form} renders on ${backend.name}`, form, file: `painterly-${form}-${backend.name}.png`, query: backend.query, backend: backend.name })),
@@ -57,9 +57,18 @@ const stylizedStates = [
   { form: 'broadleaf', name: 'blossom', query: '&season=0.04' },
   { form: 'broadleaf', name: 'growth-0-85-blossom', query: '&growth=0.85&season=0.04' },
 ];
+// Painterly (#116): the same states (the painted gradient follows Season: warm autumn tips, Leaf Masses
+// turning from the outside in), more Growth, and blossom and Fruit (its broadleaf has neither: Species that do).
+const painterlyStates = [
+  ...forms.flatMap((form) => [...states, { name: 'growth-0-85', query: '&growth=0.85' }].map((state) => ({ form, ...state }))),
+  { form: 'broadleaf', name: 'spring', query: '&season=0.04' },
+  { form: 'broadleaf', name: 'cherry-blossom', query: '&species=cherry&season=0.06' },
+  { form: 'broadleaf', name: 'apple-fruit', query: '&species=apple&season=0.5' },
+];
 const shots = [
   ...styles.flatMap((style) => forms.flatMap((form) => states.map((state) => ({ style, form, ...state })))),
   ...stylizedStates.map((state) => ({ style: 'stylized', ...state })),
+  ...painterlyStates.map((state) => ({ style: 'painterly', ...state })),
 ];
 for (const { style, form, name, query } of shots) {
   test(`${style} ${form}: ${name}`, async ({ page }) => {
