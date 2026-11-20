@@ -20,6 +20,7 @@ import {
   vec3,
   vec4,
 } from 'three/tsl';
+import { hypot3, smoothstep as smoothstepNumber } from '../math';
 import { hexToLinear } from '../season/profile';
 import { translucencyDirect, translucencyIndirect, type LeafTranslucencyTerm } from './leaf-translucency';
 
@@ -32,10 +33,8 @@ type Node = any;
 export const WRAP = 0.5;
 /** How far a Leaf Mass card's normal bends from the card's own towards its mass's (`aMass`), 0..1. */
 export const BEND = 0.85;
-/** Contrast of the painted gradient around its middle (1 = as painted, 0 = flat). */
-const GRADIENT = 1;
-/** How much the spray texture's paint value moves the gradient (and darkens the gaps between leaves). */
-export const TEXTURE = 0.6;
+/** How strongly the spray texture paints: how far its paint value moves the gradient, how dark the gaps between leaves get. */
+export const SPRAY_STRENGTH = 0.6;
 /** How far direct light moves a leaf up the gradient (towards the warm tips). */
 export const SUNLIT = 0.35;
 /**
@@ -63,6 +62,31 @@ const MASS_WARMER = [1.05, 1, 0.92] as const;
 const MASS_COOLER = [0.95, 1, 1.06] as const;
 /** Direct light warms bark and Fruit a little (multiplier on the lit colour). */
 export const WARM = [1.06, 1.02, 0.9] as const;
+
+// The crown gradient, shared by the shader (`leafMassPaint`, `paintGradient`, `paintedTip`) and its CPU twin
+// for the Baked Tree (`paintLeafColor`): change a number here and both follow.
+/**
+ * Where a Leaf Mass fragment sits on the crown gradient before light (`LeafMassPaint.shade`, about -1..1):
+ * `offset`, plus its height in the crown (0..1), the up-ness of its lighting normal (0 facing down .. 1 up) and
+ * its tip light about 0.5, minus how buried it is, plus the spray's paint value about 0.5 (times
+ * {@link SPRAY_STRENGTH}), each times its weight.
+ */
+export const SHADE = { offset: -0.06, height: 0.2, up: 0.34, tipLight: 0.25, buried: 0.6, spray: 0.9 } as const;
+/** The gaps between painted leaves (the spray's uncovered texels) are multiplied by this at full {@link SPRAY_STRENGTH}. */
+export const GAP_DARK = 0.6;
+/** The middle of the gradient: the leaf colour, this much brighter. */
+const MID_GAIN = 1.12;
+/** The gradient's two blends over its place t (0..1): deep to middle, then middle to tip (smoothstep edges). */
+const TO_MID = [0, 0.55] as const;
+const TO_TIP = [0.5, 1] as const;
+/** A leaf colour counts as light (pale: fresh spring green, blossom) from the first to the second luminance (smoothstep). */
+const PALE = [0.2, 0.6] as const;
+/** How far the deep inside mixes towards {@link DEEP_COLOR}: for a dark and for a light leaf colour. */
+const DEEP_TOWARDS = { dark: 0.35, pale: 0.15 } as const;
+/** Per-mass lightness: a mass's random number moves its brightness by up to ± half of this. */
+const MASS_LIGHTNESS = 0.12;
+/** Rec. 709 luminance weights (linear rgb). */
+const LUMINANCE = [0.2126, 0.7152, 0.0722] as const;
 
 /** The unpainted colour (Season x tint x texture) of the current fragment: what the painted gradient starts from. */
 const paintBase = new PropertyNode('vec3', 'PaintBase');
@@ -133,8 +157,7 @@ export class PaintedLightingModel extends LightingModel {
   }
 
   override direct({ lightDirection, lightColor, reflectedLight }: LightingModelDirectInput): void {
-    const wrapped = normalView.dot(lightDirection as Node).add(WRAP).div(1 + WRAP);
-    const soft = smoothstep(0, 1, wrapped);
+    const soft = smoothstep(0, 1, normalView.dot(lightDirection as Node).add(WRAP).div(1 + WRAP)); // as `wrapLight`
     const warm = (base: Node) => mix(base, base.mul(vec3(...WARM)), soft);
     const painted = this.paint?.(paintBase, soft.mul(SUNLIT));
     const lit = !painted ? warm(diffuseColor.rgb) : this.paintAmount ? mix(warm(paintBase), painted, this.paintAmount) : painted;
@@ -150,13 +173,13 @@ export class PaintedLightingModel extends LightingModel {
   }
 }
 
-const luminanceOf = (c: Node): Node => c.dot(vec3(0.2126, 0.7152, 0.0722));
+const luminanceOf = (c: Node): Node => c.dot(vec3(...LUMINANCE));
 
 /** The warm, sunlit tip colour of the leaf gradient for the (linear) leaf colour `base`: see {@link TIP_GAIN}. */
 function paintedTip(base: Node): Node {
   const sunlit = base.mul(TIP_GAIN).add(vec3(...TIP_SUN));
   const cream = vec3(...TIP_PALE).mul(luminanceOf(sunlit).max(0.5));
-  return mix(sunlit, cream, smoothstep(0.2, 0.6, luminanceOf(base)).mul(TIP_PALENESS));
+  return mix(sunlit, cream, smoothstep(...PALE, luminanceOf(base)).mul(TIP_PALENESS));
 }
 
 /**
@@ -164,7 +187,7 @@ function paintedTip(base: Node): Node {
  * see `leafMassPaint`.
  */
 export interface LeafMassPaint {
-  /** The card's normal bent towards its mass's (`aMass`), in tree space (both sides lit as the mass). */
+  /** The card's lighting normal: its normal bent towards its mass's (`aMass`), in tree space (both sides lit as the mass). */
   normal: Node;
   /**
    * Where on the crown gradient the fragment sits before light (about -1..1, the gradient is 0..1): high and
@@ -178,24 +201,25 @@ export interface LeafMassPaint {
 }
 
 /**
- * The paint of a Leaf Mass card at this fragment, from `aMass`, `aPaint` (height in the crown, how buried,
- * tip light, per-mass random), the bent normal's up-ness and the spray texture `spray` (its grey is a
- * paint value 0..1, its alpha the coverage), if any.
+ * The paint of a Leaf Mass card at this fragment, from `aMass`, `aPaint` (see {@link LeafMassPoint}), the
+ * lighting normal's up-ness and the spray texture `spray` (its grey is a paint value 0..1, its alpha the
+ * coverage), if any. The weights are {@link SHADE}; `paintLeafColor` is its CPU twin.
  */
 export function leafMassPaint(spray: Node | null): LeafMassPaint {
   const value = spray ? spray.r : float(0.5);
   const coverage = spray ? spray.a : float(1);
   const normal = mix(normalGeometry, attribute('aMass', 'vec3'), BEND).normalize();
   const paint = attribute('aPaint', 'vec4');
+  const [height, buried, tipLight, mass] = [paint.x, paint.y, paint.z, paint.w];
   const up = normal.y.mul(0.5).add(0.5);
-  const shade = float(-0.06)
-    .add(paint.x.mul(0.2))
-    .add(up.mul(0.34))
-    .add(paint.z.sub(0.5).mul(0.25))
-    .sub(paint.y.mul(0.6))
-    .add(value.sub(0.5).mul(0.9 * TEXTURE));
-  const gap = mix(float(1), float(0.6), float(1).sub(coverage).mul(TEXTURE));
-  return { normal, shade, mass: paint.w, gap };
+  const shade = float(SHADE.offset)
+    .add(height.mul(SHADE.height))
+    .add(up.mul(SHADE.up))
+    .add(tipLight.sub(0.5).mul(SHADE.tipLight))
+    .sub(buried.mul(SHADE.buried))
+    .add(value.sub(0.5).mul(SHADE.spray * SPRAY_STRENGTH));
+  const gap = mix(float(1), float(GAP_DARK), float(1).sub(coverage).mul(SPRAY_STRENGTH));
+  return { normal, shade, mass, gap };
 }
 
 /**
@@ -205,16 +229,16 @@ export function leafMassPaint(spray: Node | null): LeafMassPaint {
  */
 export function paintGradient(base: Node, lit: Node, paint: Omit<LeafMassPaint, 'normal'>): Node {
   // Light colours (fresh spring green, blossom) keep a lighter, less blue inside.
-  const pale = smoothstep(0.2, 0.6, luminanceOf(base));
-  const deep = mix(base.mul(mix(vec3(...DEEP), vec3(...DEEP_PALE), pale)), color(DEEP_COLOR), mix(0.35, 0.15, pale));
-  const mid = base.mul(1.12);
+  const pale = smoothstep(...PALE, luminanceOf(base));
+  const deep = mix(base.mul(mix(vec3(...DEEP), vec3(...DEEP_PALE), pale)), color(DEEP_COLOR), mix(DEEP_TOWARDS.dark, DEEP_TOWARDS.pale, pale));
+  const mid = base.mul(MID_GAIN);
   const tip = paintedTip(base);
-  const t = (paint.shade as Node).add(lit).sub(0.5).mul(GRADIENT).add(0.5).clamp(0, 1);
-  const ramp = mix(mix(deep, mid, smoothstep(0, 0.55, t)), tip, smoothstep(0.5, 1, t));
+  const t = (paint.shade as Node).add(lit).clamp(0, 1);
+  const ramp = mix(mix(deep, mid, smoothstep(...TO_MID, t)), tip, smoothstep(...TO_TIP, t));
   // A little per-mass variation (lighter or darker, warmer or cooler); the gaps between painted leaves a little darker.
   const mass = paint.mass as Node;
   const massTint = mix(vec3(...MASS_WARMER), vec3(...MASS_COOLER), mass);
-  return ramp.mul(massTint).mul(mass.sub(0.5).mul(0.12).add(1)).mul(paint.gap);
+  return ramp.mul(massTint).mul(mass.sub(0.5).mul(MASS_LIGHTNESS).add(1)).mul(paint.gap);
 }
 
 /** Softens a received shadow on painted leaves to `LEAF_SHADOW` (by `amount` 0..1 where only part is leaf, as on an Impostor). */
@@ -243,43 +267,68 @@ export function paintLeafMasses(material: PaintedNodeMaterial, toObject: (normal
   material.paint = (base, lit) => paintGradient(base, lit, massPaint);
 }
 
-const smooth = (low: number, high: number, x: number): number => {
-  const t = Math.min(Math.max((x - low) / (high - low), 0), 1);
-  return t * t * (3 - 2 * t);
-};
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
-const luminance = (c: readonly number[]): number => 0.2126 * c[0]! + 0.7152 * c[1]! + 0.0722 * c[2]!;
+const luminance = (c: ArrayLike<number>): number => LUMINANCE[0] * c[0]! + LUMINANCE[1] * c[1]! + LUMINANCE[2] * c[2]!;
 const DEEP_LINEAR = hexToLinear(DEEP_COLOR);
+
+/** A Leaf Mass vertex's `aPaint` (see `massLeafGeometry`), by name. */
+export interface LeafMassPoint {
+  /** Height in the crown, 0 (bottom) .. 1 (top). */
+  height: number;
+  /** How buried, 0 (open) .. 1 (hidden). */
+  buried: number;
+  /** Tip light, 0 (deep in the mass) .. 1 (a card tip on the shell). */
+  tipLight: number;
+  /** The mass's random number, 0..1. */
+  mass: number;
+}
+
+/** Vertex `v` of an `aPaint` array (itemSize 4) as a {@link LeafMassPoint}. */
+export function leafMassPoint(aPaint: ArrayLike<number>, v: number): LeafMassPoint {
+  return { height: aPaint[v * 4]!, buried: aPaint[v * 4 + 1]!, tipLight: aPaint[v * 4 + 2]!, mass: aPaint[v * 4 + 3]! };
+}
+
+/** The wrap lighting of the painted shading on the CPU: how lit (0..1) a surface is at `nDotL` (N·L). */
+export function wrapLight(nDotL: number): number {
+  return smoothstepNumber(0, 1, (nDotL + WRAP) / (1 + WRAP));
+}
+
+/** A Leaf Mass card's lighting normal on the CPU, as the material's normalNode: normalize(mix(card normal, mass normal, BEND)). */
+export function bendToMass(card: ArrayLike<number>, mass: ArrayLike<number>): [number, number, number] {
+  const b = [0, 1, 2].map((c) => card[c]! * (1 - BEND) + mass[c]! * BEND);
+  const length = hypot3(b[0]!, b[1]!, b[2]!) || 1;
+  return [b[0]! / length, b[1]! / length, b[2]! / length];
+}
 
 /**
  * The leaf paint of {@link paintLeafMasses} on the CPU, for the Baked Tree (#120): the painted colour of a Leaf
- * Mass vertex from its unpainted colour `base` (linear rgb), its `aPaint`, the y of its bent normal, the spray's
- * paint value and coverage, and `lit` (0 = no direct light, the material's diffuse colour). Keep it in step with
- * the TSL `paint` above and `paintedTip` (the same ramp, number for number).
+ * Mass vertex from its unpainted colour `base` (linear rgb), its `aPaint` (`point`), the y of its lighting normal,
+ * the spray's paint `value` and `coverage`, and `lit` (0 = no direct light, the material's diffuse colour). The
+ * same ramp as `leafMassPaint`, `paintGradient` and `paintedTip`, from the same constants.
  */
 export function paintLeafColor(
-  base: readonly number[],
-  paint: readonly number[],
+  base: ArrayLike<number>,
+  point: LeafMassPoint,
   normalY: number,
-  value = 0.5,
-  coverage = 1,
-  lit = 0,
+  { value = 0.5, coverage = 1, lit = 0 }: { value?: number; coverage?: number; lit?: number } = {},
 ): [number, number, number] {
   const up = normalY * 0.5 + 0.5;
-  const raw = -0.06 + paint[0]! * 0.2 + up * 0.34 + (paint[2]! - 0.5) * 0.25 - paint[1]! * 0.6 + (value - 0.5) * 0.9 * TEXTURE + lit;
-  const t = Math.min(Math.max((raw - 0.5) * GRADIENT + 0.5, 0), 1);
-  const [toMid, toTip] = [smooth(0, 0.55, t), smooth(0.5, 1, t)];
-  const pale = smooth(0.2, 0.6, luminance(base));
+  const shade =
+    SHADE.offset + point.height * SHADE.height + up * SHADE.up + (point.tipLight - 0.5) * SHADE.tipLight - point.buried * SHADE.buried + (value - 0.5) * SHADE.spray * SPRAY_STRENGTH;
+  const t = Math.min(Math.max(shade + lit, 0), 1);
+  const [toMid, toTip] = [smoothstepNumber(...TO_MID, t), smoothstepNumber(...TO_TIP, t)];
+  const pale = smoothstepNumber(...PALE, luminance(base));
   // paintedTip
   const sunlit = [0, 1, 2].map((c) => base[c]! * TIP_GAIN + TIP_SUN[c]!);
   const cream = Math.max(luminance(sunlit), 0.5);
-  const toCream = smooth(0.2, 0.6, luminance(base)) * TIP_PALENESS;
-  const shade = (1 + (paint[3]! - 0.5) * 0.12) * lerp(1, 0.6, (1 - coverage) * TEXTURE);
+  const toCream = pale * TIP_PALENESS;
+  const gap = lerp(1, GAP_DARK, (1 - coverage) * SPRAY_STRENGTH);
+  const lightness = (1 + (point.mass - 0.5) * MASS_LIGHTNESS) * gap;
   return [0, 1, 2].map((c) => {
-    const deep = lerp(base[c]! * lerp(DEEP[c]!, DEEP_PALE[c]!, pale), DEEP_LINEAR[c]!, lerp(0.35, 0.15, pale));
-    const mid = base[c]! * 1.12;
+    const deep = lerp(base[c]! * lerp(DEEP[c]!, DEEP_PALE[c]!, pale), DEEP_LINEAR[c]!, lerp(DEEP_TOWARDS.dark, DEEP_TOWARDS.pale, pale));
+    const mid = base[c]! * MID_GAIN;
     const tip = lerp(sunlit[c]!, TIP_PALE[c]! * cream, toCream);
     const ramp = lerp(lerp(deep, mid, toMid), tip, toTip);
-    return ramp * lerp(MASS_WARMER[c]!, MASS_COOLER[c]!, paint[3]!) * shade;
+    return ramp * lerp(MASS_WARMER[c]!, MASS_COOLER[c]!, point.mass) * lightness;
   }) as [number, number, number];
 }

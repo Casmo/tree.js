@@ -226,8 +226,9 @@ export function applyStyle(name: StyleName, source: StyleSource, overrides?: Def
   const isDefinition = 'schemaVersion' in source;
   const neutral = isDefinition ? fromDefinition(source) : fromSpecies(source);
   let definition = draw(name, neutral);
-  // Painterly sets the overall size (ADR 0013): real-sized trees shrink to 2-4 m. A Painterly Definition
-  // is already small; re-applying Painterly to it keeps its size.
+  // Painterly sets the overall size (ADR 0013): real-sized trees shrink to 2-4 m. A Painterly-sized tree
+  // (a `styleScale`, kept through other Styles) or a Painterly Definition from before `styleScale` is
+  // already small; re-applying Painterly to it keeps its size.
   if (name === 'painterly' && !(isDefinition && source.materials?.shading === 'painted')) definition = compressHeight(definition);
   return overrides ? extendDefinition(definition, overrides) : definition;
 }

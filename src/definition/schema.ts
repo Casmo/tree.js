@@ -199,6 +199,7 @@ const treeDefinition = obj<TreeDefinition>({
   schemaVersion: literal(CURRENT_SCHEMA_VERSION),
   name: text,
   species: optional(text),
+  styleScale: optional(positive),
   trunk: obj<TrunkDefinition>({
     length: positive,
     radius: positive,

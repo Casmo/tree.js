@@ -122,8 +122,9 @@ A Style is a ready-made look with one Tree Definition per Form (`broadleaf`, `co
 Painterly is the one Style that also sets a tree's size: it scales every Species uniformly so that its
 height maps from the real one into 2-4 m (keeping the order between Species; its own `broadleaf` and
 `conifer` are 3 m and 3.5 m), so trees stay only a little taller than people in a tycoon view
-([ADR 0013](docs/adr/0013-painterly-compresses-tree-heights.md)). The other Styles keep real-world sizes. Its
-crowns are drawn to read from above as well as from the side
+([ADR 0013](docs/adr/0013-painterly-compresses-tree-heights.md)). It records the scale in the Definition's
+optional `styleScale`, so applying Painterly again, also after another Style, never shrinks a tree twice.
+The other Styles keep real-world sizes. Its crowns are drawn to read from above as well as from the side
 ([ADR 0014](docs/adr/0014-painterly-leaf-masses-are-clumped-spray-cards.md)):
 
 ![A painterly Forest from a tycoon camera, about 55 degrees down, and a painterly broadleaf from straight above](docs/images/painterly-views.png)
@@ -526,13 +527,17 @@ forest.lod = { impostor: 120 }; // distances, fade and the camera that picks the
 - Raycasting, `forest.treeAt`, `addTree`/`removeTree`, live Material Features and Tree Effects work as
   without `lod`, at every Detail Level.
 - **Memory**: the Impostors are baked into atlases of `impostorAtlas.size`² pixels (default 2048, with
-  `frames` 12 × 12 directions from the horizon to straight above), in two render targets per Variant: the
-  tree (colour, normals, Season data, and Material Feature inputs when the Definition sets them) and the
-  wood alone (colour, normals: shown where leaves have dropped). Each atlas is RGBA8 with mipmaps, about
-  21 MiB at 2048, and each render target has a depth buffer of the same size (16 MiB). That is about
-  139 MiB of GPU memory per Variant (five atlases), 160 MiB with Material Features (six), so 555 MiB or
-  640 MiB for 4 Variants. Halving `size` quarters it (`impostorAtlas: { size: 1024 }`: about 35 MiB per
-  Variant); fewer `frames` keep the memory and give each direction more pixels. `forest.dispose()` frees them.
+  `frames` 12 × 12 directions from the horizon to straight above), in render targets per Variant: the
+  tree (colour, normals, Season data, Material Feature inputs when the Definition sets them, and the paint
+  of painted Leaf Masses in Painterly) and the wood alone (colour, normals: shown where leaves have
+  dropped). A render target holds at most four atlases (WebGPU's default per pass), so a tree with more
+  channels (Painterly with Material Features) is baked in two passes, each its own render target. Each
+  atlas is RGBA8 with mipmaps, about 21 MiB at 2048, and each render target has a depth buffer of the same
+  size (16 MiB). That is about 139 MiB of GPU memory per Variant (five atlases, two targets), 160 MiB with
+  Material Features or in Painterly (six atlases, two targets), and 197 MiB for Painterly with Material
+  Features (seven atlases, three targets); so 555, 640 or 790 MiB for 4 Variants. Halving `size` quarters
+  it (`impostorAtlas: { size: 1024 }`: about 35 MiB per Variant); fewer `frames` keep the memory and give
+  each direction more pixels. `forest.dispose()` frees them.
 
 [`examples/large-forest`](examples/large-forest/main.ts) draws 10,000 trees under an orbiting camera and
 rebuilds the Forest with Detail Levels on or off, measuring both runs side by side. One example run

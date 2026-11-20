@@ -30,7 +30,7 @@ test('a Baked Tree with Material Features on, loaded back with GLTFLoader', asyn
   expect(errors).toEqual([]);
 });
 
-// A Painterly Baked Tree (#120): an approximation of the painted shading (bent Leaf Mass normals, the crown
+// A Painterly Baked Tree (#120): an approximation of the painted shading (Leaf Mass lighting normals, the crown
 // gradient in COLOR_0, the spray strokes as a brightness map), loaded back with GLTFLoader.
 for (const form of ['broadleaf', 'conifer']) {
   test(`a painterly ${form} Baked Tree, loaded back with GLTFLoader`, async ({ page }) => {

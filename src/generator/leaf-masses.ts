@@ -3,7 +3,7 @@
 // so the mass reads as one ragged clump. The painted shading bends the cards' normals to their mass
 // (`aMass`) and paints the dark-inside to warm-tips gradient from `aPaint`.
 import type { VariationDefinition } from '../definition';
-import { hypot3, pow } from '../math';
+import { hypot3, pow, smoothstep as smooth } from '../math';
 import { leafSeasonAttribute } from '../season/profile';
 import { createRandom, seedRandom, type Random } from '../random';
 import { createAttributes, writePart } from './attributes';
@@ -59,7 +59,8 @@ export function clusterLeafMasses(points: readonly Vec3[], k: number, minRadius:
     let best = points[0]!;
     let bestD = -1;
     for (const p of points) {
-      const d = Math.min(...centres.map((c) => d2(c, p)));
+      let d = Infinity;
+      for (const c of centres) d = Math.min(d, d2(c, p));
       if (d > bestD) [best, bestD] = [p, d];
     }
     if (bestD <= 0) break;
@@ -98,7 +99,11 @@ export function clusterLeafMasses(points: readonly Vec3[], k: number, minRadius:
 
 function nearest(centres: readonly Vec3[], p: Vec3, d2: (a: Vec3, b: Vec3) => number): number {
   let best = 0;
-  for (let c = 1; c < centres.length; c++) if (d2(centres[c]!, p) < d2(centres[best]!, p)) best = c;
+  let bestD = d2(centres[0]!, p);
+  for (let c = 1; c < centres.length; c++) {
+    const d = d2(centres[c]!, p);
+    if (d < bestD) [best, bestD] = [c, d];
+  }
   return best;
 }
 
@@ -114,11 +119,6 @@ export function massNormal({ centre, radii }: LeafMass, p: Vec3): Vec3 {
 }
 
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
-/** Smoothstep from `a` to `b` (either order). */
-const smooth = (a: number, b: number, x: number) => {
-  const t = clamp01((x - a) / (b - a));
-  return t * t * (3 - 2 * t);
-};
 
 /** The crown the masses make up: its height span and its (horizontal) centre and reach. */
 interface MassCrown {

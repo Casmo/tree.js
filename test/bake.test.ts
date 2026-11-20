@@ -474,7 +474,7 @@ describe('Baked Tree: Painterly (#120), an approximation of the painted shading'
     let sum = 0;
     for (let v = 0; v < count; v++) sum += vec(geometry, 'normal', v).dot(vec(geometry, '_mass_normal', v));
     expect(sum / count).toBeGreaterThan(0.95);
-    // Live both sides of a card are lit with the bent normal; engines flip it on the back of a double-sided
+    // Live both sides of a card are lit with its lighting normal; engines flip it on the back of a double-sided
     // material. So each card is in twice, once each way round, with a single-sided material.
     expect((mesh.material as MeshStandardMaterial).side).toBe(FrontSide);
     const index = Array.from(mesh.geometry.index!.array);

@@ -30,14 +30,13 @@ describe('scripts/generate-textures.mjs', () => {
     for (const [name, bytes] of first) expect(bytes.equals(readFileSync(join(committed, name))), `${name} is up to date`).toBe(true);
   });
 
-  it('makes a painterly spray card per Leaf Type, a painted bark per Bark Type and the Leaf Mass noise', () => {
+  it('makes a painterly spray card per Leaf Type, and a painted bark per Bark Type (no Leaf Mass noise: the spray alpha is the ragged edge, ADR 0014)', () => {
     expect(readdirSync(join(committed, 'painterly')).sort()).toEqual([
       'bark-fibrous.png',
       'bark-furrowed.png',
       'bark-papery.png',
       'bark-plated.png',
       'bark-smooth.png',
-      'mass-noise.png',
       'spray-broad.png',
       'spray-compound.png',
       'spray-lobed.png',
