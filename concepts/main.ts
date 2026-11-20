@@ -16,7 +16,7 @@ import { createRandom, createTree } from '@casmo/tree.js';
 import { createTreeEffects } from '@casmo/tree.js/effects';
 import stylized from '@casmo/tree.js/styles/stylized';
 import realistic from '@casmo/tree.js/styles/realistic';
-import { birch, oak, pine, spruce } from '@casmo/tree.js/species';
+import { birch, cedar, cherry, douglasFir, elm, maple, oak, olive, pine, redwood, spruce } from '@casmo/tree.js/species';
 import { generateTree } from '../src/generator';
 
 const params = new URLSearchParams(location.search);
@@ -272,6 +272,13 @@ const CLUSTER = [
   { species: birch, height: 3.4, position: [-2.0, 0, 0.3] },
   { species: pine, height: 3.8, position: [1.5, 0, -1.4] },
 ];
+
+/** More Species (one per pane, or all together in the grove), at Painterly heights (2–4 m, ADR 0013). */
+const SPECIES_ROWS = [
+  { species: maple, height: 3.4 }, { species: cherry, height: 3.1 }, { species: olive, height: 2.6 }, { species: elm, height: 3.5 },
+  { species: cedar, height: 3.4 }, { species: spruce, height: 3.6 }, { species: douglasFir, height: 3.8 }, { species: redwood, height: 4.0 },
+];
+const GROVE = SPECIES_ROWS.map((e, i) => ({ ...e, position: [((i % 3) - 1) * 3.1 + (Math.floor(i / 3) % 2 ? 0.8 : -0.3), 0, (Math.floor(i / 3) - 1) * 3.0] }));
 
 /** Leaf centres of a Species (from the realistic look's many cards: a dense sample of the crown). */
 function leafCloud(species) {
@@ -530,11 +537,16 @@ const sunUniform = uniform(SUN_DIR.clone());
  * The painted gradient: deep cool green inside / under, the leaf colour in the middle, warm
  * yellow-green on sunlit tips and tops. `t` = 0..1 (built from height, facing, sun and occlusion).
  */
-function paletteNodes(base) {
+function paletteNodes(base, saturation = 1) {
   const deep = base.clone().multiply(new THREE.Color(0.22, 0.32, 0.45)).lerp(new THREE.Color('#0b2427'), 0.35);
   const mid = base.clone().multiplyScalar(1.12);
   const tip = base.clone().lerp(new THREE.Color('#bcd24a'), 0.5).multiplyScalar(1.1);
-  return { deep: color(deep), mid: color(mid), tip: color(tip) };
+  return { deep: color(desaturate(deep, saturation)), mid: color(desaturate(mid, saturation)), tip: color(desaturate(tip, saturation)) };
+}
+/** Saturation control: mixes a (linear) colour towards its luminance; 1 = unchanged, 0 = grey. */
+function desaturate(c, s) {
+  const l = c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
+  return new THREE.Color(l + (c.r - l) * s, l + (c.g - l) * s, l + (c.b - l) * s);
 }
 const ramp = (pal, t) => mix(mix(pal.deep, pal.mid, smoothstep(0.0, 0.55, t)), pal.tip, smoothstep(0.5, 1.0, t));
 
@@ -551,11 +563,11 @@ function triplanar(tex, scale) {
  * Leaf material for every concept. `paint`: tv (value 0..1), ta (coverage 0..1) nodes from the
  * concept's texture, `gradient` / `texture` strengths, `edgeCut` (A: ragged noise cut at the silhouette).
  */
-function paintedLeafMaterial({ base, gradient = 0.8, textureStrength = 0.6, tv, ta, edgeCut = 0, alphaTest = 0, bentNormals = false, sunWeight = 0.35, insideDark = true }) {
+function paintedLeafMaterial({ base, saturation = 1, gradient = 0.8, textureStrength = 0.6, tv, ta, edgeCut = 0, alphaTest = 0, bentNormals = false, sunWeight = 0.35, insideDark = true }) {
   const m = new PaintedMaterial();
   m.side = THREE.DoubleSide;
   m.userData.treePart = 'leaves';
-  const pal = paletteNodes(base);
+  const pal = paletteNodes(base, saturation);
   const pa = attribute('aPaint', 'vec4');
   const h = pa.x, occ = pa.y, tipL = pa.z, rnd = pa.w;
   const nW = normalize(normalLocal); // trees are not rotated: local = world directions
@@ -582,11 +594,12 @@ function paintedLeafMaterial({ base, gradient = 0.8, textureStrength = 0.6, tv, 
   return m;
 }
 
-function paintedBarkMaterial(type, tint) {
+function paintedBarkMaterial(type, tint, saturation = 1) {
   const m = new PaintedMaterial();
   m.userData.treePart = 'bark';
   const tex = barkTexture(type);
-  const c = texture(tex, uv().mul(vec2(1, 3))).rgb.mul(color(tint));
+  const raw = texture(tex, uv().mul(vec2(1, 3))).rgb.mul(color(tint));
+  const c = mix(vec3(dot(raw, vec3(0.2126, 0.7152, 0.0722))), raw, float(saturation));
   m.colorNode = vec4(mix(c.mul(0.6), c, uv().y.clamp(0, 1).pow(0.4)), 1);
   m.roughness = 1; m.metalness = 0;
   return m;
@@ -598,7 +611,7 @@ const TEX = {};
 const tex = (key, make) => (TEX[key] ??= make());
 
 /** Painterly-height wood (stylized wood mesh, painted bark) as a Group in tree space. */
-async function paintedWood(entry, { prune = false } = {}) {
+async function paintedWood(entry, { prune = false, saturation = 1 } = {}) {
   const definition = stylized.apply(entry.species);
   // Tier: only the trunk as wood (the Tiers stand in for the branches)
   if (prune) definition.branches = [];
@@ -608,7 +621,7 @@ async function paintedWood(entry, { prune = false } = {}) {
   t.fruit.visible = false;
   const type = entry.species.bark.type;
   const tint = type === 'papery' ? '#ffffff' : '#ffffff';
-  t.wood.material = paintedBarkMaterial(type, tint);
+  t.wood.material = paintedBarkMaterial(type, tint, saturation);
   return t;
 }
 
@@ -617,7 +630,17 @@ function heightScale(t, height) {
   return height / box.max.y;
 }
 
-const MASS_COUNT = { oak: 5, birch: 4, pine: 6, spruce: 6 };
+const MASS_COUNT = { oak: 5, birch: 4, pine: 6, spruce: 6, maple: 5, cherry: 5, olive: 4, elm: 5, cedar: 5, 'douglas-fir': 6, redwood: 7 };
+const massCount = (species) => MASS_COUNT[species.id] ?? (species.form === 'conifer' ? 6 : 5);
+
+/**
+ * Shared builder settings of B and D (and their hybrids). B = a core per Leaf Mass + a shell of cards,
+ * D = no core, more clumps, cards filling the clump. `clumps` = extra masses over the Species' default,
+ * `core` = core scale (0 = no core), `size` = card size relative to the mass, `depth` = how far cards
+ * fill inwards (0 = on the shell).
+ */
+const B_DEFAULTS = { clumps: 0, core: 0.86, shell: 0.92, depth: 0, size: 0.5, bend: 0.9, outward: 0.75, cardSeed: 6, maxCards: 200 };
+const D_DEFAULTS = { clumps: 3, core: 0, shell: 1.0, depth: 0.75, size: 0.8, outward: 0.4, cardSeed: 8, maxCards: 600, bend: 0.85 };
 
 /** The per-concept settings of each variant. */
 const LOOKS = {
@@ -636,6 +659,31 @@ const LOOKS = {
     { name: 'D · medium (160 cards / clump, gradient 1, bend 0.85)', gradient: 1, texture: 0.6, cards: 160, bend: 0.85 },
     { name: 'D · strong (220 cards / clump, gradient 1.4, bend 1)', gradient: 1.4, texture: 0.9, cards: 220, bend: 1 },
   ],
+  // more B variants (medium = gradient 1, texture 0.6, 70 cards / mass, card size 0.5, Species' mass count)
+  Bmore: [
+    { name: 'B1 · dense small cards (140 / mass, size 0.35)', gradient: 1, texture: 0.6, cards: 140, size: 0.35 },
+    { name: 'B2 · sparse big cards (30 / mass, size 0.75)', gradient: 1, texture: 0.6, cards: 30, size: 0.75 },
+    { name: 'B3 · more, smaller masses (+3 masses, 60 cards)', gradient: 1, texture: 0.6, cards: 60, clumps: 3 },
+    { name: 'B4 · fewer, bigger masses (-2 masses, 90 cards)', gradient: 1, texture: 0.6, cards: 90, clumps: -2 },
+    { name: 'B5 · flat gradient (0.5, texture 0.5)', gradient: 0.5, texture: 0.5, cards: 70 },
+    { name: 'B6 · bold gradient (1.7, texture 0.8)', gradient: 1.7, texture: 0.8, cards: 70 },
+  ],
+  // more D variants (medium = gradient 1, texture 0.6, 160 cards / clump, card size 0.8, mass count + 3, bend 0.85)
+  Dmore: [
+    { name: 'D1 · dense small cards (300 / clump, size 0.55)', gradient: 1, texture: 0.6, cards: 300, size: 0.55 },
+    { name: 'D2 · sparse big cards (80 / clump, size 1.1)', gradient: 1, texture: 0.6, cards: 80, size: 1.1 },
+    { name: 'D3 · few clumps (Species count, 220 cards)', gradient: 1, texture: 0.6, cards: 220, clumps: 0 },
+    { name: 'D4 · many small clumps (+7, 110 cards)', gradient: 1, texture: 0.6, cards: 110, clumps: 7 },
+    { name: 'D5 · flat gradient (0.5, texture 0.5)', gradient: 0.5, texture: 0.5, cards: 160 },
+    { name: 'D6 · bold gradient (1.7, texture 0.8, bend 1)', gradient: 1.7, texture: 0.8, cards: 160, bend: 1 },
+    { name: 'D7 · cards on the outside (depth 0.3, fuller outline)', gradient: 1, texture: 0.6, cards: 160, depth: 0.3 },
+  ],
+  // B/D hybrids: D-style clumps and cards with a (small) core that fills the holes
+  BD: [
+    { name: 'BD1 · D clumps + small hidden core (0.55)', concept: 'D', gradient: 1, texture: 0.6, cards: 160, core: 0.55 },
+    { name: 'BD2 · B masses + deep D cards (core 0.7, depth 0.5, size 0.65)', concept: 'B', gradient: 1, texture: 0.6, cards: 110, core: 0.7, shell: 1.0, depth: 0.5, size: 0.65, outward: 0.55 },
+    { name: 'BD3 · in-between (+1 mass, core 0.75, 100 cards, size 0.6)', concept: 'B', gradient: 1, texture: 0.6, cards: 100, clumps: 1, core: 0.75, shell: 0.97, depth: 0.3, size: 0.6, outward: 0.6 },
+  ],
   Tier: [
     { name: 'Tier · soft (gradient 0.7, droop 0.25)', gradient: 0.7, texture: 0.4, droop: 0.25 },
     { name: 'Tier · medium (gradient 1, droop 0.35)', gradient: 1, texture: 0.6, droop: 0.35 },
@@ -653,7 +701,7 @@ async function buildTree(entry, look) {
     group = createTree(style.apply(species), { seed: SEED, season: SEASON });
     await group.ready;
   } else {
-    group = await paintedWood(entry, { prune: look.concept === 'Tier' && species.form === 'conifer' });
+    group = await paintedWood(entry, { prune: look.concept === 'Tier' && species.form === 'conifer', saturation: look.saturation ?? 1 });
     const base = trackColor(species.season.leafColor, SEASON);
     const cloud = leafCloud(species);
     const isPine = species.form === 'conifer';
@@ -670,7 +718,8 @@ async function buildTree(entry, look) {
     } else {
       const concept = look.concept === 'Tier' ? 'A' : look.concept;
       const settings = look.concept === 'Tier' ? LOOKS.A[1] : look;
-      const k = MASS_COUNT[species.id] + (concept === 'D' ? 3 : 0);
+      const bd = concept === 'B' ? { ...B_DEFAULTS, ...look } : concept === 'D' ? { ...D_DEFAULTS, ...look } : null;
+      const k = Math.max(2, massCount(species) + (bd ? bd.clumps : 0));
       const masses = leafMasses(cloud, k, 7, isPine ? 1.8 : 1);
       const crown = crownStats(masses);
       const massTex = tex('mass', () => leafMassTexture());
@@ -682,18 +731,16 @@ async function buildTree(entry, look) {
         const m = paintedLeafMaterial({ base, gradient: settings.gradient, textureStrength: settings.texture, tv: tp.r, ta: tp.a, edgeCut: settings.edge });
         group.add(new THREE.Mesh(massGeometry(masses, crown, { seed: 3, lumpAmount: 0.26 }), m));
       }
-      if (concept === 'B') {
-        const tp = triplanar(massTex, texScale);
-        const core = paintedLeafMaterial({ base, gradient: settings.gradient, textureStrength: settings.texture, tv: tp.r, ta: tp.a });
-        group.add(new THREE.Mesh(massGeometry(masses, crown, { seed: 3, scale: 0.86 }), core));
+      if (bd) {
+        const saturation = look.saturation ?? 1;
+        if (bd.core > 0) {
+          const tp = triplanar(massTex, texScale);
+          const core = paintedLeafMaterial({ base, saturation, gradient: settings.gradient, textureStrength: settings.texture, tv: tp.r, ta: tp.a });
+          group.add(new THREE.Mesh(massGeometry(masses, crown, { seed: 3, scale: bd.core }), core));
+        }
         const st = texture(sprayTex, uv());
-        const cards = paintedLeafMaterial({ base, gradient: settings.gradient, textureStrength: settings.texture, tv: st.r, ta: st.a, alphaTest: 0.5, bentNormals: true, insideDark: false });
-        group.add(new THREE.Mesh(cardGeometry(masses, crown, { perMass: settings.cards, shell: 0.92, size: 0.5, seed: 6, bend: 0.9, outward: 0.75 }), cards));
-      }
-      if (concept === 'D') {
-        const st = texture(sprayTex, uv());
-        const cards = paintedLeafMaterial({ base, gradient: settings.gradient, textureStrength: settings.texture, tv: st.r, ta: st.a, alphaTest: 0.5, bentNormals: true, insideDark: false });
-        group.add(new THREE.Mesh(cardGeometry(masses, crown, { perMass: settings.cards, shell: 1.0, depth: 0.75, size: 0.8, seed: 8, bend: settings.bend, outward: 0.4, maxCards: 600 }), cards));
+        const cards = paintedLeafMaterial({ base, saturation, gradient: settings.gradient, textureStrength: settings.texture, tv: st.r, ta: st.a, alphaTest: 0.5, bentNormals: true, insideDark: false });
+        group.add(new THREE.Mesh(cardGeometry(masses, crown, { perMass: bd.cards, shell: bd.shell, depth: bd.depth, size: bd.size, seed: bd.cardSeed, bend: bd.bend, outward: bd.outward, maxCards: bd.maxCards }), cards));
       }
     }
   }
@@ -734,19 +781,28 @@ function makeStage() {
   ground.receiveShadow = true;
   scene.add(ground);
   const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 200);
-  return { renderer, scene, camera };
+  return { renderer, scene, camera, sun };
 }
 
 const TARGET = new THREE.Vector3(0.05, 1.2, -0.2); // the cluster's box centre (x, z)
 const RADIUS = 3.7;
+/** Framing of the scene: the cluster's fixed one, or fitted to the trees (solo Species, grove). */
+let frame = { target: TARGET, radius: RADIUS, height: 3.4 };
+
+function fitFrame(trees) {
+  const box = new THREE.Box3();
+  for (const t of trees) box.expandByObject(t);
+  const c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+  frame = { target: c, radius: Math.max(sz.x, sz.z, sz.y * 0.8) * 0.5 * (trees.length > 1 ? 1.0 : 1.3), height: trees.length > 1 ? 3.4 : sz.y };
+}
 
 function setView(camera, view) {
   const el = (view.elevation * Math.PI) / 180, az = (view.azimuth * Math.PI) / 180;
   camera.fov = view.fov; camera.updateProjectionMatrix();
   const vFov = (view.fov * Math.PI) / 360;
   const hFov = Math.atan(Math.tan(vFov) * camera.aspect);
-  const target = new THREE.Vector3(TARGET.x, view.y ?? 0, TARGET.z);
-  const r = view.elevation === 90 ? 4.4 : RADIUS;
+  const target = new THREE.Vector3(frame.target.x, ((view.y ?? 0) * frame.height) / 3.4, frame.target.z);
+  const r = view.elevation === 90 ? frame.radius * (4.4 / 3.7) : frame.radius;
   const dist = (r / Math.sin(Math.min(vFov, hFov))) * view.margin;
   const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
   camera.up.set(0, 1, 0);
@@ -799,6 +855,25 @@ const CONCEPTS = {
     looks: [2, 3, 5].map((radius) => ({ concept: 'C', ...LOOKS.A[1], kuwahara: radius })),
   },
   D: { variants: LOOKS.D.map((l) => l.name), looks: LOOKS.D.map((l) => ({ concept: 'D', ...l })) },
+  'B-more': { variants: LOOKS.Bmore.map((l) => l.name), looks: LOOKS.Bmore.map((l) => ({ concept: 'B', ...l })) },
+  'D-more': { variants: LOOKS.Dmore.map((l) => l.name), looks: LOOKS.Dmore.map((l) => ({ concept: 'D', ...l })) },
+  BD: { variants: LOOKS.BD.map((l) => l.name), looks: LOOKS.BD.map((l) => ({ ...l })) },
+  saturation: {
+    variants: [['B', 1], ['B', 0.85], ['B', 0.7], ['D', 1], ['D', 0.85], ['D', 0.7]].map(([c, s]) => `${c} medium · saturation ${s}`),
+    looks: [['B', 1], ['B', 0.85], ['B', 0.7], ['D', 1], ['D', 0.85], ['D', 0.7]].map(([c, s]) => ({ concept: c, ...LOOKS[c][1], saturation: s })),
+  },
+  'species-B': {
+    variants: SPECIES_ROWS.map((e) => `B medium · ${e.species.name} (${e.height} m)`),
+    looks: SPECIES_ROWS.map((e) => ({ concept: 'B', ...LOOKS.B[1], trees: [{ ...e, position: [0, 0, 0] }] })),
+  },
+  'species-D': {
+    variants: SPECIES_ROWS.map((e) => `D medium · ${e.species.name} (${e.height} m)`),
+    looks: SPECIES_ROWS.map((e) => ({ concept: 'D', ...LOOKS.D[1], trees: [{ ...e, position: [0, 0, 0] }] })),
+  },
+  grove: {
+    variants: ['Grove · B medium', 'Grove · D medium', 'Grove · B medium, saturation 0.85', 'Grove · D medium, saturation 0.85', 'Grove · B medium, saturation 0.7', 'Grove · D medium, saturation 0.7'],
+    looks: [['B', 1], ['D', 1], ['B', 0.85], ['D', 0.85], ['B', 0.7], ['D', 0.7]].map(([c, s]) => ({ concept: c, ...LOOKS[c][1], saturation: s, trees: GROVE, grove: true })),
+  },
   tier: {
     variants: LOOKS.Tier.map((l) => `${l.name}\n(oak, birch: A medium)`),
     looks: LOOKS.Tier.map((l) => ({ concept: 'Tier', ...l })),
@@ -816,7 +891,11 @@ async function main() {
   if (!concept) throw new Error(`Unknown concept "${name}"`);
   const look = concept.looks[v];
   const s = makeStage();
-  for (const entry of CLUSTER) s.scene.add(await buildTree(look.spruce && entry.species === pine ? { ...entry, species: spruce } : entry, look));
+  const trees = [];
+  for (const entry of look.trees ?? CLUSTER) trees.push(await buildTree(look.spruce && entry.species === pine ? { ...entry, species: spruce } : entry, look));
+  s.scene.add(...trees);
+  if (look.trees) fitFrame(trees);
+  if (look.grove) { const c = s.sun.shadow.camera; c.left = c.bottom = -8; c.right = c.top = 8; c.updateProjectionMatrix(); }
   await s.renderer.init();
   let render = () => s.renderer.render(s.scene, s.camera);
   if (look.kuwahara) {

@@ -17,7 +17,11 @@ const out = resolve(root, 'concepts/images');
 const PORT = Number(process.env.PORT ?? 5198);
 const W = 640, H = 480;
 /** The panes of the overview image: [concept, variant] in the tycoon view. */
-const OVERVIEW = [['current', 0], ['current', 1], ['A', 1], ['B', 1], ['C', 1], ['D', 1], ['tier', 1], ['A', 2]];
+const OVERVIEW = [
+  ['current', 0], ['B', 1], ['D', 1], ['BD', 0],
+  ['B-more', 0], ['B-more', 2], ['D-more', 0], ['D-more', 6],
+  ['saturation', 1], ['saturation', 4], ['grove', 0], ['grove', 1],
+];
 
 const ffmpeg = (...args) => execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...args], { stdio: 'inherit' });
 

@@ -5,7 +5,8 @@ Throwaway concept renders for the Painterly Style (#108, ticket #109): different
 hack in `concepts/main.ts`, not a proposed implementation.
 
 - Page: `npm run dev`, then `/concepts/?c=<concept>&v=<variant>&view=<0 tycoon | 1 top-down | 2 3/4>`.
-  Concepts: `current`, `A`, `B`, `C`, `D`, `tier`.
+  Concepts: `current`, `A`, `B`, `C`, `D`, `tier`, and (round 2, B and D only) `B-more`, `D-more`, `BD`,
+  `saturation`, `species-B`, `species-D`, `grove`.
 - Images: `env -u DISPLAY node concepts/capture.mjs [concept ...]` (headless Chromium, SwiftShader / WebGL2
   fallback, needs ffmpeg). Writes `concepts/images/<concept>.png` (rows = strength variants, columns = tycoon
   55°, top-down 90°, 3/4 20°) and `overview.png` (one tycoon pane per concept).
@@ -40,6 +41,31 @@ the ramp's contrast, "texture" how strongly the painted texture shifts it.
 ![C](images/C.png)
 ![D](images/D.png)
 ![tier](images/tier.png)
+
+## Round 2: more B and D (owner picked B and D)
+
+Every variant has a short name the owner can pick by (B1, D3, BD2, ...). Unless listed, settings are "medium".
+
+- **B-more** (oak/birch/pine): B1 dense small cards (140 / mass, size 0.35) · B2 sparse big cards (30, size 0.75) ·
+  B3 more, smaller masses (+3) · B4 fewer, bigger masses (-2) · B5 flat gradient (0.5) · B6 bold gradient (1.7).
+- **D-more**: D1 dense small cards (300 / clump, size 0.55) · D2 sparse big cards (80, size 1.1) · D3 few clumps
+  (Species count) · D4 many small clumps (+7) · D5 flat gradient (0.5) · D6 bold gradient (1.7, bend 1) ·
+  D7 cards on the outside (depth 0.3: fuller outline, less wood showing).
+- **BD** hybrids: BD1 D clumps + small hidden core (0.55, fills D's holes) · BD2 B masses + deep D cards (core 0.7,
+  depth 0.5, size 0.65) · BD3 in-between (+1 mass, core 0.75, depth 0.3, size 0.6).
+- **saturation**: B medium and D medium at saturation 1 / 0.85 / 0.7 (leaf palette and bark mixed towards their
+  luminance; ground unchanged).
+- **species-B / species-D**: one tree per row, B medium / D medium: maple 3.4, cherry 3.1, olive 2.6, elm 3.5,
+  cedar 3.4, spruce 3.6, Douglas fir 3.8, redwood 4.0 m (camera fitted to the tree).
+- **grove**: all eight together, B and D medium at saturation 1 / 0.85 / 0.7.
+
+![B-more](images/B-more.png)
+![D-more](images/D-more.png)
+![BD](images/BD.png)
+![saturation](images/saturation.png)
+![species-B](images/species-B.png)
+![species-D](images/species-D.png)
+![grove](images/grove.png)
 
 ## Notes per concept
 
