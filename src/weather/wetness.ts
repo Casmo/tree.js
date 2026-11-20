@@ -1,8 +1,8 @@
-import { float, mix, smoothstep, step, uniform } from 'three/tsl';
+import { dot, float, mix, smoothstep, step, uniform, vec3 } from 'three/tsl';
 import { Color, type ColorRepresentation, type Node } from 'three/webgpu';
 import { TREE_PARTS, type TreePart } from '../effects/mask';
 import { readyMadeShaderHook, type TreeShaderHook, type TreeShaderInput } from '../materials/shader-hooks';
-import { degreesValue, slopeRange, softnessValue, strengthsWith, unitValue, WeatherAmount } from './shared';
+import { degreesValue, paintStrokes, slopeRange, softnessValue, strengthsWith, unitValue, WeatherAmount } from './shared';
 
 export interface WetnessOptions {
   /** How wet the trees are: 0 = dry (default), 1 = soaked. */
@@ -72,6 +72,9 @@ export interface WetnessHooks {
   set(settings: WetnessSettings): this;
 }
 
+/** How much more saturated soaked paint is on `'painted'` (painterly). */
+const PAINTED_SATURATION = 0.25;
+
 const DEFAULTS: WetnessLook = {
   color: new Color('#dfe6ee'),
   slope: 140,
@@ -85,7 +88,8 @@ const DEFAULTS: WetnessLook = {
  * Makes the ready-made Wetness hooks: trees darken and get a sheen (a lower roughness) by the amount of
  * `wetness` (default {@link sceneWetness}), most on surfaces that face up, drawn to suit the Style:
  * smooth on `'standard'` (realistic), whole facets on `'flat'` (low-poly), and in toon bands with a light
- * glint band on top on `'toon'` (stylized; its lighting has no specular). With the amount at 0 the trees
+ * glint band on top on `'toon'` (stylized; its lighting has no specular), and deeper, more saturated
+ * paint with a soft brushed sheen on what faces up on `'painted'` (painterly; no specular either). With the amount at 0 the trees
  * look as without the hooks. They run before the app's own hooks in every stack.
  */
 export function wetnessHooks(settings: WetnessSettings & { wetness?: Wetness } = {}): WetnessHooks {
@@ -103,7 +107,7 @@ export function wetnessHooks(settings: WetnessSettings & { wetness?: Wetness } =
 
   // One hook for every part (it reads the part from its input), marked ready-made so it runs first.
   const hook = readyMadeShaderHook((input: TreeShaderInput) => {
-    const { part, shading, color, roughness, normal } = input;
+    const { part, shading, color, roughness, normal, position } = input;
     const facing = smoothstep(u.dry, u.wet, normal.y);
     // Flat: each facet is wet or not; toon: bands of none, half and full; standard: smooth.
     const coverage: Node<'float'> =
@@ -115,6 +119,14 @@ export function wetnessHooks(settings: WetnessSettings & { wetness?: Wetness } =
     if (shading === 'toon') {
       // A light glint band on the surfaces that face most up: toon lighting draws no specular.
       const glint = smoothstep(0.8, 0.85, normal.y).mul(u.sheen).mul(w).mul(0.25);
+      wetColor = wetColor.add(tint.mul(glint));
+    } else if (shading === 'painted') {
+      // Painterly: wet paint is deeper (a little more saturated as well as darker), and its sheen is a
+      // soft, brushed light on what faces up: painted lighting draws no specular either.
+      const luma = dot(wetColor, vec3(0.2126, 0.7152, 0.0722));
+      wetColor = mix(wetColor, mix(vec3(luma), wetColor, 1 + PAINTED_SATURATION), w);
+      const strokes = paintStrokes(position).mul(0.5).add(0.5);
+      const glint = smoothstep(0.65, 0.95, normal.y).mul(smoothstep(0.45, 0.8, strokes)).mul(u.sheen).mul(w).mul(0.2);
       wetColor = wetColor.add(tint.mul(glint));
     }
     return { color: wetColor, roughness: mix(roughness, roughness.mul(float(1).sub(u.sheen)), w) };

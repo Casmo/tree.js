@@ -1,5 +1,5 @@
-import { uniform } from 'three/tsl';
-import type { UniformNode } from 'three/webgpu';
+import { mx_noise_float, uniform, vec3 } from 'three/tsl';
+import type { Node, UniformNode } from 'three/webgpu';
 import { TREE_PARTS, type TreePart } from '../effects/mask';
 
 /** The options of a scene-wide weather amount ({@link WeatherAmount}). */
@@ -78,4 +78,13 @@ export function slopeRange(slope: number, softness: number): { none: number; ful
   const cosOf = (degrees: number) => Math.cos((Math.min(180, Math.max(0, degrees)) * Math.PI) / 180);
   const none = cosOf(slope);
   return { none, full: Math.max(cosOf(slope - softness), none + 1e-4) };
+}
+
+/**
+ * Brush strokes in world space for the weather on `'painted'` (painterly) trees: smooth noise (about
+ * -1..1) in dabs some 10 cm across, a little flatter than tall, so a painted edge reads as brushed
+ * rather than as a clean line. Fixed in the world: it sways with the surface only as far as Wind moves it.
+ */
+export function paintStrokes(position: Node<'vec3'>): Node<'float'> {
+  return mx_noise_float(position.mul(vec3(9, 16, 9))) as unknown as Node<'float'>;
 }
