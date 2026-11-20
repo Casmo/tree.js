@@ -27,7 +27,8 @@ import {
 } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
 import type { CrownVolume } from '../generator';
-import { createShadedMaterial } from '../materials';
+import { createShadedMaterial, paintsLeafMasses } from '../materials';
+import { paintGradient, PaintedNodeMaterial, softenLeafShadows, type LeafMassPaint } from '../materials/painted';
 import { crownAt } from '../materials/crown-nodes';
 import { applyLeafTranslucencyTerm } from '../materials/leaf-translucency-model';
 import type { MaterialFeatureNodes } from '../materials/material-features';
@@ -229,6 +230,18 @@ export function impostorView(atlases: ImpostorAtlases, sway?: (point: Node<'vec3
   };
 }
 
+/**
+ * The paint atlas (only baked for painted Leaf Masses, `paintsLeafMasses`): r = the leaf's place on the crown
+ * gradient before light (`LeafMassPaint.shade`, encoded), g = its tone (encoded), a = 1 on painted leaves,
+ * 0 on wood. The card paints its leaf texels at draw time from these and the Season colour.
+ */
+export const PAINT_CHANNEL = 'paint';
+
+/** The paint atlas texel the bake writes for a Leaf Mass fragment: shade -1..1 and tone 0..2 into 0..1. */
+export function paintTexel(paint: LeafMassPaint): Node<'vec4'> {
+  return vec4(paint.shade.mul(0.5).add(0.5).clamp(0, 1), paint.tone.mul(0.5).clamp(0, 1), 0, 1);
+}
+
 /** The colour atlas: the MRT `output` (rgb = colour, a = coverage). */
 export const COLOR_CHANNEL = 'output';
 /** The normal atlas: rgb = tree-space normal (encoded 0..1), a = 1 on leaves, 0 on wood. */
@@ -346,6 +359,8 @@ export function createImpostorMaterial(
   material.roughnessNode = mix(float(definition.materials.bark.roughness), float(definition.materials.leaf.roughness), leaf);
   material.metalness = 0;
   material.maskNode = and(coverage.greaterThan(ALPHA_CUT), levelVisible());
+  // Painted Leaf Masses: leaf texels painted on the crown gradient as on the tree (wood warmed as bark is).
+  if (material instanceof PaintedNodeMaterial && paintsLeafMasses(definition)) paintImpostor(material, view, leaf);
   // Material Features: on a dropped leaf's texel the wood shows, and `leaf` (from the wood layer's flag) turns the leaf-only ones off there.
   if (hasImpostorFeatures(features)) applyImpostorFeatures(material, view, atlases.bounds, leaf, features);
   // Tree Effects: tree pixels, leaves where the (Season-aware) leaf flag says so (wood elsewhere).
@@ -363,6 +378,21 @@ export function createImpostorMaterial(
     sway: view.sway,
   });
   return material;
+}
+
+/**
+ * Paints an Impostor of painted Leaf Masses: its leaf texels (`leaf`, the Season-aware leaf flag) on the
+ * crown gradient from the baked paint atlas and the drawn Season colour, lit through the baked bent normal,
+ * with received shadows softened as on the tree's leaves.
+ */
+function paintImpostor(material: PaintedNodeMaterial, view: ImpostorView, leaf: Node<'float'>): void {
+  const texel = view.blend((frame) => frame.sample(PAINT_CHANNEL));
+  const painted = max(texel.a, MIN_COVERAGE);
+  const shade = texel.r.div(painted).mul(2).sub(1);
+  const tone = texel.g.div(painted).mul(2);
+  material.paint = (base, lit) => paintGradient(base, shade, lit, tone);
+  material.paintAmount = leaf;
+  softenLeafShadows(material, leaf);
 }
 
 const hookTargets = new WeakMap<MeshStandardNodeMaterial, ShaderHookTarget>();
