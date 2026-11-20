@@ -24,8 +24,22 @@ export const PAINTERLY_MAX_HEIGHT = 4;
 /** Seeds whose mean height is a tree's height. */
 const SEEDS = [1, 2, 3];
 
+/** Heights already measured, by Definition (JSON): `Style.apply` runs again on every React render. */
+const measured = new Map<string, number>();
+const MEASURED_MAX = 64;
+
 /** Mean height (metres) of the fully grown tree (top of its wood, leaves and Fruit) over a few Seeds. */
 export function treeHeight(definition: TreeDefinition): number {
+  const key = JSON.stringify(definition);
+  const known = measured.get(key);
+  if (known !== undefined) return known;
+  const height = measureHeight(definition);
+  if (measured.size >= MEASURED_MAX) measured.delete(measured.keys().next().value!);
+  measured.set(key, height);
+  return height;
+}
+
+function measureHeight(definition: TreeDefinition): number {
   let sum = 0;
   for (const seed of SEEDS) {
     const data = generateTree(definition, seed);
