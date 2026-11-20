@@ -7,16 +7,20 @@ import {
   type Material,
   Mesh,
   MeshStandardMaterial,
+  Source,
   type Texture,
 } from 'three/webgpu';
 import { GLTFExporter, type GLTFExporterPlugin, type GLTFWriter } from 'three/addons/exporters/GLTFExporter.js';
-import type { MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
+import { DEFAULT_LEAF_MASSES, type MaterialFeatures, type TranslucencyDefinition, type TreeDefinition } from '../definition';
 import { crownNormal, type CrownVolume, type GeometryBuffers } from '../generator';
 import { clampGrowth, growPositions, treeScale } from '../growth';
 import { groundTintAmount } from '../materials/ground-tint';
 import { BARK_REPEAT } from '../materials/maps';
+import { hypot3, pow } from '../math';
+import { BEND, LEAF_SHADOW, paintLeafColor, SUNLIT, TEXTURE, WARM, WRAP } from '../materials/painted';
 import { isFlatShading } from '../materials/shading';
 import { fruitSeason, hexToLinear, leafSeason, partSeasonAt, wrapSeason } from '../season';
+import { srgbToLinear } from '../season/profile';
 import type { Tree } from '../tree';
 
 /**
@@ -58,6 +62,10 @@ interface BakedBuffers {
   visible: (v: number) => boolean;
   /** Crown Normals: the normals are blended towards these Crown Volume normals (per vertex) by `amount`. */
   crownNormals?: BakedCrownNormals;
+  /** Per vertex: its card is turned (winding reversed, `normals` already flipped). */
+  flipped?: Uint8Array;
+  /** More attributes to keep as they are (exported as glTF custom attributes, name upper-cased). */
+  custom?: Record<string, { array: Float32Array; itemSize: number }>;
 }
 
 interface BakedCrownNormals {
@@ -80,7 +88,7 @@ function compact(buffers: BakedBuffers, indices: Uint32Array, flat: boolean): Bu
     const [a, b, c] = [indices[t]!, indices[t + 1]!, indices[t + 2]!];
     if (!buffers.visible(a) || !buffers.visible(b) || !buffers.visible(c)) continue;
     if (area2(positions, a, b, c) < MIN_AREA2) continue;
-    for (const v of buffers.crownNormals?.flipped[a] ? [a, c, b] : [a, b, c]) {
+    for (const v of buffers.flipped?.[a] ? [a, c, b] : [a, b, c]) {
       if (remap[v] === -1) remap[v] = count++;
       kept.push(remap[v]!);
     }
@@ -100,6 +108,7 @@ function compact(buffers: BakedBuffers, indices: Uint32Array, flat: boolean): Bu
   geometry.setAttribute('uv', new BufferAttribute(pick(buffers.uvs, 2), 2));
   if (buffers.colors) geometry.setAttribute('color', new BufferAttribute(pick(buffers.colors, 3), 3));
   if (buffers.occlusion) geometry.setAttribute(OCCLUSION, new BufferAttribute(pick(buffers.occlusion, 1), 1));
+  for (const [name, { array, itemSize }] of Object.entries(buffers.custom ?? {})) geometry.setAttribute(name, new BufferAttribute(pick(array, itemSize), itemSize));
   if (buffers.crownNormals) geometry.setAttribute(CROWN_NORMAL, new BufferAttribute(pick(buffers.crownNormals.normals, 3), 3));
   geometry.setIndex(new BufferAttribute(Uint32Array.from(kept), 1));
   if (flat) {
@@ -184,6 +193,7 @@ function bakeLeaves(
   occlusion: BakedOcclusion,
   crown: CrownVolume,
   amount: number | undefined,
+  sprayValue: number,
 ): { geometry: BufferGeometry | null; meanColor: [number, number, number] } {
   const count = leaves.positions.length / 3;
   const aSeason = leaves.attributes.aSeason!.array;
@@ -194,23 +204,98 @@ function bakeLeaves(
     shown[v] = state.visible ? 1 : 0;
     for (let c = 0; c < 3; c++) colors[v * 3 + c] = state.color[c]! * (leaves.colors?.[v * 3 + c] ?? 1);
   }
+  const masses = paintedMasses(definition, leaves);
+  if (masses) masses.paint(colors, sprayValue);
   const meanColor = meanShownColor(colors, shown);
   const positions = growPositions(leaves, growth);
   const crownNormals = amount ? bakedCrownNormals(leaves, positions, growth, crown, amount, definition.leaves.shape === 'card') : undefined;
+  const flipped = masses?.flipped ?? crownNormals?.flipped;
   const geometry = compact(
     {
       positions,
-      normals: crownNormals ? orient(leaves.normals, crownNormals.flipped) : leaves.normals,
+      normals: masses?.normals ?? (flipped ? orient(leaves.normals, flipped) : leaves.normals),
       uvs: leaves.uvs,
       ...occlusion.of(leaves, colors),
       visible: (v) => shown[v] === 1,
       crownNormals,
+      flipped,
+      custom: masses?.custom,
     },
     leaves.indices,
     isFlatShading(definition.materials.shading),
   );
   return { geometry, meanColor };
 }
+
+/**
+ * Painted Leaf Masses (`shading: 'painted'`, `leaves.shape: 'mass'`), baked as the leaf material draws them
+ * (`paintLeafMasses`) as far as standard glTF goes:
+ * - `normals`: each card's normal bent towards its mass's (`aMass`) by `BEND`, as the material's normalNode.
+ *   A card whose front faces into its mass is turned (normal and winding together, decided per card), so in
+ *   engines that flip the normal of back faces the side seen from outside is lit as the mass (live, both sides are).
+ * - `paint`: the vertex colours painted onto the crown gradient (in place), as lit by a sun straight above
+ *   ({@link PAINT_SUN}; live, direct light moves a leaf up the gradient towards the warm tips, which a standard
+ *   material cannot do); the spray's paint value is taken as its mean (`sprayValue`), its strokes go in the map.
+ * - `custom`: `aMass` and `aPaint` as `_MASS_NORMAL` / `_PAINT`, for engines that rebuild the shading.
+ * Null for other leaves.
+ */
+function paintedMasses(definition: TreeDefinition, leaves: GeometryBuffers) {
+  const { aMass, aPaint, aOrigin } = leaves.attributes;
+  if (definition.materials.shading !== 'painted' || definition.leaves.shape !== 'mass' || !aMass || !aPaint) return null;
+  const count = leaves.positions.length / 3;
+  const n = leaves.normals;
+  const mass = aMass.array as Float32Array;
+  const paint = aPaint.array as Float32Array;
+  // Per card (its vertices share their base, `aOrigin`): does its plane face into its mass?
+  const inwards = new Map<string, number>();
+  const cardOf = (v: number) => (aOrigin ? Array.from(aOrigin.array.subarray(v * 3, v * 3 + 3)).join() : String(v));
+  for (let v = 0; v < count; v++) {
+    const i = v * 3;
+    const key = cardOf(v);
+    inwards.set(key, (inwards.get(key) ?? 0) + n[i]! * mass[i]! + n[i + 1]! * mass[i + 1]! + n[i + 2]! * mass[i + 2]!);
+  }
+  const flipped = new Uint8Array(count);
+  const normals = new Float32Array(count * 3);
+  const bentY = new Float32Array(count); // the live (unturned) bent normal's y, which the paint reads
+  const bend = (v: number, sign: number, out: Float32Array | null) => {
+    const i = v * 3;
+    const b = [0, 1, 2].map((c) => sign * n[i + c]! * (1 - BEND) + mass[i + c]! * BEND);
+    const length = hypot3(b[0]!, b[1]!, b[2]!) || 1;
+    if (out) for (let c = 0; c < 3; c++) out[i + c] = b[c]! / length;
+    return b[1]! / length;
+  };
+  for (let v = 0; v < count; v++) {
+    flipped[v] = inwards.get(cardOf(v))! < 0 ? 1 : 0;
+    bentY[v] = bend(v, 1, null);
+    bend(v, flipped[v] ? -1 : 1, normals);
+  }
+  return {
+    normals,
+    flipped,
+    custom: { [MASS_NORMAL]: { array: mass, itemSize: 3 }, [PAINT]: { array: paint, itemSize: 4 } },
+    paint(colors: Float32Array, sprayValue: number) {
+      for (let v = 0; v < count; v++) {
+        // Lit by a sun straight above (PAINT_SUN), through the wrap lighting: tops warm, undersides deep.
+        const wrapped = (bentY[v]! + WRAP) / (1 + WRAP);
+        const lit = SUNLIT * smoothstep(wrapped);
+        const painted = paintLeafColor(Array.from(colors.subarray(v * 3, v * 3 + 3)), Array.from(paint.subarray(v * 4, v * 4 + 4)), bentY[v]!, sprayValue, 1, lit);
+        colors.set(painted, v * 3);
+      }
+    },
+  };
+}
+
+/** The direction (up) of the sun the baked painted leaf colours are lit by. */
+const PAINT_SUN: [number, number, number] = [0, 1, 0];
+
+const smoothstep = (x: number): number => {
+  const t = Math.min(Math.max(x, 0), 1);
+  return t * t * (3 - 2 * t);
+};
+
+/** The geometry attributes GLTFExporter writes as `_MASS_NORMAL` and `_PAINT` (painted Leaf Masses). */
+const MASS_NORMAL = '_mass_normal';
+const PAINT = '_paint';
 
 /** Mean of the colours of the shown vertices (each channel at most 1); black when none is shown. */
 function meanShownColor(colors: Float32Array, shown: Uint8Array): [number, number, number] {
@@ -359,7 +444,16 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
   // The features as the tree shows them now (values tuned live included).
   const features = tree.materialFeatures;
   const occlusion = bakedOcclusion(features.occlusion?.strength ?? null, options.occlusionInVertexColors ?? false);
-  const extras = materialFeatureExtras(features, tree.data.crown, growth, options.occlusionInVertexColors ?? false);
+  const featureExtras = materialFeatureExtras(features, tree.data.crown, growth, options.occlusionInVertexColors ?? false);
+  const painted = definition.materials.shading === 'painted';
+  const masses = painted && definition.leaves.shape === 'mass';
+  // Painted Leaf Masses: the spray's grey is a paint value, baked into a brightness map around its mean.
+  const spray = masses ? bakedSprayMap(tree.leaves.material.map, definition.materials.leaf.alphaTest) : null;
+  const extrasFor = (part: 'bark' | 'leaves') => {
+    const paintedExtras = painted ? paintedSettings(definition, part === 'leaves' && masses ? (spray?.value ?? 0.5) : null) : null;
+    if (!featureExtras && !paintedExtras) return null;
+    return { ...featureExtras, ...(paintedExtras ? { painted: paintedExtras } : {}) };
+  };
 
   const group = new Group();
   group.name = definition.name || 'Tree';
@@ -377,13 +471,23 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
       map: bakedMap(source.map, BARK_REPEAT),
       normalMap: bakedMap(source.normalMap, BARK_REPEAT),
     });
+    const extras = extrasFor('bark');
     if (extras) material.userData = { treejs: extras };
     group.add(bakedMesh('wood', woodGeometry, material));
   }
 
-  const { geometry: leafGeometry, meanColor } = bakeLeaves(definition, data.leaves, growth, season, occlusion, data.crown, features.crownNormals);
+  const { geometry: leafGeometry, meanColor } = bakeLeaves(
+    definition,
+    data.leaves,
+    growth,
+    season,
+    occlusion,
+    data.crown,
+    features.crownNormals,
+    spray?.value ?? 0.5,
+  );
   if (leafGeometry) {
-    const map = bakedMap(tree.leaves.material.map);
+    const map = spray ? spray.map : bakedMap(tree.leaves.material.map);
     const material = new MeshStandardMaterial({
       name: 'leaves',
       color: 0xffffff,
@@ -395,6 +499,7 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
       map,
       alphaTest: map ? definition.materials.leaf.alphaTest : 0,
     });
+    const extras = extrasFor('leaves');
     if (extras) material.userData = { treejs: extras };
     const { translucency } = features;
     // The transmission colour is the leaves' own colour (without the occlusion of `occlusionInVertexColors`).
@@ -415,6 +520,116 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
     group.add(bakedMesh('fruit', fruitGeometry, material));
   }
   return group;
+}
+
+/**
+ * The painted look's settings (`treejs.painted` in the extras of the baked bark and leaf materials of a
+ * `shading: 'painted'` tree, the painterly Style): what the live shading does that standard glTF cannot carry,
+ * for engines that rebuild it in their own shaders. The Baked Tree itself is an approximation of it.
+ */
+export interface PaintedExtras {
+  /** Wrap lighting: light reaches round the shaded side, `smoothstep(0, 1, (N·L + wrap) / (1 + wrap))`. */
+  wrap: number;
+  /** Direct light on bark and Fruit is multiplied by this (linear rgb): a little warmer. */
+  warm: [number, number, number];
+  /** Painted Leaf Masses (`leaves.shape: 'mass'`, leaf material only). */
+  leafMasses?: {
+    masses: number;
+    massLayering: number;
+    /** How far `NORMAL` is bent from the card's own towards its mass's (`_MASS_NORMAL`); already in `NORMAL`. */
+    bend: number;
+    /** How far direct light moves a leaf up the gradient (towards the warm tips); not in `COLOR_0`. */
+    sunlit: number;
+    /** How much of a received shadow the leaves show. */
+    leafShadow: number;
+    /** The spray texture's mean paint value (linear) `COLOR_0` was painted at; the map carries the rest. */
+    paintValue: number;
+    /** `COLOR_0` is painted as lit by a sun from this direction (straight above), `sunlit` included. */
+    paintSun: [number, number, number];
+  };
+}
+
+function paintedSettings(definition: TreeDefinition, paintValue: number | null): PaintedExtras {
+  const { masses, massLayering } = definition.leaves;
+  return {
+    wrap: WRAP,
+    warm: [...WARM],
+    ...(paintValue === null
+      ? {}
+      : { leafMasses: { masses: masses ?? DEFAULT_LEAF_MASSES, massLayering: massLayering ?? 1, bend: BEND, sunlit: SUNLIT, leafShadow: LEAF_SHADOW, paintValue, paintSun: [...PAINT_SUN] } }),
+  };
+}
+
+/**
+ * How much brighter (per unit of linear paint value) the baked spray map is about the mean: roughly how fast
+ * the painted gradient brightens when the spray moves a leaf along it (`TEXTURE`, in the middle of the ramp).
+ */
+const SPRAY_CONTRAST = 1;
+
+/**
+ * The spray texture of painted Leaf Masses for a standard material. Live, its grey is a paint value that moves a
+ * leaf along the crown gradient (painted per vertex into `COLOR_0` at the mean `value`) and its alpha the
+ * cut-out; a standard material would multiply the grey in and darken everything. So the copy keeps the alpha and
+ * holds the strokes as a brightness about 1 at the mean (`1 + SPRAY_CONTRAST * (value - mean)`, at most 1), with
+ * the gaps between the painted leaves a little darker, as live. `value` is 0.5 (as the shader without a texture)
+ * when there is no image, or no canvas to read it with; then the map is the plain copy (or null).
+ */
+function bakedSprayMap(texture: Texture | null | undefined, alphaTest: number): { map: Texture | null; value: number } {
+  const pixels = texture?.image ? readPixels(texture.image as TexImage) : null;
+  if (!texture || !pixels) return { map: bakedMap(texture), value: 0.5 };
+  const { data, width, height } = pixels;
+  let sum = 0;
+  let covered = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3]! / 255 < alphaTest) continue;
+    sum += srgbToLinear(data[i]! / 255);
+    covered++;
+  }
+  const value = covered ? sum / covered : 0.5;
+  const out = new Uint8ClampedArray(new ArrayBuffer(data.length));
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3]! / 255;
+    const brightness = Math.min(Math.max(1 + SPRAY_CONTRAST * (srgbToLinear(data[i]! / 255) - value), 0), 1) * (1 - 0.4 * (1 - a) * TEXTURE);
+    out.fill(Math.round(linearToSrgb(brightness) * 255), i, i + 3);
+    out[i + 3] = data[i + 3]!;
+  }
+  const map = texture.clone();
+  map.source = new Source(writePixels(out, width, height, texture.image as TexImage)); // its own image: the clone shares the Source
+  map.needsUpdate = true;
+  return { map, value };
+}
+
+type TexImage = { width: number; height: number; data?: ArrayLike<number> } & Partial<CanvasImageSource>;
+
+/** RGBA bytes of a texture image: raw data (a DataTexture's) as it is, others drawn into a canvas; null without a canvas. */
+function readPixels(image: TexImage): { data: ArrayLike<number>; width: number; height: number } | null {
+  const { width, height } = image;
+  if (!width || !height) return null;
+  if (image.data) return image.data.length === width * height * 4 ? { data: image.data, width, height } : null;
+  const context = canvas2d(width, height);
+  if (!context) return null;
+  context.drawImage(image as CanvasImageSource, 0, 0);
+  return { data: context.getImageData(0, 0, width, height).data, width, height };
+}
+
+/** The pixels as an image of the same kind: raw data for raw data, a canvas otherwise. */
+function writePixels(data: Uint8ClampedArray, width: number, height: number, like: TexImage): unknown {
+  if (like.data) return { data: new Uint8Array(data.buffer), width, height };
+  const context = canvas2d(width, height)!;
+  context.putImageData(new ImageData(new Uint8ClampedArray(data), width, height), 0, 0);
+  return context.canvas;
+}
+
+function canvas2d(width: number, height: number): CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null {
+  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(width, height).getContext('2d', { willReadFrequently: true });
+  if (typeof document === 'undefined') return null;
+  const canvas = Object.assign(document.createElement('canvas'), { width, height });
+  return canvas.getContext('2d', { willReadFrequently: true });
+}
+
+/** Linear -> sRGB transfer curve, per channel (as three.js `LinearToSRGB`). */
+function linearToSrgb(c: number): number {
+  return c < 0.0031308 ? c * 12.92 : 1.055 * pow(c, 0.41666) - 0.055;
 }
 
 /**

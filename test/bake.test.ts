@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { validateBytes } from 'gltf-validator';
-import { Box3, Mesh, MeshStandardMaterial, NodeMaterial, Vector3, type BufferGeometry } from 'three/webgpu';
+import { Box3, Mesh, MeshStandardMaterial, NodeMaterial, Texture, Vector3, type BufferGeometry } from 'three/webgpu';
 import { loadSpecies, oak } from '../src/species';
 import { bakeTree, createTree, crownNormal, exportBakedTree, extendDefinition, hexToLinear, type Tree, type TreeDefinition } from '../src/index';
 import lowPoly from '../src/styles/low-poly';
@@ -39,13 +39,6 @@ describe('Baked Tree glTF export', () => {
     const glb = await exportBakedTree(tree);
     expect(glb).toBeInstanceOf(ArrayBuffer);
     const issues = await validate(glb);
-    expect(issues.numErrors, JSON.stringify(issues.messages.slice(0, 5))).toBe(0);
-    tree.dispose();
-  });
-
-  it('writes a valid glTF for a painterly tree (an approximation of its painted shading, #120)', async () => {
-    const tree = createTree(painterly.broadleaf, { seed: 42 });
-    const issues = await validate(await exportBakedTree(tree));
     expect(issues.numErrors, JSON.stringify(issues.messages.slice(0, 5))).toBe(0);
     tree.dispose();
   });
@@ -427,6 +420,103 @@ describe('Baked Tree: Structural Occlusion, Leaf Translucency and the treejs ext
     };
     expect(await occlusionOf({})).toEqual({ strength: 0.7, strengthApplied: true, inVertexColors: false });
     expect(await occlusionOf({ occlusionInVertexColors: true })).toEqual({ strength: 0.7, strengthApplied: true, inVertexColors: true });
+    tree.dispose();
+  });
+});
+
+describe('Baked Tree: Painterly (#120), an approximation of the painted shading', () => {
+  type Json = {
+    materials: { name: string; alphaMode?: string; extras?: { treejs?: Record<string, unknown> } }[];
+    meshes: { primitives: { attributes: Record<string, number> }[] }[];
+    nodes: { name: string; mesh?: number }[];
+  };
+  const leavesOf = (tree: Tree) => bakeTree(tree, { season: 0.3 }).getObjectByName('leaves') as Mesh;
+  const vec = (geometry: BufferGeometry, name: string, v: number) => new Vector3().fromBufferAttribute(geometry.getAttribute(name) as never, v);
+  const luminance = (c: Vector3) => 0.2126 * c.x + 0.7152 * c.y + 0.0722 * c.z;
+
+  for (const [form, definition] of [['broadleaf', painterly.broadleaf], ['conifer', painterly.conifer]] as const) {
+    it(`exports a valid glTF of a painterly ${form}: geometry, vertex colours, standard materials and the Painterly settings in extras`, async () => {
+      const tree = createTree(definition, { seed: 42 });
+      const report = await validate(await exportBakedTree(tree, { season: 0.3 }));
+      expect(report.numErrors, JSON.stringify(report.messages.slice(0, 5))).toBe(0);
+      const json = (await exportBakedTree(tree, { season: 0.3, binary: false })) as Json;
+      expect(json.materials.map((m) => m.name).sort()).toEqual(['bark', 'leaves']);
+      const leaves = json.meshes[json.nodes.find((n) => n.name === 'leaves')!.mesh!]!.primitives[0]!.attributes;
+      expect(Object.keys(leaves).sort()).toEqual(['COLOR_0', 'NORMAL', 'POSITION', 'TEXCOORD_0', '_MASS_NORMAL', '_PAINT']);
+      const extras = (name: string) => json.materials.find((m) => m.name === name)!.extras?.treejs as Record<string, unknown>;
+      expect(extras('bark')).toEqual({ painted: { wrap: 0.5, warm: [1.06, 1.02, 0.9] } });
+      expect(extras('leaves')).toMatchObject({
+        painted: {
+          wrap: 0.5,
+          warm: [1.06, 1.02, 0.9],
+          leafMasses: { masses: definition.leaves.masses, massLayering: definition.leaves.massLayering ?? 1, bend: 0.85, sunlit: 0.35, leafShadow: 0.3 },
+        },
+      });
+      tree.dispose();
+    });
+  }
+
+  it('bends the leaf normals towards their Leaf Mass, each card turned to face out of its mass', () => {
+    const tree = createTree(painterly.broadleaf, { seed: 42 });
+    const geometry = leavesOf(tree).geometry.toNonIndexed();
+    let sum = 0;
+    for (let v = 0; v < geometry.getAttribute('position').count; v++) sum += vec(geometry, 'normal', v).dot(vec(geometry, '_mass_normal', v));
+    expect(sum / geometry.getAttribute('position').count).toBeGreaterThan(0.95);
+    // Turned per card: (almost) every triangle's winding agrees with its normal, so the side seen from outside is lit.
+    let agree = 0;
+    const triangles = geometry.getAttribute('position').count / 3;
+    for (let t = 0; t < triangles * 3; t += 3) {
+      const [a, b, c] = [0, 1, 2].map((k) => vec(geometry, 'position', t + k));
+      if (b!.sub(a!).cross(c!.sub(a!)).dot(vec(geometry, 'normal', t)) > 0) agree++;
+    }
+    expect(agree / triangles).toBeGreaterThan(0.98);
+    tree.dispose();
+  });
+
+  it('paints the crown gradient into the vertex colours: deep inside the masses, light on the open tips', () => {
+    const tree = createTree(extendDefinition(painterly.broadleaf, { variation: { color: 0, season: 0 } }), { seed: 42 });
+    const { geometry } = leavesOf(tree);
+    const paint = geometry.getAttribute('_paint');
+    const buried: number[] = [];
+    const tips: number[] = [];
+    for (let v = 0; v < paint.count; v++) {
+      const l = luminance(vec(geometry, 'color', v));
+      if (paint.getY(v) > 0.6) buried.push(l);
+      else if (paint.getY(v) < 0.15 && paint.getZ(v) > 0.7) tips.push(l);
+    }
+    const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
+    expect(buried.length).toBeGreaterThan(10);
+    expect(tips.length).toBeGreaterThan(10);
+    expect(mean(buried)).toBeLessThan(mean(tips) * 0.5);
+    // The tips warmer (more red to their green) than the plain summer green, the inside cooler (more blue).
+    const summer = new Vector3(...hexToLinear('#3e7d2b'));
+    const ratio = (pick: (v: number) => boolean, a: 'x' | 'z') => {
+      let [sum, green] = [0, 0];
+      for (let v = 0; v < paint.count; v++) if (pick(v)) [sum, green] = [sum + vec(geometry, 'color', v)[a], green + vec(geometry, 'color', v).y];
+      return sum / green;
+    };
+    expect(ratio((v) => paint.getY(v) < 0.15 && paint.getZ(v) > 0.7, 'x')).toBeGreaterThan(summer.x / summer.y);
+    expect(ratio((v) => paint.getY(v) > 0.6, 'z')).toBeGreaterThan(summer.z / summer.y);
+    tree.dispose();
+  });
+
+  it("bakes the spray's paint value into a brightness map about its mean, keeping its cut-out", () => {
+    const tree = createTree(painterly.broadleaf, { seed: 42 });
+    // Four texels (sRGB grey, alpha): three covered (paint values 64, 128, 200), one cut out.
+    const spray = new Texture({ data: new Uint8Array([64, 64, 64, 255, 128, 128, 128, 255, 200, 200, 200, 255, 255, 255, 255, 0]), width: 2, height: 2 });
+    tree.leaves.material.map = spray;
+    const leaves = bakeTree(tree, { season: 0.3 }).getObjectByName('leaves') as Mesh;
+    const material = leaves.material as MeshStandardMaterial;
+    const texels = Array.from((material.map!.image as { data: Uint8Array }).data);
+    // Mean linear paint value of the covered texels: (0.0513 + 0.2159 + 0.5776) / 3.
+    expect((material.userData.treejs as { painted: { leafMasses: { paintValue: number } } }).painted.leafMasses.paintValue).toBeCloseTo(0.2816, 3);
+    expect(texels.filter((_, i) => i % 4 === 3)).toEqual([255, 255, 255, 0]); // the cut-out as it was
+    const grey = texels.filter((_, i) => i % 4 === 0);
+    expect(texels.filter((_, i) => i % 4 === 1)).toEqual(grey);
+    expect(grey[2]).toBe(255); // above the mean: white, the vertex colour as it is
+    expect(grey[0]).toBeLessThan(grey[1]!);
+    expect(grey[1]).toBeGreaterThan(200); // about the mean: hardly darker (a grey map would halve the colour)
+    expect(spray.image.data[0]).toBe(64); // the tree's own texture is untouched
     tree.dispose();
   });
 });

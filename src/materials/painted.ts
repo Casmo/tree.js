@@ -20,6 +20,7 @@ import {
   vec3,
   vec4,
 } from 'three/tsl';
+import { hexToLinear } from '../season/profile';
 import { translucencyDirect, translucencyIndirect, type LeafTranslucencyTerm } from './leaf-translucency';
 
 // TSL node types are loosely typed in @types/three; keep our own alias.
@@ -28,22 +29,22 @@ type Node = any;
 
 // The painted look (Painterly, ADR 0014), tuned on concept D "medium".
 /** Wrap lighting: how far light reaches round the shaded side, in N·L (0 = Lambert, 1 = half-Lambert). */
-const WRAP = 0.5;
+export const WRAP = 0.5;
 /** How far a Leaf Mass card's normal bends from the card's own towards its mass's (`aMass`), 0..1. */
-const BEND = 0.85;
+export const BEND = 0.85;
 /** Contrast of the painted gradient around its middle (1 = as painted, 0 = flat). */
 const GRADIENT = 1;
 /** How much the spray texture's paint value moves the gradient (and darkens the gaps between leaves). */
-const TEXTURE = 0.6;
+export const TEXTURE = 0.6;
 /** How far direct light moves a leaf up the gradient (towards the warm tips). */
-const SUNLIT = 0.35;
+export const SUNLIT = 0.35;
 /**
  * How much of a received shadow a Leaf Mass card shows: a little. Cards shadowing each other read as
  * speckles; the painted gradient already darkens the inside of the masses (concepts, ADR 0014).
  */
-const LEAF_SHADOW = 0.3;
+export const LEAF_SHADOW = 0.3;
 /** Direct light warms bark and Fruit a little (multiplier on the lit colour). */
-const WARM = [1.06, 1.02, 0.9] as const;
+export const WARM = [1.06, 1.02, 0.9] as const;
 
 /** The unpainted colour (Season x tint x texture) of the current fragment: what the painted gradient starts from. */
 const paintBase = new PropertyNode('vec3', 'PaintBase');
@@ -152,4 +153,40 @@ export function paintLeafMasses(material: PaintedNodeMaterial): void {
     // A little per-mass variation; the gaps between painted leaves a little darker.
     return ramp.mul(paint.w.sub(0.5).mul(0.12).add(1)).mul(mix(float(1), float(0.6), float(1).sub(coverage).mul(TEXTURE)));
   };
+}
+
+const smooth = (low: number, high: number, x: number): number => {
+  const t = Math.min(Math.max((x - low) / (high - low), 0), 1);
+  return t * t * (3 - 2 * t);
+};
+const DEEP = hexToLinear('#0b2427');
+const TIP = hexToLinear('#bcd24a');
+
+/**
+ * The leaf paint of {@link paintLeafMasses} on the CPU, for the Baked Tree (#120): the painted colour of a Leaf
+ * Mass vertex from its unpainted colour `base` (linear rgb), its `aPaint`, the y of its bent normal, the spray's
+ * paint value and coverage, and `lit` (0 = no direct light, the material's diffuse colour). Keep it in step with
+ * the TSL `paint` above (the same ramp, number for number).
+ */
+export function paintLeafColor(
+  base: readonly number[],
+  paint: readonly number[],
+  normalY: number,
+  value = 0.5,
+  coverage = 1,
+  lit = 0,
+): [number, number, number] {
+  const up = normalY * 0.5 + 0.5;
+  const raw = -0.06 + paint[0]! * 0.2 + up * 0.34 + (paint[2]! - 0.5) * 0.25 - paint[1]! * 0.6 + (value - 0.5) * 0.9 * TEXTURE + lit;
+  const t = Math.min(Math.max((raw - 0.5) * GRADIENT + 0.5, 0), 1);
+  const [toMid, toTip] = [smooth(0, 0.55, t), smooth(0.5, 1, t)];
+  const deepTint = [0.22, 0.32, 0.45];
+  const shade = (1 + (paint[3]! - 0.5) * 0.12) * (1 + (0.6 - 1) * (1 - coverage) * TEXTURE);
+  return [0, 1, 2].map((c) => {
+    const deep = base[c]! * deepTint[c]! * 0.65 + DEEP[c]! * 0.35;
+    const mid = base[c]! * 1.12;
+    const tip = (base[c]! * 0.5 + TIP[c]! * 0.5) * 1.1;
+    const ramp = deep + (mid - deep) * toMid;
+    return (ramp + (tip - ramp) * toTip) * shade;
+  }) as [number, number, number];
 }
