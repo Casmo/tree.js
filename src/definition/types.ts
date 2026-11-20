@@ -162,6 +162,12 @@ export interface LeavesDefinition {
    * shapes ignore it). Absent = {@link DEFAULT_LEAF_MASSES}.
    */
   masses?: number;
+  /**
+   * How much more height counts than width when the leaves are grouped into Leaf Masses (> 0), for
+   * `shape: 'mass'` only. Above 1 the masses come out wide and flat, stacked in layers (conifer
+   * crowns); absent = 1 (round masses).
+   */
+  massLayering?: number;
 }
 
 /** Leaf Masses of a `shape: 'mass'` crown without `leaves.masses`. */

@@ -13,14 +13,19 @@ const backends = [
   { name: 'webgl2', query: '&backend=webgl' },
 ];
 
-// Painterly (#112): the broadleaf so far; its conifer, Growth and Season looks are their own tickets.
+// Painterly (#112, #113): broadleaf and conifer on both backends, plus tycoon (about 55°) and top-down
+// views; its Growth and Season looks are their own tickets.
 const painterlyShots = [
-  ...backends.map((backend) => ({ name: `painterly broadleaf renders on ${backend.name}`, file: `painterly-broadleaf-${backend.name}.png`, query: backend.query, backend: backend.name })),
-  { name: 'painterly broadleaf from a tycoon camera (about 55°)', file: 'painterly-broadleaf-tycoon.png', query: '&view=tycoon', backend: 'webgpu' },
+  ...forms.flatMap((form) =>
+    backends.map((backend) => ({ name: `painterly ${form} renders on ${backend.name}`, form, file: `painterly-${form}-${backend.name}.png`, query: backend.query, backend: backend.name })),
+  ),
+  { name: 'painterly broadleaf from a tycoon camera (about 55°)', form: 'broadleaf', file: 'painterly-broadleaf-tycoon.png', query: '&view=tycoon', backend: 'webgpu' },
+  { name: 'painterly conifer from a tycoon camera (about 55°)', form: 'conifer', file: 'painterly-conifer-tycoon.png', query: '&view=tycoon', backend: 'webgpu' },
+  { name: 'painterly conifer from straight above', form: 'conifer', file: 'painterly-conifer-top.png', query: '&view=top', backend: 'webgpu' },
 ];
 for (const shot of painterlyShots) {
   test(shot.name, async ({ page }) => {
-    await page.goto(`/examples/vanilla/?style=painterly&form=broadleaf&seed=1${shot.query}`);
+    await page.goto(`/examples/vanilla/?style=painterly&form=${shot.form}&seed=1${shot.query}`);
     expect(await waitForExample(page)).toMatchObject({ status: 'rendered', backend: shot.backend });
     await expect(page.locator('canvas')).toHaveScreenshot(shot.file, { mask: [page.locator('#status')] });
   });

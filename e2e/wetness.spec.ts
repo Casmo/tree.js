@@ -40,8 +40,8 @@ async function compare(page: Page, a: Buffer, b: Buffer): Promise<{ changed: num
 }
 
 const cases = [
-  ...(['low-poly', 'stylized', 'realistic'] as const).map((style) => ({ style, backend: 'webgpu' as const })),
-  ...(['low-poly', 'stylized', 'realistic'] as const).map((style) => ({ style, backend: 'webgl' as const })),
+  ...(['low-poly', 'stylized', 'realistic', 'painterly'] as const).map((style) => ({ style, backend: 'webgpu' as const })),
+  ...(['low-poly', 'stylized', 'realistic', 'painterly'] as const).map((style) => ({ style, backend: 'webgl' as const })),
 ];
 
 for (const { style, backend } of cases) {
