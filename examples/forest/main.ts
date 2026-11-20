@@ -10,6 +10,7 @@
 //   ?wind=<strength>&windTime=<s>  scene-wide Wind; windTime pins the clock (Wind Bursts: window.forestExample.burst and setWindTime)
 //   ?cut=<n>  remove every n-th tree after planting (the others must not change)
 //   ?style=<name>&form=conifer  a built-in Style's Definition instead of the example's own
+//   ?view=tycoon  look down at about 55° (a tycoon game camera) from further back, instead of the default view
 //   ?species=<id>  that Species (loadSpecies, e.g. oak) in the ?style (default low-poly), with its Root Flare and Roots
 //   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (a third instanced mesh per Variant)
 //   Material Features (off by default; applied with withMaterialFeatures):
@@ -117,7 +118,14 @@ const definition: TreeDefinitionInput = {
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#cfe3f0');
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.5, 300);
-camera.position.set(0, 22, 46);
+if (params.get('view') === 'tycoon') {
+  // About 55° down from 32 m away: the near trees ~25 m, the far edge ~65 m from the camera.
+  camera.position.set(0, 26, 14);
+  camera.far = 400;
+  camera.updateProjectionMatrix();
+} else {
+  camera.position.set(0, 22, 46);
+}
 camera.lookAt(0, 0, -4);
 scene.add(new THREE.HemisphereLight('#ffffff', '#6a7a4a', 1.5));
 const sun = new THREE.DirectionalLight('#ffffff', 2.5);
