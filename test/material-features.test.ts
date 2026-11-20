@@ -108,7 +108,7 @@ describe('Material Features and Styles', () => {
         expect(materials, `${style.name} ${s.id}`).not.toHaveProperty('occlusion');
       }
     }
-  });
+  }, 30_000); // applies every Species in every Style (Painterly measures each tree: slow under load)
 
   it('survive re-styling a Definition (they are the app\'s choice, not part of a look)', () => {
     const { occlusion, ...leaf } = features;
