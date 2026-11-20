@@ -15,6 +15,7 @@ import {
 import * as allSpecies from '../src/species';
 import { oak, type SpeciesDefinition } from '../src/species';
 import lowPoly from '../src/styles/low-poly';
+import painterly from '../src/styles/painterly';
 import realistic from '../src/styles/realistic';
 import stylized from '../src/styles/stylized';
 
@@ -152,7 +153,7 @@ describe('built-in Styles and Species', () => {
   const species = Object.values(allSpecies).filter((v): v is SpeciesDefinition => typeof v === 'object' && v !== null && 'bark' in v);
 
   it('no built-in Style Definition sets a Material Feature', () => {
-    for (const style of [lowPoly, stylized, realistic]) {
+    for (const style of [lowPoly, stylized, realistic, painterly]) {
       for (const form of ['broadleaf', 'conifer'] as const) {
         expect(featuresOf(style[form]), `${style.name} ${form}`).toEqual({});
       }
@@ -163,7 +164,7 @@ describe('built-in Styles and Species', () => {
     expect(species.length).toBeGreaterThan(0);
     for (const s of species) {
       expect(JSON.stringify(s), s.id).not.toMatch(/crownNormals|translucency|occlusion/);
-      for (const style of [lowPoly, stylized, realistic]) expect(featuresOf(style.apply(s)), `${style.name} ${s.id}`).toEqual({});
+      for (const style of [lowPoly, stylized, realistic, painterly]) expect(featuresOf(style.apply(s)), `${style.name} ${s.id}`).toEqual({});
     }
   });
 });

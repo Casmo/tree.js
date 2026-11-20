@@ -99,7 +99,7 @@ describe('ScenePipeline settings', () => {
   });
 
   it('picks both the suggested Tree Effects and the suggested Scene Effects of a Style', () => {
-    for (const style of ['low-poly', 'stylized', 'realistic'] as const) {
+    for (const style of ['low-poly', 'stylized', 'realistic', 'painterly'] as const) {
       const pipeline = create({ style });
       expect(pipeline.settings.treeEffects).toBe(SUGGESTED_TREE_EFFECTS[style]);
       expect(pipeline.settings.sceneEffects).toBe(SUGGESTED_SCENE_EFFECTS[style]);
@@ -296,7 +296,7 @@ describe('ambient occlusion (GTAO through the lighting context)', () => {
   });
 
   it('is in every Style\'s suggestion, lighter for low-poly', () => {
-    for (const style of ['low-poly', 'stylized', 'realistic'] as const) expect(SUGGESTED_SCENE_EFFECTS[style].ao, style).toBeDefined();
+    for (const style of ['low-poly', 'stylized', 'realistic', 'painterly'] as const) expect(SUGGESTED_SCENE_EFFECTS[style].ao, style).toBeDefined();
     expect(SUGGESTED_SCENE_EFFECTS['low-poly'].ao!.scale!).toBeLessThan(SUGGESTED_SCENE_EFFECTS.stylized.ao!.scale!);
   });
 
