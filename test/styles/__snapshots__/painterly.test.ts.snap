@@ -175,3 +175,134 @@ exports[`painterly Style (dynamic import of the /styles/painterly subpath) > bro
 `;
 
 exports[`painterly Style (dynamic import of the /styles/painterly subpath) > broadleaf: matches the golden Definition and geometry hash (determinism across releases) 2`] = `"fa23bd37"`;
+
+exports[`painterly Style (dynamic import of the /styles/painterly subpath) > conifer (#113, ADR 0014: clumped spray cards, no Tier) > matches the golden Definition and geometry hash (determinism across releases) 1`] = `
+{
+  "branches": [
+    {
+      "angle": 90,
+      "angleVariation": 0.1,
+      "bend": 0.1,
+      "count": 24,
+      "end": 0.98,
+      "gravity": 0.08,
+      "length": 0.38,
+      "lengthProfile": [
+        {
+          "t": 0.18,
+          "value": 1,
+        },
+        {
+          "t": 0.918,
+          "value": 0.1,
+        },
+        {
+          "t": 1,
+          "value": 0.1,
+        },
+      ],
+      "lengthVariation": 0.15,
+      "radius": 0.25,
+      "sections": 2,
+      "sides": 4,
+      "spiral": 137.5,
+      "start": 0.18,
+      "taper": 0.35,
+    },
+  ],
+  "leaves": {
+    "angle": 30,
+    "count": 50,
+    "massLayering": 1.8,
+    "masses": 12,
+    "shape": "mass",
+    "size": 0.48,
+    "sizeVariation": 0.2,
+    "start": 0,
+    "type": "needle",
+  },
+  "materials": {
+    "bark": {
+      "color": "#ffffff",
+      "map": "painterly/bark-plated.png",
+      "normalMap": null,
+      "roughness": 1,
+      "type": "plated",
+    },
+    "leaf": {
+      "alphaTest": 0.5,
+      "map": "painterly/spray-needle.png",
+      "roughness": 1,
+    },
+    "shading": "painted",
+  },
+  "name": "Painterly conifer",
+  "schemaVersion": 3,
+  "sculpts": [],
+  "season": {
+    "blossom": [
+      {
+        "t": 0,
+        "value": 0,
+      },
+    ],
+    "blossomColor": "#f7c6d9",
+    "leafColor": [
+      {
+        "t": 0,
+        "value": "#3f7a35",
+      },
+      {
+        "t": 0.25,
+        "value": "#2f6a2e",
+      },
+      {
+        "t": 0.55,
+        "value": "#2f6a2e",
+      },
+      {
+        "t": 0.75,
+        "value": "#26502b",
+      },
+      {
+        "t": 0.92,
+        "value": "#26502b",
+      },
+      {
+        "t": 1,
+        "value": "#3f7a35",
+      },
+    ],
+    "leafCoverage": [
+      {
+        "t": 0,
+        "value": 1,
+      },
+    ],
+  },
+  "trunk": {
+    "bend": 0.05,
+    "flare": 0.4,
+    "flareSections": 3,
+    "length": 3.2,
+    "lengthVariation": 0.08,
+    "radius": 0.1,
+    "sections": 6,
+    "sides": 8,
+    "taper": 0.15,
+  },
+  "variation": {
+    "color": 0.08,
+    "growth": 0.1,
+    "season": 0.05,
+  },
+  "wind": {
+    "branches": 0.3,
+    "frequency": 0.8,
+    "leaves": 0.4,
+    "trunk": 0.08,
+  },
+}
+`;
+
+exports[`painterly Style (dynamic import of the /styles/painterly subpath) > conifer (#113, ADR 0014: clumped spray cards, no Tier) > matches the golden Definition and geometry hash (determinism across releases) 2`] = `"15aeeb7a"`;

@@ -97,6 +97,49 @@ describe('painterly Style (dynamic import of the /styles/painterly subpath)', as
     expect(hashTreeData(generateTree(parseDefinition(broadleaf), 42))).toMatchSnapshot();
   });
 
+  describe('conifer (#113, ADR 0014: clumped spray cards, no Tier)', () => {
+    const { conifer } = painterly;
+    const top = (definition: TreeDefinition) => {
+      const { wood, leaves } = generateTree(parseDefinition(definition), 42);
+      let y = 0;
+      for (const positions of [wood.positions, leaves.positions]) for (let i = 1; i < positions.length; i += 3) y = Math.max(y, positions[i]!);
+      return y;
+    };
+
+    it('is a complete, valid Definition, also on the Style object', () => {
+      expect(conifer.name).toMatch(/conifer/);
+      expect(painterly.default).toMatchObject({ conifer });
+      expect(parseDefinition(conifer)).toEqual(conifer);
+    });
+
+    it('is 3.5 m tall at full Growth (ADR 0013)', () => {
+      expect(top(conifer)).toBeGreaterThan(3.35);
+      expect(top(conifer)).toBeLessThan(3.65);
+    });
+
+    it('draws flat, layered Leaf Masses of painted needle sprays, evergreen', () => {
+      expect(conifer.materials.shading).toBe('painted');
+      expect(conifer.leaves).toMatchObject({ type: 'needle', shape: 'mass' });
+      expect(conifer.leaves.massLayering).toBeGreaterThan(1);
+      expect(conifer.materials.leaf.map).toBe('painterly/spray-needle.png');
+      expect(conifer.season.leafCoverage.every((k) => k.value === 1)).toBe(true);
+    });
+
+    it('costs about what a stylized conifer costs (triangles)', async () => {
+      const stylized = (await loadStyle('stylized')).conifer;
+      const triangles = (definition: TreeDefinition) => {
+        const data = generateTree(parseDefinition(definition), 42);
+        return (data.wood.indices.length + data.leaves.indices.length + data.fruit.indices.length) / 3;
+      };
+      expect(triangles(conifer)).toBeLessThan(triangles(stylized) * 1.25);
+    });
+
+    it('matches the golden Definition and geometry hash (determinism across releases)', () => {
+      expect(conifer).toMatchSnapshot();
+      expect(hashTreeData(generateTree(parseDefinition(conifer), 42))).toMatchSnapshot();
+    });
+  });
+
   it('apply draws a Species with Leaf Masses and painted textures per Leaf Type and Bark Type', () => {
     const definition = painterly.default.apply(extendDefinition(broadleaf, { leaves: { type: 'lobed' }, materials: { bark: { type: 'papery' } } }));
     expect(definition.materials.shading).toBe('painted');

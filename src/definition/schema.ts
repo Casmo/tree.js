@@ -223,6 +223,7 @@ const treeDefinition = obj<TreeDefinition>({
     start: unit,
     angle: range(0, 180),
     masses: optional(intAtLeast(1)),
+    massLayering: optional(positive),
   }),
   fruit: optionalBlock<FruitDefinition>(
     obj<FruitDefinition>({

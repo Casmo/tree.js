@@ -69,4 +69,34 @@ describe("leaf shape 'mass': Leaf Masses of spray cards (ADR 0014)", () => {
     expect(light.leaves.attributes.aPaint).toBeDefined();
     expect(light.leaves.positions.length).toBe(light.skeleton.leaves.length * 4 * 3);
   });
+
+  it('with `leaves.massLayering` > 1 groups the leaves into wide, flat masses stacked in layers (conifers)', () => {
+    // A tall, narrow crown: whorls of level branches up a long trunk.
+    const conifer = (massLayering?: number) =>
+      parseDefinition({
+        schemaVersion: 2,
+        trunk: { length: 4 },
+        branches: [{ count: 20, start: 0.2, end: 1, angle: 90, length: 0.3 }],
+        leaves: { count: 30, shape: 'mass', size: 0.4, masses: 8, ...(massLayering === undefined ? {} : { massLayering }) },
+      });
+    const flatness = (massLayering?: number) => {
+      const { leaves } = generateTree(conifer(massLayering), 3);
+      const paint = leaves.attributes.aPaint!.array;
+      const byMass = new Map<number, number[][]>();
+      for (let v = 0; v < leaves.positions.length / 3; v++) {
+        const points = byMass.get(paint[v * 4 + 3]!) ?? [];
+        points.push([0, 1, 2].map((a) => leaves.positions[v * 3 + a]!));
+        byMass.set(paint[v * 4 + 3]!, points);
+      }
+      // Mean over the masses of (vertical spread / horizontal spread) of their card corners.
+      const sd = (values: number[]) => {
+        const mean = values.reduce((s, x) => s + x, 0) / values.length;
+        return Math.sqrt(values.reduce((s, x) => s + (x - mean) ** 2, 0) / values.length);
+      };
+      const ratios = [...byMass.values()].map((p) => sd(p.map((q) => q[1]!)) / Math.hypot(sd(p.map((q) => q[0]!)), sd(p.map((q) => q[2]!))));
+      return ratios.reduce((s, x) => s + x, 0) / ratios.length;
+    };
+    expect(flatness(1)).toBeCloseTo(flatness(), 10); // 1 = the default (round masses)
+    expect(flatness(2)).toBeLessThan(flatness() * 0.8);
+  });
 });
