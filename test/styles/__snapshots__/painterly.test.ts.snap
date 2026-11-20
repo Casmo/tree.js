@@ -189,11 +189,11 @@ exports[`painterly Style (dynamic import of the /styles/painterly subpath) > con
       "length": 0.38,
       "lengthProfile": [
         {
-          "t": 0.15,
+          "t": 0.18,
           "value": 1,
         },
         {
-          "t": 0.915,
+          "t": 0.918,
           "value": 0.1,
         },
         {
@@ -305,4 +305,4 @@ exports[`painterly Style (dynamic import of the /styles/painterly subpath) > con
 }
 `;
 
-exports[`painterly Style (dynamic import of the /styles/painterly subpath) > conifer (#113, ADR 0014: clumped spray cards, no Tier) > matches the golden Definition and geometry hash (determinism across releases) 2`] = `"18a9752d"`;
+exports[`painterly Style (dynamic import of the /styles/painterly subpath) > conifer (#113, ADR 0014: clumped spray cards, no Tier) > matches the golden Definition and geometry hash (determinism across releases) 2`] = `"15aeeb7a"`;

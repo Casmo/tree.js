@@ -50,7 +50,8 @@ export const conifer: TreeDefinition = {
   trunk: { length: 3.2, radius: 0.1, taper: 0.15, sides: 8, sections: 6, lengthVariation: 0.08, bend: 0.05, flare: 0.4, flareSections: 3 },
   branches: [
     { count: 24, start: 0.18, end: 0.98, angle: 90, angleVariation: 0.1, spiral: 137.5, length: 0.38, lengthVariation: 0.15, radius: 0.25, taper: 0.35, sides: 4, sections: 2, bend: 0.1, gravity: 0.08,
-      lengthProfile: coneCurve(0.15) },
+      // Crown Shape: a cone from the lowest whorl.
+      lengthProfile: coneCurve(0.18) },
   ],
   leaves: { type: 'needle', count: 50, shape: 'mass', size: 0.48, sizeVariation: 0.2, start: 0, angle: 30, masses: 12, massLayering: 1.8 },
   materials: {
