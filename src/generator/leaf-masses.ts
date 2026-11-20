@@ -3,7 +3,7 @@
 // so the mass reads as one ragged clump. The painted shading bends the cards' normals to their mass
 // (`aMass`) and paints the dark-inside to warm-tips gradient from `aPaint`.
 import type { VariationDefinition } from '../definition';
-import { hypot3, pow } from '../math';
+import { hypot3, pow, smoothstep as smooth } from '../math';
 import { leafSeasonAttribute } from '../season/profile';
 import { createRandom, seedRandom, type Random } from '../random';
 import { createAttributes, writePart } from './attributes';
@@ -119,11 +119,6 @@ export function massNormal({ centre, radii }: LeafMass, p: Vec3): Vec3 {
 }
 
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
-/** Smoothstep from `a` to `b` (either order). */
-const smooth = (a: number, b: number, x: number) => {
-  const t = clamp01((x - a) / (b - a));
-  return t * t * (3 - 2 * t);
-};
 
 /** The crown the masses make up: its height span and its (horizontal) centre and reach. */
 interface MassCrown {

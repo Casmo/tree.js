@@ -84,7 +84,8 @@ describe('Painterly size in Tree Definitions', () => {
     // Peach drawn in Painterly before scaling is CATALOGUE_HEIGHTS.min tall (checked above): scale it to
     // trees that are 3.9 m and 4.2 m tall as Painterly measures them, from a real-sized (realistic) Definition.
     const real = realistic.apply(SPECIES_BY_NAME.peach);
-    const [low, high] = [3.9, 4.2].map((metres) => scaleDefinition(real, metres / CATALOGUE_HEIGHTS.min));
+    const low = scaleDefinition(real, 3.9 / CATALOGUE_HEIGHTS.min);
+    const high = scaleDefinition(real, 4.2 / CATALOGUE_HEIGHTS.min);
     const [paintedLow, paintedHigh] = [meanTop(painterly.apply(low)), meanTop(painterly.apply(high))];
     expect(paintedLow).toBeLessThanOrEqual(paintedHigh + 1e-6);
     expect(paintedHigh).toBeGreaterThanOrEqual(2);

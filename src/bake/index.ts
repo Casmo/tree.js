@@ -17,8 +17,9 @@ import { crownNormal, type CrownVolume, type GeometryBuffers } from '../generato
 import { clampGrowth, growPositions, treeScale } from '../growth';
 import { groundTintAmount } from '../materials/ground-tint';
 import { BARK_REPEAT } from '../materials/maps';
-import { hypot3, pow } from '../math';
-import { BEND, LEAF_SHADOW, paintLeafColor, SUNLIT, TEXTURE, WARM, WRAP } from '../materials/painted';
+import { pow } from '../math';
+import { paintsLeafMasses } from '../materials';
+import { BEND, bendToMass, GAP_DARK, LEAF_SHADOW, leafMassPoint, paintLeafColor, SPRAY_STRENGTH, SUNLIT, WARM, WRAP, wrapLight } from '../materials/painted';
 import { isFlatShading } from '../materials/shading';
 import { fruitSeason, hexToLinear, leafSeason, partSeasonAt, wrapSeason } from '../season';
 import { srgbToLinear } from '../season/profile';
@@ -252,27 +253,22 @@ function bakeLeaves(
  */
 function paintedMasses(definition: TreeDefinition, leaves: GeometryBuffers) {
   const { aMass, aPaint } = leaves.attributes;
-  if (definition.materials.shading !== 'painted' || definition.leaves.shape !== 'mass' || !aMass || !aPaint) return null;
+  if (!paintsLeafMasses(definition) || !aMass || !aPaint) return null;
   const count = leaves.positions.length / 3;
   const n = leaves.normals;
   const mass = aMass.array as Float32Array;
   const paint = aPaint.array as Float32Array;
-  // normalize(mix(card normal, aMass, BEND)), as the material's normalNode.
+  // The cards' lighting normals, as the material's normalNode.
   const normals = new Float32Array(count * 3);
-  for (let i = 0; i < count * 3; i += 3) {
-    const b = [0, 1, 2].map((c) => n[i + c]! * (1 - BEND) + mass[i + c]! * BEND);
-    const length = hypot3(b[0]!, b[1]!, b[2]!) || 1;
-    for (let c = 0; c < 3; c++) normals[i + c] = b[c]! / length;
-  }
+  for (let i = 0; i < count * 3; i += 3) normals.set(bendToMass(n.subarray(i, i + 3), mass.subarray(i, i + 3)), i);
   return {
     normals,
     custom: { [MASS_NORMAL]: { array: mass, itemSize: 3 }, [PAINT]: { array: paint, itemSize: 4 } },
     paint(colors: Float32Array, sprayValue: number) {
       for (let v = 0; v < count; v++) {
-        // Lit by a sun straight above (PAINT_SUN), through the wrap lighting: tops warm, undersides deep.
-        const wrapped = (normals[v * 3 + 1]! + WRAP) / (1 + WRAP);
-        const lit = SUNLIT * smoothstep(wrapped);
-        const painted = paintLeafColor(Array.from(colors.subarray(v * 3, v * 3 + 3)), Array.from(paint.subarray(v * 4, v * 4 + 4)), normals[v * 3 + 1]!, sprayValue, 1, lit);
+        // Lit by a sun straight above (PAINT_SUN, so N·L is the normal's y), through the wrap lighting: tops warm, undersides deep.
+        const up = normals[v * 3 + 1]!;
+        const painted = paintLeafColor(colors.subarray(v * 3, v * 3 + 3), leafMassPoint(paint, v), up, { value: sprayValue, lit: SUNLIT * wrapLight(up) });
         colors.set(painted, v * 3);
       }
     },
@@ -281,11 +277,6 @@ function paintedMasses(definition: TreeDefinition, leaves: GeometryBuffers) {
 
 /** The direction (up) of the sun the baked painted leaf colours are lit by. */
 const PAINT_SUN: [number, number, number] = [0, 1, 0];
-
-const smoothstep = (x: number): number => {
-  const t = Math.min(Math.max(x, 0), 1);
-  return t * t * (3 - 2 * t);
-};
 
 /** The geometry attributes GLTFExporter writes as `_MASS_NORMAL` and `_PAINT` (painted Leaf Masses). */
 const MASS_NORMAL = '_mass_normal';
@@ -440,7 +431,7 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
   const occlusion = bakedOcclusion(features.occlusion?.strength ?? null, options.occlusionInVertexColors ?? false);
   const featureExtras = materialFeatureExtras(features, tree.data.crown, growth, options.occlusionInVertexColors ?? false);
   const painted = definition.materials.shading === 'painted';
-  const masses = painted && definition.leaves.shape === 'mass';
+  const masses = paintsLeafMasses(definition);
   // Painted Leaf Masses: the spray's grey is a paint value, baked into a brightness map around its mean.
   const spray = masses ? bakedSprayMap(tree.leaves.material.map, definition.materials.leaf.alphaTest) : null;
   const extrasFor = (part: 'bark' | 'leaves') => {
@@ -556,7 +547,7 @@ function paintedSettings(definition: TreeDefinition, paintValue: number | null):
 
 /**
  * How much darker (per unit of linear paint value) the baked spray map gets below the painted value: roughly how
- * fast the painted gradient darkens as the spray moves a leaf down it (`TEXTURE`, in the middle of the ramp).
+ * fast the painted gradient darkens as the spray moves a leaf down it (`SPRAY_STRENGTH`, in the middle of the ramp).
  */
 const SPRAY_CONTRAST = 1.2;
 /** The paint value `COLOR_0` is painted at: this quantile of the spray's covered texels (the light strokes). */
@@ -581,7 +572,7 @@ function bakedSprayMap(texture: Texture | null | undefined, alphaTest: number): 
   const out = new Uint8ClampedArray(new ArrayBuffer(data.length));
   for (let i = 0; i < data.length; i += 4) {
     const a = data[i + 3]! / 255;
-    const brightness = Math.min(Math.max(1 + SPRAY_CONTRAST * (srgbToLinear(data[i]! / 255) - value), 0), 1) * (1 - 0.4 * (1 - a) * TEXTURE);
+    const brightness = Math.min(Math.max(1 + SPRAY_CONTRAST * (srgbToLinear(data[i]! / 255) - value), 0), 1) * (1 - (1 - GAP_DARK) * (1 - a) * SPRAY_STRENGTH);
     out.fill(Math.round(linearToSrgb(brightness) * 255), i, i + 3);
     out[i + 3] = data[i + 3]!;
   }
