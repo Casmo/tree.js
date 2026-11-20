@@ -116,7 +116,7 @@ const LOOKS = {
     leaf: (type) => {
       const material = { roughness: 1, map: SPRAY_TEXTURES[type], alphaTest: 0.5 };
       return isNeedleLike(type)
-        ? { shape: 'mass', perDensity: 120, sizeScale: 1.15, material, masses: { masses: 12, massLayering: 1.8 } }
+        ? { shape: 'mass', perDensity: 170, sizeScale: 1.15, material, masses: { masses: 12, massLayering: 1.8 } }
         : { shape: 'mass', perDensity: 160, sizeScale: 1.43, material };
     },
   },
