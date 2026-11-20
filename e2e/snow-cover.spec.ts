@@ -109,7 +109,7 @@ function expectSnowOnTop(region: Region, least: { up: number; down: number }) {
 for (const backend of ['webgpu', 'webgl'] as const) {
   const webgl = backend === 'webgl' ? '&backend=webgl' : '';
 
-  for (const style of ['low-poly', 'stylized', 'realistic'] as const) {
+  for (const style of ['low-poly', 'stylized', 'realistic', 'painterly'] as const) {
     test(`Snow Cover whitens what faces up on a near ${style} Tree, not the undersides (${backend})`, async ({ page }) => {
       const errors: string[] = [];
       await open(page, `/examples/vanilla/?style=${style}&seed=1${webgl}`, 'treeExample', errors);

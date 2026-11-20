@@ -1,5 +1,6 @@
-// Painterly (#112) next to the features whose painted look is a later ticket (Snow Cover and Wetness #118,
-// Impostors #119; the Bake #120 is in test/bake.test.ts): they fall back to another Style's look for now, but never throw.
+// Painterly (#112) next to features drawn for it in their own tickets: Snow Cover and Wetness (#117, painted
+// branches; their look is checked in e2e/snow-cover.spec.ts and e2e/wetness.spec.ts), Impostors (#119; the
+// Bake #120 is in test/bake.test.ts). Until then they fall back to another Style's look, but never throw.
 import { describe, expect, it, vi } from 'vitest';
 import { InstancedMesh, Mesh, type MeshStandardNodeMaterial } from 'three/webgpu';
 import { createForest, createTree, type ForestPlacement } from '../../src/index';
