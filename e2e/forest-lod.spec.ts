@@ -126,4 +126,24 @@ test('planting past a Variant capacity and cutting trees keeps the levels right'
   expect(result.levels).toEqual(result.expectedLevels);
 });
 
+// Painterly (#118): Light trees and Impostors keep the painted look (the Impostor paints its leaf texels on
+// the crown gradient from a baked paint atlas). Tycoon view: the near trees ~25 m away, the far edge ~65 m.
+test('painterly forest at every Detail Level, tycoon view', async ({ page }) => {
+  const { result, errors } = await render(page, 'style=painterly&trees=400&lod=30,42&view=tycoon');
+  expect(errors).toEqual([]);
+  expect(result.levels).toEqual(result.expectedLevels);
+  expect(result.levels!.full).toBeGreaterThan(50);
+  expect(result.levels!.light).toBeGreaterThan(50);
+  expect(result.levels!.impostor).toBeGreaterThan(50);
+  await expect(page.locator('canvas')).toHaveScreenshot('forest-lod-painterly-tycoon-webgpu.png', mask(page));
+});
+
+test('painterly conifer Impostors with Material Features (the paint atlas baked in a second pass)', async ({ page }) => {
+  const { result, errors } = await render(page, 'style=painterly&form=conifer&trees=400&lod=40,60&crownNormals=0.3&occlusion=0.6');
+  expect(errors).toEqual([]);
+  expect(result.levels).toEqual(result.expectedLevels);
+  expect(result.levels!.impostor).toBeGreaterThan(50);
+  await expect(page.locator('canvas')).toHaveScreenshot('forest-lod-painterly-conifer-impostor-webgpu.png', mask(page));
+});
+
 // The WebGL2 fallback with lod is in forest.spec.ts, next to the screenshot it must match.

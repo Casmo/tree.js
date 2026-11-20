@@ -234,7 +234,8 @@ export class ForestVariant {
     const position = forestPosition(wind, this.windResponse);
     this.barkMaterial = createBarkMaterial(definition, textures, instanceState().growth);
     this.barkMaterial.positionNode = position;
-    this.leafMaterial = createLeafMaterial(definition, textures);
+    // Painted Leaf Masses bend their normals in tree space: turned with each instance.
+    this.leafMaterial = createLeafMaterial(definition, textures, { toObject: (normal) => instanceRotate(normal) });
     this.leafMaterial.positionNode = position;
     applySeasonToLeafMaterial(this.leafMaterial, createSeasonNodes(definition.season, instanceState().season));
 
