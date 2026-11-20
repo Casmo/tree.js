@@ -1,8 +1,8 @@
 import { Color, type ColorRepresentation, type Node } from 'three/webgpu';
-import { cameraPosition, float, hash, smoothstep, step, uniform } from 'three/tsl';
+import { cameraPosition, float, hash, mix, smoothstep, step, uniform, vec3 } from 'three/tsl';
 import { TREE_PARTS, type TreePart } from '../effects/mask';
 import { readyMadeShaderHook, type TreeShaderHook, type TreeShaderInput, type TreeShaderOutput } from '../materials/shader-hooks';
-import { degreesValue, slopeRange, softnessValue, strengthsWith, WeatherAmount } from './shared';
+import { degreesValue, paintStrokes, slopeRange, softnessValue, strengthsWith, WeatherAmount } from './shared';
 
 export interface SnowOptions {
   /** How much snow lies on the trees: 0 = none (default), 1 = full cover. */
@@ -76,7 +76,8 @@ const DEFAULTS: SnowCoverLook = {
  * Makes the ready-made Snow Cover hooks: they whiten the surfaces of trees that face up by the amount of
  * `snow` (default {@link sceneSnow}), drawn to suit the tree's Style: hard flat caps on `'flat'`
  * (low-poly), toon bands on `'toon'` (stylized), soft lit snow with a slight sparkle on `'standard'`
- * (realistic). Snow is read from the world normal after Wind, so it follows swaying branches and lies on
+ * (realistic), brushed snow with a ragged edge, cool where thin and warm where thick, on `'painted'`
+ * (painterly). Snow is read from the world normal after Wind, so it follows swaying branches and lies on
  * bare winter branches when the leaves are gone; undersides stay bare. With the amount at 0 the trees look
  * exactly as without the hooks. They run before the app's own hooks in every stack. A game that wants its
  * own snow can start from {@link snowCoverShading}.
@@ -141,6 +142,9 @@ export interface SnowCoverShadingSettings {
 }
 
 const SNOW_ROUGHNESS = 0.75;
+/** Painted snow's tint (times its colour) where it thins out (cool, as in shade) and where it lies thick (warm). */
+const PAINTED_SNOW_THIN = [0.6, 0.7, 0.92] as const;
+const PAINTED_SNOW_THICK = [0.9, 0.88, 0.82] as const;
 
 /**
  * The shading of Snow Cover, as a plain Tree Shader Hook body: a starting point for a game's own snow
@@ -163,6 +167,14 @@ export function snowCoverShading(input: TreeShaderInput, settings: SnowCoverShad
   } else if (shading === 'toon') {
     // Stylized: toon bands. The cover in three steps, so the edge reads as bands, like the toon light.
     cover = lies.mul(amount).mul(3).add(0.5).floor().div(3);
+  } else if (shading === 'painted') {
+    // Painterly: brushed snow. Its edge is broken by brush strokes (none where a surface faces away), and
+    // it is painted cool blue where it thins out towards the edge, warm white where it lies thick.
+    const strokes = paintStrokes(position);
+    const thick = smoothstep(0.3, 0.7, lies.add(strokes.mul(0.3)));
+    cover = thick.mul(amount);
+    const tint = mix(vec3(...PAINTED_SNOW_THIN), vec3(...PAINTED_SNOW_THICK), smoothstep(0.5, 1, lies.add(strokes.mul(0.2))));
+    snow = snow.mul(tint).mul(strokes.mul(0.04).add(1));
   } else {
     // Realistic: soft, lit snow with a slight sparkle: a few tiny cells glint, changing with the view.
     cover = lies.mul(amount);
