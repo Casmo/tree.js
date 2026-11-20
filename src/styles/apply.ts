@@ -1,6 +1,7 @@
 // Style.apply (ADR 0005): a Style turns a Style-neutral Species (or an existing Tree Definition)
 // into a complete Tree Definition by choosing only the look: shading, polygon detail, how the
-// Leaf Type and Bark Type are drawn, and textures. Shape fields pass through untouched.
+// Leaf Type and Bark Type are drawn, and textures. Shape fields pass through untouched; only Painterly
+// also sets the overall size (ADR 0013, ./painterly/height.ts).
 import { extendDefinition, parseDefinition, type DefinitionPatch } from '../definition/parse';
 import {
   CURRENT_SCHEMA_VERSION,
