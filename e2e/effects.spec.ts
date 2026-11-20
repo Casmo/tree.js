@@ -49,7 +49,9 @@ async function compare(page: Page, before: Buffer, after: Buffer, mask: Buffer) 
   );
 }
 
-const styles = ['low-poly', 'stylized', 'realistic'];
+const styles = ['low-poly', 'stylized', 'realistic', 'painterly'];
+/** Styles the Tree ID, pick() and Highlight tests run with (painterly: alpha-cut Leaf Mass cards, #119). */
+const pickStyles = ['low-poly', 'painterly'];
 const effects = ['outline', 'glow', 'grade'];
 const backends = [
   { name: 'webgpu', query: '' },
@@ -145,9 +147,9 @@ async function onlyIn(page: Page, a: Buffer, b: Buffer): Promise<Buffer> {
   return Buffer.from(base64, 'base64');
 }
 
-for (const backend of backends) {
-  test(`the Tree ID channel gives every Tree and Forest tree its own ID, read back under a point (${backend.name})`, async ({ page }) => {
-    await shot(page, `style=low-poly&view=treeId${backend.query}`);
+for (const style of pickStyles) for (const backend of backends) {
+  test(`the Tree ID channel gives every Tree and Forest tree its own ID, read back under a point (${style}, ${backend.name})`, async ({ page }) => {
+    await shot(page, `style=${style}&view=treeId${backend.query}`);
     const reads = await page.evaluate(() => window.effectsExample.readTreeIds!());
     expect(reads.map((r) => r.name)).toEqual(['tree', 'second', 'f0', 'f1']);
     for (const read of reads) {
@@ -155,7 +157,7 @@ for (const backend of backends) {
       expect(read.resolved, `${read.name}: the ID resolves to it`).toBe(read.name);
     }
     expect(new Set(reads.map((r) => r.id)).size).toBe(reads.length);
-    if (backend.name === 'webgl2') await expect(page.locator('canvas')).toHaveScreenshot('low-poly-tree-id-webgl2.png');
+    if (backend.name === 'webgl2') await expect(page.locator('canvas')).toHaveScreenshot(`${style}-tree-id-webgl2.png`);
     // A tree that is no longer drawn leaves no ID behind (the integer target is cleared every frame).
     await page.evaluate(() => window.effectsExample.hideTree!());
     const after = await page.evaluate(() => window.effectsExample.readTreeIds!());
@@ -168,10 +170,10 @@ for (const backend of backends) {
   });
 }
 
-for (const backend of backends) {
-  test(`effects.pick() resolves the Tree or Forest tree under a point (${backend.name})`, async ({ page }) => {
+for (const style of pickStyles) for (const backend of backends) {
+  test(`effects.pick() resolves the Tree or Forest tree under a point (${style}, ${backend.name})`, async ({ page }) => {
     for (const name of ['f0', 'f1', 'second']) {
-      await shot(page, `style=low-poly&pick=${name}${backend.query}`);
+      await shot(page, `style=${style}&pick=${name}${backend.query}`);
       const picked = await page.evaluate(() => window.effectsExample.picked);
       expect(picked?.name, `the tree under ${name}'s trunk`).toBe(name);
     }
@@ -244,13 +246,13 @@ async function changedPixels(page: Page, a: Buffer, b: Buffer) {
   );
 }
 
-for (const backend of backends) {
-  test(`a Forest tree picked through effects.pick() is highlighted, the rest only gets its ring (${backend.name})`, async ({ page }) => {
-    const plain = await shot(page, `style=low-poly&pick=f0${backend.query}`);
-    const image = await shot(page, `style=low-poly&highlight=f0${backend.query}`);
+for (const style of pickStyles) for (const backend of backends) {
+  test(`a Forest tree picked through effects.pick() is highlighted, the rest only gets its ring (${style}, ${backend.name})`, async ({ page }) => {
+    const plain = await shot(page, `style=${style}&pick=f0${backend.query}`);
+    const image = await shot(page, `style=${style}&highlight=f0${backend.query}`);
     const picked = await page.evaluate(() => window.effectsExample.picked);
     expect(picked?.name, 'pick() returns the Forest tree under its trunk').toBe('f0');
-    await expect(page.locator('canvas')).toHaveScreenshot(`low-poly-highlight-f0-${backend.name}.png`);
+    await expect(page.locator('canvas')).toHaveScreenshot(`${style}-highlight-f0-${backend.name}.png`);
     // Only the highlighted tree and its ring change: around the picked point, not the other trees.
     const changed = await changedPixels(page, plain, image);
     expect(changed.count, 'the highlighted tree changes').toBeGreaterThan(300);

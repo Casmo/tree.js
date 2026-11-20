@@ -14,6 +14,7 @@ import {
 import * as allSpecies from '../src/species';
 import { oak, type SpeciesDefinition } from '../src/species';
 import lowPoly from '../src/styles/low-poly';
+import painterly from '../src/styles/painterly';
 import realistic from '../src/styles/realistic';
 import stylized from '../src/styles/stylized';
 
@@ -99,7 +100,7 @@ describe('Material Features and Styles', () => {
 
   it('no built-in Style turns one on for any Species', () => {
     const species = Object.values(allSpecies).filter((v): v is SpeciesDefinition => typeof v === 'object' && v !== null && 'bark' in v);
-    for (const style of [lowPoly, stylized, realistic]) {
+    for (const style of [lowPoly, stylized, realistic, painterly]) {
       for (const s of species) {
         const { materials } = style.apply(s);
         expect(materials.leaf, `${style.name} ${s.id}`).not.toHaveProperty('crownNormals');
