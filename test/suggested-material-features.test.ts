@@ -166,5 +166,5 @@ describe('built-in Styles and Species', () => {
       expect(JSON.stringify(s), s.id).not.toMatch(/crownNormals|translucency|occlusion/);
       for (const style of [lowPoly, stylized, realistic, painterly]) expect(featuresOf(style.apply(s)), `${style.name} ${s.id}`).toEqual({});
     }
-  });
+  }, 30_000); // applies every Species in every Style (Painterly measures each tree: slow under load)
 });

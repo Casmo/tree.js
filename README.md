@@ -139,9 +139,9 @@ scene.add(oak, pine, birch, tallPine);
 
 ## Species
 
-[![All 28 Species, each in the low-poly, stylized and realistic Styles](docs/species/contact-sheet.jpg)](docs/species/README.md)
+[![All 28 Species, each in the low-poly, stylized, realistic and painterly Styles](docs/species/contact-sheet.jpg)](docs/species/README.md)
 
-*Every Species in `low-poly`, `stylized` and `realistic`; the [Species gallery](docs/species/README.md) has larger
+*Every Species in `low-poly`, `stylized`, `realistic` and `painterly`; the [Species gallery](docs/species/README.md) has larger
 images (with Fruit or in autumn), a code example and the JSON of each.*
 
 28 real trees ship with the library, each described once by its shape (Stems, Crown Shape), Leaf Type, Bark
@@ -1511,7 +1511,10 @@ URLs) load them relative to the package's `dist/textures/` by default. To serve 
 folder and point tree.js at it, app-wide or per tree. `realistic.apply` picks a leaf card per Leaf Type
 (`realistic/leaf.png`, `leaf-lobed.png`, `leaf-palmate.png`, `leaf-compound.png`, `needles.png`,
 `scale.png`) and a colour + normal pair per Bark Type (`realistic/bark.png` for furrowed, `bark-smooth.png`,
-`bark-papery.png`, `bark-fibrous.png`, `bark-plated.png`, each with its `-normal.png`); all are made by
+`bark-papery.png`, `bark-fibrous.png`, `bark-plated.png`, each with its `-normal.png`). `painterly.apply`
+draws every Leaf Type as Leaf Masses of a painted spray card (`painterly/spray-<LeafType>.png`; needle and scale
+crowns in 12 flat, layered masses) and paints each Bark Type smooth (`painterly/bark-<BarkType>.png`, no
+normal map); all are made by
 `scripts/generate-textures.mjs` (MIT, reproducible):
 
 ```ts

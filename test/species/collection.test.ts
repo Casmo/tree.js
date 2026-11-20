@@ -9,9 +9,10 @@ import * as collection from '../../src/species';
 import lowPoly from '../../src/styles/low-poly';
 import stylized from '../../src/styles/stylized';
 import realistic from '../../src/styles/realistic';
+import painterly from '../../src/styles/painterly';
 
 const { SPECIES_NAMES, loadSpecies } = collection;
-const styles = { 'low-poly': lowPoly, stylized, realistic };
+const styles = { 'low-poly': lowPoly, stylized, realistic, painterly };
 const camelCase = (id: string) => id.replace(/-(\w)/g, (_, c: string) => c.toUpperCase());
 const dataDir = new URL('../../src/species/data/', import.meta.url);
 const json = (id: string) => JSON.parse(readFileSync(new URL(`${id}.json`, dataDir), 'utf8')) as SpeciesDefinition;
@@ -116,7 +117,12 @@ const withFlareAndRoots = <T extends { trunk: object }>(d: T, style: (typeof sty
   trunk: { ...d.trunk, flare: 0.4 },
   roots: style.apply(json('apple')).roots,
 });
-const styleTriangles = Object.fromEntries(
+/**
+ * Painterly's own generic trees are small (3-3.5 m, few boughs) while its Species keep their full branching,
+ * so Painterly is held to the stylized budget instead: Painterly is meant to cost about what stylized costs.
+ */
+const BUDGET_OF: Partial<Record<string, keyof typeof styles>> = { painterly: 'stylized' };
+const ownTriangles = Object.fromEntries(
   Object.entries(styles).map(([name, style]) => [
     name,
     Math.max(
@@ -126,6 +132,7 @@ const styleTriangles = Object.fromEntries(
     ),
   ]),
 );
+const styleTriangles = Object.fromEntries(Object.keys(styles).map((name) => [name, ownTriangles[BUDGET_OF[name] ?? name]!]));
 
 describe.each(SPECIES_NAMES)('Species %s in every Style', (id) => {
   for (const [name, style] of Object.entries(styles)) {
@@ -144,11 +151,20 @@ describe.each(SPECIES_NAMES)('Species %s in every Style', (id) => {
         await expect(JSON.stringify({ seeds: SEEDS, hashes }, null, 2) + '\n').toMatchFileSnapshot(`./__snapshots__/${id}.${name}.json`);
       });
 
-      it(`stays within the triangle budget (at most +50% of the ${name} Style's own trees)`, () => {
+      it(`stays within the triangle budget (at most +50% of the ${BUDGET_OF[name] ?? name} Style's own trees)`, () => {
         for (const seed of SEEDS) {
           expect(triangles(generateTree(parseDefinition(definition), seed))).toBeLessThanOrEqual(styleTriangles[name]! * 1.5);
         }
       });
+
+      if (name === 'painterly') {
+        it('costs about what the Species costs in stylized (at most +30%; less over the whole catalogue, below)', () => {
+          const toon = stylized.apply(definition);
+          for (const seed of SEEDS) {
+            expect(triangles(generateTree(parseDefinition(definition), seed))).toBeLessThanOrEqual(triangles(generateTree(parseDefinition(toon), seed)) * 1.3);
+          }
+        });
+      }
 
       it('gives different but recognisable trees for different Seeds', () => {
         const trees = SEEDS.map((seed) => generateTree(parseDefinition(definition), seed));
@@ -161,4 +177,16 @@ describe.each(SPECIES_NAMES)('Species %s in every Style', (id) => {
       });
     });
   }
+});
+
+describe('Painterly over the whole catalogue', () => {
+  it('costs no more triangles than stylized for all Species together (Seed 1)', async () => {
+    let [painted, toon] = [0, 0];
+    for (const id of SPECIES_NAMES) {
+      const species = await loadSpecies(id);
+      painted += triangles(generateTree(painterly.apply(species), 1));
+      toon += triangles(generateTree(stylized.apply(species), 1));
+    }
+    expect(painted).toBeLessThanOrEqual(toon);
+  });
 });
