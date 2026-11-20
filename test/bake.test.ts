@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { validateBytes } from 'gltf-validator';
 import { Box3, FrontSide, Mesh, MeshStandardMaterial, NodeMaterial, Texture, Vector3, type BufferGeometry } from 'three/webgpu';
 import { loadSpecies, oak } from '../src/species';
-import { bakeTree, createTree, crownNormal, exportBakedTree, extendDefinition, hexToLinear, type Tree, type TreeDefinition } from '../src/index';
+import { bakeTree, createTree, crownNormal, exportBakedTree, extendDefinition, hexToLinear, SUGGESTED_MATERIAL_FEATURES, withMaterialFeatures, type Tree, type TreeDefinition } from '../src/index';
 import lowPoly from '../src/styles/low-poly';
 import realistic from '../src/styles/realistic';
 import stylized from '../src/styles/stylized';
@@ -455,6 +455,16 @@ describe('Baked Tree: Painterly (#120), an approximation of the painted shading'
       tree.dispose();
     });
   }
+
+  it("bakes a painterly tree with its Style's suggested Material Features: both in the extras, still valid", async () => {
+    const tree = createTree(withMaterialFeatures(painterly.broadleaf, SUGGESTED_MATERIAL_FEATURES.painterly), { seed: 42 });
+    const report = await validate(await exportBakedTree(tree, { season: 0.3 }));
+    expect(report.numErrors, JSON.stringify(report.messages.slice(0, 5))).toBe(0);
+    const json = (await exportBakedTree(tree, { season: 0.3, binary: false })) as Json;
+    const extras = json.materials.find((m) => m.name === 'leaves')!.extras!.treejs!;
+    expect(Object.keys(extras).sort()).toEqual(['crown', 'crownNormals', 'occlusion', 'painted', 'translucency']);
+    tree.dispose();
+  });
 
   it('bends the leaf normals towards their Leaf Mass, the same on both sides of each card', () => {
     const tree = createTree(painterly.broadleaf, { seed: 42 });
