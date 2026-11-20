@@ -22,6 +22,7 @@ import { createTreeEffects, SUGGESTED_TREE_EFFECTS } from '@casmo/tree.js/effect
 import lowPoly from '@casmo/tree.js/styles/low-poly';
 import stylized from '@casmo/tree.js/styles/stylized';
 import realistic from '@casmo/tree.js/styles/realistic';
+import painterly from '@casmo/tree.js/styles/painterly';
 import { framingBox } from '../../examples/framing';
 
 declare global {
@@ -153,7 +154,7 @@ const SHOTS: Record<string, (stage: Stage) => Promise<Shot>> = {
     return { frames: 1 };
   },
 
-  /** Styles: low-poly, stylized and realistic, broadleaf and conifer each. */
+  /** Styles: low-poly, stylized, realistic and painterly, broadleaf and conifer each (scaled to one height). */
   async styles({ scene, camera }) {
     const trees = [
       createTree(lowPoly.broadleaf, { seed: 1, season: 0.37 }),
@@ -162,11 +163,13 @@ const SHOTS: Record<string, (stage: Stage) => Promise<Shot>> = {
       createTree(stylized.conifer, { seed: 1, season: 0.37 }),
       createTree(realistic.broadleaf, { seed: 1, season: 0.37 }),
       createTree(realistic.conifer, { seed: 1, season: 0.37 }),
+      createTree(painterly.broadleaf, { seed: 1, season: 0.37 }),
+      createTree(painterly.conifer, { seed: 1, season: 0.37 }),
     ];
     await Promise.all(trees.map((tree) => tree.ready));
     scene.add(...trees);
-    ground({ scene } as Stage, 40);
-    frame(camera, lineUp(trees, 0.8, 6), 1.05, new THREE.Vector3(0, 0.2, 1).normalize());
+    ground({ scene } as Stage, 60);
+    frame(camera, lineUp(trees, 0.8, 6), 1.12, new THREE.Vector3(0, 0.2, 1).normalize());
     return { frames: 1 };
   },
 

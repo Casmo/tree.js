@@ -3,7 +3,7 @@
 ![A stylized forest of broadleaf trees and conifers going through a year: blossom, summer, autumn, winter](docs/images/hero.gif)
 
 Procedural trees for [three.js](https://threejs.org): one Tree Definition and a Seed grow a unique tree, in a
-low-poly, stylized or realistic Style. Trees grow (Growth), change through the year (Season) and sway in the
+low-poly, stylized, realistic or painterly Style. Trees grow (Growth), change through the year (Season) and sway in the
 Wind, all on the GPU through TSL node materials, so animating them never regenerates geometry. Place
 thousands at once as an instanced Forest, add opt-in Tree Effects, or design your own trees in the
 [Tree Editor](#tree-editor).
@@ -40,7 +40,7 @@ npm install @casmo/tree.js three
 | Import | What |
 | --- | --- |
 | `@casmo/tree.js` | `createTree`, `createForest`, Definitions, Wind, Baked Tree export, `loadStyle`, ... |
-| `@casmo/tree.js/styles/low-poly` (`stylized`, `realistic`) | a built-in Style: one Tree Definition per Form (a few kB of data) |
+| `@casmo/tree.js/styles/low-poly` (`stylized`, `realistic`, `painterly`) | a built-in Style: one Tree Definition per Form (a few kB of data) |
 | `@casmo/tree.js/species` | the 28 Species (`oak`, `douglasFir`, ...), `loadSpecies`, `SPECIES_NAMES`; JSON files |
 | `@casmo/tree.js/effects` | Tree Effects (post-processing) |
 | `@casmo/tree.js/scene` | Scene Pipeline: the Style's suggested Tree Effects and Scene Effects (tone mapping, SMAA/FXAA, fog, ...) in one opt-in pipeline |
@@ -106,9 +106,9 @@ The rest of your scene can keep any materials; only the trees need the node rend
 
 ## Styles
 
-![Low-poly, stylized and realistic Styles, a broadleaf and a conifer each](docs/images/styles.png)
+![Low-poly, stylized, realistic and painterly Styles, a broadleaf and a conifer each](docs/images/styles.png)
 
-*`low-poly`, `stylized` and `realistic`: a broadleaf and a conifer each.*
+*`low-poly`, `stylized`, `realistic` and `painterly`: a broadleaf and a conifer each (shown at one height).*
 
 A Style is a ready-made look with one Tree Definition per Form (`broadleaf`, `conifer`):
 
@@ -117,6 +117,18 @@ A Style is a ready-made look with one Tree Definition per Form (`broadleaf`, `co
 | `low-poly` | faceted (flat shading), solid colours, clump and needle leaves |
 | `stylized` | soft two-tone (toon) shading, round leaf puffs, pink blossom in early spring |
 | `realistic` | textured bark (with normal map) and leaf cards |
+| `painterly` | hand-painted: soft wrapped light, crowns of clumped painted Leaf Masses with a dark-to-sunlit gradient, painted bark; small trees (2-4 m) for top-down and tycoon cameras |
+
+Painterly is the one Style that also sets a tree's size: it scales every Species uniformly so that its
+height maps from the real one into 2-4 m (keeping the order between Species; its own `broadleaf` and
+`conifer` are 3 m and 3.5 m), so trees stay only a little taller than people in a tycoon view
+([ADR 0013](docs/adr/0013-painterly-compresses-tree-heights.md)). The other Styles keep real-world sizes. Its
+crowns are drawn to read from above as well as from the side
+([ADR 0014](docs/adr/0014-painterly-leaf-masses-are-clumped-spray-cards.md)):
+
+![A painterly Forest from a tycoon camera, about 55 degrees down, and a painterly broadleaf from straight above](docs/images/painterly-views.png)
+
+*Painterly from above: a Forest from a tycoon camera (about 55° down) and a broadleaf straight down.*
 
 Each Style is its own small module, so you only download the ones you use. Import one statically, or load
 it on demand by name:
@@ -557,7 +569,7 @@ three, each an optional field in the Definition's `materials` section:
 on, so a game that sets nothing sees exactly the trees it saw before (same geometry, attributes and
 materials). Turning one on only changes the tree's own node materials: your renderer, scene, lights and
 post-processing are left alone, and there is no extra render pass, only some shader math per pixel. They
-work in every Style (flat, standard and toon shading), with Growth and Wind, and in Forests.
+work in every Style (flat, standard, toon and painted shading), with Growth and Wind, and in Forests.
 
 Each Style has suggested values. Opt in with one line: `withMaterialFeatures(definition, features)`
 returns a new Definition whose Material Features are exactly `features` (a feature you leave out is off,
@@ -648,7 +660,7 @@ roughness:
 | `normal` | The world-space normal the fragment is lit with, after Wind and Growth (and Crown Normals, the bark normal map) |
 | `position`, `treePosition` | The fragment's world position, and the tree's own (the foot of its trunk) |
 | `season`, `growth` | The tree's Season and Growth (0..1) |
-| `part`, `shading` | The tree part, and the Style's shading (`'flat'`, `'toon'` or `'standard'`) |
+| `part`, `shading` | The tree part, and the Style's shading (`'flat'`, `'toon'`, `'standard'` or `'painted'`) |
 
 ```ts
 import { createTree, type TreeShaderHook } from '@casmo/tree.js';
@@ -1543,10 +1555,10 @@ a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branche
 
 | Example | Run | What | |
 | --- | --- | --- | --- |
-| [`examples/vanilla`](examples/vanilla/main.ts) | `/examples/vanilla/` | one tree in plain three.js; `?style=low-poly&form=conifer&seed=2&growth=0.6&season=0.7&wind=0.5` | <img src="docs/images/example-vanilla.png" alt="examples/vanilla" width="160"> |
+| [`examples/vanilla`](examples/vanilla/main.ts) | `/examples/vanilla/` | one tree in plain three.js; `?style=low-poly&form=conifer&seed=2&growth=0.6&season=0.7&wind=0.5`; from above: `?style=painterly&view=tycoon\|top` | <img src="docs/images/example-vanilla.png" alt="examples/vanilla" width="160"> |
 | [`examples/cdn`](examples/cdn/index.html) | `/examples/cdn/` | no bundler: a single HTML page with an import map | <img src="docs/images/example-cdn.png" alt="examples/cdn" width="160"> |
 | [`examples/react`](examples/react/main.tsx) | `/examples/react/` | React Three Fiber: `<Tree>`, `<Wind>`, `useTreeStyle`; `?scene=forest` for `<Forest>`, `?scene=pipeline` for `<ScenePipeline>` | <img src="docs/images/example-react.png" alt="examples/react" width="160"> |
-| [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
+| [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=`; a tycoon camera: `?style=painterly&view=tycoon` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
 | [`examples/large-forest`](examples/large-forest/main.ts) | `/examples/large-forest/` | 10,000 trees with Detail Levels on and off: frame times, draw calls, triangles and trees per Detail Level; `?trees=&lod=0&frames=&orbit=` | <img src="docs/images/example-large-forest.png" alt="examples/large-forest" width="160"> |
 | [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` | <img src="docs/images/example-effects.png" alt="examples/effects" width="160"> |
 | [`examples/custom-effect`](examples/custom-effect/main.ts) | `/examples/custom-effect/` | a foliage-only [custom Tree Effect](#custom-tree-effects) (the bare setup); `?effect=on\|pass-through\|off&effects=style&view=mask&backend=webgl` | <img src="docs/images/example-custom-effect.png" alt="examples/custom-effect" width="160"> |
