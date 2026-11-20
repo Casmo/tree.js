@@ -13,7 +13,7 @@ A number that, combined with a Tree Definition, picks one specific individual tr
 _Avoid_: Random, variation id
 
 **Style**:
-A visual look shipped with the library, such as low-poly, stylized or realistic, that can be applied to any Species: it sets how the tree is drawn (shading, leaf shape, textures, polygon detail), not what shape it grows.
+A visual look shipped with the library, such as low-poly, stylized, realistic or painterly, that can be applied to any Species: it sets how the tree is drawn (shading, leaf shape, textures, polygon detail) and may set its overall size (painterly scales every tree to 2–4 m, keeping its proportions), but never what shape it grows.
 _Avoid_: Theme, type, kind
 
 **Species**:
@@ -39,6 +39,10 @@ _Avoid_: Produce, seeds
 **Fruit Type**:
 The kind of Fruit a Species bears: round, pear, nut, cone or berry; each Style decides how to draw it.
 _Avoid_: Fruit shape
+
+**Leaf Mass**:
+One of the few large, ragged masses a Painterly crown is drawn as: a clump of painted leaf-spray cards whose normals are bent to the clump, so it is lit and painted as one shape, standing in for many leaves (ADR 0014).
+_Avoid_: Blob, puff
 
 **Stem**:
 One of the trunks a tree grows from the ground; most trees have a single Stem, a juniper or an olive may have several.

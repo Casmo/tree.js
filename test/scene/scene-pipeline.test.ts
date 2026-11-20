@@ -26,8 +26,9 @@ const create = (options?: ScenePipelineOptions) => createScenePipeline(renderer,
 const outputsOf = (pipeline: ScenePipeline) => Object.keys(pipeline.scenePass.pass.getMRT()!.outputNodes);
 
 describe('SUGGESTED_SCENE_EFFECTS', () => {
-  it('suggests Neutral tone mapping for low-poly and AgX for stylized and realistic', () => {
-    expect(Object.keys(SUGGESTED_SCENE_EFFECTS).sort()).toEqual(['low-poly', 'realistic', 'stylized']);
+  it('suggests Neutral tone mapping for low-poly, AgX for stylized and realistic, and none for painterly (its own colours)', () => {
+    expect(Object.keys(SUGGESTED_SCENE_EFFECTS).sort()).toEqual(['low-poly', 'painterly', 'realistic', 'stylized']);
+    expect(SUGGESTED_SCENE_EFFECTS.painterly.toneMapping).toBeUndefined();
     expect(SUGGESTED_SCENE_EFFECTS['low-poly'].toneMapping?.mapping).toBe('neutral');
     expect(SUGGESTED_SCENE_EFFECTS.stylized.toneMapping?.mapping).toBe('agx');
     expect(SUGGESTED_SCENE_EFFECTS.realistic.toneMapping?.mapping).toBe('agx');
@@ -51,6 +52,8 @@ describe('SUGGESTED_SCENE_EFFECTS', () => {
     expect(parts('low-poly')).toEqual(['antialias', 'ao', 'fog', 'toneMapping']);
     expect(parts('stylized')).toEqual(['antialias', 'ao', 'bloom', 'fog', 'toneMapping']);
     expect(parts('realistic')).toEqual(['antialias', 'ao', 'bloom', 'fog', 'godrays', 'toneMapping']);
+    // Painterly needs no post (ADR 0014): no tone mapping curve and no bloom, only ground contact, SMAA and fog.
+    expect(parts('painterly')).toEqual(['antialias', 'ao', 'fog']);
     expect(SUGGESTED_SCENE_EFFECTS['low-poly'].ao!.scale!).toBeLessThan(SUGGESTED_SCENE_EFFECTS.stylized.ao!.scale!);
   });
 });
@@ -98,7 +101,7 @@ describe('ScenePipeline settings', () => {
   });
 
   it('picks both the suggested Tree Effects and the suggested Scene Effects of a Style', () => {
-    for (const style of ['low-poly', 'stylized', 'realistic'] as const) {
+    for (const style of ['low-poly', 'stylized', 'realistic', 'painterly'] as const) {
       const pipeline = create({ style });
       expect(pipeline.settings.treeEffects).toBe(SUGGESTED_TREE_EFFECTS[style]);
       expect(pipeline.settings.sceneEffects).toBe(SUGGESTED_SCENE_EFFECTS[style]);
@@ -295,7 +298,7 @@ describe('ambient occlusion (GTAO through the lighting context)', () => {
   });
 
   it('is in every Style\'s suggestion, lighter for low-poly', () => {
-    for (const style of ['low-poly', 'stylized', 'realistic'] as const) expect(SUGGESTED_SCENE_EFFECTS[style].ao, style).toBeDefined();
+    for (const style of ['low-poly', 'stylized', 'realistic', 'painterly'] as const) expect(SUGGESTED_SCENE_EFFECTS[style].ao, style).toBeDefined();
     expect(SUGGESTED_SCENE_EFFECTS['low-poly'].ao!.scale!).toBeLessThan(SUGGESTED_SCENE_EFFECTS.stylized.ao!.scale!);
   });
 

@@ -29,6 +29,14 @@ export const SUGGESTED_MATERIAL_FEATURES: Record<StyleName, MaterialFeatures> = 
     translucency: { strength: 0.45, edge: 0.7, ambient: 0.25 },
     occlusion: { strength: 0.9 },
   },
+  // Painterly bends its cards to their Leaf Mass and paints its own depth (ADR 0014): a little of the whole
+  // crown's shape on top, light occlusion (the painted gradient already darkens the inside), and a soft
+  // glow at the thin edges against the sun.
+  painterly: {
+    crownNormals: 0.3,
+    translucency: { strength: 0.3, edge: 0.8, ambient: 0.15 },
+    occlusion: { strength: 0.35 },
+  },
 };
 
 /**

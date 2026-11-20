@@ -43,4 +43,12 @@ export const SUGGESTED_SCENE_EFFECTS: Record<StyleName, SceneEffectsSettings> = 
     // Distance fog, a height mist and a thin far layer over the whole height.
     fog: { near: 15, far: 140, mist: { height: 2, strength: 0.4, near: 10, far: 60, farLayer: { near: 40, far: 200, strength: 0.2 } } },
   },
+  // Complete in its own materials (ADR 0014): no tone mapping curve (the renderer's own output, which
+  // the painted colours are tuned for: AgX and Neutral wash out or darken them), no bloom. Only soft AO
+  // for ground contact, SMAA for the alpha-cut cards and distance fog.
+  painterly: {
+    ao: { radius: 1, scale: 0.7, thickness: 1.5 },
+    antialias: 'smaa',
+    fog: { near: 15, far: 130 },
+  },
 };

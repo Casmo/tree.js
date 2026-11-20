@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 // Tree Shader Hook on a single Tree (#98, ADR 0012): in the vanilla example a hook that tints a part
 // magenta changes that part's pixels only, and removing it gives back today's picture, on WebGPU and on
-// WebGPURenderer's WebGL2 fallback (ADR 0002).
+// WebGPURenderer's WebGL2 fallback (ADR 0002); also on a painterly tree (painted shading, #119).
 
 type Example = {
   status: string;
@@ -41,13 +41,13 @@ async function changed(page: Page, a: Buffer, b: Buffer): Promise<boolean[]> {
 
 const count = (mask: boolean[]) => mask.filter(Boolean).length;
 
-for (const backend of ['webgpu', 'webgl'] as const) {
-  test(`a leaves-only hook changes leaf pixels only, then is removed (${backend})`, async ({ page }) => {
+for (const style of ['stylized', 'painterly']) for (const backend of ['webgpu', 'webgl'] as const) {
+  test(`a leaves-only hook changes leaf pixels only, then is removed (${style}, ${backend})`, async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (m) => {
       if (m.type() === 'error') errors.push(m.text());
     });
-    await page.goto(`/examples/vanilla/?style=stylized&form=broadleaf&seed=1${backend === 'webgl' ? '&backend=webgl' : ''}`);
+    await page.goto(`/examples/vanilla/?style=${style}&form=broadleaf&seed=1${backend === 'webgl' ? '&backend=webgl' : ''}`);
     await settled(page);
     const example = await page.evaluate(() => (window as unknown as { treeExample: Example }).treeExample);
     expect(example).toMatchObject({ status: 'rendered', backend: backend === 'webgl' ? 'webgl2' : 'webgpu' });

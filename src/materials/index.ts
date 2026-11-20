@@ -6,11 +6,13 @@ import { fruitTracks } from '../season/profile';
 import type { TextureOptions } from '../textures';
 import { applyGroundTint } from './ground-tint';
 import { applyBarkMaps, applyLeafMap } from './maps';
+import { PaintedNodeMaterial, paintLeafMasses } from './painted';
 import { createShadedMaterial, isFlatShading } from './shading';
 
 export { createShadedMaterial } from './shading';
 export { applyCrownNormals } from './crown-normals';
 export { crownNodes, type CrownNodes } from './crown-nodes';
+export { PaintedNodeMaterial } from './painted';
 
 /**
  * Bark material: a TSL node material (ADR 0002). Growth/Season/Wind uniforms and
@@ -46,8 +48,15 @@ export function createBarkMaterial(
  * leaf colour at Season 0 (what exporters see); `Tree` adds the Season nodes
  * (`applySeasonToLeafMaterial`), whose colour is multiplied by the per-leaf vertex colours (the Seed's tint)
  * and by the leaf card texture (`materials.leaf.map`, alpha cut at `alphaTest`), if any.
+ *
+ * `toObject`: turns a tree-space normal into the mesh's own space (a Forest rotates it by the instance);
+ * painted Leaf Masses bend their normals towards the mass with it. Default: tree space is object space.
  */
-export function createLeafMaterial(definition: TreeDefinition, textures?: TextureOptions): MeshStandardNodeMaterial {
+export function createLeafMaterial(
+  definition: TreeDefinition,
+  textures?: TextureOptions,
+  { toObject }: { toObject?: (normal: Node<'vec3'>) => Node<'vec3'> } = {},
+): MeshStandardNodeMaterial {
   const material = createShadedMaterial(definition.materials.shading);
   material.name = 'tree.js leaves';
   material.userData.treePart = 'leaves';
@@ -57,7 +66,13 @@ export function createLeafMaterial(definition: TreeDefinition, textures?: Textur
   material.roughness = definition.materials.leaf.roughness;
   material.metalness = 0;
   applyLeafMap(material, definition.materials.leaf, textures);
+  if (material instanceof PaintedNodeMaterial && paintsLeafMasses(definition)) paintLeafMasses(material, toObject);
   return material;
+}
+
+/** Whether the Definition's leaves are painted Leaf Masses (painted shading, leaf shape 'mass'): see `paintLeafMasses`. */
+export function paintsLeafMasses(definition: TreeDefinition): boolean {
+  return definition.materials.shading === 'painted' && definition.leaves.shape === 'mass';
 }
 
 /**

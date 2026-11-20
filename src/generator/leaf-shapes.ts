@@ -1,8 +1,10 @@
 import { cos, sin } from '../math';
-import type { LeafShape, VariationDefinition } from '../definition';
+import { DEFAULT_LEAF_MASSES, type LeavesDefinition, type LeafShape, type VariationDefinition } from '../definition';
 import { leafSeasonAttribute } from '../season/profile';
 import { seedRandom } from '../random';
 import { createAttributes, writePart, type PartInfo } from './attributes';
+import { massLeafGeometry } from './leaf-masses';
+import { leafGeometry } from './leaves';
 import type { GeometryBuffers, GrowthWindow, SkeletonLeaf, Vec3 } from './types';
 import { leafSway, NO_SWAY, type PartSway } from './wind';
 import { add, cross, dot, normalize, scale, sub } from './vec';
@@ -84,11 +86,33 @@ function needleTemplate(): SolidTemplate {
   return { positions, normals, triangles };
 }
 
-const TEMPLATES: Record<Exclude<LeafShape, 'card'>, SolidTemplate> = {
+const TEMPLATES: Record<SolidShape, SolidTemplate> = {
   clump: orient(clumpTemplate()),
   needle: orient(needleTemplate()),
   puff: orient(puffTemplate()),
 };
+
+/**
+ * The leaf mesh for a Definition's `leaves` (its shape: cards, solids or Leaf Masses), for the placed
+ * `leaves` with their Growth windows and Wind sway.
+ */
+export function shapedLeafGeometry(
+  leaves: SkeletonLeaf[],
+  definition: Pick<LeavesDefinition, 'shape' | 'masses' | 'massLayering'>,
+  level: number,
+  seed: number,
+  variation: Pick<VariationDefinition, 'season'>,
+  growth: GrowthWindow[],
+  branchSway: ReadonlyMap<string, PartSway>,
+): GeometryBuffers {
+  const { shape } = definition;
+  if (shape === 'card') return leafGeometry(leaves, level, seed, variation, growth, branchSway);
+  if (shape === 'mass') return massLeafGeometry(leaves, { count: definition.masses ?? DEFAULT_LEAF_MASSES, layering: definition.massLayering ?? 1 }, level, seed, variation, growth, branchSway);
+  return solidLeafGeometry(leaves, shape, level, seed, variation, growth, branchSway);
+}
+
+/** The leaf shapes drawn as one small closed mesh per leaf. */
+type SolidShape = Exclude<LeafShape, 'card' | 'mass'>;
 
 /** Fixes each triangle's winding so its front face points along its vertex normals (CCW = front). */
 export function orient(template: SolidTemplate): SolidTemplate {
@@ -107,7 +131,7 @@ export function orient(template: SolidTemplate): SolidTemplate {
  */
 export function solidLeafGeometry(
   leaves: SkeletonLeaf[],
-  shape: Exclude<LeafShape, 'card'>,
+  shape: SolidShape,
   level: number,
   seed: number,
   variation: Pick<VariationDefinition, 'season'> = { season: 0 },

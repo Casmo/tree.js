@@ -157,3 +157,9 @@ export function pow(x: number, y: number): number {
 export function hypot3(x: number, y: number, z: number): number {
   return Math.sqrt(x * x + y * y + z * z);
 }
+
+/** Smoothstep from `edge0` to `edge1` (0 below, 1 above, smooth between), as in GLSL. */
+export function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1);
+  return t * t * (3 - 2 * t);
+}

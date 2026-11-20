@@ -1,12 +1,14 @@
 // Style.apply (ADR 0005): a Style turns a Style-neutral Species (or an existing Tree Definition)
 // into a complete Tree Definition by choosing only the look: shading, polygon detail, how the
-// Leaf Type and Bark Type are drawn, and textures. Shape fields pass through untouched.
+// Leaf Type and Bark Type are drawn, and textures. Shape fields pass through untouched; only Painterly
+// also sets the overall size (ADR 0013, ./painterly/height.ts).
 import { extendDefinition, parseDefinition, type DefinitionPatch } from '../definition/parse';
 import {
   CURRENT_SCHEMA_VERSION,
   type BarkMaterialDefinition,
   type MaterialFeatures,
   type BarkType,
+  type LeavesDefinition,
   type LeafMaterialDefinition,
   type LeafShape,
   type LeafType,
@@ -17,6 +19,8 @@ import type { SpeciesBarkDefinition, SpeciesDefinition, SpeciesFoliageDefinition
 import { styleOfShading, styleShading, type StyleName } from './names';
 import { materialFeaturesOf } from './material-features';
 import { BARK_TEXTURES, LEAF_TEXTURES } from './realistic/textures';
+import { compressHeight } from './painterly/height';
+import { BARK_TEXTURES as PAINTED_BARK, LEAF_TEXTURES as SPRAY_TEXTURES } from './painterly/textures';
 
 /** Polygon detail of one tree part. */
 interface Detail {
@@ -32,6 +36,8 @@ interface LeafLook {
   /** Leaf size = the Species' real leaf-spray size × this. */
   sizeScale: number;
   material: LeafMaterialDefinition;
+  /** `shape: 'mass'` only: how many Leaf Masses (`leaves.masses`) and their layering (`leaves.massLayering`). */
+  masses?: Pick<LeavesDefinition, 'masses' | 'massLayering'>;
 }
 
 /** The trunk's detail, plus the extra rings in its Root Flare (`trunk.flareSections`). */
@@ -96,6 +102,23 @@ const LOOKS = {
       isNeedleLike(type)
         ? { shape: 'card', perDensity: 120, sizeScale: 1.7, material: { roughness: 0.7, map: LEAF_TEXTURES[type], alphaTest: 0.4 } }
         : { shape: 'card', perDensity: 80, sizeScale: 2.2, material: { roughness: 0.65, map: LEAF_TEXTURES[type], alphaTest: 0.4 } },
+  },
+  painterly: {
+    trunk: { sides: 10, sections: 6, flareSections: 3 },
+    branches: [{ sides: 6, sections: 3 }, { sides: 4, sections: 1 }, { sides: 3, sections: 1 }],
+    // Smooth painted bark per Bark Type (real colours, no normal map).
+    bark: (type) => ({ roughness: 1, map: PAINTED_BARK[type], normalMap: null }),
+    fruitSides: 6,
+    roots: { sides: 6, sections: 3 },
+    // Leaf Masses of painted spray cards (ADR 0014), a spray texture per Leaf Type. One card per leaf:
+    // many more leaves than the puffs, but 2 triangles each (puffs have 80). Needle / scale crowns get
+    // more masses, wide and flat and stacked in layers (#113), like the Painterly conifer.
+    leaf: (type) => {
+      const material = { roughness: 1, map: SPRAY_TEXTURES[type], alphaTest: 0.5 };
+      return isNeedleLike(type)
+        ? { shape: 'mass', perDensity: 170, sizeScale: 1.15, material, masses: { masses: 12, massLayering: 1.8 } }
+        : { shape: 'mass', perDensity: 150, sizeScale: 1.43, material };
+    },
   },
 } satisfies Record<StyleName, StyleLook>;
 
@@ -184,6 +207,7 @@ function draw(name: StyleName, { base, foliage, bark, features }: Neutral): Tree
       sizeVariation: foliage.sizeVariation,
       start: foliage.start,
       angle: foliage.angle,
+      ...leaf.masses,
     },
     materials: {
       shading: styleShading(name),
@@ -199,7 +223,12 @@ function draw(name: StyleName, { base, foliage, bark, features }: Neutral): Tree
  * Pure: never mutates its inputs.
  */
 export function applyStyle(name: StyleName, source: StyleSource, overrides?: DefinitionPatch): TreeDefinition {
-  const neutral = 'schemaVersion' in source ? fromDefinition(source) : fromSpecies(source);
-  const definition = draw(name, neutral);
+  const isDefinition = 'schemaVersion' in source;
+  const neutral = isDefinition ? fromDefinition(source) : fromSpecies(source);
+  let definition = draw(name, neutral);
+  // Painterly sets the overall size (ADR 0013): real-sized trees shrink to 2-4 m. A Painterly-sized tree
+  // (a `styleScale`, kept through other Styles) or a Painterly Definition from before `styleScale` is
+  // already small; re-applying Painterly to it keeps its size.
+  if (name === 'painterly' && !(isDefinition && source.materials?.shading === 'painted')) definition = compressHeight(definition);
   return overrides ? extendDefinition(definition, overrides) : definition;
 }

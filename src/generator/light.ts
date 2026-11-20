@@ -6,8 +6,8 @@ import { crownVolume } from './crown';
 import { COARSE_SIDES, emptyGeometry, fruitGeometry, fruitGrowth, placeFruit } from './fruit';
 import { growthTiming } from './growth';
 import { trunkHeight } from './index';
-import { solidLeafGeometry } from './leaf-shapes';
-import { leafGeometry, placeLeaves } from './leaves';
+import { shapedLeafGeometry } from './leaf-shapes';
+import { placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
 import { bakeOcclusion } from './occlusion';
 import { growRoots, rootSides } from './roots';
@@ -160,10 +160,7 @@ export function generateLightTree(definition: TreeDefinition, seed: number, over
     ...roots.map((root, i) => sweepBranch(root, rootSides(light), seedRandom(seed, root.path), woodSeason, growth.roots[i])),
   ]);
   const leafLevel = definition.branches.length + 1;
-  const leafBuffers =
-    light.leaves.shape === 'card'
-      ? leafGeometry(leaves, leafLevel, seed, definition.variation, growth.leaves, sway)
-      : solidLeafGeometry(leaves, light.leaves.shape, leafLevel, seed, definition.variation, growth.leaves, sway);
+  const leafBuffers = shapedLeafGeometry(leaves, light.leaves, leafLevel, seed, definition.variation, growth.leaves, sway);
   const fruitBuffers = light.fruit
     ? fruitGeometry(fruit, light.fruit, definition.branches.length + 2, seed, definition.variation, growth.fruit, sway)
     : emptyGeometry();

@@ -7,7 +7,7 @@
 //   ?season=<0..1>  Season (default 0.37, summer)
 //   ?form=conifer  an evergreen conifer instead of the deciduous broadleaf
 //   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (sets in late spring, ripens green -> red, drops in autumn)
-//   ?style=low-poly|stylized|realistic  grow that built-in Style's Definition for the form (loaded with a dynamic import)
+//   ?style=low-poly|stylized|realistic|painterly  grow that built-in Style's Definition for the form (loaded with a dynamic import)
 //   ?species=<id>  grow that Species (loadSpecies, e.g. oak) in the ?style (default low-poly)
 //   ?leafType=<Leaf Type>&barkType=<Bark Type>  re-apply the Style with this Leaf / Bark Type (e.g. palmate, papery)
 //   ?textureBase=<url>  load relative texture URLs (the realistic Style's) from this base path / CDN
@@ -15,6 +15,8 @@
 //   ?wind=<strength>  scene-wide Wind strength (default 0 = calm); animates unless windTime is given
 //   ?windTime=<s>  pin the Wind clock (deterministic screenshots)
 //   ?burst=1  two trees side by side, for Wind Bursts (window.treeExample.burst and setWindTime; pin ?windTime)
+//   ?view=tycoon  with ?style / ?species: look down at about 55° (a tycoon game camera) instead of 3/4
+//   ?view=top  with ?style / ?species: look straight down
 //   ?shadows=1  enable shadow mapping (sun casts, ground receives)
 //   ?backlight=1  put the sun low behind the tree, facing the camera (to see Leaf Translucency)
 //   Material Features (off by default; applied with withMaterialFeatures):
@@ -63,6 +65,7 @@ const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
   "low-poly": () => import("@casmo/tree.js/styles/low-poly"),
   stylized: () => import("@casmo/tree.js/styles/stylized"),
   realistic: () => import("@casmo/tree.js/styles/realistic"),
+  painterly: () => import("@casmo/tree.js/styles/painterly"),
 };
 
 declare global {
@@ -245,8 +248,12 @@ function frame(object: THREE.Object3D): void {
       2 /
       Math.tan((camera.fov * Math.PI) / 360)) *
     1.25;
-  const direction = new THREE.Vector3(1, 0.35, 1).normalize();
+  // 3/4 view, ?view=tycoon: looking down at about 55°, or ?view=top: straight down.
+  const view = params.get("view");
+  const direction =
+    view === "top" ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, view === "tycoon" ? 2 : 0.35, 1).normalize();
   camera.position.copy(centre).addScaledVector(direction, distance);
+  if (view === "top") camera.up.set(0, 0, -1);
   camera.lookAt(centre);
 }
 

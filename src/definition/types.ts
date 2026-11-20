@@ -118,10 +118,12 @@ export interface BranchLevelDefinition {
 export const MAX_BRANCH_LEVELS = 4;
 
 /**
- * How a leaf is drawn: a flat card, a faceted clump of foliage, a needle cluster, or a puff
- * (a smooth round ball of foliage, for toon shading).
+ * How a leaf is drawn: a flat card, a faceted clump of foliage, a needle cluster, a puff
+ * (a smooth round ball of foliage, for toon shading), or `mass`: the leaves are grouped into a few
+ * Leaf Masses and each leaf is one alpha-cut spray card inside its mass, its normal bent to the mass
+ * (painted shading, ADR 0014).
  */
-export type LeafShape = 'card' | 'clump' | 'needle' | 'puff';
+export type LeafShape = 'card' | 'clump' | 'needle' | 'puff' | 'mass';
 
 /**
  * Leaf Type: the kind of leaf a Species has. Each Style decides how to draw it (leaf shape,
@@ -155,7 +157,21 @@ export interface LeavesDefinition {
   start: number;
   /** Angle between branch and leaf, degrees (0..180). */
   angle: number;
+  /**
+   * Number of Leaf Masses the leaves are grouped into (integer >= 1), for `shape: 'mass'` only (other
+   * shapes ignore it). Absent = {@link DEFAULT_LEAF_MASSES}.
+   */
+  masses?: number;
+  /**
+   * How much more height counts than width when the leaves are grouped into Leaf Masses (> 0), for
+   * `shape: 'mass'` only. Above 1 the masses come out wide and flat, stacked in layers (conifer
+   * crowns); absent = 1 (round masses).
+   */
+  massLayering?: number;
 }
+
+/** Leaf Masses of a `shape: 'mass'` crown without `leaves.masses`. */
+export const DEFAULT_LEAF_MASSES = 8;
 
 /**
  * Fruit Type: the kind of Fruit a tree bears. `round` (apple, cherry, plum), `pear`, `nut` (a
@@ -217,8 +233,8 @@ export interface RootsDefinition {
   sections?: number;
 }
 
-/** Material shading model. Low-poly uses `flat`, stylized `toon`, realistic `standard`. */
-export type Shading = 'standard' | 'flat' | 'toon';
+/** Material shading model. Low-poly uses `flat`, stylized `toon`, realistic `standard`, painterly `painted`. */
+export type Shading = 'standard' | 'flat' | 'toon' | 'painted';
 
 export interface BarkMaterialDefinition {
   /** Bark Type the bark was drawn from (set by `Style.apply`), so a Style can be re-applied. Optional. */
@@ -388,6 +404,13 @@ export interface TreeDefinition {
   name: string;
   /** Id of the Species this Definition was made from by `Style.apply` (e.g. `'oak'`). Optional; never changes geometry. */
   species?: string;
+  /**
+   * The uniform scale a Style gave this tree's real size (> 0), set by Painterly (ADR 0013; 1 on its own
+   * hand-sized Definitions). The lengths here are already scaled, so it never changes geometry: it only
+   * records that the tree is Painterly-sized, so applying Painterly again (also after another Style) does
+   * not shrink it twice. Absent = real size.
+   */
+  styleScale?: number;
   trunk: TrunkDefinition;
   /** Branching levels below the trunk (0..{@link MAX_BRANCH_LEVELS} entries). */
   branches: BranchLevelDefinition[];

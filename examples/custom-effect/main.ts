@@ -4,7 +4,7 @@
 //   ?effect=on|pass-through|off  the custom effect with a demo look (default), the bare pass-through
 //                                (your look = the colour itself), or no custom effect at all
 //   ?effects=style  the Style's suggested Tree Effects too (the custom effect runs before the outline)
-//   ?style=low-poly|stylized|realistic  the tree's Style (default stylized)
+//   ?style=low-poly|stylized|realistic|painterly  the tree's Style (default stylized)
 //   ?view=mask  show the tree mask (red = tree, green = leaves) instead of the image
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 import * as THREE from 'three/webgpu';
@@ -17,6 +17,7 @@ const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
   'low-poly': () => import('@casmo/tree.js/styles/low-poly'),
   stylized: () => import('@casmo/tree.js/styles/stylized'),
   realistic: () => import('@casmo/tree.js/styles/realistic'),
+  painterly: () => import('@casmo/tree.js/styles/painterly'),
 };
 
 declare global {

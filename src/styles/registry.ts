@@ -12,6 +12,7 @@ const STYLE_LOADERS: Record<StyleName, () => Promise<{ default: TreeStyle }>> = 
   'low-poly': () => import('./low-poly'),
   stylized: () => import('./stylized'),
   realistic: () => import('./realistic'),
+  painterly: () => import('./painterly'),
 };
 
 /** Downloads a built-in Style (dynamic import) and resolves to it. Rejects for an unknown name. */

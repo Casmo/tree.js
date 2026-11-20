@@ -3,7 +3,7 @@
 ![A stylized forest of broadleaf trees and conifers going through a year: blossom, summer, autumn, winter](docs/images/hero.gif)
 
 Procedural trees for [three.js](https://threejs.org): one Tree Definition and a Seed grow a unique tree, in a
-low-poly, stylized or realistic Style. Trees grow (Growth), change through the year (Season) and sway in the
+low-poly, stylized, realistic or painterly Style. Trees grow (Growth), change through the year (Season) and sway in the
 Wind, all on the GPU through TSL node materials, so animating them never regenerates geometry. Place
 thousands at once as an instanced Forest, add opt-in Tree Effects, or design your own trees in the
 [Tree Editor](#tree-editor).
@@ -40,7 +40,7 @@ npm install @casmo/tree.js three
 | Import | What |
 | --- | --- |
 | `@casmo/tree.js` | `createTree`, `createForest`, Definitions, Wind, Baked Tree export, `loadStyle`, ... |
-| `@casmo/tree.js/styles/low-poly` (`stylized`, `realistic`) | a built-in Style: one Tree Definition per Form (a few kB of data) |
+| `@casmo/tree.js/styles/low-poly` (`stylized`, `realistic`, `painterly`) | a built-in Style: one Tree Definition per Form (a few kB of data) |
 | `@casmo/tree.js/species` | the 28 Species (`oak`, `douglasFir`, ...), `loadSpecies`, `SPECIES_NAMES`; JSON files |
 | `@casmo/tree.js/effects` | Tree Effects (post-processing) |
 | `@casmo/tree.js/scene` | Scene Pipeline: the Style's suggested Tree Effects and Scene Effects (tone mapping, SMAA/FXAA, fog, ...) in one opt-in pipeline |
@@ -106,9 +106,9 @@ The rest of your scene can keep any materials; only the trees need the node rend
 
 ## Styles
 
-![Low-poly, stylized and realistic Styles, a broadleaf and a conifer each](docs/images/styles.png)
+![Low-poly, stylized, realistic and painterly Styles, a broadleaf and a conifer each](docs/images/styles.png)
 
-*`low-poly`, `stylized` and `realistic`: a broadleaf and a conifer each.*
+*`low-poly`, `stylized`, `realistic` and `painterly`: a broadleaf and a conifer each (shown at one height).*
 
 A Style is a ready-made look with one Tree Definition per Form (`broadleaf`, `conifer`):
 
@@ -117,6 +117,19 @@ A Style is a ready-made look with one Tree Definition per Form (`broadleaf`, `co
 | `low-poly` | faceted (flat shading), solid colours, clump and needle leaves |
 | `stylized` | soft two-tone (toon) shading, round leaf puffs, pink blossom in early spring |
 | `realistic` | textured bark (with normal map) and leaf cards |
+| `painterly` | hand-painted: soft wrapped light, crowns of clumped painted Leaf Masses with a dark-to-sunlit gradient, painted bark; small trees (2-4 m) for top-down and tycoon cameras |
+
+Painterly is the one Style that also sets a tree's size: it scales every Species uniformly so that its
+height maps from the real one into 2-4 m (keeping the order between Species; its own `broadleaf` and
+`conifer` are 3 m and 3.5 m), so trees stay only a little taller than people in a tycoon view
+([ADR 0013](docs/adr/0013-painterly-compresses-tree-heights.md)). It records the scale in the Definition's
+optional `styleScale`, so applying Painterly again, also after another Style, never shrinks a tree twice.
+The other Styles keep real-world sizes. Its crowns are drawn to read from above as well as from the side
+([ADR 0014](docs/adr/0014-painterly-leaf-masses-are-clumped-spray-cards.md)):
+
+![A painterly Forest from a tycoon camera, about 55 degrees down, and a painterly broadleaf from straight above](docs/images/painterly-views.png)
+
+*Painterly from above: a Forest from a tycoon camera (about 55° down) and a broadleaf straight down.*
 
 Each Style is its own small module, so you only download the ones you use. Import one statically, or load
 it on demand by name:
@@ -139,9 +152,9 @@ scene.add(oak, pine, birch, tallPine);
 
 ## Species
 
-[![All 28 Species, each in the low-poly, stylized and realistic Styles](docs/species/contact-sheet.jpg)](docs/species/README.md)
+[![All 28 Species, each in the low-poly, stylized, realistic and painterly Styles](docs/species/contact-sheet.jpg)](docs/species/README.md)
 
-*Every Species in `low-poly`, `stylized` and `realistic`; the [Species gallery](docs/species/README.md) has larger
+*Every Species in `low-poly`, `stylized`, `realistic` and `painterly`; the [Species gallery](docs/species/README.md) has larger
 images (with Fruit or in autumn), a code example and the JSON of each.*
 
 28 real trees ship with the library, each described once by its shape (Stems, Crown Shape), Leaf Type, Bark
@@ -514,13 +527,17 @@ forest.lod = { impostor: 120 }; // distances, fade and the camera that picks the
 - Raycasting, `forest.treeAt`, `addTree`/`removeTree`, live Material Features and Tree Effects work as
   without `lod`, at every Detail Level.
 - **Memory**: the Impostors are baked into atlases of `impostorAtlas.size`² pixels (default 2048, with
-  `frames` 12 × 12 directions from the horizon to straight above), in two render targets per Variant: the
-  tree (colour, normals, Season data, and Material Feature inputs when the Definition sets them) and the
-  wood alone (colour, normals: shown where leaves have dropped). Each atlas is RGBA8 with mipmaps, about
-  21 MiB at 2048, and each render target has a depth buffer of the same size (16 MiB). That is about
-  139 MiB of GPU memory per Variant (five atlases), 160 MiB with Material Features (six), so 555 MiB or
-  640 MiB for 4 Variants. Halving `size` quarters it (`impostorAtlas: { size: 1024 }`: about 35 MiB per
-  Variant); fewer `frames` keep the memory and give each direction more pixels. `forest.dispose()` frees them.
+  `frames` 12 × 12 directions from the horizon to straight above), in render targets per Variant: the
+  tree (colour, normals, Season data, Material Feature inputs when the Definition sets them, and the paint
+  of painted Leaf Masses in Painterly) and the wood alone (colour, normals: shown where leaves have
+  dropped). A render target holds at most four atlases (WebGPU's default per pass), so a tree with more
+  channels (Painterly with Material Features) is baked in two passes, each its own render target. Each
+  atlas is RGBA8 with mipmaps, about 21 MiB at 2048, and each render target has a depth buffer of the same
+  size (16 MiB). That is about 139 MiB of GPU memory per Variant (five atlases, two targets), 160 MiB with
+  Material Features or in Painterly (six atlases, two targets), and 197 MiB for Painterly with Material
+  Features (seven atlases, three targets); so 555, 640 or 790 MiB for 4 Variants. Halving `size` quarters
+  it (`impostorAtlas: { size: 1024 }`: about 35 MiB per Variant); fewer `frames` keep the memory and give
+  each direction more pixels. `forest.dispose()` frees them.
 
 [`examples/large-forest`](examples/large-forest/main.ts) draws 10,000 trees under an orbiting camera and
 rebuilds the Forest with Detail Levels on or off, measuring both runs side by side. One example run
@@ -557,7 +574,7 @@ three, each an optional field in the Definition's `materials` section:
 on, so a game that sets nothing sees exactly the trees it saw before (same geometry, attributes and
 materials). Turning one on only changes the tree's own node materials: your renderer, scene, lights and
 post-processing are left alone, and there is no extra render pass, only some shader math per pixel. They
-work in every Style (flat, standard and toon shading), with Growth and Wind, and in Forests.
+work in every Style (flat, standard, toon and painted shading), with Growth and Wind, and in Forests.
 
 Each Style has suggested values. Opt in with one line: `withMaterialFeatures(definition, features)`
 returns a new Definition whose Material Features are exactly `features` (a feature you leave out is off,
@@ -581,6 +598,7 @@ const off = withMaterialFeatures(subtle, {}); // the plain Style tree again
 | `low-poly` | 0.5 | (off: it would soften the flat look) | `{ strength: 0.8 }` |
 | `stylized` | 1 | `{ strength: 0.3, edge: 0.8, ambient: 0.2 }` | `{ strength: 0.9 }` |
 | `realistic` | 0.6 | `{ strength: 0.45, edge: 0.7, ambient: 0.25 }` | `{ strength: 0.9 }` |
+| `painterly` | 0.3 (on top of its own Leaf Mass normals) | `{ strength: 0.3, edge: 0.8, ambient: 0.15 }` | `{ strength: 0.35 }` (it paints its own depth) |
 
 The fields are plain numbers, so they are saved in the Definition JSON (the Tree Editor exports them) and
 can be set with `extendDefinition` too (`{ materials: { leaf: { crownNormals: 1 } } }`). Validation
@@ -647,7 +665,7 @@ roughness:
 | `normal` | The world-space normal the fragment is lit with, after Wind and Growth (and Crown Normals, the bark normal map) |
 | `position`, `treePosition` | The fragment's world position, and the tree's own (the foot of its trunk) |
 | `season`, `growth` | The tree's Season and Growth (0..1) |
-| `part`, `shading` | The tree part, and the Style's shading (`'flat'`, `'toon'` or `'standard'`) |
+| `part`, `shading` | The tree part, and the Style's shading (`'flat'`, `'toon'`, `'standard'` or `'painted'`) |
 
 ```ts
 import { createTree, type TreeShaderHook } from '@casmo/tree.js';
@@ -830,7 +848,8 @@ effects.set({ outline: { color: '#203018', thickness: 2 }, grade: { saturation: 
 Each Style has a suggested combination (`SUGGESTED_TREE_EFFECTS`): `low-poly` has a colour grade, ink
 [Inner Lines](#inner-lines) and a dark outline that is also drawn [between overlapping trees](#outline-between-overlapping-trees);
 `stylized` has a warm grade, a leaf glow, soft Inner Lines and a soft outline; `realistic` only a gentle
-grade and a faint leaf glow (no ink).
+grade and a faint leaf glow (no ink); `painterly` only a gentle warm grade: it is complete in its own
+materials, so an outline, Inner Lines or the Highlight are yours to add.
 
 > **Changed in this release:** the `low-poly` and `stylized` suggestions now include Inner Lines, and
 > `low-poly` also `outline.betweenTrees`. Apps that use either suggestion get a changed look (ink lines
@@ -1121,6 +1140,7 @@ forest (trees 10-30 m away); scale it up for large worlds:
 | `low-poly` | Neutral | SMAA | light | - | distance | - |
 | `stylized` | AgX | SMAA | yes | soft | distance + low mist | - |
 | `realistic` | AgX | SMAA | yes | subtle | distance + mist + far haze | yes (needs `sun`) |
+| `painterly` | - (the renderer's own; keeps the painted colours) | SMAA | light | - | distance | - |
 
 SMAA is in every suggestion because the [Tree ID](#tree-id) channel turns MSAA off. TRAA and motion
 blur are never suggested. Override a whole group with `treeEffects` or `sceneEffects` (a Style name,
@@ -1478,6 +1498,27 @@ vertex colours show the occlusion without a custom shader. The trade-off: `COLOR
 direct sunlight included, while Structural Occlusion in tree.js (and `_OCCLUSION` used as AO) darkens only
 ambient and indirect light. Leave it off when your engine can read `_OCCLUSION`, or keep the strength lower.
 
+### Painterly Baked Trees are an approximation
+
+A Painterly tree (`shading: 'painted'`) bakes to a valid glTF like any other, but standard glTF materials cannot
+carry its live shading (soft wrap lighting, and the crown gradient that direct light moves towards the warm tips).
+The Baked Tree gets as close as standard channels allow:
+
+- `NORMAL` of the Leaf Mass cards is bent towards their mass (as live). Live both sides of a card are lit with that
+  normal, so each card is in the mesh twice, once each way round, with a single-sided leaf material (glTF
+  `doubleSided: false`): engines would flip it on the back of a double-sided one.
+- `COLOR_0` has the crown gradient painted in (deep and cool inside the masses, warm on the tops), as lit by a
+  sun straight above; your engine's lighting then comes on top.
+- The leaf texture holds the spray's brush strokes as a brightness map (alpha cut-out as live): the Painterly
+  spray is a grey paint value, not a colour, and multiplying it in as is would darken every leaf.
+- `_MASS_NORMAL` (vec3, the Leaf Mass normal) and `_PAINT` (vec4: height in the crown, how buried, tip light,
+  random per mass) for engines that rebuild the shading, with the settings in `extras.treejs.painted`:
+  `wrap`, `warm` (bark and leaf materials) and, on the leaves, `leafMasses { masses, massLayering, bend, sunlit,
+  leafShadow, paintValue, paintSun }`.
+
+Bark and Fruit are standard materials with their painted colours and textures. Expect a baked Painterly tree to
+look flatter and a little darker than the live one; for the real look, render it with tree.js.
+
 ## Textures
 
 ![The realistic Style up close: textured bark and leaf cards on a broadleaf, needle cards on a conifer](docs/images/textures.png)
@@ -1487,7 +1528,10 @@ URLs) load them relative to the package's `dist/textures/` by default. To serve 
 folder and point tree.js at it, app-wide or per tree. `realistic.apply` picks a leaf card per Leaf Type
 (`realistic/leaf.png`, `leaf-lobed.png`, `leaf-palmate.png`, `leaf-compound.png`, `needles.png`,
 `scale.png`) and a colour + normal pair per Bark Type (`realistic/bark.png` for furrowed, `bark-smooth.png`,
-`bark-papery.png`, `bark-fibrous.png`, `bark-plated.png`, each with its `-normal.png`); all are made by
+`bark-papery.png`, `bark-fibrous.png`, `bark-plated.png`, each with its `-normal.png`). `painterly.apply`
+draws every Leaf Type as Leaf Masses of a painted spray card (`painterly/spray-<LeafType>.png`; needle and scale
+crowns in 12 flat, layered masses) and paints each Bark Type smooth (`painterly/bark-<BarkType>.png`, no
+normal map); all are made by
 `scripts/generate-textures.mjs` (MIT, reproducible):
 
 ```ts
@@ -1516,15 +1560,15 @@ a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branche
 
 | Example | Run | What | |
 | --- | --- | --- | --- |
-| [`examples/vanilla`](examples/vanilla/main.ts) | `/examples/vanilla/` | one tree in plain three.js; `?style=low-poly&form=conifer&seed=2&growth=0.6&season=0.7&wind=0.5` | <img src="docs/images/example-vanilla.png" alt="examples/vanilla" width="160"> |
+| [`examples/vanilla`](examples/vanilla/main.ts) | `/examples/vanilla/` | one tree in plain three.js; `?style=low-poly&form=conifer&seed=2&growth=0.6&season=0.7&wind=0.5`; from above: `?style=painterly&view=tycoon\|top` | <img src="docs/images/example-vanilla.png" alt="examples/vanilla" width="160"> |
 | [`examples/cdn`](examples/cdn/index.html) | `/examples/cdn/` | no bundler: a single HTML page with an import map | <img src="docs/images/example-cdn.png" alt="examples/cdn" width="160"> |
 | [`examples/react`](examples/react/main.tsx) | `/examples/react/` | React Three Fiber: `<Tree>`, `<Wind>`, `useTreeStyle`; `?scene=forest` for `<Forest>`, `?scene=pipeline` for `<ScenePipeline>` | <img src="docs/images/example-react.png" alt="examples/react" width="160"> |
-| [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
+| [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=`; a tycoon camera: `?style=painterly&view=tycoon` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
 | [`examples/large-forest`](examples/large-forest/main.ts) | `/examples/large-forest/` | 10,000 trees with Detail Levels on and off: frame times, draw calls, triangles and trees per Detail Level; `?trees=&lod=0&frames=&orbit=` | <img src="docs/images/example-large-forest.png" alt="examples/large-forest" width="160"> |
 | [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` | <img src="docs/images/example-effects.png" alt="examples/effects" width="160"> |
 | [`examples/custom-effect`](examples/custom-effect/main.ts) | `/examples/custom-effect/` | a foliage-only [custom Tree Effect](#custom-tree-effects) (the bare setup); `?effect=on\|pass-through\|off&effects=style&view=mask&backend=webgl` | <img src="docs/images/example-custom-effect.png" alt="examples/custom-effect" width="160"> |
 | [`examples/material-features`](examples/material-features/main.ts) | `/examples/material-features/` | the same tree with Material Features off and on (`SUGGESTED_MATERIAL_FEATURES`); `?style=realistic&species=oak` | <img src="docs/images/example-material-features.png" alt="examples/material-features" width="160"> |
-| [`examples/scene-pipeline`](examples/scene-pipeline/main.ts) | `/examples/scene-pipeline/` | the opt-in [Scene Pipeline](#scene-pipeline) (`createScenePipeline`) per Style: `?style=low-poly\|stylized\|realistic`; one Scene Effect alone through its builder: `?scene=tone-mapping\|smaa\|fxaa\|traa\|gtao\|bloom\|fog\|godrays\|motion-blur` (`&sun=back` for light shafts); `?scene=none` (adds nothing) or `plain` (`renderer.render`); the Wind-aware velocity channel: `?scene=velocity&wind=1.5&windTime=3`; motion blur: `?scene=motion-blur&wind=3&windTime=3&cameraStep=0.5`; `?backend=webgl` | <img src="docs/images/example-scene-pipeline.png" alt="examples/scene-pipeline" width="160"> |
+| [`examples/scene-pipeline`](examples/scene-pipeline/main.ts) | `/examples/scene-pipeline/` | the opt-in [Scene Pipeline](#scene-pipeline) (`createScenePipeline`) per Style: `?style=low-poly\|stylized\|realistic\|painterly`; one Scene Effect alone through its builder: `?scene=tone-mapping\|smaa\|fxaa\|traa\|gtao\|bloom\|fog\|godrays\|motion-blur` (`&sun=back` for light shafts); `?scene=none` (adds nothing) or `plain` (`renderer.render`); the Wind-aware velocity channel: `?scene=velocity&wind=1.5&windTime=3`; motion blur: `?scene=motion-blur&wind=3&windTime=3&cameraStep=0.5`; `?backend=webgl` | <img src="docs/images/example-scene-pipeline.png" alt="examples/scene-pipeline" width="160"> |
 | [`examples/species`](examples/species/main.ts) | `/examples/species/` | a Species x Style picker over the whole collection; `?species=douglas-fir&style=realistic` | <img src="docs/images/example-species.png" alt="examples/species" width="160"> |
 
 ```sh

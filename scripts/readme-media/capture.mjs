@@ -23,8 +23,15 @@ const JOBS = {
   hero: { ...shot('hero', 720, 300), gif: { fps: 10, colors: 96, dither: 'none' } },
   'quick-start': shot('quick-start', 720, 405),
   renderer: { side: [shot('renderer', 480, 320), shot('renderer', 480, 320, '&backend=webgl')] },
-  styles: shot('styles', 960, 320),
+  styles: shot('styles', 1280, 320),
   seeds: shot('seeds', 960, 320),
+  // Painterly from above (#122): a Forest from a tycoon camera (about 55°) and one tree straight down.
+  'painterly-views': {
+    side: [
+      { url: '/examples/forest/?style=painterly&view=tycoon&trees=120', width: 480, height: 360, ready: 'forestExample' },
+      { url: '/examples/vanilla/?style=painterly&form=broadleaf&seed=1&view=top', width: 480, height: 360, ready: 'treeExample' },
+    ],
+  },
   'growth-season': { ...shot('growth-season', 400, 400), gif: { fps: 12, colors: 128 } },
   wind: { ...shot('wind', 640, 320), gif: { fps: 15, colors: 128 } },
   forest: shot('forest', 960, 400),

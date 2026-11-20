@@ -4,6 +4,7 @@ import { generateTree } from '../../src/generator';
 import lowPoly from '../../src/styles/low-poly';
 import stylized from '../../src/styles/stylized';
 import realistic from '../../src/styles/realistic';
+import painterly from '../../src/styles/painterly';
 
 /** A small test Species: a short broadleaf with lobed leaves and plated bark. */
 const testOak: SpeciesDefinition = {
@@ -40,7 +41,7 @@ const testFir: SpeciesDefinition = {
   variation: { color: 0.08, growth: 0.1, season: 0.05 },
 };
 
-const styles = { 'low-poly': lowPoly, stylized, realistic };
+const styles = { 'low-poly': lowPoly, stylized, realistic, painterly };
 
 describe('Leaf Types and Bark Types in the Tree Definition', () => {
   it('lists the six Leaf Types and five Bark Types', () => {
@@ -135,6 +136,33 @@ describe('Style.apply: each Style draws the Leaf Type and Bark Type its own way'
     expect(birch.materials.bark).toMatchObject({ map: 'realistic/bark-papery.png', normalMap: 'realistic/bark-papery-normal.png' });
   });
 
+  it('painterly: Leaf Masses of a painted spray card per Leaf Type; conifer foliage in more, flatter, layered masses (ADR 0014)', () => {
+    for (const type of LEAF_TYPES) {
+      const d = painterly.apply(withLeaves(type));
+      expect(d.leaves.shape, type).toBe('mass');
+      expect(d.materials.leaf, type).toMatchObject({ map: `painterly/spray-${type}.png`, alphaTest: 0.5 });
+      const needleLike = type === 'needle' || type === 'scale';
+      // Broadleaf crowns: a few round masses; needle / scale crowns: 10-12 wide, flat masses in layers (#113).
+      expect(d.leaves.masses ?? 8, type).toBe(needleLike ? 12 : 8);
+      expect(d.leaves.massLayering ?? 1, type).toBe(needleLike ? 1.8 : 1);
+    }
+    expect(painterly.apply(testOak).materials.shading).toBe('painted');
+  });
+
+  it('painterly: smooth painted bark per Bark Type (a colour texture, no normal map), tinted by the Species colour', () => {
+    for (const type of BARK_TYPES) {
+      const bark = painterly.apply({ ...testOak, bark: { type, color: '#806040' } }).materials.bark;
+      expect(bark).toMatchObject({ type, color: '#806040', map: `painterly/bark-${type}.png`, normalMap: null });
+    }
+  });
+
+  it('painterly: re-styling a Definition from another Style picks the sprays and masses of its Leaf Type', () => {
+    expect(painterly.apply(realistic.apply(testFir)).leaves).toEqual(painterly.apply(testFir).leaves);
+    expect(painterly.apply(realistic.apply(testOak)).leaves).toEqual(painterly.apply(testOak).leaves);
+    // And back: other Styles do not keep the Leaf Masses.
+    expect(realistic.apply(painterly.apply(testFir)).leaves).not.toHaveProperty('masses');
+  });
+
   it('every Style uses the Species bark colour and more foliage for a denser Species', () => {
     for (const style of Object.values(styles)) {
       expect(style.apply(testOak).materials.bark.color).toBe('#6e5a48');
@@ -187,7 +215,19 @@ describe('Style.apply draws Fruit the Style\'s way', () => {
 
   it('keeps the Species\' Fruit (type, count, size, hang) and a fractional count', () => {
     const species = { ...withFruit('cone'), fruit: { type: 'cone' as const, count: 0.35, size: 0.2, sizeVariation: 0.1, hang: 0.8 } };
-    for (const style of Object.values(styles)) expect(style.apply(species).fruit).toMatchObject(species.fruit);
+    for (const style of [lowPoly, stylized, realistic]) expect(style.apply(species).fruit).toMatchObject(species.fruit);
+    // Painterly shrinks the whole tree (ADR 0013): the Fruit keeps its size relative to the trunk.
+    const { fruit, trunk } = painterly.apply(species);
+    expect(fruit).toMatchObject({ ...species.fruit, size: expect.any(Number) });
+    expect(fruit!.size / trunk.length).toBeCloseTo(species.fruit.size / species.trunk.length, 6);
+  });
+
+  it('painterly: Fruit is drawn smooth (6 sides) with the painted shading, like the stylized Style', () => {
+    expect(painterly.apply(withFruit('round')).fruit!.sides).toBe(stylized.apply(withFruit('round')).fruit!.sides);
+    const tree = createTree(painterly.apply(withFruit('round')), { seed: 1 });
+    expect(tree.data.skeleton.fruit.length).toBeGreaterThan(0);
+    expect(tree.fruit.material).toMatchObject({ isPaintedMaterial: true });
+    tree.dispose();
   });
 
   it('re-styling a Definition with Fruit redraws its Fruit in the new Style', () => {
@@ -215,6 +255,7 @@ describe('Style.apply draws the Root Flare the Style\'s way', () => {
       'low-poly': 2,
       stylized: 3,
       realistic: 3,
+      painterly: 3,
     });
     for (const style of Object.values(styles)) {
       expect(trunkRings(style.apply(flared)) - trunkRings(style.apply(testOak))).toBe(style.apply(flared).trunk.flareSections);
@@ -239,6 +280,7 @@ describe('Style.apply draws Roots the Style\'s way', () => {
       'low-poly': [3, 2],
       stylized: [6, 4],
       realistic: [8, 6],
+      painterly: [6, 3],
     });
     for (const style of Object.values(styles)) {
       const { skeleton } = generateTree(style.apply(rooted), 1);
@@ -272,13 +314,21 @@ describe('Style.apply on a Tree Definition re-applies only the look', () => {
     });
     const withSculpt = { ...edited, sculpts: [{ action: 'delete' as const, seed: 7, path: '0.1' }] };
     for (const style of Object.values(styles)) {
-      const restyled = style.apply(withSculpt);
+      let restyled = style.apply(withSculpt);
+      if (style === painterly) {
+        // Painterly also sets the overall size (ADR 0013): scaled uniformly, the shape is the same.
+        const factor = restyled.trunk.length / withSculpt.trunk.length;
+        expect(restyled.trunk.radius / withSculpt.trunk.radius).toBeCloseTo(factor, 6);
+        restyled = { ...restyled, trunk: { ...restyled.trunk, length: withSculpt.trunk.length, radius: withSculpt.trunk.radius } };
+      }
       expect(shapeOf(restyled)).toEqual(shapeOf(withSculpt));
       expect(restyled.branches[0]!.lengthProfile).toEqual(testOak.branches[0]!.lengthProfile);
       // The look is exactly what the Style gives the Species.
       const fresh = style.apply(testOak);
       expect(restyled.materials).toEqual(fresh.materials);
-      expect(restyled.leaves).toEqual(fresh.leaves);
+      // Painterly's leaf size follows the tree's height (ADR 0013), and this tree is taller than testOak.
+      expect({ ...restyled.leaves, size: 0 }).toEqual({ ...fresh.leaves, size: 0 });
+      if (style !== painterly) expect(restyled.leaves.size).toBe(fresh.leaves.size);
       expect(restyled.trunk.sides).toBe(fresh.trunk.sides);
       expect(restyled.branches.map((b) => b.sections)).toEqual(fresh.branches.map((b) => b.sections));
     }

@@ -1,11 +1,13 @@
 /* global Buffer, URL, console, process */
-// Generates the realistic Style's textures procedurally, so every image in the package is our own
+// Generates the realistic and Painterly Styles' textures procedurally, so every image in the package is our own
 // (MIT, like the code). Deterministic: the same script always writes the same bytes.
 //
 //   node scripts/generate-textures.mjs [outDir]
 //
-// Output (assets/textures/realistic/ by default, shipped as dist/textures/realistic/), one set per
-// Bark Type and Leaf Type (src/styles/realistic/textures.ts maps the types to these files):
+// Output (assets/textures/ by default, shipped as dist/textures/): realistic/ and painterly/.
+//
+// realistic/: one set per Bark Type and Leaf Type (src/styles/realistic/textures.ts maps the types to
+// these files):
 //   bark.png         256x256 RGB   furrowed bark colour, tileable (furrows running along the branch)
 //   bark-normal.png  256x256 RGB   tangent-space normal map of the same furrows
 //   bark-smooth[-normal].png       smooth bark: grey, mottled, faint wrinkles (beech)
@@ -24,12 +26,19 @@
 // v = 0.4, tip at (0.5, 1). v = 0 is the bottom image row (three.js flips images on upload).
 // A card is half as wide as it is long (LEAF_WIDTH in src/generator/leaves.ts), so the drawing is
 // made in card units (x across, centred, -0.25..0.25; v along, 0..1) and stretched to fill u.
+//
+// painterly/ (ADR 0014: Leaf Masses are clumps of painted spray cards), painted with brush-like marks:
+//   spray-<Leaf Type>.png 256x256 RGBA  square spray card per Leaf Type (broad, lobed, palmate, compound,
+//                                       needle, scale): grey paint value (dark low in the spray .. light
+//                                       tips), alpha cut-out; stem at (0.5, 0), tips towards v = 1
+//   bark-<Bark Type>.png  128x256 RGB   tileable painted bark colour per Bark Type (furrowed, smooth,
+//                                       papery, fibrous, plated); no normal maps
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { deflateSync } from 'node:zlib';
 
-const OUT = process.argv[2] ? pathToFileURL(`${resolve(process.argv[2])}/`) : new URL('../assets/textures/realistic/', import.meta.url);
+const OUT = process.argv[2] ? pathToFileURL(`${resolve(process.argv[2])}/`) : new URL('../assets/textures/', import.meta.url);
 const SIZE = 256;
 
 // ---------- PNG ----------
@@ -688,21 +697,374 @@ function scaleSpray() {
   }, [0.8, 0.86, 0.72]);
 }
 
-mkdirSync(OUT, { recursive: true });
-const h = barkHeight();
-const files = { 'bark.png': bark(h), 'bark-normal.png': barkNormal(h), 'leaf.png': leaf(), 'needles.png': needles() };
-for (const [type, make] of Object.entries({ smooth: smoothBark, papery: paperyBark, fibrous: fibrousBark, plated: platedBark })) {
-  const { map, normal } = make();
-  files[`bark-${type}.png`] = map;
-  files[`bark-${type}-normal.png`] = normal;
+// ---------- painterly ----------
+// Painterly (ADR 0014) draws Leaf Masses as clumps of painted spray cards. Its textures are painted
+// with brush-like marks: each mark is a shape in its own frame (centre, rotation, length along the
+// mark, width across it), painted over what is below it. Marks are rasterised into a supersampled
+// buffer in pixel units with y up (y = 0 is the bottom image row, v = 0), then averaged down.
+
+/** A w x h paint buffer, supersampled `ss` times; `wrap` makes marks tile across the edges. */
+function canvasBuffer(w, h, { ss = 3, wrap = false, base = null } = {}) {
+  const W = w * ss;
+  const H = h * ss;
+  const col = new Float32Array(W * H * 3);
+  const cov = new Float32Array(W * H);
+  if (base) for (let i = 0; i < W * H; i++) [col[i * 3], col[i * 3 + 1], col[i * 3 + 2], cov[i]] = [...base, 1];
+  return { w, h, ss, W, H, wrap, col, cov };
 }
-Object.assign(files, {
-  'leaf-lobed.png': lobedLeaves(),
-  'leaf-palmate.png': palmateLeaves(),
-  'leaf-compound.png': compoundLeaf(),
-  'scale.png': scaleSpray(),
-});
-for (const [name, bytes] of Object.entries(files)) {
-  writeFileSync(new URL(name, OUT), bytes);
-  console.log(`${name}: ${(bytes.length / 1024).toFixed(1)} kB`);
+
+/**
+ * Paints one mark centred at (x, y) (pixels, y up), its length pointing `rot` radians from straight up
+ * (clockwise, towards +x). `inside(a, l)` and `colour(a, l) -> [r, g, b]` get the position across
+ * (a) and along (l) the mark in pixels from its centre; `alpha` blends it over what is below.
+ */
+function mark(buf, { x, y, rot, len, wid, inside, colour, alpha = 1 }) {
+  const { ss, W, H, wrap, col, cov } = buf;
+  const sin = Math.sin(rot);
+  const cos = Math.cos(rot);
+  const r = 0.5 * Math.hypot(len, wid) + 1;
+  const i0 = Math.floor((x - r) * ss);
+  const i1 = Math.ceil((x + r) * ss);
+  const j0 = Math.floor((y - r) * ss);
+  const j1 = Math.ceil((y + r) * ss);
+  for (let j = j0; j <= j1; j++) {
+    if (!wrap && (j < 0 || j >= H)) continue;
+    const dy = (j + 0.5) / ss - y;
+    const row = (((j % H) + H) % H) * W;
+    for (let i = i0; i <= i1; i++) {
+      if (!wrap && (i < 0 || i >= W)) continue;
+      const dx = (i + 0.5) / ss - x;
+      const l = dx * sin + dy * cos;
+      const a = dx * cos - dy * sin;
+      if (Math.abs(l) > len / 2 || Math.abs(a) > wid / 2 || !inside(a, l)) continue;
+      const c = colour(a, l);
+      const k = row + (((i % W) + W) % W);
+      for (let n = 0; n < 3; n++) col[k * 3 + n] = mix(col[k * 3 + n], c[n], alpha);
+      cov[k] = mix(cov[k], 1, alpha);
+    }
+  }
+}
+
+/** A round-ended brush stroke from (x0, y0) to (x1, y1), `width` pixels wide, in one colour. */
+function stroke(buf, x0, y0, x1, y1, width, rgb, alpha = 1) {
+  const len = Math.hypot(x1 - x0, y1 - y0) + width;
+  const half = (len - width) / 2;
+  mark(buf, {
+    x: (x0 + x1) / 2,
+    y: (y0 + y1) / 2,
+    rot: Math.atan2(x1 - x0, y1 - y0),
+    len,
+    wid: width,
+    inside: (a, l) => Math.hypot(Math.max(0, Math.abs(l) - half), a) <= width / 2,
+    colour: () => rgb,
+    alpha,
+  });
+}
+
+/** Averages the buffer down to an RGB or RGBA PNG; uncovered pixels get the mean covered colour. */
+function bufferPng(buf, channels) {
+  const { w, h, ss, W, col, cov } = buf;
+  const mean = [0, 0, 0];
+  let total = 0;
+  for (let k = 0; k < cov.length; k++) {
+    for (let n = 0; n < 3; n++) mean[n] += col[k * 3 + n] * cov[k];
+    total += cov[k];
+  }
+  const fill = mean.map((m) => (total > 0 ? m / total : 0));
+  const px = new Uint8Array(w * h * channels);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const sum = [0, 0, 0];
+      let c = 0;
+      for (let sy = 0; sy < ss; sy++) {
+        for (let sx = 0; sx < ss; sx++) {
+          const k = (y * ss + sy) * W + x * ss + sx;
+          for (let n = 0; n < 3; n++) sum[n] += col[k * 3 + n] * cov[k];
+          c += cov[k];
+        }
+      }
+      const i = ((h - 1 - y) * w + x) * channels; // y up -> image rows top to bottom
+      for (let n = 0; n < 3; n++) px[i + n] = byte(c > 0 ? sum[n] / c : fill[n]);
+      if (channels === 4) px[i + 3] = byte(c / (ss * ss));
+    }
+  }
+  return png(w, h, channels, px);
+}
+
+/** Grey of value `v`. */
+const greyRgb = (v) => [v, v, v];
+/** The painted look of one leaf: lit on one side (+a), darker on the other, like a loaded brush. */
+const litAcross = (value, wid) => (a) => greyRgb(clamp01(value * mix(0.7, 1.15, a / wid + 0.5)));
+/** A pointed leaf blade (half-width at `p`, 0 base .. 1 tip), widest a little below the middle. */
+const pointedBlade = (p) => 0.5 * Math.pow(Math.sin(Math.PI * Math.pow(p, 1.12)), 0.85);
+/** `inside` for a blade outline `half(p)` (fraction of the width each side). */
+const bladeInside = (len, wid, half) => (a, l) => Math.abs(a) < wid * half(l / len + 0.5);
+/** The paint value of a leaf at height `t` (0 stem .. 1 tip): dark low in the spray, light at the tips. */
+const sprayValue = (rand, t) => 0.35 + 0.55 * t * mix(0.6, 1.1, rand()) + 0.15 * rand();
+
+/**
+ * Painterly spray cards, one per Leaf Type. Square cards (u across, v from the stem at (0.5, 0) to
+ * the tips at v = 1), RGBA: rgb = grey paint value (dark gaps low in the spray .. light leaf tips;
+ * the Painterly shading maps it onto its Season palette), a = coverage for the alpha cut.
+ */
+function paintedSpray(type) {
+  const S = SIZE;
+  const cx = S / 2;
+  const buf = canvasBuffer(S, S);
+  const rand = mulberry32({ broad: 5, lobed: 6, palmate: 7, compound: 8, needle: 9, scale: 10 }[type]);
+  const range = (a, b) => mix(a, b, rand());
+  const leafAt = (x, y, rot, len, wid, half, value) =>
+    mark(buf, { x, y, rot, len, wid, inside: bladeInside(len, wid, half), colour: litAcross(value, wid) });
+  // Leaves fanning out of the stem, pointing outwards and up, the spray narrowing to the tip.
+  const fan = (count, size, aspect, half, turn = 0.9) => {
+    for (let i = 0; i < count; i++) {
+      const t = Math.pow(rand(), 0.8);
+      const side = range(-1, 1);
+      const x = cx + side * (1 - 0.6 * t) * S * 0.32 * range(0.2, 1);
+      const y = S * (0.12 + 0.76 * t);
+      const len = S * size(t);
+      leafAt(x, y, side * range(0.5, 1.2) * turn, len, len * aspect(), half, sprayValue(rand, t));
+    }
+  };
+  if (type === 'broad') fan(70, (t) => range(0.13, 0.22) * (1 - 0.4 * t), () => range(0.38, 0.5), pointedBlade);
+  if (type === 'needle') fan(260, () => range(0.12, 0.22), () => 0.09, pointedBlade, 1.1);
+  if (type === 'lobed') {
+    // Oak: broad leaves, widest towards the tip, with rounded lobes and sinuses along the edge.
+    const lobed = (p) => 0.5 * Math.pow(Math.sin(Math.PI * Math.pow(p, 0.75)), 0.7) * (0.62 + 0.38 * Math.abs(Math.cos(p * Math.PI * 4.5)));
+    fan(55, (t) => range(0.16, 0.24) * (1 - 0.4 * t), () => range(0.5, 0.6), lobed);
+  }
+  if (type === 'palmate') {
+    // Maple: five-pointed stars (lobes spreading from where the stalk meets the blade).
+    const LOBES = [[0, 1], [0.95, 0.9], [-0.95, 0.9], [1.9, 0.6], [-1.9, 0.6]];
+    for (let i = 0; i < 38; i++) {
+      const t = Math.pow(rand(), 0.8);
+      const side = range(-1, 1);
+      const x = cx + side * (1 - 0.6 * t) * S * 0.3 * range(0.2, 1);
+      const y = S * (0.12 + 0.74 * t);
+      const len = S * range(0.17, 0.24) * (1 - 0.35 * t);
+      const value = sprayValue(rand, t);
+      mark(buf, {
+        x,
+        y,
+        rot: side * range(0.3, 0.9),
+        len,
+        wid: len,
+        inside: (a, l) => {
+          const r = (2 * Math.hypot(a, l)) / len;
+          const theta = Math.atan2(a, l);
+          let reach = 0.3;
+          for (const [dir, lobe] of LOBES) {
+            const d = Math.abs(theta - dir) / 0.6;
+            if (d < 1) reach = Math.max(reach, lobe * Math.pow(1 - d, 0.6));
+          }
+          return r < reach;
+        },
+        colour: litAcross(value, len),
+      });
+    }
+  }
+  if (type === 'compound') {
+    // Ash / walnut: a few pinnate leaves off the stem, opposite pairs of narrow leaflets on each rachis.
+    for (let k = 0; k < 5; k++) {
+      const last = k === 4;
+      const t = last ? 0.72 : 0.1 + 0.15 * k;
+      const side = k % 2 === 0 ? 1 : -1;
+      const rot = last ? 0.05 : side * range(0.65, 0.95);
+      const length = S * (last ? 0.12 : 0.42 * (1 - 0.35 * t));
+      const x0 = cx + S * 0.02 * Math.sin(Math.PI * t);
+      const y0 = S * t;
+      const at = (f) => [x0 + Math.sin(rot) * length * f, y0 + Math.cos(rot) * length * f];
+      stroke(buf, x0, y0, ...at(1), S * 0.01, greyRgb(0.25));
+      for (let f = 0.22; f <= 1.001; f += 0.16) {
+        const [px, py] = at(f);
+        const leaflet = S * range(0.08, 0.1) * (1 - 0.3 * f);
+        for (const turn of f > 0.95 ? [0] : [1, -1]) {
+          const r = rot + turn * range(0.75, 1.0);
+          const value = sprayValue(rand, (py + leaflet * 0.5 * Math.cos(r)) / S);
+          leafAt(px + 0.5 * leaflet * Math.sin(r), py + 0.5 * leaflet * Math.cos(r), r, leaflet, leaflet * 0.34, pointedBlade, value);
+        }
+      }
+    }
+  }
+  if (type === 'scale') {
+    // Cedar / juniper: flat, feathery shoots of overlapping scale dabs, branching off the stem.
+    const shoot = (x0, y0, rot, length, dab) => {
+      for (let d = 0; d < length; d += dab * 0.45) {
+        const x = x0 + Math.sin(rot) * d;
+        const y = y0 + Math.cos(rot) * d;
+        const size = dab * (1 - (0.4 * d) / length);
+        leafAt(x, y, rot + range(-0.3, 0.3), size, size * 0.62, pointedBlade, sprayValue(rand, clamp01(y / S + 0.15 * (d / length))));
+      }
+    };
+    for (let k = 0; k < 11; k++) {
+      const t = 0.06 + 0.075 * k;
+      const side = k % 2 === 0 ? 1 : -1;
+      const rot = side * range(0.65, 0.9);
+      const length = S * 0.36 * (1 - 0.55 * t);
+      const x0 = cx + S * 0.02 * Math.sin(Math.PI * t);
+      const y0 = S * t;
+      shoot(x0, y0, rot, length, S * 0.05);
+      for (const f of [0.3, 0.6]) {
+        const turn = (f < 0.5 ? 1 : -1) * side * 0.65;
+        shoot(x0 + Math.sin(rot) * length * f, y0 + Math.cos(rot) * length * f, rot - turn, length * 0.4, S * 0.04);
+      }
+    }
+    shoot(cx, S * 0.84, 0, S * 0.12, S * 0.05);
+  }
+  // The stem: a slightly bent brush stroke from the bottom centre up into the spray.
+  const bend = (f) => [cx + S * 0.04 * 2 * f * (1 - f), S * 0.88 * f];
+  for (let k = 0; k < 16; k++) stroke(buf, ...bend(k / 16), ...bend((k + 1) / 16), S * 0.025 * (1 - (0.5 * k) / 16), greyRgb(0.2));
+  return bufferPng(buf, 4);
+}
+
+/** sRGB hex -> [r, g, b] 0..1 (the image's own colour values). */
+const hex = (h) => [0, 2, 4].map((k) => parseInt(h.slice(1 + k, 3 + k), 16) / 255);
+
+/**
+ * Painterly bark colour per Bark Type: 128 x 256 RGB, tileable, smooth painted bark with a few
+ * brush strokes (no normal map). Furrows and stripes run along the branch (v).
+ */
+function paintedBark(type) {
+  const W = 128;
+  const H = 256;
+  const rand = mulberry32({ furrowed: 23, smooth: 24, papery: 25, fibrous: 26, plated: 27 }[type]);
+  const range = (a, b) => mix(a, b, rand());
+  const base = { furrowed: '#6a523f', smooth: '#8c8a83', papery: '#e9e4d8', fibrous: '#8a4630', plated: '#4a2a1c' }[type];
+  const buf = canvasBuffer(W, H, { wrap: true, base: hex(base) });
+  /** Vertical strokes along the bark, `dark` / `light` with their alpha, `share` of them dark. */
+  const streaks = (count, lengths, widths, dark, light, share) => {
+    for (let i = 0; i < count; i++) {
+      const x = rand() * W;
+      const y = rand() * H;
+      const len = range(...lengths);
+      const [rgb, alpha] = rand() < share ? dark : light;
+      stroke(buf, x, y, x + range(-4, 4), y + len, range(...widths), rgb, alpha);
+    }
+  };
+  if (type === 'furrowed') {
+    // Oak: long dark furrows between lighter ridges.
+    streaks(80, [40, 120], [2, 5], [hex('#281e16'), 0.6], [hex('#967d64'), 0.4], 0.6);
+  }
+  if (type === 'smooth') {
+    // Beech: smooth grey with soft light and dark patches, a few faint rings around the trunk.
+    for (let i = 0; i < 26; i++) {
+      const x = rand() * W;
+      const y = rand() * H;
+      const len = range(20, 60);
+      const wid = range(10, 26);
+      const rgb = hex(rand() < 0.5 ? '#a8a69e' : '#77756e');
+      mark(buf, { x, y, rot: 0, len, wid, inside: (a, l) => (a / wid) ** 2 + (l / len) ** 2 < 0.25, colour: () => rgb, alpha: 0.35 });
+    }
+    for (let i = 0; i < 18; i++) {
+      const x = rand() * W;
+      const y = rand() * H;
+      stroke(buf, x, y, x + range(8, 24), y + range(-2, 2), range(1.5, 2.5), hex('#5e5c56'), 0.4);
+    }
+  }
+  if (type === 'papery') {
+    // Birch: chalky white, dark lenticel dashes around the trunk and a few dark rough patches.
+    for (let i = 0; i < 40; i++) {
+      const x = rand() * W;
+      const y = rand() * H;
+      const len = range(3, 10);
+      const wid = range(6, 20);
+      mark(buf, { x, y, rot: 0, len, wid, inside: () => true, colour: () => hex('#beb4a5'), alpha: 0.5 });
+    }
+    for (let i = 0; i < 90; i++) {
+      const x = rand() * W;
+      const y = rand() * H;
+      const len = range(6, 26);
+      const thick = range(2, 5.2);
+      mark(buf, {
+        x,
+        y,
+        rot: Math.PI / 2,
+        len,
+        wid: thick,
+        inside: (a, l) => (a / thick) ** 2 + (l / len) ** 2 < 0.25,
+        colour: () => hex('#28221e'),
+        alpha: range(0.6, 0.95),
+      });
+    }
+    for (let i = 0; i < 5; i++) {
+      const x = rand() * W;
+      const y = rand() * H;
+      const len = range(14, 30);
+      const wid = range(18, 34);
+      mark(buf, {
+        x,
+        y,
+        rot: range(-0.3, 0.3),
+        len,
+        wid,
+        inside: (a, l) => (a / wid) ** 2 + (l / len) ** 2 < 0.25 * (0.75 + 0.25 * Math.sin(Math.atan2(a, l) * 5)),
+        colour: () => hex('#2e2925'),
+        alpha: 0.9,
+      });
+    }
+  }
+  if (type === 'fibrous') {
+    // Redwood: long, stringy red-brown ridges, some weathered lighter strands.
+    streaks(130, [60, 160], [1.5, 3.5], [hex('#3a1a10'), 0.6], [hex('#b8714f'), 0.45], 0.5);
+  }
+  if (type === 'plated') {
+    // Pine: broad orange-brown plates, lighter at the top, between dark cracks (the base colour).
+    const cols = 4;
+    const rows = 5;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = ((c + (r % 2) * 0.5 + range(-0.2, 0.2)) * W) / cols;
+        const y = ((r + range(-0.15, 0.15)) * H) / rows;
+        const len = (H / rows) * range(0.75, 1.05);
+        const wid = (W / cols) * range(0.7, 0.95);
+        const round = range(2, 3);
+        const tone = range(-0.06, 0.06);
+        mark(buf, {
+          x,
+          y,
+          rot: range(-0.08, 0.08),
+          len,
+          wid,
+          inside: (a, l) => Math.pow(Math.abs((2 * a) / wid), round) + Math.pow(Math.abs((2 * l) / len), round) < 1,
+          colour: (a, l) => {
+            const lit = 0.5 + l / len - (0.5 * a) / wid; // lighter towards the top-left
+            return lerp3(hex('#8e4c30'), hex('#c07a52'), clamp01(lit)).map((v) => v + tone);
+          },
+        });
+      }
+    }
+    streaks(40, [10, 30], [1.5, 3], [hex('#3c1c12'), 0.6], [hex('#d8996c'), 0.35], 0.5);
+  }
+  return bufferPng(buf, 3);
+}
+
+// ---------- output ----------
+const realistic = () => {
+  const h = barkHeight();
+  const files = { 'bark.png': bark(h), 'bark-normal.png': barkNormal(h), 'leaf.png': leaf(), 'needles.png': needles() };
+  for (const [type, make] of Object.entries({ smooth: smoothBark, papery: paperyBark, fibrous: fibrousBark, plated: platedBark })) {
+    const { map, normal } = make();
+    files[`bark-${type}.png`] = map;
+    files[`bark-${type}-normal.png`] = normal;
+  }
+  return Object.assign(files, {
+    'leaf-lobed.png': lobedLeaves(),
+    'leaf-palmate.png': palmateLeaves(),
+    'leaf-compound.png': compoundLeaf(),
+    'scale.png': scaleSpray(),
+  });
+};
+const painterly = () => {
+  const files = {};
+  for (const type of ['broad', 'lobed', 'palmate', 'compound', 'needle', 'scale']) files[`spray-${type}.png`] = paintedSpray(type);
+  for (const type of ['furrowed', 'smooth', 'papery', 'fibrous', 'plated']) files[`bark-${type}.png`] = paintedBark(type);
+  return files;
+};
+for (const [set, make] of Object.entries({ realistic, painterly })) {
+  const dir = new URL(`${set}/`, OUT);
+  mkdirSync(dir, { recursive: true });
+  for (const [name, bytes] of Object.entries(make())) {
+    writeFileSync(new URL(name, dir), bytes);
+    console.log(`${set}/${name}: ${(bytes.length / 1024).toFixed(1)} kB`);
+  }
 }

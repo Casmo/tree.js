@@ -99,7 +99,7 @@ test('React Three Fiber: <Tree species={oak} style={lowPoly} seed={7} /> renders
   await expect(page.locator('canvas')).toHaveScreenshot('react-species-oak.png', { mask: [page.locator('#status')] });
 });
 
-for (const style of ['low-poly', 'stylized', 'realistic']) {
+for (const style of ['low-poly', 'stylized', 'realistic', 'painterly']) {
   test(`vanilla: the Oak Species in the ${style} Style (loadSpecies + style.apply)`, async ({ page }) => {
     await page.goto(`/examples/vanilla/?species=oak&style=${style}&seed=1`);
     expect(await rendered(page, 'treeExample')).toMatchObject({ status: 'rendered' });
@@ -109,7 +109,7 @@ for (const style of ['low-poly', 'stylized', 'realistic']) {
 }
 
 test.describe('examples/species: a Species x Style picker', () => {
-  test('lists every Species (grouped by Form) and the three Styles, and starts with the one in the URL', async ({ page }) => {
+  test('lists every Species (grouped by Form) and every Style, and starts with the one in the URL', async ({ page }) => {
     await page.goto('/examples/species/?species=birch&style=stylized');
     expect(await rendered(page, 'speciesExample')).toMatchObject({ status: 'rendered', species: 'birch', style: 'stylized' });
     const species = page.getByLabel('Species');
@@ -120,7 +120,7 @@ test.describe('examples/species: a Species x Style picker', () => {
       'Broadleaf',
       'Conifer',
     ]);
-    expect(await page.getByLabel('Style').locator('option').allTextContents()).toEqual(['low-poly', 'stylized', 'realistic']);
+    expect(await page.getByLabel('Style').locator('option').allTextContents()).toEqual(['low-poly', 'stylized', 'realistic', 'painterly']);
   });
 
   test('picking a Species and a Style grows that tree in that Style', async ({ page }) => {
@@ -138,5 +138,18 @@ test.describe('examples/species: a Species x Style picker', () => {
     await expect(page.locator('#status')).toContainText('Douglas Fir');
     expect(errors).toEqual([]);
     await expect(page.locator('canvas')).toHaveScreenshot('example-species-douglas-fir-realistic.png', { mask: [page.locator('#status'), page.locator('form')] });
+  });
+
+  test('every Species grows in Painterly, with the painted shading (#115)', async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto('/examples/species/?species=oak&style=painterly');
+    expect(await rendered(page, 'speciesExample')).toMatchObject({ status: 'rendered', species: 'oak', style: 'painterly', shading: 'painted' });
+    for (const id of ids.filter((id) => id !== 'oak')) {
+      await page.getByLabel('Species').selectOption(id);
+      await expect.poll(() => rendered(page, 'speciesExample'), { message: id, timeout: 30_000 }).toMatchObject({ status: 'rendered', species: id, style: 'painterly', shading: 'painted', trees: 1 });
+    }
+    expect(errors).toEqual([]);
   });
 });

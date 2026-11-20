@@ -63,7 +63,7 @@ for (const backend of backends) {
   });
 }
 
-for (const style of ['low-poly', 'stylized', 'realistic']) {
+for (const style of ['low-poly', 'stylized', 'realistic', 'painterly']) {
   test(`the Scene Pipeline never changes the renderer's tone mapping, colour space or shadow map (${style})`, async ({ page }) => {
     const { example } = await load(page, `style=${style}&scene=style`);
     expect(example.renderer!.before.shadowMap.enabled, 'the app turned shadows on').toBe(true);
@@ -71,7 +71,7 @@ for (const style of ['low-poly', 'stylized', 'realistic']) {
   });
 }
 
-for (const style of ['low-poly', 'stylized', 'realistic']) {
+for (const style of ['low-poly', 'stylized', 'realistic', 'painterly']) {
   for (const backend of backends) {
     test(`the full suggestion of the ${style} Style (${backend.name})`, async ({ page }) => {
       const warnings: string[] = [];
