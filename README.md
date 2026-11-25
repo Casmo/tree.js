@@ -239,6 +239,16 @@ and `angle` (linear between keyframes, flat = 1 when absent). A cone is
 `lengthProfile: [{ t: 0.2, value: 1 }, { t: 1, value: 0.1 }]` on the first level; a ball, column, vase
 or flat top are other curves.
 
+A branch level can also **Twist**: `twist` (0..1) makes every branch follow a smooth, snaking path that
+swings about `twist` × 45° away from its course at each turn, and `twists` (integer 1..8, absent = 2) is
+how many times it changes direction over its length (1 = an arc, 2 = an S). The Seed picks each turn's
+direction, so siblings twist differently; Gravity and Bend still apply on top. A twisted branch gets
+max(`sections`, 3 × `twists`) Sections, so the turns show on low-poly trees too. Absent or 0, nothing
+changes, and changing it never moves branches, leaves or Sculpts to other branches.
+The trunk takes the same `twist` and `twists` for winding trunks like an olive or juniper: each Stem
+snakes in its own Seed-picked way, its base stays put and starts upright, and `trunk.gravity` and the
+Stem lean still apply on top.
+
 A tree can grow several **Stems** from the ground: `trunk: { stems: 3, spread: 20 }` stands three full
 trunks (each with the whole branch structure) in a small ring, leaning out about 20° from vertical (the
 Seed varies each lean). `trunk.gravity` (−1..1) bends only the leader, the top third of each Stem: −1 makes

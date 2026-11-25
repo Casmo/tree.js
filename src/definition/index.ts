@@ -6,6 +6,7 @@ export type {
   HexColor,
   Vec3Tuple,
   TreeForm,
+  TwistSettings,
   TrunkDefinition,
   BranchLevelDefinition,
   LeafShape,

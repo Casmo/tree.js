@@ -3,6 +3,7 @@ import type { BranchLevelDefinition, TreeDefinition } from '../definition';
 import type { Random } from '../random';
 import { sampleTrack } from '../season/profile';
 import { branchFrames, pathLength, sampleBranch } from './frames';
+import { twistPath } from './twist';
 import type { SkeletonBranch, SkeletonPoint, Vec3 } from './types';
 import { add, normalize, scale } from './vec';
 
@@ -14,8 +15,9 @@ const GRAVITY_PER_BRANCH = 1.5;
  * Grows all branching levels on every Stem, breadth first (level by level, over all Stems).
  *
  * Branch path stability (ADR 0003): a parent's spiral phase comes from `random.fork(parentPath)`
- * and each child's shape from `random.fork(childPath)`. So a branch depends only on its
- * ancestors and its own path, never on its siblings' subtrees, on deeper levels or on leaves.
+ * and each child's shape from `random.fork(childPath)`; a child's Twist turns come from that stream's
+ * own `fork('twist')`, so Twist never shifts the draws of its shape (ADR 0015). So a branch depends
+ * only on its ancestors and its own path, never on its siblings' subtrees, on deeper levels or on leaves.
  */
 export function buildBranches(definition: TreeDefinition, stems: SkeletonBranch[], random: Random): SkeletonBranch[] {
   const out: SkeletonBranch[] = [];
@@ -55,22 +57,27 @@ function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, rand
     const azimuth = azimuth0 + i * level.spiral * DEG;
     const across = add(scale(at.normal, cos(azimuth)), scale(at.binormal, sin(azimuth)));
     const start = normalize(add(scale(at.tangent, cos(angle)), scale(across, sin(angle))));
-    // Gravity bends the branch up (+) or down (-) a little more with every section.
-    const pull: Vec3 = [0, (level.gravity * GRAVITY_PER_BRANCH) / level.sections, 0];
-    let direction = start;
+    const twisting = twistPath(level, level.sections, start, r.fork('twist'));
+    const sections = twisting.sections;
+    // Gravity bends the branch up (+) or down (-) a little more with every Section; spread over the
+    // Sections, so a Twist's extra Sections do not add to its total pull (ADR 0015).
+    const pull: Vec3 = [0, (level.gravity * GRAVITY_PER_BRANCH) / sections, 0];
+    // Where the branch heads without Twist; it grows along the Twist's smooth path around it.
+    let course = start;
 
     const length = parentLength * level.length * crownShape(level.lengthProfile, t) * (1 + r.range(-level.lengthVariation, level.lengthVariation));
-    const step = length / level.sections;
+    const step = length / sections;
     const baseRadius = at.radius * level.radius;
 
     const points: SkeletonPoint[] = [];
     let position: Vec3 = at.position;
-    for (let s = 0; s <= level.sections; s++) {
-      points.push({ position, radius: baseRadius * (1 + (level.taper - 1) * (s / level.sections)) });
-      if (s === level.sections) break;
-      const wander: Vec3 = [r.range(-1, 1), r.range(-1, 1), r.range(-1, 1)];
-      direction = normalize(add(add(direction, scale(wander, level.bend)), pull));
-      position = add(position, scale(direction, step));
+    for (let s = 0; s <= sections; s++) {
+      points.push({ position, radius: baseRadius * (1 + (level.taper - 1) * (s / sections)) });
+      if (s === sections) break;
+      // Bend's jitter stays on the original Sections; the in-between Sections only follow the path.
+      const wander: Vec3 | null = twisting.takesBend(s) ? [r.range(-1, 1), r.range(-1, 1), r.range(-1, 1)] : null;
+      course = normalize(add(wander ? add(course, scale(wander, level.bend)) : course, pull));
+      position = add(position, scale(twisting.steer(course, (s + 0.5) / sections), step));
     }
     children.push({ path, parent: parent.path, level: parent.level + 1, attach: t, direction: start, points });
   }

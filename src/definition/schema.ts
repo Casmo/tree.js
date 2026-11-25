@@ -23,6 +23,7 @@ import {
   type OcclusionDefinition,
   type RootsDefinition,
   type TranslucencyDefinition,
+  type TwistSettings,
   type SeasonProfileDefinition,
   type Keyframe,
   type LeavesDefinition,
@@ -165,6 +166,12 @@ function track<V>(value: Schema<V>): Schema<Keyframe<V>[]> {
   };
 }
 
+/** The Twist fields shared by branch levels and the trunk (TwistSettings). */
+const twistFields: { [K in keyof TwistSettings]-?: Schema<TwistSettings[K]> } = {
+  twist: optional(unit),
+  twists: optional(intRange(1, 8)),
+};
+
 const branchLevel = refine(
   obj<BranchLevelDefinition>({
     count: intAtLeast(0),
@@ -181,6 +188,7 @@ const branchLevel = refine(
     sections: intAtLeast(1),
     bend: unit,
     gravity: range(-1, 1),
+    ...twistFields,
     lengthProfile: optional(track(nonNegative)),
     angleProfile: optional(track(nonNegative)),
   }),
@@ -211,6 +219,7 @@ const treeDefinition = obj<TreeDefinition>({
     stems: optional(intAtLeast(1)),
     spread: optional(range(0, 90)),
     gravity: optional(range(-1, 1)),
+    ...twistFields,
     flare: optional(unit),
     flareSections: optional(intAtLeast(1)),
   }),

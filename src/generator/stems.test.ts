@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition, TreeDefinitionError, type DefinitionPatch } from '../definition';
-import { generateTree, hashTreeData, trunkHeight, type SkeletonBranch } from './index';
+import { generateTree, hashTreeData, trunkHeight, type SkeletonBranch, type Vec3 } from './index';
 
 const DEG = 180 / Math.PI;
 const base = parseDefinition({ schemaVersion: 3, branches: [{ count: 4 }, { count: 2 }], leaves: { count: 3 } });
@@ -9,6 +9,7 @@ const stemsOf = (data: ReturnType<typeof generateTree>) => data.skeleton.branche
 /** Angle of a Stem's base direction from vertical, degrees. */
 const tiltOf = (b: SkeletonBranch) => Math.acos(b.direction[1]) * DEG;
 const tip = (b: SkeletonBranch) => b.points[b.points.length - 1]!.position;
+const sub3 = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 
 describe('Stems', () => {
   it('grows the declared number of Stems, paths "0", "1", ..., each with the full branch structure', () => {
@@ -146,5 +147,126 @@ describe('several Stems: Wind, Growth and Bake scale', () => {
       if (b.parent === null) expect(data.growth.branches[i]).toEqual({ start: 0, end: 0 });
       else expect(data.growth.branches[i]!.start).toBeGreaterThan(0);
     });
+  });
+});
+
+describe('Twist on the trunk', () => {
+  const straight = { bend: 0, lengthVariation: 0, sections: 4 };
+  const unit = (a: Vec3): Vec3 => {
+    const l = Math.hypot(...a);
+    return [a[0] / l, a[1] / l, a[2] / l];
+  };
+  const angleBetween = (a: Vec3, b: Vec3) => Math.acos(Math.min(1, Math.max(-1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))) * DEG;
+  /** The unit direction of every segment of a Stem's centre line. */
+  const segments = (b: SkeletonBranch) =>
+    b.points.slice(1).map((p, i) => unit([p.position[0] - b.points[i]!.position[0], p.position[1] - b.points[i]!.position[1], p.position[2] - b.points[i]!.position[2]]));
+
+  it('Twist 0 or absent gives exactly today\'s trunk (skeleton and geometry hash)', () => {
+    const plain = generateTree(base, 5);
+    for (const trunk of [{ twist: 0 }, { twist: 0, twists: 7 }, { stems: 1, twist: 0, twists: 1 }]) {
+      const data = grow(trunk);
+      expect(data.skeleton).toEqual(plain.skeleton);
+      expect(hashTreeData(data)).toBe(hashTreeData(plain));
+    }
+  });
+
+  it('builds a twisted Stem with max(Sections, 3 × Twists) Sections; Twists is 2 while absent', () => {
+    const sectionsOf = (trunk: DefinitionPatch['trunk']) => stemsOf(grow(trunk)).map((b) => b.points.length - 1);
+    expect(sectionsOf({ sections: 4, twist: 0.5 })).toEqual([6]);
+    expect(sectionsOf({ sections: 9, twist: 0.5 })).toEqual([9]);
+    expect(sectionsOf({ sections: 4, twist: 0.5, twists: 4, stems: 3 })).toEqual([12, 12, 12]);
+    expect(sectionsOf({ sections: 4, twists: 4 })).toEqual([4]);
+  });
+
+  it('leaves its straight upright course smoothly, with the base in place and starting upright', () => {
+    const plainStem = stemsOf(grow(straight))[0]!;
+    for (const twists of [1, 2, 3]) {
+      const stem = stemsOf(grow({ ...straight, twist: 1, twists }))[0]!;
+      expect(stem.points[0]).toEqual(plainStem.points[0]);
+      expect(stem.direction).toEqual([0, 1, 0]);
+      const dirs = segments(stem);
+      // The first Section grows straight up; then the Stem swings away from upright and back.
+      expect(angleBetween(dirs[0]!, [0, 1, 0])).toBeLessThan(1e-9);
+      const away = Math.max(...dirs.map((d) => angleBetween(d, [0, 1, 0])));
+      expect(away).toBeGreaterThan(20);
+      expect(away).toBeLessThan(46);
+      // No kinks: above the upright base Section (which turns out by at most one swing), neighbouring
+      // segments differ by at most about two thirds of a 45° swing.
+      expect(angleBetween(dirs[0]!, dirs[1]!)).toBeLessThan(46);
+      for (let i = 2; i < dirs.length; i++) expect(angleBetween(dirs[i - 1]!, dirs[i]!)).toBeLessThan(31);
+      // It stays a trunk: the tip still stands well above the base.
+      expect(tip(stem)[1]).toBeGreaterThan(tip(plainStem)[1] * 0.8);
+    }
+  });
+
+  it('swings the full Twist at every turn, even on 3 Sections per turn, and ends back near its course', () => {
+    for (const twists of [2, 3]) {
+      // Sections 4 → 3 × Twists: 3 Sections per turn.
+      const dirs = segments(stemsOf(grow({ ...straight, twist: 1, twists }))[0]!);
+      expect(dirs).toHaveLength(3 * twists);
+      for (let turn = 0; turn < twists; turn++) {
+        const away = dirs.slice(3 * turn, 3 * turn + 3).map((d) => angleBetween(d, [0, 1, 0]));
+        // Twist 1 ≈ 45° at every turn, not two thirds of it.
+        expect(Math.max(...away)).toBeGreaterThan(44);
+        expect(Math.max(...away)).toBeLessThan(46);
+      }
+      // The top Section heads back towards the upright course rather than ending turned away.
+      expect(angleBetween(dirs.at(-1)!, [0, 1, 0])).toBeLessThan(20);
+    }
+  });
+
+  it("keeps Bend exact: every corner of the bent centre line stays on a barely twisted Stem's centre line", () => {
+    for (const [sections, twists] of [[4, 2], [4, 3], [3, 3], [5, 4]] as const) {
+      const bent = { bend: 0.4, lengthVariation: 0, sections };
+      const corners = stemsOf(grow(bent))[0]!.points.map((p) => p.position);
+      const points = stemsOf(grow({ ...bent, twist: 1e-9, twists }))[0]!.points.map((p) => p.position);
+      expect(points).toHaveLength(Math.max(sections, 3 * twists) + 1);
+      for (const corner of corners) {
+        const nearest = Math.min(...points.map((p) => Math.hypot(...sub3(p, corner))));
+        expect(nearest, `${sections} Sections, ${twists} Twists`).toBeLessThan(1e-6);
+      }
+    }
+  });
+
+  it('lets Trunk gravity and the Stem lean still apply to a twisted Stem', () => {
+    const twist = { ...straight, sections: 9, twist: 0.6, twists: 3 };
+    // Trunk gravity nods the twisted leader over: its tip drops well below the twisted tip without gravity.
+    const upright = stemsOf(grow(twist))[0]!;
+    const nodding = stemsOf(grow({ ...twist, gravity: -1 }))[0]!;
+    expect(tip(nodding)[1]).toBeLessThan(tip(upright)[1] - 0.1 * tip(upright)[1]);
+    // The lower trunk stays as the Twist made it.
+    upright.points.slice(0, 7).forEach((p, i) => expect(nodding.points[i]).toEqual(p));
+    // The lean tilts the whole twisted Stem: base direction and overall course lean out by the spread.
+    const leaning = stemsOf(grow({ ...twist, spread: 30 }))[0]!;
+    expect(tiltOf(leaning)).toBeGreaterThan(30 * 0.6);
+    const [x, y, z] = sub3(tip(leaning), leaning.points[0]!.position);
+    expect(Math.atan2(Math.hypot(x, z), y) * DEG).toBeGreaterThan(10);
+    const first = segments(leaning)[0]!;
+    expect(angleBetween(first, leaning.direction)).toBeLessThan(1e-9);
+  });
+
+  it('twists each Stem of a multi-Stem tree differently; the same Seed gives the same trunk', () => {
+    const trunk = { ...straight, stems: 3, twist: 0.7, twists: 2 };
+    const data = grow(trunk);
+    expect(grow(trunk).skeleton).toEqual(data.skeleton);
+    expect(hashTreeData(grow(trunk))).toBe(hashTreeData(data));
+    // Each Stem's own snake: how its segments swing away from upright differs (no copies).
+    const snakes = stemsOf(data).map((stem) => segments(stem).map((d) => angleBetween(d, [0, 1, 0]).toFixed(3) + d.map((v) => v.toFixed(3)).join()).join('|'));
+    expect(new Set(snakes).size).toBe(3);
+    // Another Seed twists the Stems differently.
+    expect(stemsOf(grow(trunk, 6)).map((b) => segments(b))).not.toEqual(stemsOf(data).map((b) => segments(b)));
+  });
+
+  it('only reshapes the Stems: branch counts, paths, attach fractions, leaves and Sculpt targets stay', () => {
+    const def = extendDefinition(base, { trunk: { stems: 2, spread: 15 } });
+    const plain = generateTree(def, 5);
+    for (const trunk of [{ twist: 0.4, twists: 1 }, { twist: 1, twists: 8 }]) {
+      const data = generateTree(extendDefinition(def, { trunk }), 5);
+      expect(data.skeleton.branches.map((b) => [b.path, b.attach, b.level])).toEqual(plain.skeleton.branches.map((b) => [b.path, b.attach, b.level]));
+      expect(data.skeleton.leaves.map((l) => [l.id, l.branch, l.attach])).toEqual(plain.skeleton.leaves.map((l) => [l.id, l.branch, l.attach]));
+      const sculpted = generateTree(extendDefinition(def, { trunk, sculpts: [{ seed: 5, path: '1.2', action: 'delete' }] }), 5);
+      const gone = (p: string) => p === '1.2' || p.startsWith('1.2.');
+      expect(sculpted.skeleton.branches.map((b) => b.path)).toEqual(data.skeleton.branches.map((b) => b.path).filter((p) => !gone(p)));
+    }
   });
 });

@@ -2,7 +2,8 @@ import { cos, sin } from '../math';
 import type { TreeDefinition, TrunkDefinition } from '../definition';
 import type { Random } from '../random';
 import type { SkeletonBranch, SkeletonPoint, Vec3 } from './types';
-import { add, cross, dot, scale, sub } from './vec';
+import { originalSectionStart, twistPath } from './twist';
+import { add, cross, dot, length, scale, sub } from './vec';
 
 const DEG = Math.PI / 180;
 /** The leader: the part of a Stem above this fraction of its length is what trunk gravity bends. */
@@ -28,8 +29,9 @@ export const FLARE_SECTIONS = 3;
  * Builds the Stems: `trunk.stems` full trunks standing in a small ring at the base, paths "0", "1", ...
  *
  * Path stability (ADR 0003): Stem 0's centre line draws from `random.fork('trunk')` exactly as a
- * single trunk always did, Stem i > 0 from `random.fork('trunk/<i>')`; the ring and the leans come
- * from `random.fork('stems')`. So a single upright Stem without gravity is today's trunk, bit for bit.
+ * single trunk always did, Stem i > 0 from `random.fork('trunk/<i>')`; each Stem's Twist turns come
+ * from that stream's own `fork('twist')` (ADR 0015); the ring and the leans come from
+ * `random.fork('stems')`. So a single upright Stem without gravity is today's trunk, bit for bit.
  */
 export function buildStems(definition: TreeDefinition, random: Random): SkeletonBranch[] {
   const { trunk } = definition;
@@ -48,10 +50,35 @@ export function buildStems(definition: TreeDefinition, random: Random): Skeleton
   return stems;
 }
 
-/** One upright, unbent Stem's centre line at the origin, varied by the Seed within the trunk's ranges. */
+/**
+ * One upright, unbent Stem's centre line at the origin, varied by the Seed within the trunk's ranges,
+ * then snaked by the trunk's Twist (ADR 0015: max(Sections, 3 × Twists) Sections). The Twist's turns
+ * come from the Stem's own `random.fork('twist')`, so the draws of today's centre line never shift.
+ */
 function centreLine(trunk: TrunkDefinition, random: Random): SkeletonPoint[] {
-  const length = trunk.length * (1 + random.range(-trunk.lengthVariation, trunk.lengthVariation));
-  const sectionLength = length / trunk.sections;
+  const line = straightLine(trunk, random);
+  if ((trunk.twist ?? 0) <= 0) return line;
+  const twisting = twistPath(trunk, trunk.sections, [0, 1, 0], random.fork('twist'));
+
+  // Today's line on the Twist's Sections (Bend's drift stays tied to the original Sections), then every
+  // Section steered along the Twist. The base Section grows upright (sampled at the very start); the
+  // others are sampled at their middle like a branch's, so every turn reaches its full swing.
+  const untwisted = resample(line, twisting.sections);
+  const points: SkeletonPoint[] = [untwisted[0]!];
+  for (let k = 0; k < twisting.sections; k++) {
+    const segment = sub(untwisted[k + 1]!.position, untwisted[k]!.position);
+    const size = length(segment);
+    const u = k === 0 ? 0 : (k + 0.5) / twisting.sections;
+    const direction = size > 0 ? twisting.steer(scale(segment, 1 / size), u) : segment;
+    points.push({ position: add(points[k]!.position, scale(direction, size)), radius: untwisted[k + 1]!.radius });
+  }
+  return points;
+}
+
+/** Today's centre line: upright, drifting sideways by up to `bend` per Section. */
+function straightLine(trunk: TrunkDefinition, random: Random): SkeletonPoint[] {
+  const stemLength = trunk.length * (1 + random.range(-trunk.lengthVariation, trunk.lengthVariation));
+  const sectionLength = stemLength / trunk.sections;
   const maxDrift = trunk.bend * sectionLength;
 
   const points: SkeletonPoint[] = [];
@@ -63,7 +90,28 @@ function centreLine(trunk: TrunkDefinition, random: Random): SkeletonPoint[] {
       x += random.range(-maxDrift, maxDrift);
       z += random.range(-maxDrift, maxDrift);
     }
-    points.push({ position: [x, t * length, z], radius: trunk.radius * (1 + (trunk.taper - 1) * t) });
+    points.push({ position: [x, t * stemLength, z], radius: trunk.radius * (1 + (trunk.taper - 1) * t) });
+  }
+  return points;
+}
+
+/**
+ * The same polyline on `sections` (>= its own) Sections: every original corner is kept, where the
+ * original Section starts as for a branch's Bend (ADR 0015), and the extra Sections are spread evenly
+ * within the original Sections, so Bend's drift stays exact.
+ */
+function resample(line: SkeletonPoint[], sections: number): SkeletonPoint[] {
+  const n = line.length - 1;
+  const cornerAt = (j: number) => originalSectionStart(j, n, sections);
+  const points: SkeletonPoint[] = [line[0]!];
+  for (let j = 0; j < n; j++) {
+    const [a, b] = [line[j]!, line[j + 1]!];
+    const [from, to] = [cornerAt(j), cornerAt(j + 1)];
+    for (let k = from + 1; k < to; k++) {
+      const f = (k - from) / (to - from);
+      points.push({ position: add(a.position, scale(sub(b.position, a.position), f)), radius: a.radius + (b.radius - a.radius) * f });
+    }
+    points.push(b);
   }
   return points;
 }

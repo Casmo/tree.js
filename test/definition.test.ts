@@ -130,6 +130,13 @@ describe('Definition defaults', () => {
     expect(def.branches[0]).toEqual({ ...DEFAULT_BRANCH_LEVEL, count: 3 });
   });
 
+  it('keeps a branch level\'s optional Twist fields: absent stays absent (no Twist), given values are kept', () => {
+    const def = parseDefinition({ schemaVersion: 3, branches: [{}, { twist: 0.4, twists: 5 }] });
+    expect('twist' in def.branches[0]!).toBe(false);
+    expect('twists' in def.branches[0]!).toBe(false);
+    expect([def.branches[1]!.twist, def.branches[1]!.twists]).toEqual([0.4, 5]);
+  });
+
   it('never returns objects shared with the defaults or the input', () => {
     const input = { schemaVersion: 2, trunk: { length: 3 } };
     const def = parseDefinition(input);
@@ -138,6 +145,14 @@ describe('Definition defaults', () => {
     expect(input.trunk.length).toBe(3);
     expect(DEFAULT_DEFINITION.season.leafColor[0]!.value).not.toBe('#000000');
     expect(parseDefinition({ schemaVersion: 2 }).trunk.length).toBe(4);
+  });
+
+  it('keeps the trunk\'s optional Twist fields: absent stays absent (no Twist), given values are kept', () => {
+    const plain = parseDefinition({ schemaVersion: 3 });
+    expect('twist' in plain.trunk).toBe(false);
+    expect('twists' in plain.trunk).toBe(false);
+    const def = parseDefinition({ schemaVersion: 3, trunk: { twist: 0.6, twists: 4 } });
+    expect([def.trunk.twist, def.trunk.twists]).toEqual([0.6, 4]);
   });
 
   it('fills a fully valid Definition back to itself (round-trips through JSON)', () => {
@@ -170,6 +185,16 @@ describe('Definition validation names the bad field', () => {
     ],
     ['angle curve keyframe t', { schemaVersion: 3, branches: [{ angleProfile: [{ t: 1.5, value: 1 }] }] }, 'branches[0].angleProfile[0].t'],
     ['branch angle out of range', { schemaVersion: 2, branches: [{}, { angle: 200 }] }, 'branches[1].angle'],
+    ['branch twist above 1', { schemaVersion: 3, branches: [{ twist: 1.2 }] }, 'branches[0].twist'],
+    ['branch twist below 0', { schemaVersion: 3, branches: [{}, { twist: -0.1 }] }, 'branches[1].twist'],
+    ['branch twists not an integer', { schemaVersion: 3, branches: [{ twists: 2.5 }] }, 'branches[0].twists'],
+    ['branch twists below 1', { schemaVersion: 3, branches: [{ twists: 0 }] }, 'branches[0].twists'],
+    ['branch twists above 8', { schemaVersion: 3, branches: [{ twists: 9 }] }, 'branches[0].twists'],
+    ['trunk twist above 1', { schemaVersion: 3, trunk: { twist: 1.2 } }, 'trunk.twist'],
+    ['trunk twist below 0', { schemaVersion: 3, trunk: { twist: -0.1 } }, 'trunk.twist'],
+    ['trunk twists not an integer', { schemaVersion: 3, trunk: { twists: 2.5 } }, 'trunk.twists'],
+    ['trunk twists below 1', { schemaVersion: 3, trunk: { twists: 0 } }, 'trunk.twists'],
+    ['trunk twists above 8', { schemaVersion: 3, trunk: { twists: 9 } }, 'trunk.twists'],
     ['branch end before start', { schemaVersion: 2, branches: [{ start: 0.8, end: 0.2 }] }, 'branches[0].end'],
     ['too many branch levels', { schemaVersion: 2, branches: [{}, {}, {}, {}, {}] }, 'branches'],
     ['leaf shape', { schemaVersion: 2, leaves: { shape: 'square' } }, 'leaves.shape'],

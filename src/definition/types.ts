@@ -27,8 +27,29 @@ export type Vec3Tuple = [number, number, number];
  */
 export type TreeForm = 'broadleaf' | 'conifer';
 
-/** Trunk parameters (branch level 0). */
-export interface TrunkDefinition {
+/**
+ * The Twist of a branch level or the trunk (GLOSSARY.md): each branch or Stem follows a smooth,
+ * snaking path. Both fields are optional; with Twist absent or 0 nothing changes.
+ */
+export interface TwistSettings {
+  /**
+   * Twist (0..1): how far each branch or Stem swings away from its course at every turn; 1 ≈ 45°.
+   * The Seed picks each turn's direction around it, per branch or Stem. With Twist > 0 it is built
+   * with max(`sections`, 3 × `twists`) Sections (ADR 0015). Absent = 0 (none).
+   */
+  twist?: number;
+  /**
+   * Twists (integer 1..8): how many times a twisted branch or Stem changes direction over its whole
+   * length, whatever that length is: 1 = a single arc, 2 = an S, 3+ = snaking. Absent = 2.
+   */
+  twists?: number;
+}
+
+/**
+ * Trunk parameters (branch level 0). A twisted Stem (an olive or juniper) keeps its base in place and
+ * starting upright; Trunk gravity and the Stem lean still apply on top of its Twist.
+ */
+export interface TrunkDefinition extends TwistSettings {
   /** Trunk length at full Growth, metres (> 0). */
   length: number;
   /** Radius at the base, metres (> 0). */
@@ -75,7 +96,7 @@ export interface TrunkDefinition {
  * One level of branching. `branches[0]` grows from the trunk, `branches[1]` from the
  * level-1 branches, and so on (at most {@link MAX_BRANCH_LEVELS} levels).
  */
-export interface BranchLevelDefinition {
+export interface BranchLevelDefinition extends TwistSettings {
   /** Child branches per parent branch (integer >= 0). */
   count: number;
   /** Where along the parent children start, as a fraction of the parent length (0..1). */
