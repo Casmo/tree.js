@@ -1,0 +1,9 @@
+{"title":"Twist and Twists make branches and the trunk snake","kicker":"New · Tree Editor","url":"http://localhost:41813",
+"setup":[{"click":"#season"},{"press":"End"},{"press":"ArrowLeft"},{"press":"ArrowLeft"},{"press":"ArrowLeft"},{"press":"ArrowLeft"},{"press":"ArrowLeft"}],
+"chapters":[
+ {"title":"Default tree: Twist 0","steps":[{"scroll":"[id=\"branches.0.twists\"]"},{"wait":1500}]},
+ {"title":"Raise branch Twist to 0.8","steps":[{"click":"[id=\"branches.0.twist\"]"},{"press":"End"},{"press":"Backspace"},{"type":"0.8","into":"[id=\"branches.0.twist\"]","zoom":true},{"press":"Tab"},{"wait":1500}]},
+ {"title":"Twists 1: one direction change","steps":[{"click":"[id=\"branches.0.twists\"]"},{"press":"End"},{"press":"Backspace"},{"type":"1","into":"[id=\"branches.0.twists\"]","zoom":true},{"press":"Tab"},{"wait":1500}]},
+ {"title":"Twists 4: the snaking gets busier","steps":[{"click":"[id=\"branches.0.twists\"]"},{"press":"End"},{"press":"Backspace"},{"type":"4","into":"[id=\"branches.0.twists\"]","zoom":true},{"press":"Tab"},{"wait":1500}]},
+ {"title":"Trunk Twist after Trunk gravity winds the trunk","steps":[{"scroll":"[id=\"trunk.flare\"]"},{"click":"[id=\"trunk.twist\"]"},{"press":"End"},{"press":"Backspace"},{"type":"0.8","into":"[id=\"trunk.twist\"]","zoom":true},{"press":"Tab"},{"wait":2000}]}
+]}
