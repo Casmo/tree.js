@@ -10,7 +10,7 @@ const SWING = Math.PI / 4;
 /** Sections a twisted branch or Stem needs per turn for the turn to show (ADR 0015). */
 const SECTIONS_PER_TURN = 3;
 
-/** The Twist settings of a branch level (or, later, the trunk): both optional, absent = no Twist / 2 Twists. */
+/** The Twist settings of a branch level or the trunk: both optional, absent = no Twist / 2 Twists. */
 export interface TwistSettings {
   twist?: number;
   twists?: number;
@@ -46,7 +46,8 @@ export function twistedSections(sections: number, settings: TwistSettings): numb
 
 /**
  * The Twist of one branch or Stem built with `sections` Sections, starting in the unit direction
- * `start`. `random` must be the branch's own Twist stream (ADR 0003: never a stream today's draws
+ * `start`. A branch samples {@link TwistPath.steer} at the middle of each Section, a Stem at the start
+ * (so its base grows upright). `random` must be the branch's or Stem's own Twist stream (ADR 0003: never a stream today's draws
  * use); it picks the direction of every turn around the branch's axis, each turn roughly opposite
  * the last so the path snakes.
  */

@@ -77,7 +77,7 @@ export function lightDefinition(definition: TreeDefinition, override: Definition
  *
  * - the skeleton grows with the Full Definition's sections (branch paths fork their randomness, ADR 0003,
  *   so every branch the Light level keeps lies exactly where it does in the Full tree); the wood mesh then
- *   sweeps only every other skeleton point (the Light sections; a twisted branch keeps the Sections its Twist needs, ADR 0015) with the Light sides;
+ *   sweeps only every other skeleton point (the Light sections; a twisted Stem or branch keeps the Sections its Twist needs, ADR 0015) with the Light sides;
  * - leaves grow on the outermost Light branches, and only where the Full tree has leaves on that branch
  *   or the branches growing from it (Sculpts deleting branches or painting leaves carry over);
  * - about half the Full tree's Fruit (each kept or not by its own stable random number) hangs where it
@@ -143,8 +143,11 @@ export function generateLightTree(definition: TreeDefinition, seed: number, over
   const sway = new Map([...branchSway(branches, light.branches.length), ...branchSway(fullBranches, definition.branches.length)]);
 
   const sidesOf = (level: number) => (level === 0 ? light.trunk.sides : light.branches[level - 1]!.sides);
-  // A twisted branch keeps the Sections its Twist needs (ADR 0015), or coarsening would straighten it again.
-  const sectionsOf = (level: number) => (level === 0 ? light.trunk.sections : twistedSections(light.branches[level - 1]!.sections, light.branches[level - 1]!));
+  // A twisted Stem or branch keeps the Sections its Twist needs (ADR 0015), or coarsening would straighten it again.
+  const sectionsOf = (level: number) => {
+    const part = level === 0 ? light.trunk : light.branches[level - 1]!;
+    return twistedSections(part.sections, part);
+  };
   const stemSweep = { flare: light.trunk.flare ?? 0, sections: light.trunk.flareSections ?? FLARE_SECTIONS };
   const woodSeason = woodSeasonAttribute(seed, definition.variation);
   const wood = mergeBuffers([

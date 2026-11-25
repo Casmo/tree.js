@@ -5,9 +5,9 @@ import { generateLightTree, generateTree } from '../src/generator';
 import lowPoly from '../src/styles/low-poly';
 import realistic from '../src/styles/realistic';
 
-/** A Style's broadleaf with Twist on every branch level. */
+/** A Style's broadleaf with Twist on the trunk and every branch level. */
 const twisted = (definition: TreeDefinition, twist = 0.7, twists = 3) =>
-  extendDefinition(definition, { branches: definition.branches.map((level) => ({ ...level, twist, twists })) });
+  extendDefinition(definition, { trunk: { twist, twists }, branches: definition.branches.map((level) => ({ ...level, twist, twists })) });
 
 describe('Twisted trees downstream', () => {
   it('grow, change with the Season and carry Wind attributes like any tree', () => {
@@ -26,6 +26,16 @@ describe('Twisted trees downstream', () => {
     const wood = (definition: TreeDefinition) => generateLightTree(definition, 3).wood.positions.length;
     // Low-poly branches have 1–2 Sections: halving them would straighten a Twist again.
     expect(wood(twisted(lowPoly.broadleaf))).toBeGreaterThan(wood(lowPoly.broadleaf) * 1.5);
+  });
+
+  it('keep a twisted trunk on the Light Detail Level: its Stems are swept with at least 3 Sections per turn', () => {
+    const rings = (definition: TreeDefinition) => {
+      const data = generateLightTree(extendDefinition(definition, { branches: [], leaves: { count: 0 } }), 3);
+      return data.wood.positions.length;
+    };
+    const bare = extendDefinition(lowPoly.broadleaf, { trunk: { flare: 0 } });
+    // Low-poly trunks have few Sections: halving them would straighten the trunk's Twist again.
+    expect(rings(extendDefinition(bare, { trunk: { twist: 0.7, twists: 4 } }))).toBeGreaterThan(rings(bare) * 2);
   });
 
   it('bake into static meshes at any Growth', () => {

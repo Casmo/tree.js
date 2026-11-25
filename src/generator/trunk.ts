@@ -2,7 +2,8 @@ import { cos, sin } from '../math';
 import type { TreeDefinition, TrunkDefinition } from '../definition';
 import type { Random } from '../random';
 import type { SkeletonBranch, SkeletonPoint, Vec3 } from './types';
-import { add, cross, dot, scale, sub } from './vec';
+import { twistPath } from './twist';
+import { add, cross, dot, length, scale, sub } from './vec';
 
 const DEG = Math.PI / 180;
 /** The leader: the part of a Stem above this fraction of its length is what trunk gravity bends. */
@@ -48,10 +49,33 @@ export function buildStems(definition: TreeDefinition, random: Random): Skeleton
   return stems;
 }
 
-/** One upright, unbent Stem's centre line at the origin, varied by the Seed within the trunk's ranges. */
+/**
+ * One upright, unbent Stem's centre line at the origin, varied by the Seed within the trunk's ranges,
+ * then snaked by the trunk's Twist (ADR 0015: max(Sections, 3 × Twists) Sections). The Twist's turns
+ * come from the Stem's own `random.fork('twist')`, so the draws of today's centre line never shift.
+ */
 function centreLine(trunk: TrunkDefinition, random: Random): SkeletonPoint[] {
-  const length = trunk.length * (1 + random.range(-trunk.lengthVariation, trunk.lengthVariation));
-  const sectionLength = length / trunk.sections;
+  const line = straightLine(trunk, random);
+  if ((trunk.twist ?? 0) <= 0) return line;
+  const twist = twistPath(trunk, trunk.sections, [0, 1, 0], random.fork('twist'));
+
+  // Today's line on the Twist's Sections (Bend's drift stays tied to the original Sections), then every
+  // segment steered along the Twist. Sampled at the start of each Section, so the base grows upright.
+  const course = resample(line, twist.sections);
+  const points: SkeletonPoint[] = [course[0]!];
+  for (let k = 0; k < twist.sections; k++) {
+    const segment = sub(course[k + 1]!.position, course[k]!.position);
+    const size = length(segment);
+    const direction = size > 0 ? twist.steer(scale(segment, 1 / size), k / twist.sections) : segment;
+    points.push({ position: add(points[k]!.position, scale(direction, size)), radius: course[k + 1]!.radius });
+  }
+  return points;
+}
+
+/** Today's centre line: upright, drifting sideways by up to `bend` per Section. */
+function straightLine(trunk: TrunkDefinition, random: Random): SkeletonPoint[] {
+  const stemLength = trunk.length * (1 + random.range(-trunk.lengthVariation, trunk.lengthVariation));
+  const sectionLength = stemLength / trunk.sections;
   const maxDrift = trunk.bend * sectionLength;
 
   const points: SkeletonPoint[] = [];
@@ -63,9 +87,21 @@ function centreLine(trunk: TrunkDefinition, random: Random): SkeletonPoint[] {
       x += random.range(-maxDrift, maxDrift);
       z += random.range(-maxDrift, maxDrift);
     }
-    points.push({ position: [x, t * length, z], radius: trunk.radius * (1 + (trunk.taper - 1) * t) });
+    points.push({ position: [x, t * stemLength, z], radius: trunk.radius * (1 + (trunk.taper - 1) * t) });
   }
   return points;
+}
+
+/** The same polyline with `sections` equal Sections (by point index), through its first and last point. */
+function resample(line: SkeletonPoint[], sections: number): SkeletonPoint[] {
+  const n = line.length - 1;
+  return Array.from({ length: sections + 1 }, (_, k) => {
+    const at = (k * n) / sections;
+    const i = Math.min(Math.floor(at), n - 1);
+    const f = at - i;
+    const [a, b] = [line[i]!, line[i + 1]!];
+    return { position: add(a.position, scale(sub(b.position, a.position), f)), radius: a.radius + (b.radius - a.radius) * f };
+  });
 }
 
 /**

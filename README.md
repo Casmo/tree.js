@@ -245,6 +245,9 @@ how many times it changes direction over its length (1 = an arc, 2 = an S). The 
 direction, so siblings twist differently; Gravity and Bend still apply on top. A twisted branch gets
 max(`sections`, 3 × `twists`) Sections, so the turns show on low-poly trees too. Absent or 0, nothing
 changes, and changing it never moves branches, leaves or Sculpts to other branches.
+The trunk takes the same `twist` and `twists` for winding trunks like an olive or juniper: each Stem
+snakes in its own Seed-picked way, its base stays put and starts upright, and `trunk.gravity` and the
+Stem lean still apply on top.
 
 A tree can grow several **Stems** from the ground: `trunk: { stems: 3, spread: 20 }` stands three full
 trunks (each with the whole branch structure) in a small ring, leaning out about 20° from vertical (the
