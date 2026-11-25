@@ -66,7 +66,7 @@ _Avoid_: Silhouette, profile
 
 **Twist**:
 The smooth twists and turns a branch or Stem makes along its length, swinging away from its course a set number of times (its Twists) in directions the Seed picks; unlike bark that spirals around a branch, a Twist moves where the branch goes.
-_Avoid_: Curve (that is a Crown Shape curve), meander, wobble, bend
+_Avoid_: Curve (that is a Crown Shape curve), meander, wobble, bend (that is Bend, the random jitter at every Section)
 
 **Growth**:
 How far a tree has grown, a value from 0 (sapling) to 1 (fully grown) that the app may change at any moment to animate it.

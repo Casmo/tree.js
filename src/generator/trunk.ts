@@ -2,7 +2,7 @@ import { cos, sin } from '../math';
 import type { TreeDefinition, TrunkDefinition } from '../definition';
 import type { Random } from '../random';
 import type { SkeletonBranch, SkeletonPoint, Vec3 } from './types';
-import { twistPath } from './twist';
+import { originalSectionStart, twistPath } from './twist';
 import { add, cross, dot, length, scale, sub } from './vec';
 
 const DEG = Math.PI / 180;
@@ -29,8 +29,9 @@ export const FLARE_SECTIONS = 3;
  * Builds the Stems: `trunk.stems` full trunks standing in a small ring at the base, paths "0", "1", ...
  *
  * Path stability (ADR 0003): Stem 0's centre line draws from `random.fork('trunk')` exactly as a
- * single trunk always did, Stem i > 0 from `random.fork('trunk/<i>')`; the ring and the leans come
- * from `random.fork('stems')`. So a single upright Stem without gravity is today's trunk, bit for bit.
+ * single trunk always did, Stem i > 0 from `random.fork('trunk/<i>')`; each Stem's Twist turns come
+ * from that stream's own `fork('twist')` (ADR 0015); the ring and the leans come from
+ * `random.fork('stems')`. So a single upright Stem without gravity is today's trunk, bit for bit.
  */
 export function buildStems(definition: TreeDefinition, random: Random): SkeletonBranch[] {
   const { trunk } = definition;
@@ -57,17 +58,19 @@ export function buildStems(definition: TreeDefinition, random: Random): Skeleton
 function centreLine(trunk: TrunkDefinition, random: Random): SkeletonPoint[] {
   const line = straightLine(trunk, random);
   if ((trunk.twist ?? 0) <= 0) return line;
-  const twist = twistPath(trunk, trunk.sections, [0, 1, 0], random.fork('twist'));
+  const twisting = twistPath(trunk, trunk.sections, [0, 1, 0], random.fork('twist'));
 
   // Today's line on the Twist's Sections (Bend's drift stays tied to the original Sections), then every
-  // segment steered along the Twist. Sampled at the start of each Section, so the base grows upright.
-  const course = resample(line, twist.sections);
-  const points: SkeletonPoint[] = [course[0]!];
-  for (let k = 0; k < twist.sections; k++) {
-    const segment = sub(course[k + 1]!.position, course[k]!.position);
+  // Section steered along the Twist. The base Section grows upright (sampled at the very start); the
+  // others are sampled at their middle like a branch's, so every turn reaches its full swing.
+  const untwisted = resample(line, twisting.sections);
+  const points: SkeletonPoint[] = [untwisted[0]!];
+  for (let k = 0; k < twisting.sections; k++) {
+    const segment = sub(untwisted[k + 1]!.position, untwisted[k]!.position);
     const size = length(segment);
-    const direction = size > 0 ? twist.steer(scale(segment, 1 / size), k / twist.sections) : segment;
-    points.push({ position: add(points[k]!.position, scale(direction, size)), radius: course[k + 1]!.radius });
+    const u = k === 0 ? 0 : (k + 0.5) / twisting.sections;
+    const direction = size > 0 ? twisting.steer(scale(segment, 1 / size), u) : segment;
+    points.push({ position: add(points[k]!.position, scale(direction, size)), radius: untwisted[k + 1]!.radius });
   }
   return points;
 }
@@ -92,16 +95,25 @@ function straightLine(trunk: TrunkDefinition, random: Random): SkeletonPoint[] {
   return points;
 }
 
-/** The same polyline with `sections` equal Sections (by point index), through its first and last point. */
+/**
+ * The same polyline on `sections` (>= its own) Sections: every original corner is kept, where the
+ * original Section starts as for a branch's Bend (ADR 0015), and the extra Sections are spread evenly
+ * within the original Sections, so Bend's drift stays exact.
+ */
 function resample(line: SkeletonPoint[], sections: number): SkeletonPoint[] {
   const n = line.length - 1;
-  return Array.from({ length: sections + 1 }, (_, k) => {
-    const at = (k * n) / sections;
-    const i = Math.min(Math.floor(at), n - 1);
-    const f = at - i;
-    const [a, b] = [line[i]!, line[i + 1]!];
-    return { position: add(a.position, scale(sub(b.position, a.position), f)), radius: a.radius + (b.radius - a.radius) * f };
-  });
+  const cornerAt = (j: number) => originalSectionStart(j, n, sections);
+  const points: SkeletonPoint[] = [line[0]!];
+  for (let j = 0; j < n; j++) {
+    const [a, b] = [line[j]!, line[j + 1]!];
+    const [from, to] = [cornerAt(j), cornerAt(j + 1)];
+    for (let k = from + 1; k < to; k++) {
+      const f = (k - from) / (to - from);
+      points.push({ position: add(a.position, scale(sub(b.position, a.position), f)), radius: a.radius + (b.radius - a.radius) * f });
+    }
+    points.push(b);
+  }
+  return points;
 }
 
 /**

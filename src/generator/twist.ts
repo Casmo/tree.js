@@ -1,4 +1,5 @@
 import { cos, sin } from '../math';
+import type { TwistSettings } from '../definition';
 import type { Random } from '../random';
 import type { Vec3 } from './types';
 import { add, cross, dot, length, normalize, perpendicular, scale, sub } from './vec';
@@ -10,12 +11,6 @@ const SWING = Math.PI / 4;
 /** Sections a twisted branch or Stem needs per turn for the turn to show (ADR 0015). */
 const SECTIONS_PER_TURN = 3;
 
-/** The Twist settings of a branch level or the trunk: both optional, absent = no Twist / 2 Twists. */
-export interface TwistSettings {
-  twist?: number;
-  twists?: number;
-}
-
 /**
  * The smooth twisting path one branch or Stem follows while it grows, and the Sections it is built
  * with (ADR 0015). Without Twist it changes nothing: the original Sections, every Section takes its
@@ -25,11 +20,11 @@ export interface TwistPath {
   /** Sections to build: max(Sections, 3 × Twists) with Twist > 0, else the Sections given. */
   readonly sections: number;
   /**
-   * The original Section whose Bend jitter is applied at built Section `n` (0 .. sections − 1), or −1
-   * for an in-between Section that only follows the smooth path. Each original Section is returned
-   * exactly once, in order, so Bend draws as many random numbers as without Twist.
+   * Whether built Section `n` (0 .. sections − 1) takes Bend's jitter: true where an original Section
+   * starts, false for an in-between Section that only follows the smooth path. Exactly one built Section
+   * per original Section takes it, so Bend draws as many random numbers as without Twist.
    */
-  bendSection(n: number): number;
+  takesBend(n: number): boolean;
   /**
    * The direction to grow in at fraction `u` (0..1) of the length: the unit `course` (where the
    * branch heads without Twist: its start, Gravity and Bend) swung away by the Twist of that turn.
@@ -45,39 +40,46 @@ export function twistedSections(sections: number, settings: TwistSettings): numb
 }
 
 /**
+ * The built Section where original Section `j` of `sections` starts once the branch or Stem is built
+ * with `built` (>= `sections`) Sections (ADR 0015): Bend's jitter and the trunk's Bend corners stay there.
+ */
+export function originalSectionStart(j: number, sections: number, built: number): number {
+  return Math.ceil((j * built) / sections);
+}
+
+/**
  * The Twist of one branch or Stem built with `sections` Sections, starting in the unit direction
- * `start`. A branch samples {@link TwistPath.steer} at the middle of each Section, a Stem at the start
- * (so its base grows upright). `random` must be the branch's or Stem's own Twist stream (ADR 0003: never a stream today's draws
+ * `start`. A branch samples {@link TwistPath.steer} at the middle of each Section; a Stem samples its
+ * base Section at the very start (so the base grows upright) and the others at their middle.
+ * `random` must be the branch's or Stem's own Twist stream (ADR 0003: never a stream today's draws
  * use); it picks the direction of every turn around the branch's axis, each turn roughly opposite
  * the last so the path snakes.
  */
 export function twistPath(settings: TwistSettings, sections: number, start: Vec3, random: Random): TwistPath {
   const twist = settings.twist ?? 0;
-  if (twist <= 0) return { sections, bendSection: (n) => n, steer: (course) => course };
+  if (twist <= 0) return { sections, takesBend: () => true, steer: (course) => course };
 
   const turns = settings.twists ?? DEFAULT_TWISTS;
-  const built = twistedSections(sections, settings);
+  const builtSections = twistedSections(sections, settings);
   const swing = twist * SWING;
-  const across = perpendicular(start);
-  const other = cross(start, across);
+  // Two axes across `start`: each turn's side is picked around the branch in their plane.
+  const axisA = perpendicular(start);
+  const axisB = cross(start, axisA);
   const sides: Vec3[] = [];
   let azimuth = random.range(0, Math.PI * 2);
   for (let j = 0; j < turns; j++) {
     if (j > 0) azimuth += Math.PI + random.range(-Math.PI / 2, Math.PI / 2);
-    sides.push(add(scale(across, cos(azimuth)), scale(other, sin(azimuth))));
+    sides.push(add(scale(axisA, cos(azimuth)), scale(axisB, sin(azimuth))));
   }
 
   return {
-    sections: built,
-    bendSection: (n) => {
-      // Original Section j starts at fraction j / sections: its jitter goes on the first built Section there.
-      const j = Math.floor((n * sections) / built);
-      return Math.ceil((j * built) / sections) === n ? j : -1;
-    },
+    sections: builtSections,
+    // Original Section j starts at fraction j / sections: its jitter goes on the first built Section there.
+    takesBend: (n) => originalSectionStart(Math.floor((n * sections) / builtSections), sections, builtSections) === n,
     steer: (course, u) => {
       const along = Math.min(Math.max(u, 0), 1) * turns;
       const turn = Math.min(Math.floor(along), turns - 1);
-      // Out at a steady rate and back (circular arcs): even on 3 Sections per turn no joint turns more than 2/3 of a swing.
+      // Out at a steady rate and back (circular arcs): sampled mid-Section, even on 3 Sections per turn no joint turns more than 2/3 of a swing.
       const angle = swing * (1 - Math.abs(2 * (along - turn) - 1));
       const side = sub(sides[turn]!, scale(course, dot(sides[turn]!, course)));
       const size = length(side);

@@ -190,10 +190,41 @@ describe('Twist on the trunk', () => {
       const away = Math.max(...dirs.map((d) => angleBetween(d, [0, 1, 0])));
       expect(away).toBeGreaterThan(20);
       expect(away).toBeLessThan(46);
-      // No kinks: neighbouring segments differ by at most about two thirds of a 45° swing.
-      for (let i = 1; i < dirs.length; i++) expect(angleBetween(dirs[i - 1]!, dirs[i]!)).toBeLessThan(31);
+      // No kinks: above the upright base Section (which turns out by at most one swing), neighbouring
+      // segments differ by at most about two thirds of a 45° swing.
+      expect(angleBetween(dirs[0]!, dirs[1]!)).toBeLessThan(46);
+      for (let i = 2; i < dirs.length; i++) expect(angleBetween(dirs[i - 1]!, dirs[i]!)).toBeLessThan(31);
       // It stays a trunk: the tip still stands well above the base.
       expect(tip(stem)[1]).toBeGreaterThan(tip(plainStem)[1] * 0.8);
+    }
+  });
+
+  it('swings the full Twist at every turn, even on 3 Sections per turn, and ends back near its course', () => {
+    for (const twists of [2, 3]) {
+      // Sections 4 → 3 × Twists: 3 Sections per turn.
+      const dirs = segments(stemsOf(grow({ ...straight, twist: 1, twists }))[0]!);
+      expect(dirs).toHaveLength(3 * twists);
+      for (let turn = 0; turn < twists; turn++) {
+        const away = dirs.slice(3 * turn, 3 * turn + 3).map((d) => angleBetween(d, [0, 1, 0]));
+        // Twist 1 ≈ 45° at every turn, not two thirds of it.
+        expect(Math.max(...away)).toBeGreaterThan(44);
+        expect(Math.max(...away)).toBeLessThan(46);
+      }
+      // The top Section heads back towards the upright course rather than ending turned away.
+      expect(angleBetween(dirs.at(-1)!, [0, 1, 0])).toBeLessThan(20);
+    }
+  });
+
+  it("keeps Bend exact: every corner of the bent centre line stays on a barely twisted Stem's centre line", () => {
+    for (const [sections, twists] of [[4, 2], [4, 3], [3, 3], [5, 4]] as const) {
+      const bent = { bend: 0.4, lengthVariation: 0, sections };
+      const corners = stemsOf(grow(bent))[0]!.points.map((p) => p.position);
+      const points = stemsOf(grow({ ...bent, twist: 1e-9, twists }))[0]!.points.map((p) => p.position);
+      expect(points).toHaveLength(Math.max(sections, 3 * twists) + 1);
+      for (const corner of corners) {
+        const nearest = Math.min(...points.map((p) => Math.hypot(...sub3(p, corner))));
+        expect(nearest, `${sections} Sections, ${twists} Twists`).toBeLessThan(1e-6);
+      }
     }
   });
 
