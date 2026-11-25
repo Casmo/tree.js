@@ -213,6 +213,8 @@ const treeDefinition = obj<TreeDefinition>({
     stems: optional(intAtLeast(1)),
     spread: optional(range(0, 90)),
     gravity: optional(range(-1, 1)),
+    twist: optional(unit),
+    twists: optional(intRange(1, 8)),
     flare: optional(unit),
     flareSections: optional(intAtLeast(1)),
   }),

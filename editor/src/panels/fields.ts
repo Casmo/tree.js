@@ -61,6 +61,8 @@ export const PARAMETER_GROUPS: FieldGroup[] = [
       optionalNum('trunk.stems', 'Stems', 1, 8, 1, 1),
       optionalNum('trunk.spread', 'Stem spread', 0, 90, 1, 0),
       optionalNum('trunk.gravity', 'Trunk gravity', -1, 1, 0.01, 0),
+      optionalNum('trunk.twist', 'Twist', 0, 1, 0.01, 0),
+      optionalNum('trunk.twists', 'Twists', 1, 8, 1, 2),
       optionalNum('trunk.flare', 'Root Flare', 0, 1, 0.01, 0),
       optionalNum('trunk.flareSections', 'Root Flare sections', 1, 8, 1, 3),
     ],

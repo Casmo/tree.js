@@ -59,6 +59,18 @@ export interface TrunkDefinition {
    */
   gravity?: number;
   /**
+   * Twist (0..1): how far each Stem's upright centre line swings away at every turn of its smooth,
+   * snaking path (an olive or juniper); 1 ≈ 45°. The Seed picks each turn's direction, per Stem. The
+   * base stays put and starts upright; Trunk gravity and the Stem lean still apply on top. With Twist > 0
+   * each Stem is built with max(`sections`, 3 × `twists`) sections (ADR 0015). Absent = 0 (none).
+   */
+  twist?: number;
+  /**
+   * Twists (integer 1..8): how many times a twisted Stem changes direction over its whole length:
+   * 1 = a single arc, 2 = an S, 3+ = snaking. Absent = 2.
+   */
+  twists?: number;
+  /**
    * Root Flare (0..1): how much each Stem widens towards the ground over the bottom of its length.
    * 1 makes the base ring 1.8 × the trunk radius. Geometry only (ADR 0007): branches, leaves, Fruit,
    * Growth, Wind and Sculpts never move. Absent = 0 (none).
