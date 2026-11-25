@@ -181,6 +181,8 @@ const branchLevel = refine(
     sections: intAtLeast(1),
     bend: unit,
     gravity: range(-1, 1),
+    twist: optional(unit),
+    twists: optional(intRange(1, 8)),
     lengthProfile: optional(track(nonNegative)),
     angleProfile: optional(track(nonNegative)),
   }),

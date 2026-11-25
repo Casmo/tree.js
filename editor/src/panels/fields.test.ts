@@ -25,13 +25,15 @@ function parameterPaths(node: unknown, prefix = ''): string[] {
   return [prefix];
 }
 
-/** A Definition with every optional field and block present (Stems, Root Flare, Crown Shape curves, Leaf/Bark Type, Ground Tint, Material Features, Fruit, Roots). */
+/** A Definition with every optional field and block present (Stems, Root Flare, Twist, Crown Shape curves, Leaf/Bark Type, Ground Tint, Material Features, Fruit, Roots). */
 const FULL_DEFINITION = parseDefinition({
   ...DEFAULT_DEFINITION,
   species: 'test-oak',
   trunk: { ...DEFAULT_DEFINITION.trunk, stems: 3, spread: 20, gravity: -0.2, flare: 0.5, flareSections: 2 },
   branches: DEFAULT_DEFINITION.branches.map((level) => ({
     ...level,
+    twist: 0.3,
+    twists: 3,
     lengthProfile: [{ t: 0, value: 1 }],
     angleProfile: [{ t: 0, value: 1 }],
   })),
@@ -155,6 +157,14 @@ describe('parameter panels', () => {
     const fruitType = (type: string) => () => parseDefinition({ ...DEFAULT_DEFINITION, fruit: { type } });
     for (const type of ['round', 'pear', 'nut', 'cone', 'berry']) expect(fruitType(type)).not.toThrow();
     expect(fruitType('apple')).toThrow(/fruit.type/);
+  });
+
+  it('offer Twist (0..1) and Twists (1..8, whole) right after Gravity on each branch level, showing no Twist while absent', () => {
+    const paths = BRANCH_LEVEL_FIELDS.map((field) => field.path);
+    expect(paths.slice(paths.indexOf('gravity'), paths.indexOf('gravity') + 3)).toEqual(['gravity', 'twist', 'twists']);
+    const field = (path: string) => BRANCH_LEVEL_FIELDS.find((f) => f.path === path);
+    expect(field('twist')).toEqual({ kind: 'number', path: 'twist', label: 'Twist', min: 0, max: 1, step: 0.01, absent: 0 });
+    expect(field('twists')).toEqual({ kind: 'number', path: 'twists', label: 'Twists', min: 1, max: 8, step: 1, absent: 2 });
   });
 
   it('let a Crown Shape curve go beyond 1 (longer or wider branches) but not below 0', () => {

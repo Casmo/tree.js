@@ -183,7 +183,7 @@ export const MATERIAL_FEATURES: {
   },
 ];
 
-/** The fields of one branching level; paths relative to `branches.<i>`. */
+/** The fields of one branching level; paths relative to `branches.<i>`. Twist and Twists are optional (`absent`). */
 export const BRANCH_LEVEL_FIELDS: Extract<Field, { kind: 'number' }>[] = [
   { kind: 'number', path: 'count', label: 'Count', min: 0, max: 32, step: 1 },
   { kind: 'number', path: 'start', label: 'Start', min: 0, max: 1, step: 0.01 },
@@ -199,6 +199,8 @@ export const BRANCH_LEVEL_FIELDS: Extract<Field, { kind: 'number' }>[] = [
   { kind: 'number', path: 'sections', label: 'Sections', min: 1, max: 16, step: 1 },
   { kind: 'number', path: 'bend', label: 'Bend', min: 0, max: 1, step: 0.01 },
   { kind: 'number', path: 'gravity', label: 'Gravity', min: -1, max: 1, step: 0.01 },
+  { kind: 'number', path: 'twist', label: 'Twist', min: 0, max: 1, step: 0.01, absent: 0 },
+  { kind: 'number', path: 'twists', label: 'Twists', min: 1, max: 8, step: 1, absent: 2 },
 ];
 
 /** Crown Shape curve flat at 1 (what an absent curve means). */

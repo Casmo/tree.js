@@ -105,6 +105,17 @@ export interface BranchLevelDefinition {
   /** Upward (+) or downward (−) pull on the branch tip (−1..1). */
   gravity: number;
   /**
+   * Twist (0..1): how far each branch swings away from its course at every turn of its smooth,
+   * snaking path; 1 ≈ 45°. The Seed picks each turn's direction around the branch. With Twist > 0
+   * the branch is built with max(`sections`, 3 × `twists`) sections (ADR 0015). Absent = 0 (none).
+   */
+  twist?: number;
+  /**
+   * Twists (integer 1..8): how many times a twisted branch changes direction over its whole length,
+   * whatever that length is: 1 = a single arc, 2 = an S, 3+ = snaking. Absent = 2.
+   */
+  twists?: number;
+  /**
    * Crown Shape: multiplies `length` by the attach position on the parent (`t` 0 = base .. 1 = tip),
    * values >= 0. Linear between keyframes, holding the first/last value outside them. Absent = flat (1).
    * E.g. a cone: `[{ t: start, value: 1 }, { t: 1, value: 0.1 }]`.
