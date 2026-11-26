@@ -58,3 +58,5 @@ ul.sculpts li { display: flex; justify-content: space-between; align-items: cent
 .crown-shape { border-top: 1px dashed #d5dccd; margin-top: 6px; }
 .crown-shapes { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
 .crown-shapes button { font-size: 11px; padding: 1px 6px; }
+fieldset.leaf-palette { border: 1px solid #d5dccd; border-radius: 4px; margin: 6px 0; padding: 2px 8px 6px; }
+fieldset.leaf-palette legend { font-weight: 600; font-size: 12px; display: flex; gap: 8px; align-items: center; }

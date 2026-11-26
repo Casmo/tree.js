@@ -103,4 +103,46 @@ describe('Style switch', () => {
     history.undo();
     expect(store.state.definition).toEqual(realistic);
   });
+
+  it('from a Fantasy Style to any other keeps its Twist, Leaf Palettes, colours and Inner Glow (ADR 0017)', async () => {
+    const { store } = await editor('oak/enchanted');
+    store.editDefinition({ materials: { innerGlow: { leaf: 2.2 } } });
+    const enchanted = store.state.definition;
+    expect(enchanted.season.leafPalettes!.length).toBeGreaterThan(1);
+    expect(enchanted.trunk.twist).toBeGreaterThan(0);
+
+    for (const style of ['realistic', 'low-poly', 'stylized'] as const) {
+      await switchStyle(store, style);
+      const { definition } = store.state;
+      expect(definition.materials.shading).not.toBe('enchanted');
+      expect(definition.trunk).toMatchObject({ twist: enchanted.trunk.twist, twists: enchanted.trunk.twists, twistStyle: enchanted.trunk.twistStyle });
+      expect(definition.branches.map((level) => level.twist)).toEqual(enchanted.branches.map((level) => level.twist));
+      expect(definition.season.leafPalettes).toEqual(enchanted.season.leafPalettes);
+      expect(definition.season.leafColor).toEqual(enchanted.season.leafColor);
+      expect(definition.materials.bark.color).toBe(enchanted.materials.bark.color);
+      expect(definition.materials.innerGlow).toEqual({ leaf: 2.2, veins: 1 });
+    }
+  });
+
+  it('between Whimsical and Enchanted replaces the Twist, Leaf Palettes and Inner Glow with the new Style\'s', async () => {
+    const { store, history } = await editor('oak/whimsical');
+    const whimsical = store.state.definition;
+    expect(whimsical.materials).not.toHaveProperty('innerGlow');
+
+    await switchStyle(store, 'enchanted');
+    const enchanted = store.state.definition;
+    const own = await loadStart('oak/enchanted');
+    expect(enchanted.materials).toMatchObject({ shading: 'enchanted', innerGlow: own.materials.innerGlow });
+    expect(enchanted.season.leafPalettes).toEqual(own.season.leafPalettes);
+    expect(enchanted.season.leafPalettes).not.toEqual(whimsical.season.leafPalettes);
+    expect(enchanted.trunk.twistStyle).toBe(own.trunk.twistStyle);
+
+    await switchStyle(store, 'whimsical');
+    expect(store.state.definition.materials).not.toHaveProperty('innerGlow');
+    expect(store.state.definition.season.leafPalettes).toEqual(whimsical.season.leafPalettes);
+    expect(store.state.definition.trunk).toEqual(whimsical.trunk);
+
+    history.undo();
+    expect(store.state.definition).toEqual(enchanted);
+  });
 });

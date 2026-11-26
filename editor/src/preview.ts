@@ -7,6 +7,7 @@ import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createTree, type Tree } from '@casmo/tree.js';
 import { framingBox } from './framing';
+import { liveInnerGlowChange } from './inner-glow';
 import { liveMaterialFeatureChange } from './material-features';
 import type { EditorState, EditorStore } from './store';
 
@@ -102,11 +103,15 @@ export class Preview {
   show(state: EditorState, previous: EditorState | null): void {
     try {
       const regenerate = !this.tree || !previous || state.definition !== previous.definition || state.seed !== previous.seed;
-      const live =
-        regenerate && previous && this.tree && state.seed === previous.seed
-          ? liveMaterialFeatureChange(previous.definition, state.definition)
-          : null;
-      if (live && this.tree) {
+      const retune = regenerate && previous && this.tree && state.seed === previous.seed;
+      const live = retune ? liveMaterialFeatureChange(previous.definition, state.definition) : null;
+      const glow = retune && !live ? liveInnerGlowChange(previous.definition, state.definition) : null;
+      if (glow && this.tree?.innerGlow) {
+        // Retuning the Inner Glow needs no new tree either: its strengths are uniforms.
+        this.tree.innerGlow = glow;
+        this.tree.growth = state.growth;
+        this.tree.season = state.season;
+      } else if (live && this.tree) {
         // Retuning Material Features that stay on needs no new tree: their values are uniforms.
         const { crownNormals, translucency, occlusion } = live;
         if (crownNormals !== undefined) this.tree.crownNormals = crownNormals;
