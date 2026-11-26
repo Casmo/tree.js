@@ -211,7 +211,9 @@ renderer.setAnimationLoop(() => pipeline.render());
 own glow, absent = none). Only the `enchanted` shading draws it; other shadings ignore the field. It is not a
 [Material Feature](#material-features) (no Style turns those on) and not the Leaf Glow Tree Effect (a
 screen-space bloom). The leaves glow in their own Season colour (so the glow turns magenta with them), the
-bark veins in the tree's Season leaf colour. Retune it live, like a Material Feature (uniforms only):
+bark veins in the tree's Season leaf colour. In a [Forest](#forests) the pulse phase is per placement (each
+tree instance has its own), so trees that share a Variant still breathe out of step, Impostors included.
+Retune it live, like a Material Feature (uniforms only):
 
 ```ts
 import { createTree, extendDefinition } from '@casmo/tree.js';
