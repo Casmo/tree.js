@@ -62,13 +62,20 @@ export interface TwistSettings {
    * 'random' (the Seed picks per branch or Stem). No effect on a Snake. Absent = 'random'.
    */
   spin?: Spin;
+  /**
+   * Twist Curve of a Corkscrew (0..1): how far its course itself turns, eased in and out, while it
+   * spirals: up to Twist Curve × 180° over its whole length, to a side the Seed picks. 0 is a plain
+   * corkscrew around a straight course, 1 turns the heading round (hooks). Adds no Sections; no effect
+   * on a Snake. Absent = 0.
+   */
+  twistCurve?: number;
 }
 
 /**
  * Trunk parameters (branch level 0). A twisted Stem (an olive or juniper) keeps its base in place and
  * starting upright; Trunk gravity and the Stem lean still apply on top of its Twist.
  */
-export interface TrunkDefinition extends Omit<TwistSettings, 'twistStyle' | 'spin'> {
+export interface TrunkDefinition extends Omit<TwistSettings, 'twistStyle' | 'spin' | 'twistCurve'> {
   /** Trunk length at full Growth, metres (> 0). */
   length: number;
   /** Radius at the base, metres (> 0). */

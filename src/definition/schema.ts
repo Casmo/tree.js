@@ -177,6 +177,7 @@ const twistFields: { [K in keyof TrunkDefinition & keyof TwistSettings]-?: Schem
 const corkscrewFields: { [K in Exclude<keyof TwistSettings, keyof typeof twistFields>]-?: Schema<TwistSettings[K]> } = {
   twistStyle: optional(oneOf(...TWIST_STYLES)),
   spin: optional(oneOf(...SPINS)),
+  twistCurve: optional(unit),
 };
 
 const branchLevel = refine(
