@@ -7,6 +7,7 @@
 import type {
   BranchLevelDefinition,
   HexColor,
+  InnerGlowDefinition,
   Keyframe,
   LeafPalette,
   LeafType,
@@ -64,6 +65,8 @@ export interface FantasyRecipe {
    * source that drops its leaves or for an evergreen one (its leaf coverage never falls).
    */
   palettes(evergreen: boolean): FantasyPalette[];
+  /** The Style's Inner Glow (replaces the source's); absent = the Style has none and drops the source's. */
+  innerGlow?: InnerGlowDefinition;
 }
 
 /** The Form of a tree drawn with this Leaf Type: needle and scale foliage is a conifer's. */
@@ -119,15 +122,21 @@ export function fantasySeason(recipe: FantasyRecipe, season: TreeDefinition['sea
 
 /**
  * Writes a Fantasy Style's recipe onto a Definition drawn in its look: the Twist per depth for the tree's
- * Form, the bark colour, and the Season leaf colours and Leaf Palettes. Every other field is kept. Pure.
+ * Form, the bark colour, the Season leaf colours and Leaf Palettes, and the Inner Glow (dropped when the
+ * Style has none, so switching Enchanted -> Whimsical leaves no glow behind). Every other field is kept. Pure.
  */
 export function applyFantasy(recipe: FantasyRecipe, definition: TreeDefinition, form: TreeForm): TreeDefinition {
   const twist = recipe.twist[form];
+  const { innerGlow: _replaced, ...materials } = definition.materials;
   return {
     ...definition,
     trunk: { ...definition.trunk, ...twist.trunk },
     branches: definition.branches.map((level, i): BranchLevelDefinition => ({ ...level, ...(i === 0 ? twist.level1 : twist.deeper) })),
-    materials: { ...definition.materials, bark: { ...definition.materials.bark, color: recipe.barkColor } },
+    materials: {
+      ...materials,
+      bark: { ...definition.materials.bark, color: recipe.barkColor },
+      ...(recipe.innerGlow && { innerGlow: { ...recipe.innerGlow } }),
+    },
     season: fantasySeason(recipe, definition.season),
   };
 }

@@ -289,9 +289,9 @@ export interface RootsDefinition {
 
 /**
  * Material shading model. Low-poly uses `flat`, stylized `toon`, realistic `standard`, painterly `painted`,
- * whimsical `whimsical`.
+ * whimsical `whimsical`, enchanted `enchanted`.
  */
-export type Shading = 'standard' | 'flat' | 'toon' | 'painted' | 'whimsical';
+export type Shading = 'standard' | 'flat' | 'toon' | 'painted' | 'whimsical' | 'enchanted';
 
 export interface BarkMaterialDefinition {
   /** Bark Type the bark was drawn from (set by `Style.apply`), so a Style can be re-applied. Optional. */
@@ -366,12 +366,27 @@ export interface MaterialFeatures {
   occlusion?: OcclusionDefinition;
 }
 
+/**
+ * Inner Glow (GLOSSARY): light the tree gives off by itself, in its leaf colour (Season and Leaf Palette),
+ * from its leaves (strongest at the thin edge of the Crown Volume) and from veins in its bark, slowly
+ * pulsing. Only the `enchanted` shading draws it; the other shadings ignore it. Not a Material Feature
+ * (ADR 0008): a Fantasy Style writes it. Plain numbers, 0 (none) .. 4; 1 is the Enchanted Style's own.
+ */
+export interface InnerGlowDefinition {
+  /** How strongly the leaves glow (0..4). */
+  leaf: number;
+  /** How strongly the bark veins glow (0..4); the veins are the alpha of the enchanted bark map. */
+  veins: number;
+}
+
 export interface MaterialsDefinition {
   shading: Shading;
   bark: BarkMaterialDefinition;
   leaf: LeafMaterialDefinition;
   /** Structural Occlusion (a Material Feature, ADR 0008). Absent = off. */
   occlusion?: OcclusionDefinition;
+  /** Inner Glow (drawn by the `enchanted` shading only). Absent = none. */
+  innerGlow?: InnerGlowDefinition;
 }
 
 /**

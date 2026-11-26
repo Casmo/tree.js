@@ -48,4 +48,10 @@ export const SUGGESTED_TREE_EFFECTS: Record<StyleName, TreeEffectsSettings> = {
     innerLines: { color: '#6a3a7a', thickness: 1, strength: 0.35, normalThreshold: 0.5 },
     outline: { color: '#7a3d8f', thickness: 2, strength: 0.75 },
   },
+  // Night magic: no ink (it would cut the glow), a teal Leaf Glow over the glowing crowns and a cool
+  // blue-violet grade.
+  enchanted: {
+    grade: { saturation: 1.1, contrast: 1.08, tint: '#d8d4ff' },
+    glow: { color: '#7ff5e0', intensity: 0.7, threshold: 0.08, radius: 8 },
+  },
 };

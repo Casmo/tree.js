@@ -7,6 +7,7 @@ import { extendDefinition, parseDefinition, type DefinitionPatch } from '../defi
 import {
   CURRENT_SCHEMA_VERSION,
   type BarkMaterialDefinition,
+  type InnerGlowDefinition,
   type MaterialFeatures,
   type BarkType,
   type LeavesDefinition,
@@ -23,6 +24,8 @@ import { BARK_TEXTURES, LEAF_TEXTURES } from './realistic/textures';
 import { compressHeight } from './painterly/height';
 import { applyFantasy, formOfLeafType, type FantasyRecipe } from './fantasy';
 import { WHIMSICAL } from './whimsical/recipe';
+import { ENCHANTED } from './enchanted/recipe';
+import { BARK_TEXTURE as VEINED_BARK, LEAF_TEXTURES as GLOWING_LEAVES } from './enchanted/textures';
 import { BARK_TEXTURES as PAINTED_BARK, LEAF_TEXTURES as SPRAY_TEXTURES } from './painterly/textures';
 
 /** Polygon detail of one tree part. */
@@ -140,6 +143,21 @@ const LOOKS = {
         ? { shape: 'puff', perDensity: 6, sizeScale: 2, material: untexturedLeaf }
         : { shape: 'puff', perDensity: 2, sizeScale: 5, material: untexturedLeaf },
   },
+  // Stylized's detail (one side fewer on the first branch level: its Snake adds 3 Sections per Twists,
+  // ADR 0015); sparse glowing cards, far fewer than Realistic's so the sinuous branches show through, a
+  // glowing texture per Leaf Type and one veined bark. Its Twist recipe, colours and Inner Glow: ./enchanted/recipe.ts.
+  enchanted: {
+    trunk: { sides: 10, sections: 8, flareSections: 3 },
+    branches: [{ sides: 5, sections: 3 }, { sides: 4, sections: 1 }, { sides: 3, sections: 1 }],
+    bark: () => ({ roughness: 0.85, map: VEINED_BARK, normalMap: null }),
+    fruitSides: 6,
+    roots: { sides: 6, sections: 4 },
+    fantasy: ENCHANTED,
+    leaf: (type) =>
+      isNeedleLike(type)
+        ? { shape: 'card', perDensity: 40, sizeScale: 1.9, material: { roughness: 0.8, map: GLOWING_LEAVES[type], alphaTest: 0.4 } }
+        : { shape: 'card', perDensity: 24, sizeScale: 2.4, material: { roughness: 0.8, map: GLOWING_LEAVES[type], alphaTest: 0.4 } },
+  },
 } satisfies Record<StyleName, StyleLook>;
 
 /** What `Style.apply` accepts: a Species, or a Tree Definition to re-style. */
@@ -159,6 +177,8 @@ interface Neutral {
   bark: SpeciesBarkDefinition & Pick<BarkMaterialDefinition, 'groundTint'>;
   /** A Definition's Material Features pass through too (ADR 0008): they are the app's choice, never a Style's. */
   features: MaterialFeatures;
+  /** A Definition's Inner Glow passes through too (ADR 0017); only a Fantasy Style replaces it. */
+  innerGlow?: InnerGlowDefinition;
 }
 
 function fromSpecies(species: SpeciesDefinition): Neutral {
@@ -205,10 +225,11 @@ function fromDefinition(input: TreeDefinition | TreeDefinitionInput): Neutral {
       ...present('groundTint', materials.bark.groundTint),
     },
     features: materialFeaturesOf(definition),
+    ...present('innerGlow', materials.innerGlow),
   };
 }
 
-function draw(name: StyleName, { base, foliage, bark, features }: Neutral): TreeDefinition {
+function draw(name: StyleName, { base, foliage, bark, features, innerGlow }: Neutral): TreeDefinition {
   const look: StyleLook = LOOKS[name];
   const leaf = look.leaf(foliage.type);
   const fruit = base.fruit as TreeDefinition['fruit'];
@@ -234,6 +255,7 @@ function draw(name: StyleName, { base, foliage, bark, features }: Neutral): Tree
       bark: { type: bark.type, color: bark.color, ...look.bark(bark.type), ...present('groundTint', bark.groundTint) },
       leaf: { ...leaf.material, ...present('crownNormals', features.crownNormals), ...present('translucency', features.translucency) },
       ...present('occlusion', features.occlusion),
+      ...present('innerGlow', innerGlow),
     },
   });
 }

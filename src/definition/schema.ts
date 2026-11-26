@@ -3,6 +3,7 @@ import {
   DEFAULT_DEFINITION,
   DEFAULT_FRUIT,
   DEFAULT_GROUND_TINT,
+  DEFAULT_INNER_GLOW,
   DEFAULT_OCCLUSION,
   DEFAULT_ROOTS,
   DEFAULT_TRANSLUCENCY,
@@ -20,6 +21,7 @@ import {
   type DeleteSculpt,
   type FruitDefinition,
   type GroundTintDefinition,
+  type InnerGlowDefinition,
   type LeafMaterialDefinition,
   type LeafPalette,
   type MaterialsDefinition,
@@ -268,7 +270,7 @@ const treeDefinition = obj<TreeDefinition>({
     DEFAULT_ROOTS,
   ),
   materials: obj<MaterialsDefinition>({
-    shading: oneOf('standard', 'flat', 'toon', 'painted', 'whimsical'),
+    shading: oneOf('standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted'),
     bark: obj<BarkMaterialDefinition>({
       type: optional(oneOf(...BARK_TYPES)),
       color: hexColor,
@@ -292,6 +294,8 @@ const treeDefinition = obj<TreeDefinition>({
       ),
     }),
     occlusion: optionalBlock<OcclusionDefinition>(obj<OcclusionDefinition>({ strength: unit }), DEFAULT_OCCLUSION),
+    // Inner Glow: optional, absent = none; drawn by the enchanted shading only.
+    innerGlow: optionalBlock<InnerGlowDefinition>(obj<InnerGlowDefinition>({ leaf: range(0, 4), veins: range(0, 4) }), DEFAULT_INNER_GLOW),
   }),
   season: obj<SeasonProfileDefinition>({
     leafColor: track(hexColor),
