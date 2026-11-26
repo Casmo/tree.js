@@ -3,7 +3,8 @@
 ![A stylized forest of broadleaf trees and conifers going through a year: blossom, summer, autumn, winter](docs/images/hero.gif)
 
 Procedural trees for [three.js](https://threejs.org): one Tree Definition and a Seed grow a unique tree, in a
-low-poly, stylized, realistic or painterly Style. Trees grow (Growth), change through the year (Season) and sway in the
+low-poly, stylized, realistic or painterly Style, or one of the two [Fantasy Styles](#fantasy-styles), whimsical and
+enchanted. Trees grow (Growth), change through the year (Season) and sway in the
 Wind, all on the GPU through TSL node materials, so animating them never regenerates geometry. Place
 thousands at once as an instanced Forest, add opt-in Tree Effects, or design your own trees in the
 [Tree Editor](#tree-editor).
@@ -12,6 +13,7 @@ thousands at once as an instanced Forest, add opt-in Tree Effects, or design you
 - [Quick start](#quick-start)
 - [WebGPURenderer is required](#webgpurenderer-is-required)
 - [Styles](#styles)
+- [Fantasy Styles](#fantasy-styles)
 - [Species](#species)
 - [Tree Definitions and Seeds](#tree-definitions-and-seeds)
 - [Growth and Season](#growth-and-season)
@@ -40,7 +42,7 @@ npm install @casmo/tree.js three
 | Import | What |
 | --- | --- |
 | `@casmo/tree.js` | `createTree`, `createForest`, Definitions, Wind, Baked Tree export, `loadStyle`, ... |
-| `@casmo/tree.js/styles/low-poly` (`stylized`, `realistic`, `painterly`) | a built-in Style: one Tree Definition per Form (a few kB of data) |
+| `@casmo/tree.js/styles/low-poly` (`stylized`, `realistic`, `painterly`, `whimsical`, `enchanted`) | a built-in Style: one Tree Definition per Form (a few kB of data) |
 | `@casmo/tree.js/species` | the 28 Species (`oak`, `douglasFir`, ...), `loadSpecies`, `SPECIES_NAMES`; JSON files |
 | `@casmo/tree.js/effects` | Tree Effects (post-processing) |
 | `@casmo/tree.js/scene` | Scene Pipeline: the Style's suggested Tree Effects and Scene Effects (tone mapping, SMAA/FXAA, fog, ...) in one opt-in pipeline |
@@ -106,9 +108,9 @@ The rest of your scene can keep any materials; only the trees need the node rend
 
 ## Styles
 
-![Low-poly, stylized, realistic and painterly Styles, a broadleaf and a conifer each](docs/images/styles.png)
+![Low-poly, stylized, realistic, painterly, whimsical and enchanted Styles, a broadleaf and a conifer each](docs/images/styles.png)
 
-*`low-poly`, `stylized`, `realistic` and `painterly`: a broadleaf and a conifer each (shown at one height).*
+*`low-poly`, `stylized`, `realistic`, `painterly`, `whimsical` and `enchanted`: a broadleaf and a conifer each (shown at one height).*
 
 A Style is a ready-made look with one Tree Definition per Form (`broadleaf`, `conifer`):
 
@@ -118,6 +120,8 @@ A Style is a ready-made look with one Tree Definition per Form (`broadleaf`, `co
 | `stylized` | soft two-tone (toon) shading, round leaf puffs, pink blossom in early spring |
 | `realistic` | textured bark (with normal map) and leaf cards |
 | `painterly` | hand-painted: soft wrapped light, crowns of clumped painted Leaf Masses with a dark-to-sunlit gradient, painted bark; small trees (2-4 m) for top-down and tycoon cameras |
+| `whimsical` | a [Fantasy Style](#fantasy-styles): every tree swirls as one Corkscrew, crisp toon bands with a coloured rim light, big round pom-pom puffs in candy colours (a Leaf Palette per tree), cream bark with a candy stripe |
+| `enchanted` | a [Fantasy Style](#fantasy-styles): sinuous Snake trunks and branches, deep blue-violet bark with glowing veins, sparse glowing leaf cards (teal, magenta in autumn) with an Inner Glow; cool light, made for dark and night scenes |
 
 Painterly is the one Style that also sets a tree's size: it scales every Species uniformly so that its
 height maps from the real one into 2-4 m (keeping the order between Species; its own `broadleaf` and
@@ -150,11 +154,90 @@ const tallPine = createTree(extendDefinition(stylized.conifer, { trunk: { length
 scene.add(oak, pine, birch, tallPine);
 ```
 
+## Fantasy Styles
+
+![A Whimsical grove by day: corkscrewing trees with candy-striped trunks and round pom-poms in pink, mint and orange; and an Enchanted Forest at night: sinuous dark trees whose teal leaves glow, with bloom and a violet ground mist](docs/images/fantasy.png)
+
+*Left: a Whimsical grove by day, with its suggested Tree Effects. Right: an Enchanted Forest at night (no sun),
+through `createScenePipeline(renderer, scene, camera, { style: 'enchanted' })`: its bloom makes the Inner Glow shine.*
+
+`whimsical` and `enchanted` are the two **Fantasy Styles**: they draw trees as no real tree looks. Like
+every Style they apply to any Species or Definition, keeping its Crown Shape, branch counts, Fruit and Roots
+(an Oak in Whimsical is still an Oak), and they bring their own shading, colours and leaves. Unlike the
+others they also wring every tree they draw with their own Twist recipe on the trunk and every branch level,
+overwriting any Twist the source had ([ADR 0017](docs/adr/0017-fantasy-styles-set-twist.md)); conifers
+twist more mildly, so a Douglas Fir still reads as a fir.
+
+- **Whimsical** is built on [Corkscrew](#tree-definitions-and-seeds): every tree swirls as one around a single Spin (Follow Twist
+  on every level, a strong Twist Curve), in candy colours. Its `whimsical` shading draws crisp, bright toon
+  bands with a coloured rim light; leaves are big round pom-pom puffs at the tips; the cream bark has a candy
+  stripe in the tree's accent colour that winds with the Corkscrew. It writes five candy
+  [Leaf Palettes](#leaf-palettes) (bubblegum, mint, lemon, lilac, tangerine): the Seed picks one per tree,
+  so a Forest of one Species becomes a colourful mix. Pastel in spring, full colour in summer, warmer in autumn.
+- **Enchanted** is built on Snake: long, sinuous trunks and boughs with deep blue-violet bark and sparse,
+  alpha-cut leaf cards with glowing textures. Its `enchanted` shading lights them cool and dark and adds an
+  **Inner Glow**: the leaves and veins in the bark give off light of their own, so the trees shine with no
+  light on them, strongest at the thin edge of the crown, pulsing slowly (each tree out of step by its Seed,
+  on the shared Wind clock). Leaves are teal, cyan or blue (three close Leaf Palettes), turning magenta or
+  violet in autumn; evergreens stay teal all year. Made for dark and night scenes.
+
+Both keep the source's Season timing (leaf-out, leaf drop, blossom, Fruit) and use their own colours. Each
+also ships a generic `broadleaf` and `conifer` that go fully overboard. Trees keep real-world sizes.
+
+```ts
+import { createForest, createTree, loadStyle, type ForestPlacement } from '@casmo/tree.js';
+import { createScenePipeline } from '@casmo/tree.js/scene';
+import { oak } from '@casmo/tree.js/species';
+import whimsical from '@casmo/tree.js/styles/whimsical';
+
+declare const placements: ForestPlacement[];
+
+const candyOak = createTree(whimsical.apply(oak), { seed: 7 }); // an Oak, wrung into a Corkscrew
+const lollipop = createTree(whimsical.broadleaf, { seed: 2 }); // the Style's own showpiece
+candyOak.leafPalette; // the Leaf Palette its Seed picked: { leafColor, accent }
+
+const enchanted = await loadStyle('enchanted'); // dynamic import of '@casmo/tree.js/styles/enchanted'
+const grove = createForest(enchanted.apply(oak), placements, { variants: 6, seed: 1 });
+await grove.ready; // its glowing leaf cards and veined bark textures
+scene.add(candyOak, lollipop, grove);
+
+// The suggested Scene Effects (strong bloom, violet mist) make the Inner Glow shine at night.
+const pipeline = createScenePipeline(renderer, scene, camera, { style: 'enchanted' });
+renderer.setAnimationLoop(() => pipeline.render());
+```
+
+**Inner Glow** is the optional `materials.innerGlow: { leaf, veins }` (each 0..4; 1 = the Enchanted Style's
+own glow, absent = none). Only the `enchanted` shading draws it; other shadings ignore the field. It is not a
+[Material Feature](#material-features) (no Style turns those on) and not the Leaf Glow Tree Effect (a
+screen-space bloom). The leaves glow in their own Season colour (so the glow turns magenta with them), the
+bark veins in the tree's Season leaf colour. Retune it live, like a Material Feature (uniforms only):
+
+```ts
+import { createTree, extendDefinition } from '@casmo/tree.js';
+import enchanted from '@casmo/tree.js/styles/enchanted';
+
+const calm = extendDefinition(enchanted.conifer, { materials: { innerGlow: { leaf: 0.5, veins: 2 } } });
+const tree = createTree(calm, { seed: 4 });
+tree.innerGlow = { leaf: 1.5 }; // clamped to 0..4, the other strength kept; throws on a tree without one
+const strengths = tree.innerGlow; // { leaf: 1.5, veins: 2 }
+```
+
+The glow pulses with the Wind clock, so pin `sceneWind.time` for reproducible screenshots (the vanilla and
+forest examples take `?windTime=0`, and `?night=1` for a scene with no light at all).
+
+Re-styling keeps what a Fantasy Style wrote: applying another Style to a whimsical or enchanted Definition
+keeps its Twist, Leaf Palettes, leaf and bark colours and Inner Glow (as switching away from Painterly keeps
+its size); applying the other Fantasy Style replaces them with its own. To get the real Species back, apply a
+Style to the Species again. Both Fantasy Styles are drawn in their own way by [Snow Cover](#snow-cover) and
+[Wetness](#wetness), keep their look (glow included) at every [Detail Level](#detail-levels), and bake to
+glTF ([Fantasy Baked Trees](#fantasy-baked-trees)). Every Species in both is in the
+[Species gallery](docs/species/README.md).
+
 ## Species
 
-[![All 28 Species, each in the low-poly, stylized, realistic and painterly Styles](docs/species/contact-sheet.jpg)](docs/species/README.md)
+[![All 28 Species, each in the low-poly, stylized, realistic, painterly, whimsical and enchanted Styles](docs/species/contact-sheet.jpg)](docs/species/README.md)
 
-*Every Species in `low-poly`, `stylized`, `realistic` and `painterly`; the [Species gallery](docs/species/README.md) has larger
+*Every Species in `low-poly`, `stylized`, `realistic`, `painterly`, `whimsical` and `enchanted`; the [Species gallery](docs/species/README.md) has larger
 images (with Fruit or in autumn), a code example and the JSON of each.*
 
 28 real trees ship with the library, each described once by its shape (Stems, Crown Shape), Leaf Type, Bark
@@ -241,7 +324,7 @@ or flat top are other curves.
 
 The trunk and every branch level can also **Twist**: its Stems or branches make smooth twists and turns
 along their length (unlike bark that spirals round a branch, a Twist moves where the branch goes). All the
-Twist fields are optional; absent, a tree does not Twist:
+Twist fields are optional; absent, a tree does not Twist (the [Fantasy Styles](#fantasy-styles) write their own):
 
 | Field | Values | Absent | On |
 | --- | --- | --- | --- |
@@ -450,7 +533,39 @@ Each tree's Seed shifts its timing a little (`variation.growth`, `variation.seas
 Definition don't change in lockstep. `SEASON_PROFILES.deciduous` and `.evergreen` are ready-made Season
 Profiles; write your own as keyframes in the Definition's `season` (`leafColor`, `leafCoverage`,
 `blossom`, `blossomColor`, and for Fruit `fruit` (amount: each Fruit shows above its own rank and swells
-with the amount; 1 all year when absent) and `fruitColor` (ripening)).
+with the amount; 1 all year when absent) and `fruitColor` (ripening)), and optionally
+[Leaf Palettes](#leaf-palettes) for per-tree leaf colours.
+
+### Leaf Palettes
+
+The optional `season.leafPalettes` gives one Definition several sets of leaf colours: each Leaf Palette is
+a full `leafColor` track across Season plus an `accent` colour (for the bark; the `whimsical` candy stripe
+uses it, other shadings ignore it). The Seed picks one per tree (from its own random stream, so nothing else
+about the tree changes), and the palette's colours replace `leafColor`; coverage, blossom and Fruit timing
+stay. So a Forest of one Definition comes in several colours, one per Variant. Absent = every tree draws
+`leafColor`, as before.
+
+```ts
+import { createForest, SEASON_PROFILES, type ForestPlacement } from '@casmo/tree.js';
+
+declare const placements: ForestPlacement[];
+
+const maples = createForest(
+  {
+    schemaVersion: 3,
+    season: {
+      ...SEASON_PROFILES.deciduous,
+      leafPalettes: [
+        { leafColor: [{ t: 0, value: '#8bc34a' }, { t: 0.62, value: '#e65100' }], accent: '#6d4c41' },
+        { leafColor: [{ t: 0, value: '#689f38' }, { t: 0.62, value: '#c62828' }], accent: '#4e342e' },
+      ],
+    },
+  },
+  placements,
+  { variants: 4 },
+);
+const picked = maples.variants.map((variant) => variant.leafPalette); // as `tree.leafPalette` on a Tree
+```
 
 ## Wind
 
@@ -612,7 +727,9 @@ forest.lod = { impostor: 120 }; // distances, fade and the camera that picks the
   atlas is RGBA8 with mipmaps, about 21 MiB at 2048, and each render target has a depth buffer of the same
   size (16 MiB). That is about 139 MiB of GPU memory per Variant (five atlases, two targets), 160 MiB with
   Material Features or in Painterly (six atlases, two targets), and 197 MiB for Painterly with Material
-  Features (seven atlases, three targets); so 555, 640 or 790 MiB for 4 Variants. Halving `size` quarters
+  Features (seven atlases, three targets); so 555, 640 or 790 MiB for 4 Variants. An Enchanted Variant also
+  bakes its Inner Glow (crown-edge glow and bark veins) into one more atlas per layer, so its Impostors glow
+  and pulse like the Full trees. Halving `size` quarters
   it (`impostorAtlas: { size: 1024 }`: about 35 MiB per Variant); fewer `frames` keep the memory and give
   each direction more pixels. `forest.dispose()` frees them.
 
@@ -651,7 +768,7 @@ three, each an optional field in the Definition's `materials` section:
 on, so a game that sets nothing sees exactly the trees it saw before (same geometry, attributes and
 materials). Turning one on only changes the tree's own node materials: your renderer, scene, lights and
 post-processing are left alone, and there is no extra render pass, only some shader math per pixel. They
-work in every Style (flat, standard, toon and painted shading), with Growth and Wind, and in Forests.
+work in every Style (flat, standard, toon, painted, whimsical and enchanted shading), with Growth and Wind, and in Forests.
 
 Each Style has suggested values. Opt in with one line: `withMaterialFeatures(definition, features)`
 returns a new Definition whose Material Features are exactly `features` (a feature you leave out is off,
@@ -676,6 +793,8 @@ const off = withMaterialFeatures(subtle, {}); // the plain Style tree again
 | `stylized` | 1 | `{ strength: 0.3, edge: 0.8, ambient: 0.2 }` | `{ strength: 0.9 }` |
 | `realistic` | 0.6 | `{ strength: 0.45, edge: 0.7, ambient: 0.25 }` | `{ strength: 0.9 }` |
 | `painterly` | 0.3 (on top of its own Leaf Mass normals) | `{ strength: 0.3, edge: 0.8, ambient: 0.15 }` | `{ strength: 0.35 }` (it paints its own depth) |
+| `whimsical` | 1 (each pom-pom lit as one ball) | (off: the rim light does the edges) | `{ strength: 0.7 }` |
+| `enchanted` | 0.4 | `{ strength: 0.6, edge: 0.8, ambient: 0.2 }` (backlit edges glow on top of the Inner Glow) | `{ strength: 0.8 }` |
 
 The fields are plain numbers, so they are saved in the Definition JSON (the Tree Editor exports them) and
 can be set with `extendDefinition` too (`{ materials: { leaf: { crownNormals: 1 } } }`). Validation
@@ -742,7 +861,7 @@ roughness:
 | `normal` | The world-space normal the fragment is lit with, after Wind and Growth (and Crown Normals, the bark normal map) |
 | `position`, `treePosition` | The fragment's world position, and the tree's own (the foot of its trunk) |
 | `season`, `growth` | The tree's Season and Growth (0..1) |
-| `part`, `shading` | The tree part, and the Style's shading (`'flat'`, `'toon'`, `'standard'` or `'painted'`) |
+| `part`, `shading` | The tree part, and the Style's shading (`'flat'`, `'toon'`, `'standard'`, `'painted'`, `'whimsical'` or `'enchanted'`) |
 
 ```ts
 import { createTree, type TreeShaderHook } from '@casmo/tree.js';
@@ -930,7 +1049,9 @@ Each Style has a suggested combination (`SUGGESTED_TREE_EFFECTS`): `low-poly` ha
 [Inner Lines](#inner-lines) and a dark outline that is also drawn [between overlapping trees](#outline-between-overlapping-trees);
 `stylized` has a warm grade, a leaf glow, soft Inner Lines and a soft outline; `realistic` only a gentle
 grade and a faint leaf glow (no ink); `painterly` only a gentle warm grade: it is complete in its own
-materials, so an outline, Inner Lines or the Highlight are yours to add.
+materials, so an outline, Inner Lines or the Highlight are yours to add. `whimsical` has a saturation boost,
+soft plum Inner Lines and a plum (not black) cartoon outline; `enchanted` a cool blue-violet grade and a teal
+leaf glow over its glowing crowns, and no ink (it would cut the glow).
 
 > **Changed in this release:** the `low-poly` and `stylized` suggestions now include Inner Lines, and
 > `low-poly` also `outline.betweenTrees`. Apps that use either suggestion get a changed look (ink lines
@@ -1222,6 +1343,8 @@ forest (trees 10-30 m away); scale it up for large worlds:
 | `stylized` | AgX | SMAA | yes | soft | distance + low mist | - |
 | `realistic` | AgX | SMAA | yes | subtle | distance + mist + far haze | yes (needs `sun`) |
 | `painterly` | - (the renderer's own; keeps the painted colours) | SMAA | light | - | distance | - |
+| `whimsical` | AgX | SMAA | light | faint | distance, pastel pink | - |
+| `enchanted` | AgX | SMAA | yes | strong, low threshold (the Inner Glow blooms) | distance + low mist, violet | - |
 
 SMAA is in every suggestion because the [Tree ID](#tree-id) channel turns MSAA off. TRAA and motion
 blur are never suggested. Override a whole group with `treeEffects` or `sceneEffects` (a Style name,
@@ -1629,7 +1752,10 @@ folder and point tree.js at it, app-wide or per tree. `realistic.apply` picks a 
 `bark-papery.png`, `bark-fibrous.png`, `bark-plated.png`, each with its `-normal.png`). `painterly.apply`
 draws every Leaf Type as Leaf Masses of a painted spray card (`painterly/spray-<LeafType>.png`; needle and scale
 crowns in 12 flat, layered masses) and paints each Bark Type smooth (`painterly/bark-<BarkType>.png`, no
-normal map); all are made by
+normal map). `enchanted.apply` picks a glowing leaf card per Leaf Type (`enchanted/leaf-<LeafType>.png`: the
+realistic shapes with bright veins and edge and a dark centre; grey = how bright it glows) and draws every
+Bark Type with one veined bark (`enchanted/bark-veins.png`, its alpha channel = the glowing veins). Whimsical
+needs no textures. All are made by
 `scripts/generate-textures.mjs` (MIT, reproducible):
 
 ```ts
@@ -1651,22 +1777,28 @@ await tree.ready;
 The Tree Editor is a web app for designing Tree Definitions: start from a Style, change every parameter with
 a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branches and leaf areas of one Seed
 (move, delete, paint leaves), undo/redo, and export the Definition as JSON for
-`createTree(definition)` (or a Baked Tree as `.glb`). It is published on GitHub Pages
+`createTree(definition)` (or a Baked Tree as `.glb`). The Shading field offers all six shadings. A
+**Leaf Palettes** editor at the end of the Season Profile panel adds and removes [Leaf Palettes](#leaf-palettes)
+(each a leaf colour keyframe track and an accent colour) and says which one the current Seed picks. While the
+shading is `enchanted`, an **Inner Glow** toggle in the Materials panel turns on `materials.innerGlow`, with
+leaf and bark vein glow sliders (0..4) that retune the preview live. Switching Styles follows the
+[Fantasy Styles](#fantasy-styles) rule: leaving a Fantasy Style keeps its Twist, palettes, colours and glow.
+It is published on GitHub Pages
 ([casmo.github.io/tree.js](https://casmo.github.io/tree.js/)); run it locally with `npm run dev:editor`.
 
 ## Examples
 
 | Example | Run | What | |
 | --- | --- | --- | --- |
-| [`examples/vanilla`](examples/vanilla/main.ts) | `/examples/vanilla/` | one tree in plain three.js; `?style=low-poly&form=conifer&seed=2&growth=0.6&season=0.7&wind=0.5`; from above: `?style=painterly&view=tycoon\|top` | <img src="docs/images/example-vanilla.png" alt="examples/vanilla" width="160"> |
+| [`examples/vanilla`](examples/vanilla/main.ts) | `/examples/vanilla/` | one tree in plain three.js; `?style=low-poly&form=conifer&seed=2&growth=0.6&season=0.7&wind=0.5`; from above: `?style=painterly&view=tycoon\|top`; at night (no light, only the Inner Glow shows): `?style=enchanted&night=1&windTime=0` | <img src="docs/images/example-vanilla.png" alt="examples/vanilla" width="160"> |
 | [`examples/cdn`](examples/cdn/index.html) | `/examples/cdn/` | no bundler: a single HTML page with an import map | <img src="docs/images/example-cdn.png" alt="examples/cdn" width="160"> |
 | [`examples/react`](examples/react/main.tsx) | `/examples/react/` | React Three Fiber: `<Tree>`, `<Wind>`, `useTreeStyle`; `?scene=forest` for `<Forest>`, `?scene=pipeline` for `<ScenePipeline>` | <img src="docs/images/example-react.png" alt="examples/react" width="160"> |
-| [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=`; a tycoon camera: `?style=painterly&view=tycoon` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
+| [`examples/forest`](examples/forest/main.ts) | `/examples/forest/` | a 400-tree Forest; `?trees=&variants=&style=&season=`; a tycoon camera: `?style=painterly&view=tycoon`; a glowing Enchanted Forest at night: `?style=enchanted&night=1&windTime=0` | <img src="docs/images/example-forest.png" alt="examples/forest" width="160"> |
 | [`examples/large-forest`](examples/large-forest/main.ts) | `/examples/large-forest/` | 10,000 trees with Detail Levels on and off: frame times, draw calls, triangles and trees per Detail Level; `?trees=&lod=0&frames=&orbit=` | <img src="docs/images/example-large-forest.png" alt="examples/large-forest" width="160"> |
 | [`examples/effects`](examples/effects/main.ts) | `/examples/effects/` | Tree Effects per Style; `?style=stylized&effects=outline` | <img src="docs/images/example-effects.png" alt="examples/effects" width="160"> |
 | [`examples/custom-effect`](examples/custom-effect/main.ts) | `/examples/custom-effect/` | a foliage-only [custom Tree Effect](#custom-tree-effects) (the bare setup); `?effect=on\|pass-through\|off&effects=style&view=mask&backend=webgl` | <img src="docs/images/example-custom-effect.png" alt="examples/custom-effect" width="160"> |
 | [`examples/material-features`](examples/material-features/main.ts) | `/examples/material-features/` | the same tree with Material Features off and on (`SUGGESTED_MATERIAL_FEATURES`); `?style=realistic&species=oak` | <img src="docs/images/example-material-features.png" alt="examples/material-features" width="160"> |
-| [`examples/scene-pipeline`](examples/scene-pipeline/main.ts) | `/examples/scene-pipeline/` | the opt-in [Scene Pipeline](#scene-pipeline) (`createScenePipeline`) per Style: `?style=low-poly\|stylized\|realistic\|painterly`; one Scene Effect alone through its builder: `?scene=tone-mapping\|smaa\|fxaa\|traa\|gtao\|bloom\|fog\|godrays\|motion-blur` (`&sun=back` for light shafts); `?scene=none` (adds nothing) or `plain` (`renderer.render`); the Wind-aware velocity channel: `?scene=velocity&wind=1.5&windTime=3`; motion blur: `?scene=motion-blur&wind=3&windTime=3&cameraStep=0.5`; `?backend=webgl` | <img src="docs/images/example-scene-pipeline.png" alt="examples/scene-pipeline" width="160"> |
+| [`examples/scene-pipeline`](examples/scene-pipeline/main.ts) | `/examples/scene-pipeline/` | the opt-in [Scene Pipeline](#scene-pipeline) (`createScenePipeline`) per Style: `?style=low-poly\|stylized\|realistic\|painterly\|whimsical\|enchanted`; one Scene Effect alone through its builder: `?scene=tone-mapping\|smaa\|fxaa\|traa\|gtao\|bloom\|fog\|godrays\|motion-blur` (`&sun=back` for light shafts); `?scene=none` (adds nothing) or `plain` (`renderer.render`); the Wind-aware velocity channel: `?scene=velocity&wind=1.5&windTime=3`; motion blur: `?scene=motion-blur&wind=3&windTime=3&cameraStep=0.5`; `?backend=webgl` | <img src="docs/images/example-scene-pipeline.png" alt="examples/scene-pipeline" width="160"> |
 | [`examples/species`](examples/species/main.ts) | `/examples/species/` | a Species x Style picker over the whole collection; `?species=douglas-fir&style=realistic` | <img src="docs/images/example-species.png" alt="examples/species" width="160"> |
 
 ```sh
@@ -1687,7 +1819,8 @@ sources too; the e2e test serves it unmodified, with the import map answered by 
 The Species gallery (`docs/species/`: images, contact sheet and page) is regenerated by `npm run gallery`
 (Playwright, the e2e renderer; `npm run gallery -- oak birch` redoes only those Species).
 The README's screenshots and GIFs (`docs/images/`) are rendered by `npm run readme-media`
-(Playwright + ffmpeg; run `npm run build` first; `npm run readme-media -- wind hero` redoes only those).
+(Playwright + ffmpeg; run `npm run build` first; `npm run readme-media -- wind hero` redoes only those;
+`README_MEDIA_PORT=<port>` when its dev server port 5198 is taken).
 Design decisions live in [`docs/adr`](docs/adr), the vocabulary in [`GLOSSARY.md`](GLOSSARY.md).
 
 ## License

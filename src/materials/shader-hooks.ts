@@ -25,8 +25,9 @@ export interface TreeShaderInput {
   /** The tree part the hook shades: 'bark', 'leaves' or 'fruit'. */
   part: TreePart;
   /**
-   * The tree's shading model (its Style): 'flat' (low-poly), 'toon' (stylized), 'standard' (realistic) or
-   * 'painted' (painterly). The ready-made weather hooks draw each in its own way.
+   * The tree's shading model (its Style): 'flat' (low-poly), 'toon' (stylized), 'standard' (realistic),
+   * 'painted' (painterly), 'whimsical' (whimsical) or 'enchanted' (enchanted). The ready-made weather hooks
+   * draw each in its own way.
    */
   shading: Shading;
   /**
