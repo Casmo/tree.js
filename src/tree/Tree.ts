@@ -11,7 +11,7 @@ import {
   type UniformNode,
 } from 'three/webgpu';
 import { uniform } from 'three/tsl';
-import type { InnerGlowDefinition, LeafPalette, MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
+import { MAX_INNER_GLOW, type InnerGlowDefinition, type LeafPalette, type MaterialFeatures, type TranslucencyDefinition, type TreeDefinition } from '../definition';
 import { trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { clampGrowth, growthPosition } from '../growth';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
@@ -231,7 +231,7 @@ export class Tree extends ShaderHookedGroup {
 
   /**
    * Inner Glow strengths (a copy), from the Definition's `materials.innerGlow`; null when the tree draws
-   * none (no Inner Glow, or a shading other than `enchanted`). Setting any of them (each clamped to 0..4,
+   * none (no Inner Glow, or a shading other than `enchanted`). Setting any of them (each clamped to 0..MAX_INNER_GLOW,
    * the others kept) only writes uniforms: no regeneration, no recompile. Throws on a tree without one.
    */
   get innerGlow(): InnerGlowDefinition | null {
@@ -240,7 +240,7 @@ export class Tree extends ShaderHookedGroup {
 
   set innerGlow(value: Partial<InnerGlowDefinition>) {
     if (!this.glow) throw new Error('This tree draws no Inner Glow (it needs materials.innerGlow and the enchanted shading)');
-    const clamp = (v: number) => Math.min(Math.max(v, 0), 4);
+    const clamp = (v: number) => Math.min(Math.max(v, 0), MAX_INNER_GLOW);
     if (value.leaf !== undefined) this.glow.leaf.value = clamp(value.leaf);
     if (value.veins !== undefined) this.glow.veins.value = clamp(value.veins);
   }

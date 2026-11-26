@@ -16,6 +16,8 @@ import {
   SPINS,
   TWIST_STYLES,
   MAX_BRANCH_LEVELS,
+  MAX_INNER_GLOW,
+  SHADINGS,
   type BarkMaterialDefinition,
   type BranchLevelDefinition,
   type DeleteSculpt,
@@ -270,7 +272,7 @@ const treeDefinition = obj<TreeDefinition>({
     DEFAULT_ROOTS,
   ),
   materials: obj<MaterialsDefinition>({
-    shading: oneOf('standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted'),
+    shading: oneOf(...SHADINGS),
     bark: obj<BarkMaterialDefinition>({
       type: optional(oneOf(...BARK_TYPES)),
       color: hexColor,
@@ -295,7 +297,7 @@ const treeDefinition = obj<TreeDefinition>({
     }),
     occlusion: optionalBlock<OcclusionDefinition>(obj<OcclusionDefinition>({ strength: unit }), DEFAULT_OCCLUSION),
     // Inner Glow: optional, absent = none; drawn by the enchanted shading only.
-    innerGlow: optionalBlock<InnerGlowDefinition>(obj<InnerGlowDefinition>({ leaf: range(0, 4), veins: range(0, 4) }), DEFAULT_INNER_GLOW),
+    innerGlow: optionalBlock<InnerGlowDefinition>(obj<InnerGlowDefinition>({ leaf: range(0, MAX_INNER_GLOW), veins: range(0, MAX_INNER_GLOW) }), DEFAULT_INNER_GLOW),
   }),
   season: obj<SeasonProfileDefinition>({
     leafColor: track(hexColor),

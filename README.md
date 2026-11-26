@@ -1781,7 +1781,7 @@ a live preview (Seed, Growth, Season, Wind, Tree Effects), sculpt single branche
 **Leaf Palettes** editor at the end of the Season Profile panel adds and removes [Leaf Palettes](#leaf-palettes)
 (each a leaf colour keyframe track and an accent colour) and says which one the current Seed picks. While the
 shading is `enchanted`, an **Inner Glow** toggle in the Materials panel turns on `materials.innerGlow`, with
-leaf and bark vein glow sliders (0..4) that retune the preview live. Switching Styles follows the
+Leaves and Bark veins sliders (0..4) that retune the preview live. Switching Styles follows the
 [Fantasy Styles](#fantasy-styles) rule: leaving a Fantasy Style keeps its Twist, palettes, colours and glow.
 It is published on GitHub Pages
 ([casmo.github.io/tree.js](https://casmo.github.io/tree.js/)); run it locally with `npm run dev:editor`.

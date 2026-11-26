@@ -7,13 +7,14 @@ import {
   DEFAULT_FRUIT_COLOR,
   FRUIT_TYPES,
   LEAF_TYPES,
+  MAX_INNER_GLOW,
+  SHADINGS,
   SPINS,
   TWIST_STYLES,
   type BranchLevelDefinition,
   type HexColor,
   type Keyframe,
   type MaterialFeatures,
-  type Shading,
   type TreeDefinition,
 } from '@casmo/tree.js';
 
@@ -43,8 +44,6 @@ export interface FieldGroup {
   fields: Field[];
 }
 
-/** Every shading model the schema accepts (each Style draws with one of them). */
-const SHADINGS: readonly Shading[] = ['standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted'];
 
 const num = (path: string, label: string, min: number, max: number, step: number): Field => ({ kind: 'number', path, label, min, max, step });
 const fraction = (path: string, label: string): Field => num(path, label, 0, 1, 0.01);
@@ -177,8 +176,8 @@ export const GROUND_TINT_FIELDS: Field[] = [
  * while the shading is enchanted and the Inner Glow toggle is on); 1 = the Enchanted Style's own glow.
  */
 export const INNER_GLOW_FIELDS: Field[] = [
-  num('materials.innerGlow.leaf', 'Leaf glow', 0, 4, 0.05),
-  num('materials.innerGlow.veins', 'Bark vein glow', 0, 4, 0.05),
+  num('materials.innerGlow.leaf', 'Leaves', 0, MAX_INNER_GLOW, 0.05),
+  num('materials.innerGlow.veins', 'Bark veins', 0, MAX_INNER_GLOW, 0.05),
 ];
 
 /**

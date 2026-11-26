@@ -291,7 +291,10 @@ export interface RootsDefinition {
  * Material shading model. Low-poly uses `flat`, stylized `toon`, realistic `standard`, painterly `painted`,
  * whimsical `whimsical`, enchanted `enchanted`.
  */
-export type Shading = 'standard' | 'flat' | 'toon' | 'painted' | 'whimsical' | 'enchanted';
+export type Shading = (typeof SHADINGS)[number];
+
+/** Every shading model the schema accepts (each Style draws with one of them). */
+export const SHADINGS = ['standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted'] as const;
 
 export interface BarkMaterialDefinition {
   /** Bark Type the bark was drawn from (set by `Style.apply`), so a Style can be re-applied. Optional. */
@@ -366,16 +369,19 @@ export interface MaterialFeatures {
   occlusion?: OcclusionDefinition;
 }
 
+/** The strongest Inner Glow a Definition (and `tree.innerGlow`) accepts, for leaves and bark veins alike. */
+export const MAX_INNER_GLOW = 4;
+
 /**
  * Inner Glow (GLOSSARY): light the tree gives off by itself, in its leaf colour (Season and Leaf Palette),
  * from its leaves (strongest at the thin edge of the Crown Volume) and from veins in its bark, slowly
  * pulsing. Only the `enchanted` shading draws it; the other shadings ignore it. Not a Material Feature
- * (ADR 0008): a Fantasy Style writes it. Plain numbers, 0 (none) .. 4; 1 is the Enchanted Style's own.
+ * (ADR 0008): a Fantasy Style writes it. Plain numbers, 0 (none) .. {@link MAX_INNER_GLOW}; 1 is the Enchanted Style's own.
  */
 export interface InnerGlowDefinition {
-  /** How strongly the leaves glow (0..4). */
+  /** How strongly the leaves glow (0..{@link MAX_INNER_GLOW}). */
   leaf: number;
-  /** How strongly the bark veins glow (0..4); the veins are the alpha of the enchanted bark map. */
+  /** How strongly the bark veins glow (0..{@link MAX_INNER_GLOW}); the veins are the alpha of the enchanted bark map. */
   veins: number;
 }
 

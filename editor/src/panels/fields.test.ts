@@ -168,8 +168,8 @@ describe('parameter panels', () => {
 
   it('offer Inner Glow sliders for the leaves and the bark veins over 0..4 (1 = the Enchanted Style\'s own)', () => {
     expect(INNER_GLOW_FIELDS).toEqual([
-      { kind: 'number', path: 'materials.innerGlow.leaf', label: 'Leaf glow', min: 0, max: 4, step: 0.05 },
-      { kind: 'number', path: 'materials.innerGlow.veins', label: 'Bark vein glow', min: 0, max: 4, step: 0.05 },
+      { kind: 'number', path: 'materials.innerGlow.leaf', label: 'Leaves', min: 0, max: 4, step: 0.05 },
+      { kind: 'number', path: 'materials.innerGlow.veins', label: 'Bark veins', min: 0, max: 4, step: 0.05 },
     ]);
     const glow = (leaf: number) => () => parseDefinition({ ...DEFAULT_DEFINITION, materials: { ...DEFAULT_DEFINITION.materials, innerGlow: { leaf } } });
     expect(glow(4)).not.toThrow();
