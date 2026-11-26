@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BARK_TYPES, DEFAULT_DEFINITION, LEAF_TYPES, SPINS, TWIST_STYLES, parseDefinition } from '@casmo/tree.js';
 import {
   BRANCH_LEVEL_CURVES,
-  BRANCH_LEVEL_FIELDS,
+  branchLevelFields,
   FRUIT_FIELDS,
   GROUND_TINT_FIELDS,
   INNER_GLOW_FIELDS,
@@ -40,6 +40,7 @@ const FULL_DEFINITION = parseDefinition({
     spin: 'clockwise',
     twistCurve: 0.5,
     followTwist: true,
+    tipBranches: 2,
     lengthProfile: [{ t: 0, value: 1 }],
     angleProfile: [{ t: 0, value: 1 }],
   })),
@@ -75,7 +76,7 @@ const STYLE_ONLY = ['roots.sides', 'roots.sections'];
 
 const editable = [
   ...allFields().map((field) => field.path),
-  ...BRANCH_LEVEL_FIELDS.map((field) => `branches.*.${field.path}`),
+  ...branchLevelFields(0).map((field) => `branches.*.${field.path}`),
   ...BRANCH_LEVEL_CURVES.map((curve) => `branches.*.${curve.key}`),
   ...SEASON_FIELDS.map((field) => field.path),
   ...SEASON_TRACKS.map((track) => `season.${track.key}`),
@@ -128,7 +129,7 @@ describe('parameter panels', () => {
   it('have slider ranges the schema accepts, around the default values', () => {
     const numbers = [
       ...allFields(),
-      ...BRANCH_LEVEL_FIELDS.map((field) => ({ ...field, path: `branches.0.${field.path}` })),
+      ...branchLevelFields(0).map((field) => ({ ...field, path: `branches.0.${field.path}` })),
     ].filter((field): field is Extract<Field, { kind: 'number' }> => field.kind === 'number');
     for (const field of numbers) {
       const [section, ...rest] = field.path.split('.');
@@ -197,11 +198,31 @@ describe('parameter panels', () => {
     expect(() => parseDefinition({ ...DEFAULT_DEFINITION, trunk: { ...DEFAULT_DEFINITION.trunk, spin: 'left' } })).toThrow(/trunk.spin/);
   });
 
+  it('offer a Tip Branches slider (0-4, whole numbers) right after Count on each branch level, with its tooltip', () => {
+    const paths = branchLevelFields(0).map((field) => field.path);
+    expect(paths.slice(0, 2)).toEqual(['count', 'tipBranches']);
+    expect(branchLevelFields(0).find((f) => f.path === 'tipBranches')).toEqual({
+      kind: 'number',
+      path: 'tipBranches',
+      label: 'Tip Branches',
+      min: 0,
+      max: 4,
+      step: 1,
+      absent: 1,
+      tooltip: 'Branches growing from the very tip of the parent: 0 = the parent ends in a stump, 1 = it carries on, 2+ = it forks.',
+    });
+  });
+
+  it('show the Tip Branches default of each level while it is absent: 1 on levels 1-2, 0 deeper', () => {
+    const shown = [0, 1, 2, 3].map((index) => branchLevelFields(index).find((f) => f.path === 'tipBranches'));
+    expect(shown.map((field) => field && 'absent' in field && field.absent)).toEqual([1, 1, 0, 0]);
+  });
+
   it('offer the Twist group right after Gravity on each branch level: Twist style, Twist, Twists, Spin, Twist curve, Follow twist, showing Snake / no Twist / Random / 0 / off while absent', () => {
-    const paths = BRANCH_LEVEL_FIELDS.map((field) => field.path);
+    const paths = branchLevelFields(0).map((field) => field.path);
     const at = paths.indexOf('gravity');
     expect(paths.slice(at, at + 7)).toEqual(['gravity', 'twistStyle', 'twist', 'twists', 'spin', 'twistCurve', 'followTwist']);
-    const field = (path: string) => BRANCH_LEVEL_FIELDS.find((f) => f.path === path);
+    const field = (path: string) => branchLevelFields(0).find((f) => f.path === path);
     expect(field('twistStyle')).toEqual({ kind: 'choice', path: 'twistStyle', label: 'Twist style', options: TWIST_STYLES, labels: { snake: 'Snake', corkscrew: 'Corkscrew' }, absent: 'snake' });
     expect(field('twist')).toEqual({ kind: 'number', path: 'twist', label: 'Twist', min: 0, max: 1, step: 0.01, absent: 0 });
     expect(field('twists')).toEqual({ kind: 'number', path: 'twists', label: 'Twists', min: 1, max: 8, step: 1, absent: 2 });
