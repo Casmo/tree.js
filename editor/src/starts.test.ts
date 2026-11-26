@@ -50,6 +50,15 @@ describe('starting points', () => {
     },
   );
 
+  it('the Fantasy Styles are in the picker and every Species has a Whimsical and an Enchanted start', async () => {
+    expect(STYLE_CHOICES).toEqual(expect.arrayContaining([{ id: 'whimsical', label: 'Whimsical' }, { id: 'enchanted', label: 'Enchanted' }]));
+    expect(STARTS.map((start) => start.id)).toEqual(expect.arrayContaining(['oak/whimsical', 'pine/enchanted', 'conifer/whimsical']));
+    expect(await loadStart('oak/whimsical')).toMatchObject({ species: 'oak', materials: { shading: 'whimsical' } });
+    const pine = await loadStart('pine/enchanted');
+    expect(pine).toMatchObject({ species: 'pine', materials: { shading: 'enchanted', innerGlow: { leaf: 1, veins: 1 } } });
+    expect(pine.season.leafPalettes?.length).toBeGreaterThan(0);
+  });
+
   it('reads new and old ids as Species + Style', () => {
     expect(parseStartId('oak/realistic')).toEqual({ id: 'oak/realistic', tree: { kind: 'species', id: 'oak' }, style: 'realistic' });
     expect(parseStartId('broadleaf/stylized')).toEqual({ id: 'broadleaf/stylized', tree: { kind: 'generic', form: 'broadleaf' }, style: 'stylized' });

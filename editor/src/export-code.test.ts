@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_DEFINITION, extendDefinition, parseDefinition, type TreeDefinition } from '@casmo/tree.js';
 import lowPoly from '@casmo/tree.js/styles/low-poly';
 import { treeCodeSnippet } from './export-code';
+import { loadStart } from './starts';
 
 /** Evaluates the object literal assigned to `const definition = ... satisfies TreeDefinitionInput;`. */
 function inlinedDefinition(snippet: string): unknown {
@@ -45,5 +46,12 @@ describe('Copy code snippet', () => {
     expect(snippet).toMatch(/^ {2}schemaVersion: \d+,$/m);
     expect(snippet).not.toMatch(/^\s*"schemaVersion":/m);
     expect(inlinedDefinition(snippet)).toEqual(DEFAULT_DEFINITION);
+  });
+
+  it.each(['three', 'react'] as const)('%s: a fantasy tree (Twist, Leaf Palettes, Inner Glow) parses back to the same Definition', async (target) => {
+    const enchanted = extendDefinition(await loadStart('pine/enchanted'), { materials: { innerGlow: { leaf: 1.65, veins: 0.4 } } });
+    expect(enchanted.season.leafPalettes?.length).toBeGreaterThan(0);
+    const snippet = treeCodeSnippet({ ...state, definition: enchanted }, target);
+    expect(parseDefinition(inlinedDefinition(snippet))).toEqual(enchanted);
   });
 });
