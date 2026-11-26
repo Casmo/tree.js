@@ -107,11 +107,11 @@ const painterlyStates = [
 // Whimsical (#140): its pastel spring colours too.
 const whimsicalStates = [{ form: 'broadleaf', name: 'spring', query: '&season=0.04' }];
 // Enchanted (#141): at night with no light at all, only the Inner Glow shows (leaves strongest at the crown's
-// thin edge, the bark veins), in summer teal and autumn magenta; and the glow at another moment of its pulse.
+// thin edge, the bark veins), in summer teal and autumn magenta; and at the low point of its pulse.
 const enchantedStates = [
   ...forms.map((form) => ({ form, name: 'night', query: '&night=1' })),
   { form: 'broadleaf', name: 'night-autumn', query: '&night=1&season=0.66' },
-  { form: 'broadleaf', name: 'night-pulse-low', query: '&night=1&windTime=5.25' },
+  { form: 'broadleaf', name: 'night-pulse-low', query: '&night=1&windTime=1.75' },
 ];
 const shots = [
   ...styles.flatMap((style) => forms.flatMap((form) => states.map((state) => ({ style, form, ...state })))),
