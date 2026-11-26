@@ -65,8 +65,32 @@ The outline of a tree's branches, set by how branch length and branch angle chan
 _Avoid_: Silhouette, profile
 
 **Twist**:
-The smooth twists and turns a branch or Stem makes along its length, swinging away from its course a set number of times (its Twists) in directions the Seed picks; unlike bark that spirals around a branch, a Twist moves where the branch goes.
+The smooth twists and turns a branch or Stem makes along its length, a set number of times (its Twists), in one of two Twist Styles: Snake or Corkscrew; unlike bark that spirals around a branch, a Twist moves where the branch goes.
 _Avoid_: Curve (that is a Crown Shape curve), meander, wobble, bend (that is Bend, the random jitter at every Section)
+
+**Twist Style**:
+The kind of Twist a branch level or trunk makes: Snake or Corkscrew.
+_Avoid_: Twist mode, twist type
+
+**Snake**:
+The Twist Style where each turn swings the branch out to one side and back onto its course, each turn roughly opposite the last, so it ends heading where it would have without Twist.
+_Avoid_: Zigzag, wave
+
+**Corkscrew**:
+The Twist Style where the branch spirals around its own course, one full turn per Twists, like a helix.
+_Avoid_: Helix, spiral (that is Spiral, the angle between neighbouring branches around their parent), rotation
+
+**Spin**:
+Which way round a Corkscrew turns: clockwise, counter-clockwise, or Random, where the Seed picks per branch or Stem.
+_Avoid_: Handedness, direction
+
+**Twist Curve**:
+How far the course of a Corkscrew itself bends while it spirals, so the branch or Stem ends up heading in a clearly turned direction.
+_Avoid_: Curve (that is a Crown Shape curve), bend (that is Bend)
+
+**Follow Twist**:
+A branch level setting by which Corkscrew branches on a Corkscrew parent take the parent's Spin, pick up its spiral where they attach and bend their Twist Curve the same way, so the tree swirls as one.
+_Avoid_: Inherit twist, chain twist
 
 **Growth**:
 How far a tree has grown, a value from 0 (sapling) to 1 (fully grown) that the app may change at any moment to animate it.
