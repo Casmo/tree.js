@@ -1,0 +1,22 @@
+[
+  {
+    "title": "Trunk: Twist style Corkscrew, Spin Clockwise, Twist curve 0.6",
+    "start": 2
+  },
+  {
+    "title": "Level 1 becomes a Corkscrew that follows the trunk",
+    "start": 12.383333333333333
+  },
+  {
+    "title": "Level 2 follows its parent too",
+    "start": 31.483333333333334
+  },
+  {
+    "title": "Follow twist off, then on again",
+    "start": 50.65
+  },
+  {
+    "title": "Trunk back to Snake for comparison",
+    "start": 67.8
+  }
+]

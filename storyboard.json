@@ -1,0 +1,160 @@
+{
+ "title": "Corkscrew twist on the trunk and branches",
+ "kicker": "Tree Editor \u00b7 Twist",
+ "url": "http://localhost:36319/?seed=3",
+ "setup": [
+  {
+   "click": "[id=\"trunk.twistStyle\"]"
+  },
+  {
+   "press": "ArrowDown"
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "type": "0.8",
+   "into": "[id=\"trunk.twist\"]"
+  },
+  {
+   "click": "[id=\"trunk.spin\"]"
+  },
+  {
+   "press": "ArrowDown"
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "type": "0.6",
+   "into": "[id=\"trunk.twistCurve\"]"
+  },
+  {
+   "type": "0.9",
+   "into": "[id=\"branches.0.twist\"]"
+  },
+  {
+   "type": "0.8",
+   "into": "[id=\"branches.1.twist\"]"
+  },
+  {
+   "press": "Enter"
+  }
+ ],
+ "chapters": [
+  {
+   "title": "Trunk: Twist style Corkscrew, Spin Clockwise, Twist curve 0.6",
+   "steps": [
+    {
+     "scroll": "[id=\"trunk.twistStyle\"]"
+    },
+    {
+     "hover": "[id=\"trunk.twistCurve\"]",
+     "zoom": true
+    },
+    {
+     "wait": 1500
+    }
+   ]
+  },
+  {
+   "title": "Level 1 becomes a Corkscrew that follows the trunk",
+   "steps": [
+    {
+     "scroll": "[id=\"branches.0.twistStyle\"]"
+    },
+    {
+     "click": "[id=\"branches.0.twistStyle\"]",
+     "zoom": true
+    },
+    {
+     "press": "ArrowDown"
+    },
+    {
+     "press": "Enter"
+    },
+    {
+     "type": "0.3",
+     "into": "[id=\"branches.0.twistCurve\"]"
+    },
+    {
+     "click": "[id=\"branches.0.followTwist\"]",
+     "zoom": true
+    },
+    {
+     "wait": 1500
+    }
+   ]
+  },
+  {
+   "title": "Level 2 follows its parent too",
+   "steps": [
+    {
+     "scroll": "[id=\"branches.1.twistStyle\"]"
+    },
+    {
+     "click": "[id=\"branches.1.twistStyle\"]"
+    },
+    {
+     "press": "ArrowDown"
+    },
+    {
+     "press": "Enter"
+    },
+    {
+     "type": "0.3",
+     "into": "[id=\"branches.1.twistCurve\"]"
+    },
+    {
+     "click": "[id=\"branches.1.followTwist\"]",
+     "zoom": true
+    },
+    {
+     "wait": 1500
+    }
+   ]
+  },
+  {
+   "title": "Follow twist off, then on again",
+   "steps": [
+    {
+     "scroll": "[id=\"branches.0.followTwist\"]"
+    },
+    {
+     "click": "[id=\"branches.0.followTwist\"]",
+     "zoom": true
+    },
+    {
+     "wait": 2000
+    },
+    {
+     "click": "[id=\"branches.0.followTwist\"]"
+    },
+    {
+     "wait": 2000
+    }
+   ]
+  },
+  {
+   "title": "Trunk back to Snake for comparison",
+   "steps": [
+    {
+     "scroll": "[id=\"trunk.twistStyle\"]"
+    },
+    {
+     "click": "[id=\"trunk.twistStyle\"]",
+     "zoom": true
+    },
+    {
+     "press": "ArrowUp"
+    },
+    {
+     "press": "Enter"
+    },
+    {
+     "wait": 2500
+    }
+   ]
+  }
+ ]
+}
