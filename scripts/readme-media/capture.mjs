@@ -32,6 +32,10 @@ const JOBS = {
       { url: '/examples/vanilla/?style=painterly&form=broadleaf&seed=1&view=top', width: 480, height: 360, ready: 'treeExample' },
     ],
   },
+  // Twist (#136): Twist Styles side by side, Follow Twist off and on, an extreme Corkscrew.
+  'twist-styles': shot('twist-styles', 1280, 400),
+  'follow-twist': shot('follow-twist', 960, 480),
+  'corkscrew-extreme': shot('corkscrew-extreme', 640, 480),
   'growth-season': { ...shot('growth-season', 400, 400), gif: { fps: 12, colors: 128 } },
   wind: { ...shot('wind', 640, 320), gif: { fps: 15, colors: 128 } },
   forest: shot('forest', 960, 400),

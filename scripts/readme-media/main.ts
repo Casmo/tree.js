@@ -24,6 +24,7 @@ import stylized from '@casmo/tree.js/styles/stylized';
 import realistic from '@casmo/tree.js/styles/realistic';
 import painterly from '@casmo/tree.js/styles/painterly';
 import { framingBox } from '../../examples/framing';
+import { EXTREME_CORKSCREW, followTwistTree, TWIST_STYLE_TREES } from './twist-trees';
 
 declare global {
   interface Window {
@@ -80,6 +81,13 @@ function lineUp(trees: THREE.Object3D[], gap: number, height?: number): THREE.Bo
   for (const tree of trees) tree.position.x += shift;
   all.translate(new THREE.Vector3(shift, 0, 0));
   return all;
+}
+
+/** A narrower lens for side-by-side trees, so the ones at the edges are not drawn at a slant. */
+function narrow(camera: THREE.PerspectiveCamera, fov = 25): void {
+  camera.fov = fov;
+  camera.far = 1000;
+  camera.updateProjectionMatrix();
 }
 
 function ground(stage: Stage, radius: number): THREE.Mesh {
@@ -189,6 +197,35 @@ const SHOTS: Record<string, (stage: Stage) => Promise<Shot>> = {
     scene.add(...trees);
     ground({ scene } as Stage, 40);
     frame(camera, lineUp(trees, 0.2), 1.05, new THREE.Vector3(0, 0.2, 1).normalize());
+    return { frames: 1 };
+  },
+
+  /** Twist Styles: no Twist, Snake, Corkscrew and Corkscrew with Twist Curve 0.6 (bare trees, one Seed). */
+  async 'twist-styles'({ scene, camera }) {
+    const trees = TWIST_STYLE_TREES.map((definition) => createTree(definition, { seed: 2, season: 0.37 }));
+    scene.add(...trees);
+    ground({ scene } as Stage, 40);
+    narrow(camera);
+    frame(camera, lineUp(trees, 0.6), 1.08, new THREE.Vector3(0, 0.15, 1).normalize());
+    return { frames: 1 };
+  },
+
+  /** Follow Twist: a Corkscrew trunk with Corkscrew branches, without and with followTwist. */
+  async 'follow-twist'({ scene, camera }) {
+    const trees = [false, true].map((follow) => createTree(followTwistTree(follow), { seed: 4, season: 0.37 }));
+    scene.add(...trees);
+    ground({ scene } as Stage, 30);
+    narrow(camera);
+    frame(camera, lineUp(trees, 1.2), 1.25, new THREE.Vector3(0, 0.3, 1).normalize());
+    return { frames: 1 };
+  },
+
+  /** An extreme stylized Corkscrew: Corkscrew trunk with Twist Curve 0.6 and following Corkscrew branches. */
+  async 'corkscrew-extreme'({ scene, camera }) {
+    const tree = createTree(EXTREME_CORKSCREW, { seed: 3, season: 0.37 });
+    scene.add(tree);
+    ground({ scene } as Stage, 12);
+    frame(camera, framingBox(tree), 1.3);
     return { frames: 1 };
   },
 

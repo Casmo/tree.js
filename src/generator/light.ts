@@ -1,7 +1,7 @@
 import { extendDefinition, type DefinitionPatch, type TreeDefinition } from '../definition';
 import { createRandom, seedRandom } from '../random';
 import { woodSeasonAttribute } from '../season/profile';
-import { buildBranches } from './branches';
+import { growStemsAndBranches } from './branches';
 import { crownVolume } from './crown';
 import { COARSE_SIDES, emptyGeometry, fruitGeometry, fruitGrowth, placeFruit } from './fruit';
 import { growthTiming } from './growth';
@@ -12,7 +12,7 @@ import { mergeBuffers, sweepBranch } from './mesh';
 import { bakeOcclusion } from './occlusion';
 import { growRoots, rootSides } from './roots';
 import { sculptBranches, sculptLeaves, sculptsFor } from './sculpt';
-import { buildStems, FLARE_SECTIONS } from './trunk';
+import { FLARE_SECTIONS } from './trunk';
 import { twistedSections } from './twist';
 import type { GrowthWindow, SkeletonBranch, TreeData } from './types';
 import { branchSway, writeTrunkSway } from './wind';
@@ -94,8 +94,7 @@ export function generateLightTree(definition: TreeDefinition, seed: number, over
 
   // The Full skeleton (no meshes): its Growth, Wind sway, leaf spans and Fruit.
   const fullSculpts = sculptsFor(definition, seed);
-  const fullStems = buildStems(definition, random);
-  const fullBranches = sculptBranches([...fullStems, ...buildBranches(definition, fullStems, random.fork('branches'))], fullSculpts);
+  const fullBranches = sculptBranches(growStemsAndBranches(definition, random), fullSculpts);
   const fullLeaves = sculptLeaves(placeLeaves(definition, fullBranches, random.fork('leaves')), fullSculpts, seed);
   const fullTiming = growthTiming(definition, seed, fullBranches, fullLeaves);
   const fullGrowth = new Map(fullBranches.map((b, i) => [b.path, fullTiming.branches[i]!]));
@@ -123,8 +122,7 @@ export function generateLightTree(definition: TreeDefinition, seed: number, over
     branches: light.branches.map((level, i) => ({ ...level, sections: definition.branches[i]?.sections ?? level.sections })),
   };
   const sculpts = sculptsFor(shape, seed);
-  const stems = buildStems(shape, random);
-  const branches = sculptBranches([...stems, ...buildBranches(shape, stems, random.fork('branches'))], sculpts);
+  const branches = sculptBranches(growStemsAndBranches(shape, random), sculpts);
   const leaves = sculptLeaves(placeLeaves(light, branches, random.fork('leaves')), sculpts, seed).filter((leaf) => leafSpan.has(leaf.branch));
   const roots = growRoots(
     light,

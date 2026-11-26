@@ -1,7 +1,7 @@
 import type { TreeDefinition } from '../definition';
 import { createRandom, hashBytes, seedRandom } from '../random';
 import { woodSeasonAttribute } from '../season/profile';
-import { buildBranches } from './branches';
+import { growStemsAndBranches } from './branches';
 import { crownVolume } from './crown';
 import { fruitGeometry, fruitGrowth, placeFruit } from './fruit';
 import { growthTiming } from './growth';
@@ -11,7 +11,7 @@ import { mergeBuffers, sweepBranch } from './mesh';
 import { bakeOcclusion } from './occlusion';
 import { growRoots, rootSides } from './roots';
 import { sculptBranches, sculptLeaves, sculptsFor } from './sculpt';
-import { buildStems, FLARE_SECTIONS } from './trunk';
+import { FLARE_SECTIONS } from './trunk';
 import { branchSway, writeTrunkSway } from './wind';
 import type { GeometryBuffers, TreeData, TreeSkeleton } from './types';
 
@@ -29,9 +29,8 @@ export type { GrowthTiming, GrowthWindow, GeometryBuffers, TreeAttributes, Verte
  */
 export function generateTree(definition: TreeDefinition, seed: number): TreeData {
   const random = createRandom(seed);
-  const stems = buildStems(definition, random);
   const sculpts = sculptsFor(definition, seed);
-  const branches = sculptBranches([...stems, ...buildBranches(definition, stems, random.fork('branches'))], sculpts);
+  const branches = sculptBranches(growStemsAndBranches(definition, random), sculpts);
   const sidesOf = (level: number) => (level === 0 ? definition.trunk.sides : definition.branches[level - 1]!.sides);
   const leaves = sculptLeaves(placeLeaves(definition, branches, random.fork('leaves')), sculpts, seed);
   const fruit = placeFruit(definition, branches, random.fork('fruit'));

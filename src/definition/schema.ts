@@ -12,6 +12,8 @@ import {
   FRUIT_TYPES,
   CURRENT_SCHEMA_VERSION,
   LEAF_TYPES,
+  SPINS,
+  TWIST_STYLES,
   MAX_BRANCH_LEVELS,
   type BarkMaterialDefinition,
   type BranchLevelDefinition,
@@ -81,6 +83,7 @@ const intRange = (min: number, max: number) =>
 const partSides = intRange(3, 16);
 const hexColor = leaf<string>('a colour like "#6b4a2b"', (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v));
 const text = leaf<string>('a string', (v) => typeof v === 'string');
+const bool = leaf<boolean>('true or false', (v) => typeof v === 'boolean');
 const url = leaf<string | null>('a URL string or null', (v) => v === null || (typeof v === 'string' && v.length > 0));
 const vec3 = leaf<[number, number, number]>('[x, y, z] numbers', (v) => Array.isArray(v) && v.length === 3 && v.every(isNum));
 const oneOf = <T extends string>(...values: T[]) =>
@@ -170,6 +173,9 @@ function track<V>(value: Schema<V>): Schema<Keyframe<V>[]> {
 const twistFields: { [K in keyof TwistSettings]-?: Schema<TwistSettings[K]> } = {
   twist: optional(unit),
   twists: optional(intRange(1, 8)),
+  twistStyle: optional(oneOf(...TWIST_STYLES)),
+  spin: optional(oneOf(...SPINS)),
+  twistCurve: optional(unit),
 };
 
 const branchLevel = refine(
@@ -189,6 +195,7 @@ const branchLevel = refine(
     bend: unit,
     gravity: range(-1, 1),
     ...twistFields,
+    followTwist: optional(bool),
     lengthProfile: optional(track(nonNegative)),
     angleProfile: optional(track(nonNegative)),
   }),

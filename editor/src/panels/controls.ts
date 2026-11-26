@@ -193,8 +193,9 @@ export function textControl(
 }
 
 /**
- * A drop-down for one Definition parameter. An optional field (`absent` given, '') also offers
- * "not set", which removes the field.
+ * A drop-down for one Definition parameter. An optional field with `absent` '' also offers "not set",
+ * which removes the field; with `absent` one of the choices, an absent field shows that choice.
+ * `labels` gives the text a choice shows instead of its value, where given.
  */
 export function definitionChoice(
   context: PanelContext,
@@ -202,17 +203,38 @@ export function definitionChoice(
   label: string,
   choices: readonly string[],
   absent?: string,
+  labels?: Readonly<Record<string, string>>,
 ): HTMLElement {
   const select = document.createElement('select');
-  if (absent !== undefined) select.add(new Option('not set', absent));
-  for (const choice of choices) select.add(new Option(choice, choice));
+  const notSet = absent !== undefined && !choices.includes(absent);
+  if (notSet) select.add(new Option('not set', absent));
+  for (const choice of choices) select.add(new Option(labels?.[choice] ?? choice, choice));
   const row = controlRow(context, path, label, select);
   row.row.classList.add('wide');
   select.addEventListener('change', () =>
-    attempt(context, row, () => setDefinitionValue(context.store, path, absent !== undefined && select.value === absent ? undefined : select.value)),
+    attempt(context, row, () => setDefinitionValue(context.store, path, notSet && select.value === absent ? undefined : select.value)),
   );
   follow(context, row.row, (state) => (getAt(state.definition, path) as string | undefined) ?? absent ?? '', (value) => {
     select.value = value;
+    row.showError(null);
+  });
+  return row.row;
+}
+
+/**
+ * A checkbox for one boolean Definition parameter. An absent field shows `absent`; checking it back to
+ * `absent` removes the field, so an untouched Definition stays as it was.
+ */
+export function definitionToggle(context: PanelContext, path: string, label: string, absent?: boolean): HTMLElement {
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  const row = controlRow(context, path, label, input);
+  row.row.classList.add('checkbox');
+  input.addEventListener('change', () =>
+    attempt(context, row, () => setDefinitionValue(context.store, path, input.checked === absent ? undefined : input.checked)),
+  );
+  follow(context, row.row, (state) => (getAt(state.definition, path) as boolean | undefined) ?? absent ?? false, (value) => {
+    input.checked = value;
     row.showError(null);
   });
   return row.row;
@@ -250,13 +272,28 @@ export function definitionUrl(context: PanelContext, path: string, label: string
   });
 }
 
-/** The control for one entry of the field table (`fields.ts`); `path` overrides the field's own path. */
+/** The control for one entry of the field table (`fields.ts`) with its hint, if any; `path` overrides the field's own path. */
 export function fieldControl(context: PanelContext, field: Field, path = field.path): HTMLElement {
+  const row = bareFieldControl(context, field, path);
+  if (field.hint) {
+    const hint = document.createElement('small');
+    hint.className = 'hint';
+    hint.id = `${path}-hint`;
+    hint.textContent = field.hint;
+    row.querySelector('.field-error')!.before(hint);
+    for (const input of row.querySelectorAll('input:not([aria-hidden]), select')) {
+      input.setAttribute('aria-describedby', `${input.getAttribute('aria-describedby') ?? ''} ${hint.id}`.trim());
+    }
+  }
+  return row;
+}
+
+function bareFieldControl(context: PanelContext, field: Field, path: string): HTMLElement {
   switch (field.kind) {
     case 'number':
       return definitionNumber(context, path, { label: field.label, min: field.min, max: field.max, step: field.step, absent: field.absent });
     case 'choice':
-      return definitionChoice(context, path, field.label, field.options, field.absent);
+      return definitionChoice(context, path, field.label, field.options, field.absent, field.labels);
     case 'color':
       return colorControl(context, {
         id: path,
@@ -266,6 +303,8 @@ export function fieldControl(context: PanelContext, field: Field, path = field.p
       });
     case 'url':
       return definitionUrl(context, path, field.label);
+    case 'toggle':
+      return definitionToggle(context, path, field.label, field.absent);
     case 'text':
       return textControl(context, {
         id: path,

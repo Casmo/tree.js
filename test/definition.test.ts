@@ -137,6 +137,34 @@ describe('Definition defaults', () => {
     expect([def.branches[1]!.twist, def.branches[1]!.twists]).toEqual([0.4, 5]);
   });
 
+  it('keeps a branch level\'s optional Twist Style and Spin: absent stays absent (Snake, Random), given values are kept', () => {
+    const def = parseDefinition({ schemaVersion: 3, branches: [{}, { twistStyle: 'corkscrew', spin: 'counterclockwise' }, { twistStyle: 'snake', spin: 'random' }] });
+    expect('twistStyle' in def.branches[0]!).toBe(false);
+    expect('spin' in def.branches[0]!).toBe(false);
+    expect([def.branches[1]!.twistStyle, def.branches[1]!.spin]).toEqual(['corkscrew', 'counterclockwise']);
+    expect([def.branches[2]!.twistStyle, def.branches[2]!.spin]).toEqual(['snake', 'random']);
+    expect(parseDefinition({ schemaVersion: 3, branches: [{ spin: 'clockwise' }] }).branches[0]!.spin).toBe('clockwise');
+  });
+
+  it('keeps a branch level\'s optional Twist Curve: absent stays absent (0), given values are kept', () => {
+    const def = parseDefinition({ schemaVersion: 3, branches: [{}, { twistCurve: 0.6 }, { twistStyle: 'corkscrew', twistCurve: 1 }] });
+    expect('twistCurve' in def.branches[0]!).toBe(false);
+    expect([def.branches[1]!.twistCurve, def.branches[2]!.twistCurve]).toEqual([0.6, 1]);
+  });
+
+  it('keeps the trunk\'s optional Twist Style, Spin and Twist Curve: absent stays absent (Snake, Random, 0), given values are kept', () => {
+    const plain = parseDefinition({ schemaVersion: 3 });
+    for (const key of ['twistStyle', 'spin', 'twistCurve']) expect(key in plain.trunk, key).toBe(false);
+    const def = parseDefinition({ schemaVersion: 3, trunk: { twistStyle: 'corkscrew', spin: 'counterclockwise', twistCurve: 0.6 } });
+    expect([def.trunk.twistStyle, def.trunk.spin, def.trunk.twistCurve]).toEqual(['corkscrew', 'counterclockwise', 0.6]);
+  });
+
+  it('keeps a branch level\'s optional Follow Twist: absent stays absent (off), given values are kept', () => {
+    const def = parseDefinition({ schemaVersion: 3, branches: [{}, { followTwist: true }, { twistStyle: 'corkscrew', followTwist: false }] });
+    expect('followTwist' in def.branches[0]!).toBe(false);
+    expect([def.branches[1]!.followTwist, def.branches[2]!.followTwist]).toEqual([true, false]);
+  });
+
   it('never returns objects shared with the defaults or the input', () => {
     const input = { schemaVersion: 2, trunk: { length: 3 } };
     const def = parseDefinition(input);
@@ -190,11 +218,22 @@ describe('Definition validation names the bad field', () => {
     ['branch twists not an integer', { schemaVersion: 3, branches: [{ twists: 2.5 }] }, 'branches[0].twists'],
     ['branch twists below 1', { schemaVersion: 3, branches: [{ twists: 0 }] }, 'branches[0].twists'],
     ['branch twists above 8', { schemaVersion: 3, branches: [{ twists: 9 }] }, 'branches[0].twists'],
+    ['unknown branch Twist Style', { schemaVersion: 3, branches: [{ twistStyle: 'helix' }] }, 'branches[0].twistStyle'],
+    ['unknown branch Spin', { schemaVersion: 3, branches: [{}, { spin: 'left' }] }, 'branches[1].spin'],
+    ['branch Twist Curve above 1', { schemaVersion: 3, branches: [{ twistCurve: 1.5 }] }, 'branches[0].twistCurve'],
+    ['branch Twist Curve below 0', { schemaVersion: 3, branches: [{}, { twistCurve: -0.1 }] }, 'branches[1].twistCurve'],
+    ['branch Follow Twist not a boolean', { schemaVersion: 3, branches: [{}, { followTwist: 'yes' }] }, 'branches[1].followTwist'],
+    ['branch Follow Twist as a number', { schemaVersion: 3, branches: [{ followTwist: 1 }] }, 'branches[0].followTwist'],
+    ['Follow Twist on the trunk', { schemaVersion: 3, trunk: { followTwist: true } }, 'trunk.followTwist'],
     ['trunk twist above 1', { schemaVersion: 3, trunk: { twist: 1.2 } }, 'trunk.twist'],
     ['trunk twist below 0', { schemaVersion: 3, trunk: { twist: -0.1 } }, 'trunk.twist'],
     ['trunk twists not an integer', { schemaVersion: 3, trunk: { twists: 2.5 } }, 'trunk.twists'],
     ['trunk twists below 1', { schemaVersion: 3, trunk: { twists: 0 } }, 'trunk.twists'],
     ['trunk twists above 8', { schemaVersion: 3, trunk: { twists: 9 } }, 'trunk.twists'],
+    ['unknown trunk Twist Style', { schemaVersion: 3, trunk: { twistStyle: 'helix' } }, 'trunk.twistStyle'],
+    ['unknown trunk Spin', { schemaVersion: 3, trunk: { spin: 'left' } }, 'trunk.spin'],
+    ['trunk Twist Curve above 1', { schemaVersion: 3, trunk: { twistCurve: 1.5 } }, 'trunk.twistCurve'],
+    ['trunk Twist Curve below 0', { schemaVersion: 3, trunk: { twistCurve: -0.1 } }, 'trunk.twistCurve'],
     ['branch end before start', { schemaVersion: 2, branches: [{ start: 0.8, end: 0.2 }] }, 'branches[0].end'],
     ['too many branch levels', { schemaVersion: 2, branches: [{}, {}, {}, {}, {}] }, 'branches'],
     ['leaf shape', { schemaVersion: 2, leaves: { shape: 'square' } }, 'leaves.shape'],
