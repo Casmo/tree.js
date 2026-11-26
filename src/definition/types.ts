@@ -222,10 +222,19 @@ export interface LeavesDefinition {
    * crowns); absent = 1 (round masses).
    */
   massLayering?: number;
+  /**
+   * Leaf Start (GLOSSARY.md): the Growth (0..1) at which the tree's first leaves may begin to unfold;
+   * from there the leaves fill out until they are full size at Growth 1 (ADR 0019). 1 = the leaves
+   * appear only at Growth 1. Absent = {@link DEFAULT_LEAF_GROWTH_START}.
+   */
+  growthStart?: number;
 }
 
 /** Leaf Masses of a `shape: 'mass'` crown without `leaves.masses`. */
 export const DEFAULT_LEAF_MASSES = 8;
+
+/** Leaf Start of a Definition without `leaves.growthStart`. */
+export const DEFAULT_LEAF_GROWTH_START = 0.1;
 
 /**
  * Fruit Type: the kind of Fruit a tree bears. `round` (apple, cherry, plum), `pear`, `nut` (a

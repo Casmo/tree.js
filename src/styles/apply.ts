@@ -207,6 +207,8 @@ interface Neutral {
   features: MaterialFeatures;
   /** A Definition's Inner Glow passes through too (ADR 0017); only a Fantasy Style replaces it. */
   innerGlow?: InnerGlowDefinition;
+  /** A Definition's Leaf Start (`leaves.growthStart`) passes through too; a Species has none. */
+  leafStart?: number;
 }
 
 function fromSpecies(species: SpeciesDefinition): Neutral {
@@ -254,10 +256,11 @@ function fromDefinition(input: TreeDefinition | TreeDefinitionInput): Neutral {
     },
     features: materialFeaturesOf(definition),
     ...present('innerGlow', materials.innerGlow),
+    ...present('leafStart', leaves.growthStart),
   };
 }
 
-function draw(name: StyleName, { base, foliage, bark, features, innerGlow }: Neutral): TreeDefinition {
+function draw(name: StyleName, { base, foliage, bark, features, innerGlow, leafStart }: Neutral): TreeDefinition {
   const look: StyleLook = LOOKS[name];
   const leaf = look.leaf(foliage.type);
   const fruit = base.fruit as TreeDefinition['fruit'];
@@ -277,6 +280,7 @@ function draw(name: StyleName, { base, foliage, bark, features, innerGlow }: Neu
       start: foliage.start,
       angle: foliage.angle,
       ...leaf.masses,
+      ...present('growthStart', leafStart),
     },
     materials: {
       shading: styleShading(name),
