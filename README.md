@@ -856,7 +856,9 @@ snow.set({
 ```
 
 It draws to suit the Style: hard flat caps on low-poly, toon bands on stylized, soft lit snow with a slight
-sparkle on realistic. Snow is read from the `normal` after Wind, so it sways with the branches, lies on bare
+sparkle on realistic, brushed snow with a ragged edge on painterly, sugar frosting (a thick cap whose crisp
+edge runs down in drips, sparkling with sugar) on whimsical, and faintly glowing frost on enchanted (pale
+rime that glitters; frosted leaves keep glowing faintly through it, also at night). Snow is read from the `normal` after Wind, so it sways with the branches, lies on bare
 winter branches when the leaves are gone, and undersides stay bare. It stacks like any hooks and always runs
 before your own. At amount 0, or without the hooks set, trees look exactly as before.
 `snowCoverHooks({ snow })` follows another `Snow` than `sceneSnow`. For snow of your own, start from
@@ -898,8 +900,10 @@ const tree = createTree(stylized.broadleaf, { shaderHooks: stackShaderHooks({ le
 straight up), fully wet up to `slope - softness` and dry from `slope` on. Unlike snow, rain also wets
 sides and undersides, so Wetness's `slope` goes up to 180 (Snow Cover's to 90).
 
-It draws to suit the Style: smooth on realistic, whole facets on low-poly, and toon bands with a light
-glint band on top on stylized (toon lighting has no highlights for the sheen to show in). At amount 0, or
+It draws to suit the Style: smooth on realistic, whole facets on low-poly, toon bands with a light
+glint band on top on stylized (toon lighting has no highlights for the sheen to show in), deeper paint with a
+brushed sheen on painterly, a candy glaze on whimsical (deeper, more saturated colour with a glossy highlight
+on top), and a dark, glossy, starry sheen on enchanted (tiny drops glint like stars and glow at night). At amount 0, or
 without the hooks set, trees look exactly as before. `wetnessHooks({ wetness })` follows another `Wetness`
 than `sceneWetness`. For a look of your own, write your own hook instead, using this one as a model.
 
@@ -1595,6 +1599,23 @@ The Baked Tree gets as close as standard channels allow:
 
 Bark and Fruit are standard materials with their painted colours and textures. Expect a baked Painterly tree to
 look flatter and a little darker than the live one; for the real look, render it with tree.js.
+
+### Fantasy Baked Trees
+
+An Enchanted tree (`shading: 'enchanted'`) bakes its Inner Glow as glTF emissive, steady (a Baked Tree has no
+Wind clock to pulse with), at the pulse's mean brightness:
+
+- Leaves glow in their own colour (the Season colour times the Seed's tint, strongest at the crown's edge,
+  averaged over the tree) through the leaf card as `emissiveTexture`, as live.
+- Bark veins glow in the tree's Season leaf colour (its Leaf Palette's) through a vein texture made from the
+  bark map's alpha, tiled like the bark map.
+- Where the glow is brighter than 1, it is written with `KHR_materials_emissive_strength`. The strengths and the
+  pulse the live tree has go in `extras.treejs.innerGlow`: `{ leaf, veins, pulse: { period, low, baked } }`, for
+  engines that animate it themselves. The cool Enchanted lighting is not carried.
+
+A Whimsical tree (`shading: 'whimsical'`) bakes its candy stripes into the bark map (bark colour with stripes in
+its accent colour, laid out over the bark's UVs as live, so they wind with a Corkscrew). Its toon bands and rim
+light are not carried: in a standard material it looks smoother and plainer than live.
 
 ## Textures
 
