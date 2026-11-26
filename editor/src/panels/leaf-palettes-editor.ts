@@ -3,7 +3,7 @@
 // picks (its leaf colours replace the Leaf colour track on that tree).
 import { pickLeafPalette } from '@casmo/tree.js';
 import { addLeafPalette, removeLeafPalette } from '../leaf-palettes';
-import { followPresence, reportEdit } from './block-panel';
+import { followValue, reportEdit } from './block-panel';
 import { colorControl, setDefinitionValue } from './controls';
 import { LEAF_PALETTES } from './fields';
 import { trackEditor } from './track-editor';
@@ -28,7 +28,7 @@ export function leafPalettesEditor(context: PanelContext): HTMLElement {
   root.append(heading, note, list, add);
 
   const palettes = () => store.state.definition.season.leafPalettes ?? [];
-  followPresence(
+  followValue(
     context,
     // Rebuilt when the number of palettes changes; edits inside a palette update its own controls.
     () => palettes().length,

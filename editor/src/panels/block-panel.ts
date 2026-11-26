@@ -20,22 +20,23 @@ export function reportEdit(context: PanelContext, change: () => void): void {
 }
 
 /**
- * Follows whether an optional block is present (or any other value, e.g. how many entries a list has):
- * `sync` runs now and on every store change; `rebuild` runs only when the value changes (and once at the start).
+ * Follows a value read from the store (e.g. whether an optional block is present, or how many entries a
+ * list has): `sync` runs now and on every store change; `rebuild` runs only when the value changes (and
+ * once at the start).
  */
-export function followPresence<T = boolean>(
+export function followValue<T>(
   context: PanelContext,
-  isPresent: () => T,
-  rebuild: (present: T) => void,
-  sync: (present: T) => void = () => {},
+  read: () => T,
+  rebuild: (value: T) => void,
+  sync: (value: T) => void = () => {},
 ): void {
   let shown: { value: T } | null = null;
   const update = (): void => {
-    const present = isPresent();
-    sync(present);
-    if (shown && present === shown.value) return;
-    shown = { value: present };
-    rebuild(present);
+    const value = read();
+    sync(value);
+    if (shown && value === shown.value) return;
+    shown = { value };
+    rebuild(value);
   };
   context.store.subscribe(update);
   update();
@@ -67,7 +68,7 @@ export function blockPanel<K extends OptionalBlockKey>({ key, title, fields, def
         return element;
       };
 
-      followPresence(
+      followValue(
         context,
         () => store.state.definition[key] !== undefined,
         (present) => {

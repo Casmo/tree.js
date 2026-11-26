@@ -4,7 +4,7 @@ import { DEFAULT_GROUND_TINT } from '@casmo/tree.js';
 import { getAt } from '../definition-path';
 import { hasInnerGlowControls, setInnerGlow } from '../inner-glow';
 import { applyMaterialFeatures, hasMaterialFeatures, setMaterialFeature, suggestedMaterialFeatures } from '../material-features';
-import { followPresence, reportEdit } from './block-panel';
+import { followValue, reportEdit } from './block-panel';
 import { fieldControl, setDefinitionValue } from './controls';
 import { GROUND_TINT_FIELDS, INNER_GLOW_FIELDS, MATERIAL_FEATURES, PARAMETER_GROUPS, type FieldGroup } from './fields';
 import type { Panel, PanelContext } from './types';
@@ -71,7 +71,7 @@ function groundTintControls(context: PanelContext): HTMLElement {
   input.addEventListener('change', () =>
     reportEdit(context, () => setDefinitionValue(store, GROUND_TINT, input.checked ? { ...DEFAULT_GROUND_TINT } : undefined)),
   );
-  followPresence(
+  followValue(
     context,
     () => store.state.definition.materials.bark.groundTint !== undefined,
     (present) => fields.replaceChildren(...(present ? GROUND_TINT_FIELDS.map((field) => fieldControl(context, field)) : [])),
@@ -102,7 +102,7 @@ function innerGlowControls(context: PanelContext): HTMLElement {
   const fields = document.createElement('div');
   root.append(label, fields);
   input.addEventListener('change', () => reportEdit(context, () => setInnerGlow(store, input.checked)));
-  followPresence(
+  followValue(
     context,
     () => store.state.definition.materials.innerGlow !== undefined,
     (present) => fields.replaceChildren(...(present ? INNER_GLOW_FIELDS.map((field) => fieldControl(context, field)) : [])),
@@ -136,7 +136,7 @@ function materialFeatureControls(context: PanelContext): HTMLElement {
     const fields = document.createElement('div');
     root.append(label, fields);
     input.addEventListener('change', () => reportEdit(context, () => setMaterialFeature(store, feature.key, input.checked)));
-    followPresence(
+    followValue(
       context,
       () => getAt(store.state.definition, feature.path) !== undefined,
       (present) => fields.replaceChildren(...(present ? feature.fields.map((field) => fieldControl(context, field)) : [])),
