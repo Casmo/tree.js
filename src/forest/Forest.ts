@@ -22,7 +22,7 @@ import { and, positionGeometry, varying } from 'three/tsl';
 import type { InnerGlowDefinition, LeafPalette, MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
 import { generateLightTree, generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
-import { applyInnerGlow, innerGlowOf, innerGlowUniforms } from '../materials/enchanted';
+import { applyInnerGlow, innerGlowOf, innerGlowUniforms, type InnerGlowUniforms } from '../materials/enchanted';
 import { LiveMaterialFeatures, type MaterialFeatureNodes, type MaterialFeatureTarget } from '../materials/material-features';
 import { LiveShaderHooks, partHookTarget, ShaderHookedGroup, type ShaderHookTarget, type TreeShaderHooks } from '../materials/shader-hooks';
 import { webgpuRenderer } from '../renderer';
@@ -217,6 +217,8 @@ export class ForestVariant {
   levels: VariantLevels | null = null;
   /** Vertex data of the Light level (null until Detail Levels are drawn). */
   private lightSources: BufferGeometry[] = [];
+  /** The Inner Glow strengths every Detail Level of this Variant draws with (its materials' and its Impostor's); null without one. */
+  private readonly glowUniforms: InnerGlowUniforms | null;
   /** @internal The Impostor of this Variant (atlases and card material); null until Detail Levels are drawn. */
   impostor: VariantImpostor | null = null;
 
@@ -248,9 +250,10 @@ export class ForestVariant {
     // Inner Glow (enchanted shading only): each tree pulses out of phase, by its own Wind phase.
     const glow = innerGlowOf(definition);
     this.innerGlow = glow && { ...glow };
-    if (glow) {
+    this.glowUniforms = glow && innerGlowUniforms(glow);
+    if (this.glowUniforms) {
       const { growth, season, windPhase } = instanceState();
-      applyInnerGlow(innerGlowUniforms(glow), {
+      applyInnerGlow(this.glowUniforms, {
         bark: this.barkMaterial,
         leaf: this.leafMaterial,
         definition,
@@ -418,6 +421,7 @@ export class ForestVariant {
       textures: this.textures,
       features: features ? { nodes: features, crown: this.data.crown } : null,
       wind: { source: this.wind, response: this.windResponse },
+      innerGlow: this.glowUniforms && { strength: this.glowUniforms, crown: this.data.crown },
     });
     levels.setLevel(DetailLevel.Impostor, [this.impostor.part]);
     this.forest.addShaderHookTargets([impostorHookTarget(this.impostor.part.material as MeshStandardNodeMaterial)]);
