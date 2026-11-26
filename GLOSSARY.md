@@ -13,8 +13,20 @@ A number that, combined with a Tree Definition, picks one specific individual tr
 _Avoid_: Random, variation id
 
 **Style**:
-A visual look shipped with the library, such as low-poly, stylized, realistic or painterly, that can be applied to any Species: it sets how the tree is drawn (shading, leaf shape, textures, polygon detail) and may set its overall size (painterly scales every tree to 2–4 m, keeping its proportions), but never what shape it grows.
+A visual look shipped with the library, such as low-poly, stylized, realistic, painterly, whimsical or enchanted, that can be applied to any Species: it sets how the tree is drawn (shading, leaf shape, textures, polygon detail) and may set its overall size (painterly scales every tree to 2–4 m, keeping its proportions) or its Twist (a Fantasy Style), but never anything else about what shape it grows.
 _Avoid_: Theme, type, kind
+
+**Fantasy Style**:
+A Style that draws trees as no real tree looks and wrings every tree it draws with its own Twist, keeping the Species' Crown Shape, branches and Fruit: Whimsical or Enchanted.
+_Avoid_: Twisted style, fantasy preset
+
+**Whimsical**:
+The Fantasy Style built on Corkscrew: every tree swirls as one around a single Spin, in candy-bright colours with round puffs of leaves at its tips.
+_Avoid_: Seuss, cartoon, Truffula
+
+**Enchanted**:
+The Fantasy Style built on Snake: long, sinuous trunks and branches with deep blue-violet bark and leaves that glow from within, made for dark scenes.
+_Avoid_: Magic, glowing, bioluminescent style
 
 **Species**:
 A named kind of real tree shipped with the library, such as Oak, Birch or Douglas Fir, described once by its shape, foliage, colours and Season Profile, and drawn in any Style.
