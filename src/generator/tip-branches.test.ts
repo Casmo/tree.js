@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition, type DefinitionPatch } from '../definition';
 import { oak } from '../species';
 import { loadStyle, STYLE_NAMES } from '../styles/registry';
-import { angleBetween, segments, unit, sub } from '../../test/branch-geometry';
+import { angleBetween, segments, turnAbout, unit, sub } from '../../test/branch-geometry';
 import { generateTree, hashTreeData, type SkeletonBranch, type TreeData } from './index';
 
 // Level 1 grows Tip Branches by default, level 2 too; a third level does not.
@@ -59,10 +59,102 @@ describe('Tip Branches', () => {
         for (const b of stumps) expect(same.get(b.path), b.path).toEqual(b);
         const added = tipped.filter((b) => !stumps.some((s) => s.path === b.path));
         for (const b of added) expect(b.path.split('.').some((_, i, parts) => same.get(parts.slice(0, i + 1).join('.'))?.tip), b.path).toBe(true);
-        // In this ticket 2-4 still grow a single, straight-on Tip Branch per parent (the fork comes later).
-        expect(tipped.filter((b) => b.tip).length).toBe(grow({ branches: levels(1, 1) }, seed).skeleton.branches.filter((b) => b.tip).length);
+        // Each trunk and first-level branch gets exactly that many Tip Branches.
+        for (const parent of tipped.filter((b) => b.level < 2)) {
+          expect(tipped.filter((b) => b.parent === parent.path && b.tip), parent.path).toHaveLength(tips);
+        }
       }
     }
+  });
+
+  it('fork a parent with Tip Branches 2 to 4: N branches from its last point, each as thick as its tip', () => {
+    for (const n of [2, 3, 4]) {
+      const data = grow({ branches: levels(n, n) });
+      const all = byPath(data);
+      for (const parent of data.skeleton.branches.filter((b) => b.level < 2)) {
+        const count = base.branches[parent.level]!.count;
+        const tips = data.skeleton.branches.filter((b) => b.parent === parent.path && b.tip);
+        expect(tips.map((b) => b.path)).toEqual(Array.from({ length: n }, (_, j) => `${parent.path}.${count + j}`));
+        for (const tip of tips) {
+          expect(tip.attach).toBe(1);
+          expect(tip.points[0]!.position).toEqual(last(all.get(parent.path)!).position);
+          expect(tip.points[0]!.radius).toBe(last(all.get(parent.path)!).radius);
+        }
+      }
+    }
+  });
+
+  it("splay a fork by half the Angle times the angle curve at the tip, its N branches 360°/N apart", () => {
+    const forksOf = (data: TreeData) =>
+      data.skeleton.branches
+        .filter((b) => b.level < 2)
+        .map((parent) => ({ tangent: segments(parent).at(-1)!, tips: data.skeleton.branches.filter((b) => b.parent === parent.path && b.tip) }));
+    for (const n of [2, 3, 4]) {
+      // Without angle variation: exactly half the Angle, times the angle curve at 1 (0.5 here) on level 2.
+      const exact = grow({
+        branches: [
+          { count: 4, angle: 60, angleVariation: 0, tipBranches: n },
+          { count: 2, angle: 40, angleVariation: 0, angleProfile: [{ t: 0, value: 2 }, { t: 1, value: 0.5 }], tipBranches: n },
+        ],
+      });
+      const forks = forksOf(exact);
+      expect(forks.length).toBeGreaterThan(1);
+      for (const { tangent, tips } of forks) {
+        const lean = tips[0]!.level === 1 ? 0.5 * 60 : 0.5 * 40 * 0.5;
+        for (const tip of tips) expect(angleBetween(tip.direction, tangent)).toBeCloseTo(lean, 6);
+        // Evenly around the parent's tip tangent, in path order.
+        tips.forEach((tip, j) => {
+          const turn = (turnAbout(tips[0]!.direction, tip.direction, tangent) + 1) % 1;
+          expect(Math.min(Math.abs(turn - j / n), 1 - Math.abs(turn - j / n))).toBeLessThan(1e-6);
+        });
+      }
+      // With angle variation: within it, around the same half Angle.
+      for (const seed of [1, 2, 3]) {
+        const varied = grow({ branches: [{ count: 4, angle: 60, angleVariation: 0.4, tipBranches: n }, { count: 2, angle: 60, angleVariation: 0.4, tipBranches: n }] }, seed);
+        const leans = forksOf(varied).flatMap(({ tangent, tips }) => tips.map((tip) => angleBetween(tip.direction, tangent)));
+        for (const lean of leans) {
+          expect(lean).toBeGreaterThanOrEqual(30 * 0.6 - 1e-6);
+          expect(lean).toBeLessThanOrEqual(30 * 1.4 + 1e-6);
+        }
+        expect(Math.max(...leans) - Math.min(...leans)).toBeGreaterThan(1);
+      }
+    }
+  });
+
+  it('turn a fork by the Seed: the same Seed gives the same fork, other Seeds turn it differently', () => {
+    // The trunk's fork, measured as its first branch's azimuth around the trunk's tip tangent from world +x.
+    const forkTurn = (seed: number) => {
+      const data = grow({ branches: [{ count: 4, angleVariation: 0, tipBranches: 3 }, { count: 2 }] }, seed);
+      const trunk = byPath(data).get('0')!;
+      return turnAbout([1, 0, 0], byPath(data).get('0.4')!.direction, segments(trunk).at(-1)!);
+    };
+    expect(forkTurn(7)).toBe(forkTurn(7));
+    const turns = [1, 2, 3, 4, 5, 6].map(forkTurn);
+    // Six Seeds, six clearly different turns (modulo the fork's own 120° symmetry).
+    const folded = turns.map((t) => (((t * 3) % 1) + 1) % 1).sort((a, b) => a - b);
+    expect(folded.at(-1)! - folded[0]!).toBeGreaterThan(0.2);
+    expect(new Set(folded.map((t) => t.toFixed(3))).size).toBe(6);
+  });
+
+  it('grow each fork branch like a single Tip Branch: children, leaves and Fruit when outermost, Growth from the parent\'s end', () => {
+    const data = grow({ branches: levels(2, 3), fruit: { type: 'round', count: 1 }, variation: { growth: 0 } });
+    const { branches, leaves, fruit } = data.skeleton;
+    // The trunk forks in two (0.4, 0.5); each gets level-2 side branches and a three-way fork of its own.
+    for (const fork of ['0.4', '0.5']) {
+      expect(branches.filter((b) => b.parent === fork).map((b) => [b.path, !!b.tip])).toEqual([
+        [`${fork}.0`, false], [`${fork}.1`, false], [`${fork}.2`, true], [`${fork}.3`, true], [`${fork}.4`, true],
+      ]);
+    }
+    // Level-2 fork branches are outermost: leaves and Fruit like their side siblings.
+    const twigTips = branches.filter((b) => b.level === 2 && b.tip);
+    expect(twigTips).toHaveLength(3 * (4 + 2));
+    for (const twig of twigTips) {
+      expect(leaves.filter((l) => l.branch === twig.path)).toHaveLength(3);
+      expect(fruit.filter((f) => f.branch === twig.path)).toHaveLength(1);
+    }
+    // Every fork branch starts growing when its parent is fully grown.
+    const windows = new Map(branches.map((b, i) => [b.path, data.growth.branches[i]!]));
+    for (const tip of branches.filter((b) => b.tip)) expect(windows.get(tip.path)!.start).toBeCloseTo(windows.get(tip.parent!)!.end, 9);
   });
 
   it('take the paths after the side branches, which Sculpts keep addressing; a Tip Branch can be Sculpted too', () => {

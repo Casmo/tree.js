@@ -94,16 +94,18 @@ function growChildren(
     children.push(growBranch(parent, level, { path, random: r, attach: t, at, start, length, baseRadius: at.radius * level.radius }, followed, corkscrews));
   }
 
-  // Values 2-4 are valid but still grow one Tip Branch: the fork is a later ticket (#150).
-  const tips = Math.min(tipBranchesOf(level, index), 1);
+  // One Tip Branch carries the parent on; 2-4 fork it.
+  const tips = tipBranchesOf(level, index);
   if (tips === 0) return children;
   const at = tipOf(parent, frames);
   const turn = parentRandom.range(0, Math.PI * 2);
   for (let j = 0; j < tips; j++) {
     const path = `${parent.path}.${count + j}`;
     const r = random.fork(path);
-    // Straight on along the parent's tip tangent; only angleVariation lets it wander, by up to half the level's Angle.
-    const lean = Math.min(0.5 * level.angle * crownShape(level.angleProfile, 1) * r.range(-level.angleVariation, level.angleVariation), 180) * DEG;
+    // One carries straight on along the parent's tip tangent, a fork leans out by half the level's Angle (at the
+    // angle curve's tip value); angleVariation lets either wander by that half Angle times the variation.
+    const splay = (tips > 1 ? 1 : 0) + r.range(-level.angleVariation, level.angleVariation);
+    const lean = Math.min(0.5 * level.angle * crownShape(level.angleProfile, 1) * splay, 180) * DEG;
     const start = leaning(at, lean, turn + (j * Math.PI * 2) / tips);
     const length = lengthAt(1, r);
     // As thick as the parent's tip: the level's radius fraction does not apply, its taper does.
