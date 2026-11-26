@@ -4,7 +4,7 @@ import { woodSeasonAttribute } from '../season/profile';
 import { growStemsAndBranches } from './branches';
 import { crownVolume } from './crown';
 import { fruitGeometry, fruitGrowth, placeFruit } from './fruit';
-import { growthTiming } from './growth';
+import { growthTiming, leafGrowth } from './growth';
 import { shapedLeafGeometry } from './leaf-shapes';
 import { placeLeaves } from './leaves';
 import { mergeBuffers, sweepBranch } from './mesh';
@@ -18,7 +18,7 @@ import type { GeometryBuffers, TreeData, TreeSkeleton } from './types';
 export { growthTiming } from './growth';
 export { generateLightTree, lightDefinition } from './light';
 export { crownDistance, crownNormal, type CrownVolume } from './crown';
-export type { GrowthTiming, GrowthWindow, GeometryBuffers, TreeAttributes, VertexAttribute, SkeletonBranch, SkeletonFruit, SkeletonRoot, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
+export type { GrowthTiming, GrowthWindow, LeafGrowth, GeometryBuffers, TreeAttributes, VertexAttribute, SkeletonBranch, SkeletonFruit, SkeletonRoot, SkeletonLeaf, SkeletonPoint, TreeData, TreeSkeleton, Vec3 } from './types';
 
 /**
  * The Generator: a pure function from a (parsed) Tree Definition and a Seed to tree data.
@@ -66,7 +66,7 @@ export function generateTree(definition: TreeDefinition, seed: number): TreeData
     ),
     ...roots.map((root, i) => sweepBranch(root, rootSides(definition), seedRandom(seed, root.path), woodSeason, growth.roots[i])),
   ]);
-  const leafBuffers = shapedLeafGeometry(leaves, definition.leaves, definition.branches.length + 1, seed, definition.variation, growth.leaves, sway);
+  const leafBuffers = shapedLeafGeometry(leaves, definition.leaves, definition.branches.length + 1, seed, definition.variation, leafGrowth(leaves, growth.leaves, branches, growth.branches), sway);
   const fruitBuffers = fruitGeometry(
     fruit,
     definition.fruit ?? { type: 'round' },

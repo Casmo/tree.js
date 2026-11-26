@@ -42,12 +42,13 @@ describe('Fruit placement', () => {
   });
 
   it('whole counts grow exactly the Fruit they always did (geometry hashes recorded before fractional counts, re-recorded once when the trunk base ring sank below the ground)', () => {
+    // Re-recorded when leaves rode on their twig from Leaf Start (ADR 0019: only the leaves' Growth attributes changed).
     const golden = {
-      round: ['6181c622', '19cd87e7', '1b42f90c'],
-      pear: ['4a97c14f', '7d358b9f', '273b08eb'],
-      nut: ['0c5974f1', '82e4cda4', '348ef271'],
-      cone: ['10be874c', '4af72b6c', 'dd014a23'],
-      berry: ['bf6b2f5a', 'caac64b9', '3ed2bda8'],
+      round: ['02a27442', '07334477', '61786b6c'],
+      pear: ['4e7a23af', '97d5f08f', '951c158b'],
+      nut: ['fae12091', 'acfbd1b4', 'ae6d5fd1'],
+      cone: ['d162d6ec', 'ed31023c', 'c250c983'],
+      berry: ['e7a5a8fa', 'e9dc70e9', '32a5c588'],
     } as const;
     for (const [type, hashes] of Object.entries(golden)) {
       const definition = extendDefinition(fruiting, { fruit: { type: type as keyof typeof golden } });

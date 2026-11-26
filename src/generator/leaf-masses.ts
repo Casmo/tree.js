@@ -6,8 +6,8 @@ import type { VariationDefinition } from '../definition';
 import { hypot3, pow, smoothstep as smooth } from '../math';
 import { leafSeasonAttribute } from '../season/profile';
 import { createRandom, seedRandom, type Random } from '../random';
-import { createAttributes, writePart } from './attributes';
-import type { GeometryBuffers, GrowthWindow, SkeletonLeaf, Vec3 } from './types';
+import { createAttributes, leafPartGrowth, writePart } from './attributes';
+import type { GeometryBuffers, LeafGrowth, SkeletonLeaf, Vec3 } from './types';
 import { leafSway, NO_SWAY, type PartSway } from './wind';
 import { add, cross, dot, normalize, scale, sub } from './vec';
 
@@ -182,7 +182,7 @@ export function massLeafGeometry(
   level: number,
   seed: number,
   variation: Pick<VariationDefinition, 'season'> = { season: 0 },
-  growth: GrowthWindow[] = [],
+  growth: LeafGrowth[] = [],
   branchSway: ReadonlyMap<string, PartSway> = new Map(),
 ): GeometryBuffers {
   const n = leaves.length;
@@ -191,7 +191,7 @@ export function massLeafGeometry(
   const uvs = new Float32Array(n * 4 * 2);
   const colors = new Float32Array(n * 4 * 3);
   const indices = new Uint32Array(n * 6);
-  const attributes = createAttributes(n * 4);
+  const attributes = createAttributes(n * 4, true);
   const aMass = new Float32Array(n * 4 * 3);
   const aPaint = new Float32Array(n * 4 * 4);
   attributes.aMass = { array: aMass, itemSize: 3 };
@@ -247,7 +247,7 @@ export function massLeafGeometry(
       random: seedRandom(seed, leaf.id),
       origin: base,
       season: { ...season, shift: season.shift + clamp01((depthLight - (1 - DEPTH)) / DEPTH) * SHELL_SEASON + massRandom[m]! * MASS_SEASON },
-      growth: growth[l] ?? { start: 0, end: 0 },
+      ...leafPartGrowth(growth[l], base),
       sway: massSway[m]!,
     };
     corners.forEach((q, c) => {

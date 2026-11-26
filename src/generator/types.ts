@@ -118,6 +118,10 @@ export interface VertexAttribute {
  * Only when the Definition sets `materials.occlusion` (Structural Occlusion) is there also `aOcclusion`
  * (float, 0 = occluded .. 1 = open), baked on the fully grown tree with every leaf on from the depth in the
  * Crown Volume and the leaf cover above; independent of Season and of the strength (the material mixes that in).
+ *
+ * Leaf buffers also carry the twig each leaf rides on while it sprouts (ADR 0019): `aTwigGrowth` (vec2: the
+ * twig's Growth window, start and end) and `aTwigOrigin` (vec3: the twig's base point, the pivot that carries
+ * the leaf). A leaf's size is its own leaf curve times its twig's progress (see `growPositions`).
  */
 export interface TreeAttributes {
   [name: string]: VertexAttribute;
@@ -168,9 +172,20 @@ export interface GrowthWindow {
   end: number;
 }
 
+/**
+ * How one leaf grows (ADR 0019): its own window (from Leaf Start to Growth 1) and its twig's sprout,
+ * which carries it: the twig's window and base point.
+ */
+export interface LeafGrowth {
+  leaf: GrowthWindow;
+  twig: GrowthWindow;
+  twigOrigin: Vec3;
+}
+
 /** Growth windows per part, parallel to `TreeSkeleton.branches`, `.leaves` and `.fruit`. */
 export interface GrowthTiming {
   branches: GrowthWindow[];
+  /** Each leaf's own window, from Leaf Start (plus its stagger) to Growth 1; it also rides on its twig's sprout (ADR 0019). */
   leaves: GrowthWindow[];
   /** Fruit grows only at the end of Growth (from about 0.9), on a fully grown twig. */
   fruit: GrowthWindow[];

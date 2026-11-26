@@ -39,9 +39,10 @@ function vertexCount(data: TreeData, path: string): number {
   return count;
 }
 
+// The leaf hashes were re-recorded when leaves rode on their twig from Leaf Start (ADR 0019: only their Growth attributes changed).
 const BASELINE = {
-  7: { wood: '39d15aa0', leaves: '1b030d51', fruit: '6719d83f' },
-  42: { wood: 'bf0631d6', leaves: 'e2ee939d', fruit: '3e0afcd0' },
+  7: { wood: '39d15aa0', leaves: '62a7c4e9', fruit: '6719d83f' },
+  42: { wood: 'bf0631d6', leaves: '7980f115', fruit: '3e0afcd0' },
 } as const;
 
 describe('Root Flare: the sunk base ring', () => {

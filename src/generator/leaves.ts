@@ -3,9 +3,9 @@ import type { TreeDefinition, VariationDefinition } from '../definition';
 import { leafSeasonAttribute } from '../season/profile';
 import type { Random } from '../random';
 import { seedRandom } from '../random';
-import { createAttributes, writePart } from './attributes';
+import { createAttributes, leafPartGrowth, writePart } from './attributes';
 import { branchFrames, sampleBranch } from './frames';
-import type { GeometryBuffers, GrowthWindow, SkeletonBranch, SkeletonLeaf, Vec3 } from './types';
+import type { GeometryBuffers, LeafGrowth, SkeletonBranch, SkeletonLeaf, Vec3 } from './types';
 import { leafSway, NO_SWAY, type PartSway } from './wind';
 import { add, cross, dot, normalize, perpendicular, scale } from './vec';
 
@@ -62,7 +62,7 @@ export function leafGeometry(
   level: number,
   seed: number,
   variation: Pick<VariationDefinition, 'season'> = { season: 0 },
-  growth: GrowthWindow[] = [],
+  growth: LeafGrowth[] = [],
   branchSway: ReadonlyMap<string, PartSway> = new Map(),
 ): GeometryBuffers {
   const positions = new Float32Array(leaves.length * 4 * 3);
@@ -70,7 +70,7 @@ export function leafGeometry(
   const uvs = new Float32Array(leaves.length * 4 * 2);
   const colors = new Float32Array(leaves.length * 4 * 3);
   const indices = new Uint32Array(leaves.length * 6);
-  const attributes = createAttributes(leaves.length * 4);
+  const attributes = createAttributes(leaves.length * 4, true);
   leaves.forEach((leaf, l) => {
     const side = cross(leaf.direction, leaf.normal); // right-handed: direction x normal points to the card's right
     const halfWidth = (leaf.size * LEAF_WIDTH) / 2;
@@ -88,7 +88,7 @@ export function leafGeometry(
       random: seedRandom(seed, leaf.id),
       origin: leaf.position,
       season: leafSeasonAttribute(seed, variation, leaf.id),
-      growth: growth[l] ?? { start: 0, end: 0 },
+      ...leafPartGrowth(growth[l], leaf.position),
       sway: leafSway(branchSway.get(leaf.branch) ?? NO_SWAY, leaf.attach),
     };
     for (let c = 0; c < 4; c++) {

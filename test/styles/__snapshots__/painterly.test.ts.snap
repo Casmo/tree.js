@@ -175,7 +175,7 @@ exports[`painterly Style (dynamic import of the /styles/painterly subpath) > bro
 }
 `;
 
-exports[`painterly Style (dynamic import of the /styles/painterly subpath) > broadleaf: matches the golden Definition and geometry hash (determinism across releases) 2`] = `"c5bfa963"`;
+exports[`painterly Style (dynamic import of the /styles/painterly subpath) > broadleaf: matches the golden Definition and geometry hash (determinism across releases) 2`] = `"1d22cccb"`;
 
 exports[`painterly Style (dynamic import of the /styles/painterly subpath) > conifer (#113, ADR 0014: clumped spray cards, no Tier) > matches the golden Definition and geometry hash (determinism across releases) 1`] = `
 {
@@ -307,4 +307,4 @@ exports[`painterly Style (dynamic import of the /styles/painterly subpath) > con
 }
 `;
 
-exports[`painterly Style (dynamic import of the /styles/painterly subpath) > conifer (#113, ADR 0014: clumped spray cards, no Tier) > matches the golden Definition and geometry hash (determinism across releases) 2`] = `"ed9340fe"`;
+exports[`painterly Style (dynamic import of the /styles/painterly subpath) > conifer (#113, ADR 0014: clumped spray cards, no Tier) > matches the golden Definition and geometry hash (determinism across releases) 2`] = `"82074bf6"`;

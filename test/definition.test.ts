@@ -94,10 +94,11 @@ describe('Definition migration', () => {
   });
 
   // Golden hashes recorded with the v2 generator (special-cased `form: 'conifer'`) before the migration existed;
-  // re-recorded once when the trunk's base ring sank below the ground (ADR 0007: only that ring changed).
+  // re-recorded once when the trunk's base ring sank below the ground (ADR 0007: only that ring changed), and once
+  // when leaves rode on their twig from Leaf Start (ADR 0019: only the leaves' Growth attributes changed).
   const before = {
-    broadleaf: { 1: '376931fb', 7: '37e4b84b', 42: '66fa5e97' },
-    conifer: { 1: 'd7549c0d', 7: '00a6864a', 42: '72b65ae6' },
+    broadleaf: { 1: '528a77fb', 7: 'f654c2bb', 42: '33e534b7' },
+    conifer: { 1: '2c27f8d2', 7: '9947b4f3', 42: 'f7031b28' },
   } as const;
   for (const [form, hashes] of Object.entries(before)) {
     it(`a migrated v2 ${form} grows exactly the same tree as before (geometry hash)`, () => {

@@ -4,7 +4,7 @@ import { woodSeasonAttribute } from '../season/profile';
 import { growStemsAndBranches } from './branches';
 import { crownVolume } from './crown';
 import { COARSE_SIDES, emptyGeometry, fruitGeometry, fruitGrowth, placeFruit } from './fruit';
-import { growthTiming } from './growth';
+import { growthTiming, leafGrowth, leafWindow } from './growth';
 import { trunkHeight } from './index';
 import { shapedLeafGeometry } from './leaf-shapes';
 import { placeLeaves } from './leaves';
@@ -14,7 +14,7 @@ import { growRoots, rootSides } from './roots';
 import { sculptBranches, sculptLeaves, sculptsFor } from './sculpt';
 import { FLARE_SECTIONS } from './trunk';
 import { twistedSections } from './twist';
-import type { GrowthWindow, SkeletonBranch, TreeData } from './types';
+import type { SkeletonBranch, TreeData } from './types';
 import { branchSway, writeTrunkSway } from './wind';
 
 /** Fewest sides around a part of the Light level (a triangle). */
@@ -84,8 +84,8 @@ export function lightDefinition(definition: TreeDefinition, override: Definition
  *   hangs in Full, drawn coarse (a Fruit that is already coarse cannot get fewer faces otherwise).
  *
  * Growth, Wind and Season attributes are those of the Full tree: a surviving branch (and its Fruit) grows,
- * sways and changes with the Season exactly as in Full; a Light leaf grows from the first to the last Full
- * leaf on its branch. Leaves and Fruit keep the Full `aLevel`. With `materials.occlusion` the meshes carry
+ * sways and changes with the Season exactly as in Full; a Light leaf grows with the same leaf timing as a
+ * Full one (`leafWindow`: from Leaf Start, riding on its twig). Leaves and Fruit keep the Full `aLevel`. With `materials.occlusion` the meshes carry
  * `aOcclusion` like Full, so the Light meshes can share the Variant's materials. Pure and deterministic.
  */
 export function generateLightTree(definition: TreeDefinition, seed: number, override?: DefinitionPatch): TreeData {
@@ -103,17 +103,12 @@ export function generateLightTree(definition: TreeDefinition, seed: number, over
   const kept = fullFruit.map((f) => seedRandom(seed, `light/fruit/${f.id}`) < LIGHT_FRUIT_SHARE);
   const fruit = fullFruit.filter((_, i) => kept[i]);
 
-  // Each branch's span of Full leaf Growth (over the leaves on it and on the branches growing from it).
-  const leafSpan = new Map<string, GrowthWindow>();
-  fullLeaves.forEach((leaf, l) => {
-    const window = fullTiming.leaves[l]!;
+  // The branches that carry Full leaves (on them or on the branches growing from them).
+  const leafy = new Set<string>();
+  for (const leaf of fullLeaves) {
     const parts = leaf.branch.split('.');
-    for (let n = 1; n <= parts.length; n++) {
-      const path = parts.slice(0, n).join('.');
-      const span = leafSpan.get(path);
-      leafSpan.set(path, span ? { start: Math.min(span.start, window.start), end: Math.max(span.end, window.end) } : window);
-    }
-  });
+    for (let n = 1; n <= parts.length; n++) leafy.add(parts.slice(0, n).join('.'));
+  }
 
   // The Light skeleton: the Light shape grown on the Full sections.
   const shape: TreeDefinition = {
@@ -123,7 +118,7 @@ export function generateLightTree(definition: TreeDefinition, seed: number, over
   };
   const sculpts = sculptsFor(shape, seed);
   const branches = sculptBranches(growStemsAndBranches(shape, random), sculpts);
-  const leaves = sculptLeaves(placeLeaves(light, branches, random.fork('leaves')), sculpts, seed).filter((leaf) => leafSpan.has(leaf.branch));
+  const leaves = sculptLeaves(placeLeaves(light, branches, random.fork('leaves')), sculpts, seed).filter((leaf) => leafy.has(leaf.branch));
   const roots = growRoots(
     light,
     branches.filter((b) => b.parent === null),
@@ -134,7 +129,7 @@ export function generateLightTree(definition: TreeDefinition, seed: number, over
   const own = growthTiming(light, seed, branches, []);
   const growth = {
     branches: branches.map((b, i) => fullGrowth.get(b.path) ?? own.branches[i]!),
-    leaves: leaves.map((leaf) => leafSpan.get(leaf.branch)!),
+    leaves: leaves.map((leaf) => leafWindow(light, seed, leaf)),
     fruit: fullFruitGrowth.filter((_, i) => kept[i]),
     roots: roots.map(() => ({ start: 0, end: 0 })),
   };
@@ -163,7 +158,7 @@ export function generateLightTree(definition: TreeDefinition, seed: number, over
     ...roots.map((root, i) => sweepBranch(root, rootSides(light), seedRandom(seed, root.path), woodSeason, growth.roots[i])),
   ]);
   const leafLevel = definition.branches.length + 1;
-  const leafBuffers = shapedLeafGeometry(leaves, light.leaves, leafLevel, seed, definition.variation, growth.leaves, sway);
+  const leafBuffers = shapedLeafGeometry(leaves, light.leaves, leafLevel, seed, definition.variation, leafGrowth(leaves, growth.leaves, branches, growth.branches), sway);
   const fruitBuffers = light.fruit
     ? fruitGeometry(fruit, light.fruit, definition.branches.length + 2, seed, definition.variation, growth.fruit, sway)
     : emptyGeometry();

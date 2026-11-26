@@ -3,6 +3,7 @@ export {
   SAPLING_THICKNESS,
   clampGrowth,
   growPositions,
+  leafProgress,
   partProgress,
   thickness,
   treeScale,

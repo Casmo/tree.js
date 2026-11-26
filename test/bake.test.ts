@@ -11,6 +11,9 @@ import painterly from '../src/styles/painterly';
 import enchanted from '../src/styles/enchanted';
 import whimsical from '../src/styles/whimsical';
 import { definitionForSeed, evaluateSeason } from '../src/season';
+import { generateTree } from '../src/generator';
+import { growPositions } from '../src/growth';
+import { parseDefinition } from '../src/definition';
 import { installGltfExporterGlobals } from './fixtures/node-gltf';
 
 // GLTFExporter writes its buffers through FileReader, which plain Node lacks (browsers have it).
@@ -126,6 +129,21 @@ describe('bakeTree: Growth and Season', () => {
     expect(bakeTree(tree, { growth: 0.3 }).userData).toMatchObject({ growth: 0.3, season: 0 });
     tree.growth = 1;
     expect(size(wood.geometry)).toBeLessThan(size((bakeTree(tree).getObjectByName('wood') as Mesh).geometry));
+    tree.dispose();
+  });
+
+  it('bakes the leaves a growing tree shows: on their twigs from Leaf Start, as the Growth model places them', async () => {
+    const definition = realistic.apply(await loadSpecies('birch'));
+    const tree = createTree(definition, { seed: 4, season: 0.3 });
+    const data = generateTree(parseDefinition(definition), 4);
+    const key = (p: ArrayLike<number>, i: number) => [0, 1, 2].map((k) => Math.fround(p[i * 3 + k]!).toFixed(5)).join();
+    for (const growth of [0.4, 0.6]) {
+      const baked = (bakeTree(tree, { growth }).getObjectByName('leaves') as Mesh).geometry.getAttribute('position');
+      const grown = growPositions(data.leaves, growth);
+      const cpu = new Set(Array.from({ length: grown.length / 3 }, (_, v) => key(grown, v)));
+      expect(baked.count).toBeGreaterThan(0);
+      for (let v = 0; v < baked.count; v++) expect(cpu.has(key(baked.array, v))).toBe(true);
+    }
     tree.dispose();
   });
 
@@ -310,9 +328,11 @@ describe('Baked Tree: Material Features', () => {
 
 describe('Baked Tree: Material Features off', () => {
   // Hash (glbHash) of the .glb as exported before Material Features existed: with none set, nothing changes.
+  // The two growing trees (Growth < 1) were re-recorded once when leaves started riding on their twig from
+  // Leaf Start (ADR 0019); the fully grown one is unchanged.
   const golden: [string, () => TreeDefinition, { seed: number; growth?: number; season?: number }, string][] = [
-    ['low-poly broadleaf', () => lowPoly.broadleaf, { seed: 42, growth: 0.8, season: 0.3 }, '68a85e2222cb1cba08f6b1131a84334fd68f0e8a52d704c94042a60f31dd3645'],
-    ['stylized broadleaf', () => stylized.broadleaf, { seed: 3, growth: 0.9, season: 0.02 }, '4e1f2517bb5684580e8eb5a754aec1e811422fa976897bd5cd4d9d31fc136bd7'],
+    ['low-poly broadleaf', () => lowPoly.broadleaf, { seed: 42, growth: 0.8, season: 0.3 }, 'd3c1b9d3a3dd5dfbce5f74a56bccfb37aaa382fdaebe2fef60b045e02c8d6d3e'],
+    ['stylized broadleaf', () => stylized.broadleaf, { seed: 3, growth: 0.9, season: 0.02 }, '3721bf75189110c5f00f9f7f467167916947e4a1ffa9bd9deb152c47b0f48b80'],
     ['low-poly oak with Fruit', () => extendDefinition(lowPoly.apply(oak), { fruit: { type: 'round', count: 2, size: 0.2 } }), { seed: 2, season: 0.5 }, '883a9d503b07178d2d7efe82df57d42002a45b72c12530be1fdb1e37c0dc2150'],
   ];
   for (const [name, definition, options, hash] of golden) {
