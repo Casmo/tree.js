@@ -277,3 +277,18 @@ describe('the leaf model: leaves ride on their growing twig from Leaf Start', ()
     for (const g of [0.3, 0.6]) offAt(g).forEach((off, l) => expect(off).toBeLessThanOrEqual(full[l]! + 1e-4));
   });
 });
+
+describe('the Light Detail Level grows its leaves like Full (switching detail level while growing does not pop)', () => {
+  const meanSize = (data: TreeData, g: number) => grownLeaves(data, g).reduce((s, l) => s + l.size, 0) / data.skeleton.leaves.length;
+  for (const [name, s] of Object.entries({ oak, spruce, birch })) {
+    it(`${name}: about the same share of leaves shows, at about the same size, at every Growth`, () => {
+      const definition = parseDefinition(realistic.apply(s));
+      const full = generateTree(definition, 7);
+      const light = generateLightTree(definition, 7);
+      for (const g of [0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95]) {
+        expect(Math.abs(visibleShare(light, g) - visibleShare(full, g)), `visible share at ${g}`).toBeLessThan(0.25);
+        expect(Math.abs(meanSize(light, g) - meanSize(full, g)), `mean size at ${g}`).toBeLessThan(0.05);
+      }
+    });
+  }
+});

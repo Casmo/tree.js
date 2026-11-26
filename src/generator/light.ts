@@ -14,7 +14,7 @@ import { growRoots, rootSides } from './roots';
 import { sculptBranches, sculptLeaves, sculptsFor } from './sculpt';
 import { FLARE_SECTIONS } from './trunk';
 import { twistedSections } from './twist';
-import type { SkeletonBranch, TreeData } from './types';
+import type { GrowthWindow, LeafGrowth, SkeletonBranch, SkeletonLeaf, TreeData } from './types';
 import { branchSway, writeTrunkSway } from './wind';
 
 /** Fewest sides around a part of the Light level (a triangle). */
@@ -85,7 +85,7 @@ export function lightDefinition(definition: TreeDefinition, override: Definition
  *
  * Growth, Wind and Season attributes are those of the Full tree: a surviving branch (and its Fruit) grows,
  * sways and changes with the Season exactly as in Full; a Light leaf grows with the same leaf timing as a
- * Full one (`leafWindow`: from Leaf Start, riding on its twig). Leaves and Fruit keep the Full `aLevel`. With `materials.occlusion` the meshes carry
+ * Full one (`leafWindow`: from Leaf Start, riding on the nearest Full twig, see {@link lightLeafGrowth}). Leaves and Fruit keep the Full `aLevel`. With `materials.occlusion` the meshes carry
  * `aOcclusion` like Full, so the Light meshes can share the Variant's materials. Pure and deterministic.
  */
 export function generateLightTree(definition: TreeDefinition, seed: number, override?: DefinitionPatch): TreeData {
@@ -158,7 +158,7 @@ export function generateLightTree(definition: TreeDefinition, seed: number, over
     ...roots.map((root, i) => sweepBranch(root, rootSides(light), seedRandom(seed, root.path), woodSeason, growth.roots[i])),
   ]);
   const leafLevel = definition.branches.length + 1;
-  const leafBuffers = shapedLeafGeometry(leaves, light.leaves, leafLevel, seed, definition.variation, leafGrowth(leaves, growth.leaves, branches, growth.branches), sway);
+  const leafBuffers = shapedLeafGeometry(leaves, light.leaves, leafLevel, seed, definition.variation, lightLeafGrowth(leaves, growth.leaves, branches, growth.branches, fullBranches, fullGrowth, fullLeaves), sway);
   const fruitBuffers = light.fruit
     ? fruitGeometry(fruit, light.fruit, definition.branches.length + 2, seed, definition.variation, growth.fruit, sway)
     : emptyGeometry();
@@ -168,6 +168,38 @@ export function generateLightTree(definition: TreeDefinition, seed: number, over
   const crown = crownVolume(leafBuffers.positions, branches);
   if (definition.materials.occlusion) bakeOcclusion([wood, leafBuffers, fruitBuffers], leafBuffers, crown);
   return { seed, skeleton, wood, leaves: leafBuffers, fruit: fruitBuffers, growth, crown };
+}
+
+/**
+ * How each Light leaf grows: with the same leaf timing as a Full one. A Light leaf on a branch that carries
+ * Full leaves itself rides on that branch (as in Full). When the Light level dropped the twigs the Full
+ * leaves sit on, a Light leaf instead rides on the sprout of the leafy Full twig growing nearest to it from
+ * its branch (by `attach`): it shows and grows when the Full leaves there do (not earlier, with its
+ * shallower branch). It pivots at its own attachment point, so it stays exactly on its branch, which is
+ * fully grown before any of its twigs sprouts.
+ */
+function lightLeafGrowth(
+  leaves: SkeletonLeaf[],
+  leafWindows: GrowthWindow[],
+  branches: SkeletonBranch[],
+  branchWindows: GrowthWindow[],
+  fullBranches: SkeletonBranch[],
+  fullGrowth: Map<string, GrowthWindow>,
+  fullLeaves: SkeletonLeaf[],
+): LeafGrowth[] {
+  const own = leafGrowth(leaves, leafWindows, branches, branchWindows);
+  const carriesLeaves = new Set(fullLeaves.map((leaf) => leaf.branch));
+  const twigsOf = new Map<string, SkeletonBranch[]>();
+  for (const branch of fullBranches) {
+    if (branch.parent === null || !carriesLeaves.has(branch.path)) continue;
+    twigsOf.set(branch.parent, [...(twigsOf.get(branch.parent) ?? []), branch]);
+  }
+  return leaves.map((leaf, l) => {
+    const twigs = twigsOf.get(leaf.branch);
+    if (carriesLeaves.has(leaf.branch) || !twigs) return own[l]!;
+    const twig = twigs.reduce((best, b) => (Math.abs(b.attach - leaf.attach) < Math.abs(best.attach - leaf.attach) ? b : best));
+    return { leaf: leafWindows[l]!, twig: fullGrowth.get(twig.path)!, twigOrigin: leaf.position };
+  });
 }
 
 /** The branch with only `sections` + 1 of its skeleton points (evenly picked, both ends kept) to sweep. */
