@@ -1,0 +1,34 @@
+{ "title": "Two new Fantasy Styles: Whimsical and Enchanted", "kicker": "New · Styles", "app": "tree-js",
+  "url": "http://127.0.0.1:33995/?start=oak/whimsical",
+  "chapters": [
+    { "title": "Start an oak in the Whimsical Style", "steps": [
+      { "waitFor": "#start-style", "zoom": true }, { "wait": 1500 } ] },
+    { "title": "Leaf Palettes: each Seed picks one", "steps": [
+      { "scroll": "#leaf-palettes-note" },
+      { "waitFor": "#leaf-palettes-note", "zoom": true },
+      { "click": "#add-leaf-palette", "zoom": true },
+      { "wait": 800 },
+      { "scroll": "#leaf-palette-5" },
+      { "hover": "[id=\"season.leafPalettes.5.accent\"]", "zoom": true } ] },
+    { "title": "Switch the Style to Enchanted, keeping the shape", "steps": [
+      { "scroll": "#start-style" },
+      { "click": "#start-style", "zoom": true },
+      { "press": "ArrowDown" },
+      { "press": "Enter" },
+      { "wait": 3000 } ] },
+    { "title": "Tune the Inner Glow of leaves and bark veins", "steps": [
+      { "scroll": "[id=\"materials.innerGlow\"]" },
+      { "click": "[id=\"materials.innerGlow.leaf\"]", "zoom": true },
+      { "press": "End" },
+      { "press": "Backspace" },
+      { "type": "3", "into": "[id=\"materials.innerGlow.leaf\"]" },
+      { "press": "Enter" },
+      { "click": "[id=\"materials.innerGlow.veins\"]" },
+      { "press": "End" },
+      { "press": "Backspace" },
+      { "type": "3", "into": "[id=\"materials.innerGlow.veins\"]" },
+      { "press": "Enter" },
+      { "wait": 2000 } ] },
+    { "title": "At night only the Inner Glow lights the tree", "steps": [
+      { "goto": "http://127.0.0.1:34871/examples/vanilla/?style=enchanted&night=1&windTime=0" },
+      { "wait": 3000 } ] } ] }
