@@ -26,8 +26,10 @@ import {
 } from 'three/webgpu';
 import { attribute, float, frontFacing, mrt, normalGeometry, output, positionGeometry, select, vec4 } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
-import type { GeometryBuffers } from '../generator';
+import type { CrownVolume, GeometryBuffers } from '../generator';
 import { createBarkMaterial, createLeafMaterial, paintsLeafMasses } from '../materials';
+import { crownAt } from '../materials/crown-nodes';
+import { barkVeins, crownEdgeGlow, type InnerGlowUniforms } from '../materials/enchanted';
 import { PaintedNodeMaterial, type LeafMassPaint } from '../materials/painted';
 import type { TextureOptions } from '../textures';
 import type { WindResponse, WindSource } from '../wind';
@@ -36,12 +38,15 @@ import {
   createImpostorMaterial,
   FEATURES_CHANNEL,
   featureTexel,
+  GLOW_CHANNEL,
+  glowTexel,
   hasImpostorFeatures,
   NORMAL_CHANNEL,
   PAINT_CHANNEL,
   paintTexel,
   SEASON_CHANNEL,
   WOOD_COLOR_CHANNEL,
+  WOOD_GLOW_CHANNEL,
   WOOD_NORMAL_CHANNEL,
   type ImpostorAtlases,
   type ImpostorBounds,
@@ -64,6 +69,8 @@ export interface ImpostorBakePart {
   material: MeshBasicNodeMaterial;
   /** Painted Leaf Masses (leaves only): what paints them, baked into `PAINT_CHANNEL`; null otherwise. */
   paint: LeafMassPaint | null;
+  /** Wood only: the Inner Glow's vein mask (the bark map's alpha), baked into the glow atlases; null otherwise. */
+  veins: Node<'float'> | null;
 }
 
 /**
@@ -90,14 +97,15 @@ const MAX_ATTACHMENTS = 4;
  * The channels of the tree layer every Impostor bakes: colour (rgb, coverage in a), the tree-space
  * normal (a = leaf flag), the leaves' Season timing (`encodeSeasonTexel`: shift, coverage rank,
  * blossom rank, leaf flag; empty on wood), plus, only when a Material Feature is on, the features
- * atlas (`FEATURES_CHANNEL`: the pictured point and the raw Structural Occlusion), and with `paint`
- * (painted Leaf Masses) the paint atlas (`PAINT_CHANNEL`).
+ * atlas (`FEATURES_CHANNEL`: the pictured point and the raw Structural Occlusion), with `paint`
+ * (painted Leaf Masses) the paint atlas (`PAINT_CHANNEL`), and with `glow` (an Inner Glow, measured
+ * in that Crown Volume) the glow atlas (`GLOW_CHANNEL`).
  *
  * Each channel is one RGBA8 attachment of a render pass: WebGPU's default limit
  * (`maxColorAttachmentBytesPerSample` 32, 8 per RGBA8) allows 4 per pass, so the Impostor draws the tree
  * again for the channels past the fourth (`treeLayers`).
  */
-export function impostorChannels(bounds: ImpostorBounds, features: ImpostorFeatures | null = null, paint = false): ImpostorChannel[] {
+export function impostorChannels(bounds: ImpostorBounds, features: ImpostorFeatures | null = null, paint = false, glow: CrownVolume | null = null): ImpostorChannel[] {
   const channels: ImpostorChannel[] = [
     { name: COLOR_CHANNEL, bake: () => output },
     { name: NORMAL_CHANNEL, bake: (part) => vec4(bakedNormal(part), float(part.kind === 'leaves' ? 1 : 0)) },
@@ -116,17 +124,23 @@ export function impostorChannels(bounds: ImpostorBounds, features: ImpostorFeatu
     channels.push({ name: FEATURES_CHANNEL, bake: () => featureTexel(positionGeometry, occlusion, bounds) });
   }
   if (paint) channels.push({ name: PAINT_CHANNEL, bake: (part) => (part.paint ? paintTexel(part.paint) : vec4(0)) });
+  if (glow) {
+    // Leaves: how much of their glow they show where they sit in the Crown Volume (Growth 1, as pictured).
+    const edge = crownEdgeGlow(crownAt(glow, positionGeometry).distance);
+    channels.push({ name: GLOW_CHANNEL, bake: (part) => (part.kind === 'leaves' ? glowTexel(edge, float(0)) : glowTexel(float(0), part.veins ?? float(0))) });
+  }
   return channels;
 }
 
 /**
- * The channels of the wood layer: the wood alone (colour with coverage, normal), so an Impostor shows
- * bare branches where its leaves have dropped instead of holes.
+ * The channels of the wood layer: the wood alone (colour with coverage, normal, and with `glow` its
+ * Inner Glow veins), so an Impostor shows bare branches where its leaves have dropped instead of holes.
  */
-export function impostorWoodChannels(): ImpostorChannel[] {
+export function impostorWoodChannels(glow = false): ImpostorChannel[] {
   return [
     { name: WOOD_COLOR_CHANNEL, bake: () => output },
     { name: WOOD_NORMAL_CHANNEL, bake: () => vec4(bakedNormal(), 0) },
+    ...(glow ? [{ name: WOOD_GLOW_CHANNEL, bake: (part: ImpostorBakePart) => glowTexel(float(0), part.veins ?? float(0)) }] : []),
   ];
 }
 
@@ -186,11 +200,13 @@ export function frameTransform(i: number, j: number, frames: number, bounds: Imp
 function bakeMaterials(
   definition: TreeDefinition,
   textures?: TextureOptions,
-): { wood: MeshBasicNodeMaterial; leaves: MeshBasicNodeMaterial; paint: LeafMassPaint | null } {
+): { wood: MeshBasicNodeMaterial; leaves: MeshBasicNodeMaterial; paint: LeafMassPaint | null; veins: Node<'float'> | null } {
   const bark = createBarkMaterial(definition, textures, float(1));
   const wood = new MeshBasicNodeMaterial();
   wood.name = 'tree.js impostor bake wood';
   wood.colorNode = bark.colorNode;
+  // The Inner Glow's veins: the bark map's alpha, as the bark's emissive reads it.
+  const veins = bark.map ? barkVeins(bark.map) : null;
   bark.dispose();
 
   const leaf = createLeafMaterial(definition, textures);
@@ -207,7 +223,7 @@ function bakeMaterials(
   }
   const paint = leaf instanceof PaintedNodeMaterial ? leaf.massPaint : null;
   leaf.dispose();
-  return { wood, leaves, paint };
+  return { wood, leaves, paint, veins };
 }
 
 /** Rows of the card: the Wind bends it with height, so it needs more than one row of quads. */
@@ -265,6 +281,8 @@ export interface VariantImpostorOptions {
   features?: ImpostorFeatures | null;
   /** The Wind the cards sway with and the Variant's response to it. */
   wind?: { source: WindSource; response: WindResponse };
+  /** The Variant's Inner Glow strengths and Crown Volume (enchanted shading); null without an Inner Glow. */
+  innerGlow?: { strength: InnerGlowUniforms; crown: CrownVolume } | null;
 }
 
 /**
@@ -287,7 +305,7 @@ export class VariantImpostor {
   private readonly layers: readonly ImpostorLayer[];
   private baked = false;
 
-  constructor({ definition, sources, bounds, atlas, name, textures, features = null, wind }: VariantImpostorOptions) {
+  constructor({ definition, sources, bounds, atlas, name, textures, features = null, wind, innerGlow = null }: VariantImpostorOptions) {
     this.definition = definition;
     this.sources = sources;
     this.textures = textures;
@@ -295,13 +313,13 @@ export class VariantImpostor {
     this.bounds = bounds;
     const layer = (kinds: ImpostorLayer['kinds'], channels: ImpostorChannel[]): ImpostorLayer => ({ kinds, channels, target: layerTarget(atlas.size, channels) });
     // The tree's channels in passes of at most MAX_ATTACHMENTS, then the wood layer.
-    const tree = impostorChannels(this.bounds, features, paintsLeafMasses(definition));
+    const tree = impostorChannels(this.bounds, features, paintsLeafMasses(definition), innerGlow?.crown ?? null);
     const treeLayers = Array.from({ length: Math.ceil(tree.length / MAX_ATTACHMENTS) }, (_, i) =>
       layer(['wood', 'leaves'], tree.slice(i * MAX_ATTACHMENTS, (i + 1) * MAX_ATTACHMENTS)),
     );
-    this.layers = [...treeLayers, layer(['wood'], impostorWoodChannels())];
+    this.layers = [...treeLayers, layer(['wood'], impostorWoodChannels(innerGlow !== null))];
     this.channels = this.layers.flatMap((l) => l.channels);
-    this.part = { name, geometry: cardGeometry(), material: createImpostorMaterial(definition, this.atlases, features, wind) };
+    this.part = { name, geometry: cardGeometry(), material: createImpostorMaterial(definition, this.atlases, features, wind, innerGlow?.strength ?? null) };
   }
 
   /** The atlases by channel name. */
@@ -333,7 +351,13 @@ export class VariantImpostor {
         const source = this.sources[kind];
         if ((source.getIndex()?.count ?? 0) === 0) continue;
         const material = layerMaterials[kind];
-        const part: ImpostorBakePart = { kind, geometry: source, material, paint: kind === 'leaves' ? layerMaterials.paint : null };
+        const part: ImpostorBakePart = {
+          kind,
+          geometry: source,
+          material,
+          paint: kind === 'leaves' ? layerMaterials.paint : null,
+          veins: kind === 'wood' ? layerMaterials.veins : null,
+        };
         material.mrtNode = mrt(Object.fromEntries(channels.map((c) => [c.name, c.bake(part)])));
         // Shares the Variant's vertex data (never disposed here: that would free the shared buffers).
         const geometry = new BufferGeometry();

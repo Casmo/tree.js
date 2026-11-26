@@ -51,6 +51,14 @@
       "types": "./dist/styles/painterly/index.d.ts",
       "import": "./dist/styles/painterly.js"
     },
+    "./styles/whimsical": {
+      "types": "./dist/styles/whimsical/index.d.ts",
+      "import": "./dist/styles/whimsical.js"
+    },
+    "./styles/enchanted": {
+      "types": "./dist/styles/enchanted/index.d.ts",
+      "import": "./dist/styles/enchanted.js"
+    },
     "./react": {
       "types": "./dist/react/index.d.ts",
       "import": "./dist/react.js"

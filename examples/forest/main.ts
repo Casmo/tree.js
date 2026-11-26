@@ -24,6 +24,7 @@
 //   ?atlas=<frames>,<size>  (with distances) the Impostor atlas (default 12 frames at 2048)
 //   ?lodCamera=1  (with distances) pick the Detail Levels for a camera 40 m behind the view (lod.camera)
 //   ?shadows=1  the sun casts shadows (the shadow pass reuses the frame's Detail Levels)
+//   ?night=1  a night scene with no light at all (dark sky and ground; only an Enchanted forest's Inner Glow shows)
 //   ?plant=<n>  (with lod) plant n more trees in a row in front after Detail Levels are on, then cut every 4th
 //   ?unplant=1  (with ?plant) then cut every planted tree again: the forest must look as before
 //   ?cutLater=1  (with lod and ?cut) cut the trees after Detail Levels are on instead of right after planting
@@ -115,8 +116,9 @@ const definition: TreeDefinitionInput = {
   season: SEASON_PROFILES.deciduous,
 };
 
+const night = params.get('night') === '1';
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#cfe3f0');
+scene.background = new THREE.Color(night ? '#0b0a1c' : '#cfe3f0');
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.5, 300);
 if (params.get('view') === 'tycoon') {
   // About 55° down from 32 m away: the near trees ~25 m, the far edge ~65 m from the camera.
@@ -127,8 +129,9 @@ if (params.get('view') === 'tycoon') {
   camera.position.set(0, 22, 46);
 }
 camera.lookAt(0, 0, -4);
-scene.add(new THREE.HemisphereLight('#ffffff', '#6a7a4a', 1.5));
-const sun = new THREE.DirectionalLight('#ffffff', 2.5);
+// At night (?night=1) both lights are off: the scene is unlit.
+scene.add(new THREE.HemisphereLight('#ffffff', '#6a7a4a', night ? 0 : 1.5));
+const sun = new THREE.DirectionalLight('#ffffff', night ? 0 : 2.5);
 sun.position.set(5, 8, 3);
 scene.add(sun);
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120).rotateX(-Math.PI / 2), new THREE.MeshStandardNodeMaterial({ color: '#7da05a' }));

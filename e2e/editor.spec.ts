@@ -57,6 +57,14 @@ for (const style of STYLE_NAMES) {
       expect(state?.definition.name.toLowerCase()).toContain(form);
       await expect(page.getByLabel('Species', { exact: true })).toHaveValue(form);
       await expect(page.getByLabel('Style', { exact: true })).toHaveValue(style);
+      if (style === 'enchanted') {
+        // Its Inner Glow pulses with the Wind clock: pin it so the screenshot is the same every run.
+        await page.evaluate(() => {
+          window.treeEditor.wind!.time = 0;
+          window.treeEditor.preview!.requestRender();
+        });
+        await waitForEditor(page);
+      }
       await expect(page.locator('#preview canvas')).toHaveScreenshot(`start-${style}-${form}.png`);
     });
   }

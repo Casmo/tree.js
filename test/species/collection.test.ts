@@ -10,9 +10,11 @@ import lowPoly from '../../src/styles/low-poly';
 import stylized from '../../src/styles/stylized';
 import realistic from '../../src/styles/realistic';
 import painterly from '../../src/styles/painterly';
+import whimsical from '../../src/styles/whimsical';
+import enchanted from '../../src/styles/enchanted';
 
 const { SPECIES_NAMES, loadSpecies } = collection;
-const styles = { 'low-poly': lowPoly, stylized, realistic, painterly };
+const styles = { 'low-poly': lowPoly, stylized, realistic, painterly, whimsical, enchanted };
 const camelCase = (id: string) => id.replace(/-(\w)/g, (_, c: string) => c.toUpperCase());
 const dataDir = new URL('../../src/species/data/', import.meta.url);
 const json = (id: string) => JSON.parse(readFileSync(new URL(`${id}.json`, dataDir), 'utf8')) as SpeciesDefinition;

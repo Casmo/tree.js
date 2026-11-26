@@ -4,6 +4,7 @@ import {
   type FruitDefinition,
   type GroundTintDefinition,
   type HexColor,
+  type InnerGlowDefinition,
   type Keyframe,
   type OcclusionDefinition,
   type RootsDefinition,
@@ -65,6 +66,12 @@ export const DEFAULT_TRANSLUCENCY: TranslucencyDefinition = {
 /** Defaults for the fields of a partial `materials.occlusion` block (no Structural Occlusion unless it has the block). */
 export const DEFAULT_OCCLUSION: OcclusionDefinition = {
   strength: 0.7,
+};
+
+/** Defaults for the fields of a partial `materials.innerGlow` block (no Inner Glow unless it has the block). */
+export const DEFAULT_INNER_GLOW: InnerGlowDefinition = {
+  leaf: 1,
+  veins: 1,
 };
 
 /** Fruit amount when the Season Profile has no `fruit` track: all Fruit at full size all year. */

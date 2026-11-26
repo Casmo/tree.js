@@ -109,10 +109,12 @@ function expectSnowOnTop(region: Region, least: { up: number; down: number }) {
 for (const backend of ['webgpu', 'webgl'] as const) {
   const webgl = backend === 'webgl' ? '&backend=webgl' : '';
 
-  for (const style of ['low-poly', 'stylized', 'realistic', 'painterly'] as const) {
+  for (const style of ['low-poly', 'stylized', 'realistic', 'painterly', 'whimsical', 'enchanted'] as const) {
     test(`Snow Cover whitens what faces up on a near ${style} Tree, not the undersides (${backend})`, async ({ page }) => {
       const errors: string[] = [];
-      await open(page, `/examples/vanilla/?style=${style}&seed=1${webgl}`, 'treeExample', errors);
+      // Enchanted: the Inner Glow pulses with the Wind clock, pinned so the shots compare.
+      const pinned = style === 'enchanted' ? '&windTime=0' : '';
+      await open(page, `/examples/vanilla/?style=${style}&seed=1${pinned}${webgl}`, 'treeExample', errors);
       expect(await page.evaluate(() => window.treeExample)).toMatchObject({ status: 'rendered', backend: backend === 'webgl' ? 'webgl2' : 'webgpu' });
       const plain = await page.locator('canvas').screenshot();
 
@@ -162,6 +164,26 @@ for (const backend of ['webgpu', 'webgl'] as const) {
     expectSnowOnTop(far!, { up: 300, down: 10 }); // seen from above: few undersides far off
     expectSnowOnTop(near!, { up: 300, down: 50 });
     expect(await changedPixels(page, plain, await snowShot(page, 'forestExample', { hook: 'none' }))).toBe(0);
+    expect(errors).toEqual([]);
+  });
+}
+
+// The Fantasy Styles' own snow (#142): sugar frosting on Whimsical (a crisp cap running down in drips, with
+// sparkles), faintly glowing frost on Enchanted (pale rime; frosted leaves glow faintly, also at night).
+// Enchanted shots pin the Wind clock (`windTime=0`): the Inner Glow pulses with it.
+const fantasy = [
+  ['whimsical', 'broadleaf', ''],
+  ['whimsical', 'conifer', ''],
+  ['enchanted', 'broadleaf', '&windTime=0'],
+  ['enchanted', 'conifer', '&windTime=0'],
+  ['enchanted', 'broadleaf', '&windTime=0&night=1'],
+] as const;
+for (const [style, form, extra] of fantasy) {
+  const night = extra.includes('night') ? '-night' : '';
+  test(`Snow Cover on a ${style} ${form}${night ? ' at night' : ''} (screenshot)`, async ({ page }) => {
+    const errors: string[] = [];
+    await open(page, `/examples/vanilla/?style=${style}&form=${form}&seed=1&snow=1${extra}`, 'treeExample', errors);
+    await expect(page.locator('canvas')).toHaveScreenshot(`snow-cover-${style}-${form}${night}.png`);
     expect(errors).toEqual([]);
   });
 }

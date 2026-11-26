@@ -7,6 +7,8 @@ import {
   DEFAULT_FRUIT_COLOR,
   FRUIT_TYPES,
   LEAF_TYPES,
+  MAX_INNER_GLOW,
+  SHADINGS,
   SPINS,
   TWIST_STYLES,
   type BranchLevelDefinition,
@@ -41,6 +43,7 @@ export interface FieldGroup {
   title: string;
   fields: Field[];
 }
+
 
 const num = (path: string, label: string, min: number, max: number, step: number): Field => ({ kind: 'number', path, label, min, max, step });
 const fraction = (path: string, label: string): Field => num(path, label, 0, 1, 0.01);
@@ -102,7 +105,7 @@ export const PARAMETER_GROUPS: FieldGroup[] = [
     id: 'materials',
     title: 'Materials',
     fields: [
-      { kind: 'choice', path: 'materials.shading', label: 'Shading', options: ['standard', 'flat', 'toon'] },
+      { kind: 'choice', path: 'materials.shading', label: 'Shading', options: SHADINGS },
       { kind: 'choice', path: 'materials.bark.type', label: 'Bark Type', options: BARK_TYPES, absent: '' },
       { kind: 'color', path: 'materials.bark.color', label: 'Bark colour' },
       fraction('materials.bark.roughness', 'Bark roughness'),
@@ -166,6 +169,15 @@ export const GROUND_TINT_FIELDS: Field[] = [
   { kind: 'color', path: 'materials.bark.groundTint.color', label: 'Ground Tint colour' },
   num('materials.bark.groundTint.height', 'Ground Tint height', 0.05, 5, 0.05),
   fraction('materials.bark.groundTint.strength', 'Ground Tint strength'),
+];
+
+/**
+ * The fields of the optional Inner Glow block `materials.innerGlow` (shown in the Materials panel
+ * while the shading is enchanted and the Inner Glow toggle is on); 1 = the Enchanted Style's own glow.
+ */
+export const INNER_GLOW_FIELDS: Field[] = [
+  num('materials.innerGlow.leaf', 'Leaves', 0, MAX_INNER_GLOW, 0.05),
+  num('materials.innerGlow.veins', 'Bark veins', 0, MAX_INNER_GLOW, 0.05),
 ];
 
 /**
@@ -267,6 +279,17 @@ export const SEASON_TRACKS: {
   { key: 'fruit', label: 'Fruit amount', kind: 'fraction', absent: DEFAULT_FRUIT_AMOUNT, fruit: true },
   { key: 'fruitColor', label: 'Fruit colour', kind: 'color', absent: DEFAULT_FRUIT_COLOR, fruit: true },
 ];
+
+/**
+ * The optional Leaf Palettes (`season.leafPalettes`, at least one while present): each a leaf colour
+ * track and an accent colour; every Seed picks one, whose leaf colours replace the Leaf colour track.
+ */
+export const LEAF_PALETTES = {
+  path: 'season.leafPalettes',
+  label: 'Leaf Palettes',
+  leafColor: 'leaf colour',
+  accent: 'accent',
+} as const;
 
 /** Season fields that are not tracks. */
 export const SEASON_FIELDS: Field[] = [{ kind: 'color', path: 'season.blossomColor', label: 'Blossom colour' }];

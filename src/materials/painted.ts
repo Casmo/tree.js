@@ -86,7 +86,7 @@ const DEEP_TOWARDS = { dark: 0.35, pale: 0.15 } as const;
 /** Per-mass lightness: a mass's random number moves its brightness by up to ± half of this. */
 const MASS_LIGHTNESS = 0.12;
 /** Rec. 709 luminance weights (linear rgb). */
-const LUMINANCE = [0.2126, 0.7152, 0.0722] as const;
+export const LUMINANCE = [0.2126, 0.7152, 0.0722] as const;
 
 /** The unpainted colour (Season x tint x texture) of the current fragment: what the painted gradient starts from. */
 const paintBase = new PropertyNode('vec3', 'PaintBase');

@@ -19,13 +19,14 @@ import {
   type Scene,
 } from 'three/webgpu';
 import { and, positionGeometry, varying } from 'three/tsl';
-import type { MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
+import type { InnerGlowDefinition, LeafPalette, MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
 import { generateLightTree, generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
+import { applyInnerGlow, innerGlowOf, innerGlowUniforms, type InnerGlowUniforms } from '../materials/enchanted';
 import { LiveMaterialFeatures, type MaterialFeatureNodes, type MaterialFeatureTarget } from '../materials/material-features';
 import { LiveShaderHooks, partHookTarget, ShaderHookedGroup, type ShaderHookTarget, type TreeShaderHooks } from '../materials/shader-hooks';
 import { webgpuRenderer } from '../renderer';
-import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes } from '../season';
+import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes, definitionForSeed, pickLeafPalette } from '../season';
 import { checkedSeason } from '../season/check';
 import { clampGrowth } from '../growth';
 import { textureReady, type TextureOptions } from '../textures';
@@ -194,6 +195,10 @@ export class ForestVariant {
   readonly data: TreeData;
   /** This Variant's response to the Wind (trunk height from its Seed; each tree has its own phase). */
   readonly windResponse: WindResponse;
+  /** The Leaf Palette this Variant's Seed picked (as `Tree.leafPalette`); null without Leaf Palettes. */
+  readonly leafPalette: LeafPalette | null;
+  /** The Inner Glow this Variant draws (as `Tree.innerGlow`, not tunable); null without one or outside the enchanted shading. */
+  readonly innerGlow: InnerGlowDefinition | null;
   readonly barkMaterial: MeshStandardNodeMaterial;
   readonly leafMaterial: MeshStandardNodeMaterial;
   /** Fruit material, null when the Definition has no Fruit. */
@@ -212,6 +217,8 @@ export class ForestVariant {
   levels: VariantLevels | null = null;
   /** Vertex data of the Light level (null until Detail Levels are drawn). */
   private lightSources: BufferGeometry[] = [];
+  /** The Inner Glow strengths every Detail Level of this Variant draws with (its materials' and its Impostor's); null without one. */
+  private readonly glowUniforms: InnerGlowUniforms | null;
   /** @internal The Impostor of this Variant (atlases and card material); null until Detail Levels are drawn. */
   impostor: VariantImpostor | null = null;
 
@@ -226,7 +233,9 @@ export class ForestVariant {
   ) {
     this.index = index;
     this.seed = seed;
-    this.definition = definition;
+    this.leafPalette = pickLeafPalette(definition, seed);
+    // What this Seed's tree is drawn with (materials, Impostor): the Definition with its Leaf Palette's colours.
+    this.definition = definition = definitionForSeed(definition, seed);
     this.data = generateTree(definition, seed);
     const height = trunkHeight(this.data.skeleton);
     this.windResponse = new WindResponse(definition.wind, { height, phase: 0 });
@@ -238,6 +247,23 @@ export class ForestVariant {
     this.leafMaterial = createLeafMaterial(definition, textures, { toObject: (normal) => instanceRotate(normal) });
     this.leafMaterial.positionNode = position;
     applySeasonToLeafMaterial(this.leafMaterial, createSeasonNodes(definition.season, instanceState().season));
+    // Inner Glow (enchanted shading only): each tree pulses out of phase, by its own Wind phase.
+    const glow = innerGlowOf(definition);
+    this.innerGlow = glow && { ...glow };
+    this.glowUniforms = glow && innerGlowUniforms(glow);
+    if (this.glowUniforms) {
+      const { growth, season, windPhase } = instanceState();
+      applyInnerGlow(this.glowUniforms, {
+        bark: this.barkMaterial,
+        leaf: this.leafMaterial,
+        definition,
+        crown: this.data.crown,
+        growth,
+        season,
+        time: wind.uniforms.time,
+        phase: varying(windPhase) as Node<'float'>,
+      });
+    }
 
     this.woodSource = interleavedGeometry(this.data.wood, height * WIND_BOUNDS);
     this.leafSource = interleavedGeometry(this.data.leaves, height * WIND_BOUNDS);
@@ -395,6 +421,7 @@ export class ForestVariant {
       textures: this.textures,
       features: features ? { nodes: features, crown: this.data.crown } : null,
       wind: { source: this.wind, response: this.windResponse },
+      innerGlow: this.glowUniforms && { strength: this.glowUniforms, crown: this.data.crown },
     });
     levels.setLevel(DetailLevel.Impostor, [this.impostor.part]);
     this.forest.addShaderHookTargets([impostorHookTarget(this.impostor.part.material as MeshStandardNodeMaterial)]);

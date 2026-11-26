@@ -15,8 +15,10 @@ import {
   type LeafTranslucencyTerm,
   type LeafTranslucencyValues,
 } from './leaf-translucency';
+import { EnchantedLightingModel, EnchantedNodeMaterial } from './enchanted';
 import { PaintedNodeMaterial } from './painted';
 import { SoftToonLightingModel, SoftToonNodeMaterial } from './toon';
+import { WhimsicalLightingModel, WhimsicalNodeMaterial } from './whimsical';
 
 /**
  * three's physical lighting model plus Leaf Translucency (flat and standard leaf materials): everything
@@ -46,7 +48,7 @@ class TranslucentLightingModel extends PhysicalLightingModel {
 /**
  * Gives a leaf material Leaf Translucency (`materials.leaf.translucency` as uniforms, a Material Feature, ADR 0008):
  * its lighting model becomes the translucent one (the physical model with the term for flat and standard
- * shading, the soft toon model with the same term for toon, the painted model's own term for painted). The material keeps its class and every node.
+ * shading, the soft toon model with the same term for toon, the whimsical model with it for whimsical, the enchanted model with it for enchanted, the painted model's own term for painted). The material keeps its class and every node.
  * Only call it when the feature is set: without it the leaf material keeps today's lighting model.
  *
  * `crown` is the tree's Crown Volume (`TreeData.crown`); `growth` the Growth node the material's
@@ -72,9 +74,15 @@ export function applyLeafTranslucencyTerm(material: MeshStandardNodeMaterial, te
     material.needsUpdate = true;
     return;
   }
-  const toon = material instanceof SoftToonNodeMaterial;
+  const model =
+    material instanceof SoftToonNodeMaterial
+      ? () => new SoftToonLightingModel(term)
+      : material instanceof WhimsicalNodeMaterial
+        ? () => new WhimsicalLightingModel(term)
+        : material instanceof EnchantedNodeMaterial
+          ? () => new EnchantedLightingModel(term)
+          : () => new TranslucentLightingModel(term);
   // The declared return type is the physical model; the renderer only uses the LightingModel interface.
-  material.setupLightingModel = () =>
-    (toon ? new SoftToonLightingModel(term) : new TranslucentLightingModel(term)) as unknown as PhysicalLightingModel;
+  material.setupLightingModel = () => model() as unknown as PhysicalLightingModel;
   material.needsUpdate = true;
 }

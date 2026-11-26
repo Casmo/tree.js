@@ -5,6 +5,8 @@ import {
   BRANCH_LEVEL_FIELDS,
   FRUIT_FIELDS,
   GROUND_TINT_FIELDS,
+  INNER_GLOW_FIELDS,
+  LEAF_PALETTES,
   MATERIAL_FEATURES,
   PARAMETER_GROUPS,
   ROOTS_FIELDS,
@@ -47,10 +49,16 @@ const FULL_DEFINITION = parseDefinition({
     bark: { ...DEFAULT_DEFINITION.materials.bark, type: 'smooth', groundTint: {} },
     leaf: { ...DEFAULT_DEFINITION.materials.leaf, crownNormals: 0.5, translucency: {} },
     occlusion: {},
+    innerGlow: {},
   },
   fruit: { type: 'pear', sides: 6 },
   roots: { count: 4, sides: 6, sections: 4 },
-  season: { ...DEFAULT_DEFINITION.season, fruit: [{ t: 0, value: 1 }], fruitColor: [{ t: 0, value: '#ff0000' }] },
+  season: {
+    ...DEFAULT_DEFINITION.season,
+    fruit: [{ t: 0, value: 1 }],
+    fruitColor: [{ t: 0, value: '#ff0000' }],
+    leafPalettes: [{ leafColor: [{ t: 0, value: '#33cc99' }], accent: '#ff66cc' }],
+  },
 });
 
 const allFields = (): Field[] => [
@@ -58,6 +66,7 @@ const allFields = (): Field[] => [
   ...FRUIT_FIELDS,
   ...ROOTS_FIELDS,
   ...GROUND_TINT_FIELDS,
+  ...INNER_GLOW_FIELDS,
   ...MATERIAL_FEATURES.flatMap((feature) => feature.fields),
 ];
 
@@ -70,6 +79,7 @@ const editable = [
   ...BRANCH_LEVEL_CURVES.map((curve) => `branches.*.${curve.key}`),
   ...SEASON_FIELDS.map((field) => field.path),
   ...SEASON_TRACKS.map((track) => `season.${track.key}`),
+  LEAF_PALETTES.path,
 ];
 
 describe('parameter panels', () => {
@@ -88,6 +98,8 @@ describe('parameter panels', () => {
     expect(paths).toContain('materials.occlusion.strength');
     for (const key of ['count', 'length', 'lengthVariation', 'radius', 'angle', 'bend']) expect(paths).toContain(`roots.${key}`);
     expect(paths).toContain('season.fruitColor');
+    expect(paths).toContain('season.leafPalettes');
+    for (const key of ['leaf', 'veins']) expect(paths).toContain(`materials.innerGlow.${key}`);
     expect([...editable].sort()).toEqual([...paths].sort());
   });
 
@@ -154,6 +166,16 @@ describe('parameter panels', () => {
     );
   });
 
+  it('offer Inner Glow sliders for the leaves and the bark veins over 0..4 (1 = the Enchanted Style\'s own)', () => {
+    expect(INNER_GLOW_FIELDS).toEqual([
+      { kind: 'number', path: 'materials.innerGlow.leaf', label: 'Leaves', min: 0, max: 4, step: 0.05 },
+      { kind: 'number', path: 'materials.innerGlow.veins', label: 'Bark veins', min: 0, max: 4, step: 0.05 },
+    ]);
+    const glow = (leaf: number) => () => parseDefinition({ ...DEFAULT_DEFINITION, materials: { ...DEFAULT_DEFINITION.materials, innerGlow: { leaf } } });
+    expect(glow(4)).not.toThrow();
+    expect(glow(4.1)).toThrow(/materials.innerGlow.leaf/);
+  });
+
   it('offer exactly the choices the schema accepts', () => {
     const choices = allFields().filter((field) => field.kind === 'choice');
     expect(Object.fromEntries(choices.map((field) => [field.path, field.options]))).toEqual({
@@ -161,13 +183,16 @@ describe('parameter panels', () => {
       'trunk.spin': ['random', 'clockwise', 'counterclockwise'],
       'leaves.shape': ['card', 'clump', 'needle', 'puff'],
       'leaves.type': LEAF_TYPES,
-      'materials.shading': ['standard', 'flat', 'toon'],
+      'materials.shading': ['standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted'],
       'materials.bark.type': BARK_TYPES,
       'fruit.type': ['round', 'pear', 'nut', 'cone', 'berry'],
     });
     const fruitType = (type: string) => () => parseDefinition({ ...DEFAULT_DEFINITION, fruit: { type } });
     for (const type of ['round', 'pear', 'nut', 'cone', 'berry']) expect(fruitType(type)).not.toThrow();
     expect(fruitType('apple')).toThrow(/fruit.type/);
+    const shading = (value: string) => () => parseDefinition({ ...DEFAULT_DEFINITION, materials: { ...DEFAULT_DEFINITION.materials, shading: value } });
+    for (const value of ['standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted']) expect(shading(value)).not.toThrow();
+    expect(shading('glow')).toThrow(/materials.shading/);
     expect(() => parseDefinition({ ...DEFAULT_DEFINITION, trunk: { ...DEFAULT_DEFINITION.trunk, twistStyle: 'helix' } })).toThrow(/trunk.twistStyle/);
     expect(() => parseDefinition({ ...DEFAULT_DEFINITION, trunk: { ...DEFAULT_DEFINITION.trunk, spin: 'left' } })).toThrow(/trunk.spin/);
   });

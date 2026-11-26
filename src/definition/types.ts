@@ -287,8 +287,14 @@ export interface RootsDefinition {
   sections?: number;
 }
 
-/** Material shading model. Low-poly uses `flat`, stylized `toon`, realistic `standard`, painterly `painted`. */
-export type Shading = 'standard' | 'flat' | 'toon' | 'painted';
+/**
+ * Material shading model. Low-poly uses `flat`, stylized `toon`, realistic `standard`, painterly `painted`,
+ * whimsical `whimsical`, enchanted `enchanted`.
+ */
+export type Shading = (typeof SHADINGS)[number];
+
+/** Every shading model the schema accepts (each Style draws with one of them). */
+export const SHADINGS = ['standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted'] as const;
 
 export interface BarkMaterialDefinition {
   /** Bark Type the bark was drawn from (set by `Style.apply`), so a Style can be re-applied. Optional. */
@@ -363,12 +369,30 @@ export interface MaterialFeatures {
   occlusion?: OcclusionDefinition;
 }
 
+/** The strongest Inner Glow a Definition (and `tree.innerGlow`) accepts, for leaves and bark veins alike. */
+export const MAX_INNER_GLOW = 4;
+
+/**
+ * Inner Glow (GLOSSARY): light the tree gives off by itself, in its leaf colour (Season and Leaf Palette),
+ * from its leaves (strongest at the thin edge of the Crown Volume) and from veins in its bark, slowly
+ * pulsing. Only the `enchanted` shading draws it; the other shadings ignore it. Not a Material Feature
+ * (ADR 0008): a Fantasy Style writes it. Plain numbers, 0 (none) .. {@link MAX_INNER_GLOW}; 1 is the Enchanted Style's own.
+ */
+export interface InnerGlowDefinition {
+  /** How strongly the leaves glow (0..{@link MAX_INNER_GLOW}). */
+  leaf: number;
+  /** How strongly the bark veins glow (0..{@link MAX_INNER_GLOW}); the veins are the alpha of the enchanted bark map. */
+  veins: number;
+}
+
 export interface MaterialsDefinition {
   shading: Shading;
   bark: BarkMaterialDefinition;
   leaf: LeafMaterialDefinition;
   /** Structural Occlusion (a Material Feature, ADR 0008). Absent = off. */
   occlusion?: OcclusionDefinition;
+  /** Inner Glow (drawn by the `enchanted` shading only). Absent = none. */
+  innerGlow?: InnerGlowDefinition;
 }
 
 /**
@@ -400,6 +424,23 @@ export interface SeasonProfileDefinition {
   fruit?: Keyframe<number>[];
   /** Fruit colour keyframes (ripening). Absent = a red (`DEFAULT_FRUIT_COLOR`) all year. Only used with `fruit`. */
   fruitColor?: Keyframe<HexColor>[];
+  /**
+   * Leaf Palettes: alternative leaf colours across Season (at least one). The Seed picks one per tree
+   * (see `pickLeafPalette`), whose `leafColor` then replaces the `leafColor` track above; the
+   * coverage, blossom and Fruit timing stay. Absent = every tree draws `leafColor`.
+   */
+  leafPalettes?: LeafPalette[];
+}
+
+/**
+ * A Leaf Palette: one alternative set of leaf colours across Season, with a matching accent colour
+ * (for the bark; shadings that don't use it ignore it).
+ */
+export interface LeafPalette {
+  /** Leaf colour keyframes, as the Season Profile's `leafColor`. */
+  leafColor: Keyframe<HexColor>[];
+  /** The accent colour that goes with these leaves. */
+  accent: HexColor;
 }
 
 /** Per-tree response to the scene-wide Wind. All 0 (stiff) .. 1 (very flexible). */

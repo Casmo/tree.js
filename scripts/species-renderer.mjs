@@ -1,6 +1,6 @@
 /* global URLSearchParams, window */
 // Renders Species with the e2e renderer (headless Chromium, SwiftShader WebGPU, as playwright.config.ts)
-// through the vanilla example (`examples/vanilla/?species=<id>&style=<style>&seed=&season=`), which
+// through the vanilla example (`examples/vanilla/?species=<id>&style=<style>&seed=&season=&windTime=0`), which
 // frames the camera on the tree. Used by render-species.mjs (look checks) and render-gallery.mjs.
 import { chromium } from '@playwright/test';
 import { createServer } from 'vite';
@@ -30,7 +30,8 @@ export async function startSpeciesRenderer({ port = 5198, size = 640 } = {}) {
   return {
     browser,
     async render({ id, style, season = SUMMER, seed = 1, path, type = 'png', quality }) {
-      const query = new URLSearchParams({ species: id, style, season: String(season), seed: String(seed) });
+      // The Wind clock is pinned (no Wind is blowing, but the Enchanted Inner Glow pulses with it).
+      const query = new URLSearchParams({ species: id, style, season: String(season), seed: String(seed), windTime: '0' });
       await page.goto(`http://localhost:${port}/examples/vanilla/?${query}`);
       await page.waitForFunction(() => window.treeExample?.status !== 'loading', null, { timeout: 60_000 });
       const state = await page.evaluate(() => window.treeExample);

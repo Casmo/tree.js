@@ -2,10 +2,11 @@
 // Seed variation. Branching levels, the Season Profile and Wind have their own panels.
 import { DEFAULT_GROUND_TINT } from '@casmo/tree.js';
 import { getAt } from '../definition-path';
+import { hasInnerGlowControls, setInnerGlow } from '../inner-glow';
 import { applyMaterialFeatures, hasMaterialFeatures, setMaterialFeature, suggestedMaterialFeatures } from '../material-features';
-import { followPresence, reportEdit } from './block-panel';
+import { followValue, reportEdit } from './block-panel';
 import { fieldControl, setDefinitionValue } from './controls';
-import { GROUND_TINT_FIELDS, MATERIAL_FEATURES, PARAMETER_GROUPS, type FieldGroup } from './fields';
+import { GROUND_TINT_FIELDS, INNER_GLOW_FIELDS, MATERIAL_FEATURES, PARAMETER_GROUPS, type FieldGroup } from './fields';
 import type { Panel, PanelContext } from './types';
 
 export function fieldGroupPanel(group: FieldGroup): Panel {
@@ -31,8 +32,8 @@ export const trunkPanel = fieldGroupPanel(group('trunk'));
 export const leavesPanel = fieldGroupPanel(group('leaves'));
 /**
  * The Materials panel: the field table's Materials fields, with the Ground Tint toggle (and, while
- * it is on, its colour, height and strength) right after the bark controls, and the Material
- * features group at the end.
+ * it is on, its colour, height and strength) right after the bark controls, the Inner Glow toggle
+ * and sliders (enchanted shading only) after the leaf controls, and the Material features group at the end.
  */
 export const materialsPanel: Panel = {
   id: 'materials',
@@ -45,6 +46,7 @@ export const materialsPanel: Panel = {
       ...fields.slice(0, afterBark).map((field) => fieldControl(context, field)),
       groundTintControls(context),
       ...fields.slice(afterBark).map((field) => fieldControl(context, field)),
+      innerGlowControls(context),
       materialFeatureControls(context),
     );
     return root;
@@ -69,12 +71,44 @@ function groundTintControls(context: PanelContext): HTMLElement {
   input.addEventListener('change', () =>
     reportEdit(context, () => setDefinitionValue(store, GROUND_TINT, input.checked ? { ...DEFAULT_GROUND_TINT } : undefined)),
   );
-  followPresence(
+  followValue(
     context,
     () => store.state.definition.materials.bark.groundTint !== undefined,
     (present) => fields.replaceChildren(...(present ? GROUND_TINT_FIELDS.map((field) => fieldControl(context, field)) : [])),
     (present) => {
       input.checked = present;
+    },
+  );
+  return root;
+}
+
+const INNER_GLOW = 'materials.innerGlow';
+
+/**
+ * "Inner Glow" checkbox (shown with the enchanted shading only, the one that draws it): on writes the
+ * default strengths, off removes the field; the leaf and bark vein sliders show while on and retune
+ * the tree on show live.
+ */
+function innerGlowControls(context: PanelContext): HTMLElement {
+  const { store } = context;
+  const root = document.createElement('div');
+  root.className = 'inner-glow';
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.id = INNER_GLOW;
+  const label = document.createElement('label');
+  label.className = 'toggle';
+  label.append(input, ' Inner Glow');
+  const fields = document.createElement('div');
+  root.append(label, fields);
+  input.addEventListener('change', () => reportEdit(context, () => setInnerGlow(store, input.checked)));
+  followValue(
+    context,
+    () => store.state.definition.materials.innerGlow !== undefined,
+    (present) => fields.replaceChildren(...(present ? INNER_GLOW_FIELDS.map((field) => fieldControl(context, field)) : [])),
+    (present) => {
+      input.checked = present;
+      root.hidden = !hasInnerGlowControls(store.state.definition);
     },
   );
   return root;
@@ -102,7 +136,7 @@ function materialFeatureControls(context: PanelContext): HTMLElement {
     const fields = document.createElement('div');
     root.append(label, fields);
     input.addEventListener('change', () => reportEdit(context, () => setMaterialFeature(store, feature.key, input.checked)));
-    followPresence(
+    followValue(
       context,
       () => getAt(store.state.definition, feature.path) !== undefined,
       (present) => fields.replaceChildren(...(present ? feature.fields.map((field) => fieldControl(context, field)) : [])),

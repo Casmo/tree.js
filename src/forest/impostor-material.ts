@@ -28,13 +28,14 @@ import {
 import type { TreeDefinition } from '../definition';
 import type { CrownVolume } from '../generator';
 import { createShadedMaterial, paintsLeafMasses } from '../materials';
+import { innerGlowPulse, leafGlowNode, veinGlowNode, type InnerGlowUniforms } from '../materials/enchanted';
 import { paintGradient, PaintedNodeMaterial, softenLeafShadows, type LeafMassPaint } from '../materials/painted';
 import { crownAt } from '../materials/crown-nodes';
 import { applyLeafTranslucencyTerm } from '../materials/leaf-translucency-model';
 import type { MaterialFeatureNodes } from '../materials/material-features';
 import type { ShaderHookTarget } from '../materials/shader-hooks';
 import { setTreeLeafMask } from '../effects/mask';
-import { leafSeasonNode } from '../season';
+import { leafSeasonNode, seasonLeafColorNode } from '../season';
 import { objectWindDirection, treeSwayOffset, type WindResponse, type WindSource } from '../wind';
 import { SEASON_SHIFT_SCALE } from './impostor-season';
 import { setWindMotion } from '../wind/motion';
@@ -255,6 +256,20 @@ export const WOOD_COLOR_CHANNEL = 'woodOutput';
 export const WOOD_NORMAL_CHANNEL = 'woodNormal';
 
 /**
+ * The Inner Glow atlas (only baked for a tree with an Inner Glow, enchanted shading): r = how much of its
+ * glow a leaf shows where it sits in the Crown Volume (`crownEdgeGlow`; 0 on wood), g = the bark's vein
+ * mask (0 on leaves). The card glows from these, its drawn colour and the Season leaf colour.
+ */
+export const GLOW_CHANNEL = 'glow';
+/** The wood layer's Inner Glow atlas (as `GLOW_CHANNEL`, wood only). */
+export const WOOD_GLOW_CHANNEL = 'woodGlow';
+
+/** The glow atlas texel the bake writes: the leaf's crown edge glow and the bark's vein mask. */
+export function glowTexel(edge: Node<'float'>, veins: Node<'float'>): Node<'vec4'> {
+  return vec4(edge, veins, 0, 1);
+}
+
+/**
  * The Material Feature atlas (only baked when a Material Feature is on, ADR 0008): rgb = the pictured
  * point in tree space (Growth 1, encoded over the frame's box, see `featureTexel`), from which the card
  * measures the Crown Volume (Crown Normals, Leaf Translucency); a = the raw Structural Occlusion
@@ -290,13 +305,15 @@ export function hasImpostorFeatures(features: ImpostorFeatures | null | undefine
  * plus the leaf's own timing shift (colour, blossom; a dropped leaf shows the wood layer behind it,
  * or nothing), the baked normal turned with the tree, bark or leaf roughness, cut out by the coverage
  * and the Detail Level cross-fade (in the shadow pass too, so the shadow is tree-shaped). With
- * `wind`, the card bends with height as the tree sways, in the tree's own Wind phase.
+ * `wind`, the card bends with height as the tree sways, in the tree's own Wind phase. With `glow` (the
+ * Variant's Inner Glow strengths) the card glows as the tree does, from the glow atlases.
  */
 export function createImpostorMaterial(
   definition: TreeDefinition,
   atlases: ImpostorAtlases,
   features: ImpostorFeatures | null = null,
   wind?: { source: WindSource; response: WindResponse },
+  glow: InnerGlowUniforms | null = null,
 ): MeshStandardNodeMaterial {
   const burst = wind && instanceBurstFrame();
   const sway = wind
@@ -324,7 +341,8 @@ export function createImpostorMaterial(
   const treeSeason = varying(instanceState().season) as Node<'float'>;
   const leafSeason = leafSeasonNode(definition.season);
   const maxShift = definition.variation.season;
-  const frameStates = new Map<ImpostorFrame, { color: Node<'vec4'>; normal: Node<'vec4'> }>();
+  const glows = glow !== null && GLOW_CHANNEL in atlases.textures;
+  const frameStates = new Map<ImpostorFrame, { color: Node<'vec4'>; normal: Node<'vec4'>; glow: Node<'vec4'> | null }>();
   const frameState = (frame: ImpostorFrame) => {
     let state = frameStates.get(frame);
     if (!state) {
@@ -344,6 +362,7 @@ export function createImpostorMaterial(
       state = {
         color: mix(shown, frame.sample(WOOD_COLOR_CHANNEL), dropped),
         normal: mix(normal, frame.sample(WOOD_NORMAL_CHANNEL), dropped),
+        glow: glows ? mix(frame.sample(GLOW_CHANNEL), frame.sample(WOOD_GLOW_CHANNEL), dropped) : null,
       };
       frameStates.set(frame, state);
     }
@@ -364,6 +383,15 @@ export function createImpostorMaterial(
   if (material instanceof PaintedNodeMaterial && paintsLeafMasses(definition)) paintImpostor(material, view, leaf);
   // Material Features: on a dropped leaf's texel the wood shows, and `leaf` (from the wood layer's flag) turns the leaf-only ones off there.
   if (hasImpostorFeatures(features)) applyImpostorFeatures(material, view, atlases.bounds, leaf, features);
+  // Inner Glow: as on the tree, leaves in their own (drawn) colour, strongest at the crown's edge, and bark
+  // veins in the Season leaf colour, pulsing in each tree's own Wind phase with the Variant's strengths.
+  if (glows) {
+    const texel = view.blend((frame) => frameState(frame).glow!).div(covered);
+    const pulse = innerGlowPulse(wind ? wind.source.uniforms.time : float(0), varying(instanceState().windPhase) as Node<'float'>);
+    const leafGlow = leafGlowNode(glow, texel.r);
+    const veinGlow = veinGlowNode(glow, seasonLeafColorNode(definition.season, treeSeason) as Node<'vec3'>, texel.g);
+    material.emissiveNode = leafGlow.add(veinGlow).mul(pulse);
+  }
   // Tree Effects: tree pixels, leaves where the (Season-aware) leaf flag says so (wood elsewhere).
   material.userData.treePart = 'leaves';
   setTreeLeafMask(material, leaf);

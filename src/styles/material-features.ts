@@ -37,6 +37,19 @@ export const SUGGESTED_MATERIAL_FEATURES: Record<StyleName, MaterialFeatures> = 
     translucency: { strength: 0.3, edge: 0.8, ambient: 0.15 },
     occlusion: { strength: 0.35 },
   },
+  // Each pom-pom lit as one smooth ball, so the toon bands run round the whole puff; occlusion keeps the
+  // inner puffs a little darker. No translucency: the rim light does the edges.
+  whimsical: {
+    crownNormals: 1,
+    occlusion: { strength: 0.7 },
+  },
+  // Leaves lit from behind (a moon, a lantern) glow at the thin edge of the crown on top of their Inner
+  // Glow; some of the crown's shape and occlusion so the dark inside stays dark.
+  enchanted: {
+    crownNormals: 0.4,
+    translucency: { strength: 0.6, edge: 0.8, ambient: 0.2 },
+    occlusion: { strength: 0.8 },
+  },
 };
 
 /**

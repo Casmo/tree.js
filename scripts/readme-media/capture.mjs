@@ -1,6 +1,7 @@
 // Captures the README's screenshots and GIFs into docs/images/.
 //   npm run build && npm run readme-media            # everything
 //   npm run readme-media -- hero wind                # only these outputs
+//   README_MEDIA_PORT=5271 npm run readme-media -- styles   # another dev server port
 // Renders headless with SwiftShader (like the e2e tests), so it runs without a GPU. Needs ffmpeg on
 // the PATH for the GIFs and side-by-side images, and the built library (dist/) for the CDN example.
 /* global window, document, requestAnimationFrame, console, process, URL */
@@ -13,7 +14,7 @@ import { createServer } from 'vite';
 
 const root = resolve(import.meta.dirname, '../..');
 const out = resolve(root, 'docs/images');
-const PORT = 5198;
+const PORT = Number(process.env.README_MEDIA_PORT ?? 5198); // README_MEDIA_PORT=<port> when 5198 is taken
 const BASE = `http://localhost:${PORT}`;
 
 /** A scene of scripts/readme-media/main.ts: one still (.png) or an animation (.gif). */
@@ -23,7 +24,9 @@ const JOBS = {
   hero: { ...shot('hero', 720, 300), gif: { fps: 10, colors: 96, dither: 'none' } },
   'quick-start': shot('quick-start', 720, 405),
   renderer: { side: [shot('renderer', 480, 320), shot('renderer', 480, 320, '&backend=webgl')] },
-  styles: shot('styles', 1280, 320),
+  styles: shot('styles', 1600, 320),
+  // Fantasy Styles (#144): a Whimsical grove by day next to an Enchanted Forest at night with bloom.
+  fantasy: { side: ['day', 'night'].map((part) => shot('fantasy', 640, 400, `&part=${part}`)) },
   seeds: shot('seeds', 960, 320),
   // Painterly from above (#122): a Forest from a tycoon camera (about 55°) and one tree straight down.
   'painterly-views': {

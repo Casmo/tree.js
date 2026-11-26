@@ -44,6 +44,19 @@ describe('editor autosave', () => {
     expect(currentStyle({ definition: restored.definition, source: restored.source! })).toBe('realistic');
   });
 
+  it('restores Leaf Palette and Inner Glow edits', async () => {
+    const storage = memoryStorage();
+    const store = createEditorStore({ definition: await loadStart('oak/enchanted'), source: 'oak/enchanted' });
+    startAutosave(store, storage);
+    store.editDefinition({ materials: { innerGlow: { leaf: 0.35, veins: 2.4 } } });
+    store.editDefinition({ season: { leafPalettes: [{ leafColor: [{ t: 0, value: '#1188aa' }], accent: '#ff8800' }] } });
+
+    const restored = createEditorStore(loadAutosave(storage)!);
+    expect(restored.state).toEqual(store.state);
+    expect(restored.state.definition.materials.innerGlow).toEqual({ leaf: 0.35, veins: 2.4 });
+    expect(restored.state.definition.season.leafPalettes).toEqual([{ leafColor: [{ t: 0, value: '#1188aa' }], accent: '#ff8800' }]);
+  });
+
   it('reads a starting point saved with an old "<style>/<form>" id as Species + Style', () => {
     const storage = memoryStorage();
     storage.setItem(AUTOSAVE_KEY, JSON.stringify({ version: 1, state: { definition: DEFAULT_DEFINITION, source: 'stylized/conifer' } }));

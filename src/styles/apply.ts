@@ -1,17 +1,20 @@
 // Style.apply (ADR 0005): a Style turns a Style-neutral Species (or an existing Tree Definition)
 // into a complete Tree Definition by choosing only the look: shading, polygon detail, how the
 // Leaf Type and Bark Type are drawn, and textures. Shape fields pass through untouched; only Painterly
-// also sets the overall size (ADR 0013, ./painterly/height.ts).
+// also sets the overall size (ADR 0013, ./painterly/height.ts), and a Fantasy Style also sets Twist and
+// brings its own colours (ADR 0017, ./fantasy.ts).
 import { extendDefinition, parseDefinition, type DefinitionPatch } from '../definition/parse';
 import {
   CURRENT_SCHEMA_VERSION,
   type BarkMaterialDefinition,
+  type InnerGlowDefinition,
   type MaterialFeatures,
   type BarkType,
   type LeavesDefinition,
   type LeafMaterialDefinition,
   type LeafShape,
   type LeafType,
+  type TreeForm,
   type TreeDefinition,
   type TreeDefinitionInput,
 } from '../definition/types';
@@ -20,6 +23,10 @@ import { styleOfShading, styleShading, type StyleName } from './names';
 import { materialFeaturesOf } from './material-features';
 import { BARK_TEXTURES, LEAF_TEXTURES } from './realistic/textures';
 import { compressHeight } from './painterly/height';
+import { applyFantasy, type FantasyRecipe } from './fantasy';
+import { WHIMSICAL } from './whimsical/recipe';
+import { ENCHANTED } from './enchanted/recipe';
+import { BARK_TEXTURE as VEINED_BARK, LEAF_TEXTURES as GLOWING_LEAVES } from './enchanted/textures';
 import { BARK_TEXTURES as PAINTED_BARK, LEAF_TEXTURES as SPRAY_TEXTURES } from './painterly/textures';
 
 /** Polygon detail of one tree part. */
@@ -56,9 +63,13 @@ interface StyleLook {
   fruitSides: number;
   /** Detail of each Root (`roots.sides`, `roots.sections`). */
   roots: Detail;
+  /** A Fantasy Style's Twist recipe and colours (ADR 0017); absent for the other Styles. */
+  fantasy?: FantasyRecipe;
 }
 
 const isNeedleLike = (type: LeafType) => type === 'needle' || type === 'scale';
+/** The Form of a tree drawn with this Leaf Type: needle and scale foliage is a conifer's. */
+const formOfLeafType = (type: LeafType): TreeForm => (isNeedleLike(type) ? 'conifer' : 'broadleaf');
 const untexturedLeaf: LeafMaterialDefinition = { roughness: 1, map: null, alphaTest: 0.5 };
 const untexturedBark = () => ({ roughness: 1, map: null, normalMap: null });
 
@@ -120,6 +131,38 @@ const LOOKS = {
         : { shape: 'mass', perDensity: 150, sizeScale: 1.43, material };
     },
   },
+  // Stylized's detail (one side fewer on the first branch level: a Corkscrew needs 6 Sections per Twists,
+  // ADR 0016); fewer, bigger pom-pom puffs (about half the count at 1.6× the size), smaller and
+  // denser for needle / scale foliage. Its Twist recipe and colours: ./whimsical/recipe.ts.
+  whimsical: {
+    trunk: { sides: 10, sections: 8, flareSections: 3 },
+    branches: [{ sides: 5, sections: 3 }, { sides: 4, sections: 1 }, { sides: 3, sections: 1 }],
+    bark: untexturedBark,
+    fruitSides: 6,
+    roots: { sides: 6, sections: 4 },
+    fantasy: WHIMSICAL,
+    leaf: (type) =>
+      isNeedleLike(type)
+        ? { shape: 'puff', perDensity: 6, sizeScale: 2, material: untexturedLeaf }
+        : { shape: 'puff', perDensity: 2, sizeScale: 5, material: untexturedLeaf },
+  },
+  // Stylized's detail (one side fewer on the first branch level: its Snake adds 3 Sections per Twists,
+  // ADR 0015); sparse glowing cards, far fewer than Realistic's so the sinuous branches show through, a
+  // glowing texture per Leaf Type and one veined bark. Its Twist recipe, colours and Inner Glow: ./enchanted/recipe.ts.
+  enchanted: {
+    trunk: { sides: 10, sections: 8, flareSections: 3 },
+    branches: [{ sides: 5, sections: 3 }, { sides: 4, sections: 1 }, { sides: 3, sections: 1 }],
+    bark: () => ({ roughness: 0.85, map: VEINED_BARK, normalMap: null }),
+    fruitSides: 6,
+    roots: { sides: 6, sections: 4 },
+    fantasy: ENCHANTED,
+    leaf: (type) => {
+      const material = { roughness: 0.8, map: GLOWING_LEAVES[type], alphaTest: 0.4 };
+      return isNeedleLike(type)
+        ? { shape: 'card', perDensity: 40, sizeScale: 1.9, material }
+        : { shape: 'card', perDensity: 24, sizeScale: 2.4, material };
+    },
+  },
 } satisfies Record<StyleName, StyleLook>;
 
 /** What `Style.apply` accepts: a Species, or a Tree Definition to re-style. */
@@ -139,6 +182,8 @@ interface Neutral {
   bark: SpeciesBarkDefinition & Pick<BarkMaterialDefinition, 'groundTint'>;
   /** A Definition's Material Features pass through too (ADR 0008): they are the app's choice, never a Style's. */
   features: MaterialFeatures;
+  /** A Definition's Inner Glow passes through too (ADR 0017); only a Fantasy Style replaces it. */
+  innerGlow?: InnerGlowDefinition;
 }
 
 function fromSpecies(species: SpeciesDefinition): Neutral {
@@ -185,10 +230,11 @@ function fromDefinition(input: TreeDefinition | TreeDefinitionInput): Neutral {
       ...present('groundTint', materials.bark.groundTint),
     },
     features: materialFeaturesOf(definition),
+    ...present('innerGlow', materials.innerGlow),
   };
 }
 
-function draw(name: StyleName, { base, foliage, bark, features }: Neutral): TreeDefinition {
+function draw(name: StyleName, { base, foliage, bark, features, innerGlow }: Neutral): TreeDefinition {
   const look: StyleLook = LOOKS[name];
   const leaf = look.leaf(foliage.type);
   const fruit = base.fruit as TreeDefinition['fruit'];
@@ -214,6 +260,7 @@ function draw(name: StyleName, { base, foliage, bark, features }: Neutral): Tree
       bark: { type: bark.type, color: bark.color, ...look.bark(bark.type), ...present('groundTint', bark.groundTint) },
       leaf: { ...leaf.material, ...present('crownNormals', features.crownNormals), ...present('translucency', features.translucency) },
       ...present('occlusion', features.occlusion),
+      ...present('innerGlow', innerGlow),
     },
   });
 }
@@ -226,6 +273,10 @@ export function applyStyle(name: StyleName, source: StyleSource, overrides?: Def
   const isDefinition = 'schemaVersion' in source;
   const neutral = isDefinition ? fromDefinition(source) : fromSpecies(source);
   let definition = draw(name, neutral);
+  // A Fantasy Style writes its Twist and colours (ADR 0017), milder for conifers: a Species' Form, or a
+  // Definition's from its Leaf Type. Other Styles keep the ones a Fantasy Style wrote: `draw` passes them through.
+  const { fantasy } = LOOKS[name] as StyleLook;
+  if (fantasy) definition = parseDefinition(applyFantasy(fantasy, definition, isDefinition ? formOfLeafType(neutral.foliage.type) : source.form));
   // Painterly sets the overall size (ADR 0013): real-sized trees shrink to 2-4 m. A Painterly-sized tree
   // (a `styleScale`, kept through other Styles) or a Painterly Definition from before `styleScale` is
   // already small; re-applying Painterly to it keeps its size.

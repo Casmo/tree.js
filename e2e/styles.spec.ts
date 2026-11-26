@@ -6,7 +6,9 @@ async function waitForExample(page: Page) {
 }
 
 // Reference screenshots for every built-in Style x Form, on both backends of WebGPURenderer.
-const styles = ['low-poly', 'stylized', 'realistic'];
+const styles = ['low-poly', 'stylized', 'realistic', 'whimsical', 'enchanted'];
+// The Enchanted Inner Glow pulses with the Wind clock: pin it so its screenshots are the same every run.
+const pinned = (style: string) => (style === 'enchanted' ? '&windTime=0' : '');
 const forms = ['broadleaf', 'conifer'];
 const backends = [
   { name: 'webgpu', query: '' },
@@ -72,7 +74,7 @@ for (const style of styles) {
   for (const form of forms) {
     for (const backend of backends) {
       test(`${style} ${form} renders on ${backend.name}`, async ({ page }) => {
-        await page.goto(`/examples/vanilla/?style=${style}&form=${form}&seed=1${backend.query}`);
+        await page.goto(`/examples/vanilla/?style=${style}&form=${form}&seed=1${backend.query}${pinned(style)}`);
         expect(await waitForExample(page)).toMatchObject({ status: 'rendered', backend: backend.name });
         await expect(page.locator('canvas')).toHaveScreenshot(`${style}-${form}-${backend.name}.png`, {
           mask: [page.locator('#status')],
@@ -102,14 +104,25 @@ const painterlyStates = [
   { form: 'broadleaf', name: 'cherry-blossom', query: '&species=cherry&season=0.06' },
   { form: 'broadleaf', name: 'apple-fruit', query: '&species=apple&season=0.5' },
 ];
+// Whimsical (#140): its pastel spring colours too.
+const whimsicalStates = [{ form: 'broadleaf', name: 'spring', query: '&season=0.04' }];
+// Enchanted (#141): at night with no light at all, only the Inner Glow shows (leaves strongest at the crown's
+// thin edge, the bark veins), in summer teal and autumn magenta; and at the low point of its pulse.
+const enchantedStates = [
+  ...forms.map((form) => ({ form, name: 'night', query: '&night=1' })),
+  { form: 'broadleaf', name: 'night-autumn', query: '&night=1&season=0.66' },
+  { form: 'broadleaf', name: 'night-pulse-low', query: '&night=1&windTime=1.75' },
+];
 const shots = [
   ...styles.flatMap((style) => forms.flatMap((form) => states.map((state) => ({ style, form, ...state })))),
   ...stylizedStates.map((state) => ({ style: 'stylized', ...state })),
   ...painterlyStates.map((state) => ({ style: 'painterly', ...state })),
+  ...whimsicalStates.map((state) => ({ style: 'whimsical', ...state })),
+  ...enchantedStates.map((state) => ({ style: 'enchanted', ...state })),
 ];
 for (const { style, form, name, query } of shots) {
   test(`${style} ${form}: ${name}`, async ({ page }) => {
-    await page.goto(`/examples/vanilla/?style=${style}&form=${form}&seed=1${query}`);
+    await page.goto(`/examples/vanilla/?style=${style}&form=${form}&seed=1${query}${query.includes('windTime') ? '' : pinned(style)}`);
     expect(await waitForExample(page)).toMatchObject({ status: 'rendered', backend: 'webgpu' });
     await expect(page.locator('canvas')).toHaveScreenshot(`${style}-${form}-${name}.png`, {
       mask: [page.locator('#status')],

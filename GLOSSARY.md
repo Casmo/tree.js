@@ -13,8 +13,20 @@ A number that, combined with a Tree Definition, picks one specific individual tr
 _Avoid_: Random, variation id
 
 **Style**:
-A visual look shipped with the library, such as low-poly, stylized, realistic or painterly, that can be applied to any Species: it sets how the tree is drawn (shading, leaf shape, textures, polygon detail) and may set its overall size (painterly scales every tree to 2–4 m, keeping its proportions), but never what shape it grows.
+A visual look shipped with the library, such as low-poly, stylized, realistic, painterly, whimsical or enchanted, that can be applied to any Species: it sets how the tree is drawn (shading, leaf shape, textures, polygon detail) and may set its overall size (painterly scales every tree to 2–4 m, keeping its proportions) or its Twist (a Fantasy Style), but never anything else about what shape it grows.
 _Avoid_: Theme, type, kind
+
+**Fantasy Style**:
+A Style that draws trees as no real tree looks and wrings every tree it draws with its own Twist, keeping the Species' Crown Shape, branches and Fruit: Whimsical or Enchanted.
+_Avoid_: Twisted style, fantasy preset
+
+**Whimsical**:
+The Fantasy Style built on Corkscrew: every tree swirls as one around a single Spin, in candy-bright colours with round puffs of leaves at its tips.
+_Avoid_: Seuss, cartoon, Truffula
+
+**Enchanted**:
+The Fantasy Style built on Snake: long, sinuous trunks and branches with deep blue-violet bark, sparse leaves and an Inner Glow, made for dark scenes.
+_Avoid_: Magic, glowing, bioluminescent style
 
 **Species**:
 A named kind of real tree shipped with the library, such as Oak, Birch or Douglas Fir, described once by its shape, foliage, colours and Season Profile, and drawn in any Style.
@@ -100,6 +112,10 @@ _Avoid_: Age, progress, scale
 The point in the yearly cycle, a value from 0 (first day of spring) to 1 (last day of winter), that sets a tree's leaf colour and leaf coverage.
 _Avoid_: Weather, time of year
 
+**Leaf Palette**:
+One of several alternative sets of leaf colours across Season in a Tree Definition, with a matching accent colour for the bark; the Seed picks one per tree, so a Forest of one Definition can come in many colours.
+_Avoid_: Colour scheme, theme, colour variant
+
 **Season Profile**:
 The part of a Tree Definition that says how leaf colour, leaf coverage and blossom change across Season, as keyframes from 0 to 1.
 _Avoid_: Season preset, season style
@@ -151,6 +167,10 @@ _Avoid_: Weather, frost, winter
 **Wetness**:
 A ready-made, opt-in Tree Shader Hook that darkens trees and gives them a sheen by a scene-wide wetness amount, as after rain, drawn to suit the tree's Style.
 _Avoid_: Rain, weather, wet look
+
+**Inner Glow**:
+Light a tree gives off by itself, from its leaves and from veins in its bark, so it shines even with no light on it, strongest at the thin edge of the crown and slowly pulsing; drawn only by the Enchanted Style. Unlike Leaf Translucency it needs no light behind the leaves.
+_Avoid_: Glow, emissive, bioluminescence, Leaf Glow (that is the Tree Effect)
 
 **Crown Volume**:
 The single smooth ellipsoid that encloses a tree's leaves when fully grown, used to light and shade the crown as one shape.

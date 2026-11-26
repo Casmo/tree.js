@@ -1,7 +1,8 @@
 // Season Profile: the leaf colour, leaf coverage and blossom keyframe tracks plus the blossom colour,
 // and (while the tree has Fruit) the Fruit amount and Fruit colour tracks. Keyframes are added at the
-// preview's current Season. A strip under each track shows it across the year.
+// preview's current Season. A strip under each track shows it across the year. Then the Leaf Palettes.
 import { fieldControl } from './controls';
+import { leafPalettesEditor } from './leaf-palettes-editor';
 import { SEASON_FIELDS, SEASON_TRACKS } from './fields';
 import { trackEditor } from './track-editor';
 import type { Panel } from './types';
@@ -34,7 +35,7 @@ export const seasonPanel: Panel = {
       }
       return editor;
     });
-    root.append(...SEASON_FIELDS.map((field) => fieldControl(context, field)), ...tracks);
+    root.append(...SEASON_FIELDS.map((field) => fieldControl(context, field)), ...tracks, leafPalettesEditor(context));
     return root;
   },
 };

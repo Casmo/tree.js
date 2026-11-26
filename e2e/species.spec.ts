@@ -99,9 +99,10 @@ test('React Three Fiber: <Tree species={oak} style={lowPoly} seed={7} /> renders
   await expect(page.locator('canvas')).toHaveScreenshot('react-species-oak.png', { mask: [page.locator('#status')] });
 });
 
-for (const style of ['low-poly', 'stylized', 'realistic', 'painterly']) {
+for (const style of ['low-poly', 'stylized', 'realistic', 'painterly', 'whimsical', 'enchanted']) {
   test(`vanilla: the Oak Species in the ${style} Style (loadSpecies + style.apply)`, async ({ page }) => {
-    await page.goto(`/examples/vanilla/?species=oak&style=${style}&seed=1`);
+    // The Enchanted Inner Glow pulses with the Wind clock: pinned, so its screenshot is the same every run.
+    await page.goto(`/examples/vanilla/?species=oak&style=${style}&seed=1${style === 'enchanted' ? '&windTime=0' : ''}`);
     expect(await rendered(page, 'treeExample')).toMatchObject({ status: 'rendered' });
     await expect(page.locator('#status')).toContainText('Oak');
     await expect(page.locator('canvas')).toHaveScreenshot(`species-oak-${style}.png`, { mask: [page.locator('#status')] });
@@ -120,7 +121,7 @@ test.describe('examples/species: a Species x Style picker', () => {
       'Broadleaf',
       'Conifer',
     ]);
-    expect(await page.getByLabel('Style').locator('option').allTextContents()).toEqual(['low-poly', 'stylized', 'realistic', 'painterly']);
+    expect(await page.getByLabel('Style').locator('option').allTextContents()).toEqual(['low-poly', 'stylized', 'realistic', 'painterly', 'whimsical', 'enchanted']);
   });
 
   test('picking a Species and a Style grows that tree in that Style', async ({ page }) => {

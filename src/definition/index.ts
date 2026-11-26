@@ -1,4 +1,4 @@
-export { BARK_TYPES, CURRENT_SCHEMA_VERSION, DEFAULT_LEAF_MASSES, FRUIT_TYPES, LEAF_TYPES, MAX_BRANCH_LEVELS, SPINS, TWIST_STYLES } from './types';
+export { BARK_TYPES, CURRENT_SCHEMA_VERSION, DEFAULT_LEAF_MASSES, FRUIT_TYPES, LEAF_TYPES, MAX_BRANCH_LEVELS, MAX_INNER_GLOW, SHADINGS, SPINS, TWIST_STYLES } from './types';
 export type {
   TreeDefinition,
   TreeDefinitionInput,
@@ -26,8 +26,10 @@ export type {
   MaterialFeatures,
   TranslucencyDefinition,
   OcclusionDefinition,
+  InnerGlowDefinition,
   Keyframe,
   SeasonProfileDefinition,
+  LeafPalette,
   WindResponseDefinition,
   VariationDefinition,
   Sculpt,
@@ -36,7 +38,7 @@ export type {
   LeavesSculpt,
 } from './types';
 export { coneCurve } from './crown-shape';
-export { DEFAULT_DEFINITION, DEFAULT_BRANCH_LEVEL, DEFAULT_FRUIT, DEFAULT_GROUND_TINT, DEFAULT_OCCLUSION, DEFAULT_ROOTS, DEFAULT_TRANSLUCENCY, DEFAULT_FRUIT_AMOUNT, DEFAULT_FRUIT_COLOR } from './defaults';
+export { DEFAULT_DEFINITION, DEFAULT_BRANCH_LEVEL, DEFAULT_FRUIT, DEFAULT_GROUND_TINT, DEFAULT_INNER_GLOW, DEFAULT_OCCLUSION, DEFAULT_ROOTS, DEFAULT_TRANSLUCENCY, DEFAULT_FRUIT_AMOUNT, DEFAULT_FRUIT_COLOR } from './defaults';
 export {
   parseDefinition,
   extendDefinition,

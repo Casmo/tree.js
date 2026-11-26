@@ -27,7 +27,7 @@ const outputsOf = (pipeline: ScenePipeline) => Object.keys(pipeline.scenePass.pa
 
 describe('SUGGESTED_SCENE_EFFECTS', () => {
   it('suggests Neutral tone mapping for low-poly, AgX for stylized and realistic, and none for painterly (its own colours)', () => {
-    expect(Object.keys(SUGGESTED_SCENE_EFFECTS).sort()).toEqual(['low-poly', 'painterly', 'realistic', 'stylized']);
+    expect(Object.keys(SUGGESTED_SCENE_EFFECTS).sort()).toEqual(['enchanted', 'low-poly', 'painterly', 'realistic', 'stylized', 'whimsical']);
     expect(SUGGESTED_SCENE_EFFECTS.painterly.toneMapping).toBeUndefined();
     expect(SUGGESTED_SCENE_EFFECTS['low-poly'].toneMapping?.mapping).toBe('neutral');
     expect(SUGGESTED_SCENE_EFFECTS.stylized.toneMapping?.mapping).toBe('agx');
@@ -54,6 +54,10 @@ describe('SUGGESTED_SCENE_EFFECTS', () => {
     expect(parts('realistic')).toEqual(['antialias', 'ao', 'bloom', 'fog', 'godrays', 'toneMapping']);
     // Painterly needs no post (ADR 0014): no tone mapping curve and no bloom, only ground contact, SMAA and fog.
     expect(parts('painterly')).toEqual(['antialias', 'ao', 'fog']);
+    // Whimsical: AgX, light AO, pastel fog and almost no bloom.
+    expect(parts('whimsical')).toEqual(['antialias', 'ao', 'bloom', 'fog', 'toneMapping']);
+    // Enchanted: AgX, AO, a strong bloom for the Inner Glow and a violet ground mist.
+    expect(parts('enchanted')).toEqual(['antialias', 'ao', 'bloom', 'fog', 'toneMapping']);
     expect(SUGGESTED_SCENE_EFFECTS['low-poly'].ao!.scale!).toBeLessThan(SUGGESTED_SCENE_EFFECTS.stylized.ao!.scale!);
   });
 });
@@ -101,7 +105,7 @@ describe('ScenePipeline settings', () => {
   });
 
   it('picks both the suggested Tree Effects and the suggested Scene Effects of a Style', () => {
-    for (const style of ['low-poly', 'stylized', 'realistic', 'painterly'] as const) {
+    for (const style of ['low-poly', 'stylized', 'realistic', 'painterly', 'whimsical', 'enchanted'] as const) {
       const pipeline = create({ style });
       expect(pipeline.settings.treeEffects).toBe(SUGGESTED_TREE_EFFECTS[style]);
       expect(pipeline.settings.sceneEffects).toBe(SUGGESTED_SCENE_EFFECTS[style]);

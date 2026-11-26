@@ -51,4 +51,23 @@ export const SUGGESTED_SCENE_EFFECTS: Record<StyleName, SceneEffectsSettings> = 
     antialias: 'smaa',
     fog: { near: 15, far: 130 },
   },
+  // Bright and saturated: Neutral, not AgX (AgX greys the candy colours and the sky at any exposure), light
+  // AO (the shade is meant to stay bright), a light pastel pink fog that only touches the far trees and
+  // almost no bloom (the colours glow on their own).
+  whimsical: {
+    toneMapping: { mapping: 'neutral' },
+    ao: { radius: 1, scale: 0.5, thickness: 1.5 },
+    bloom: { strength: 0.02, radius: 0.4, threshold: 0.9 },
+    antialias: 'smaa',
+    fog: { color: '#fdf0f8', near: 30, far: 220 },
+  },
+  // Made for the dark: AgX, a strong bloom with a low threshold so the Inner Glow blooms, AO for ground
+  // contact and a violet mist lying low on the ground.
+  enchanted: {
+    toneMapping: { mapping: 'agx', exposure: 1.1 },
+    ao: { radius: 1.2, scale: 1.2, thickness: 2 },
+    bloom: { strength: 0.6, radius: 0.6, threshold: 0.15 },
+    antialias: 'smaa',
+    fog: { color: '#5e3888', near: 20, far: 140, mist: { height: 1.8, strength: 0.6, near: 8, far: 45 } },
+  },
 };

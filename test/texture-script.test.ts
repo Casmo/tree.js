@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const script = fileURLToPath(new URL('../scripts/generate-textures.mjs', import.meta.url));
 const committed = fileURLToPath(new URL('../assets/textures/', import.meta.url));
-const SETS = ['painterly', 'realistic'];
+const SETS = ['enchanted', 'painterly', 'realistic'];
 
 /** Runs the texture script into a fresh directory; returns 'set/file name' -> bytes. */
 function generate(): Map<string, Buffer> {
@@ -43,6 +43,18 @@ describe('scripts/generate-textures.mjs', () => {
       'spray-needle.png',
       'spray-palmate.png',
       'spray-scale.png',
+    ]);
+  });
+
+  it('makes a glowing enchanted leaf card per Leaf Type (bright veins and edge, dark centre, alpha-cut) and a veined bark', () => {
+    expect(readdirSync(join(committed, 'enchanted')).sort()).toEqual([
+      'bark-veins.png',
+      'leaf-broad.png',
+      'leaf-compound.png',
+      'leaf-lobed.png',
+      'leaf-needle.png',
+      'leaf-palmate.png',
+      'leaf-scale.png',
     ]);
   });
 });
