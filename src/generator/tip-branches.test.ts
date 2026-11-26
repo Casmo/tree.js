@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition, type DefinitionPatch } from '../definition';
+import { oak } from '../species';
+import { loadStyle, STYLE_NAMES } from '../styles/registry';
 import { angleBetween, segments, unit, sub } from '../../test/branch-geometry';
 import { generateTree, hashTreeData, type SkeletonBranch, type TreeData } from './index';
 
@@ -133,6 +135,24 @@ describe('Tip Branches', () => {
     expect(hashTreeData(grow({}, 11))).not.toBe(hashTreeData(grow({}, 12)));
     // Hashes of this Definition generated before Tip Branches existed.
     expect([5, 11].map((seed) => hashTreeData(grow({ branches: levels(0, 0) }, seed)))).toEqual(BEFORE_TIP_BRANCHES);
+  });
+});
+
+describe('Tip Branches in every Style', () => {
+  it.each(STYLE_NAMES)('%s passes a level\'s Tip Branches through like its count and draws them', async (name) => {
+    const style = await loadStyle(name);
+    // Absent on the Species: the default, Tip Branches on the first two levels.
+    const drawn = style.apply(oak);
+    expect(drawn.branches.map((level) => level.tipBranches)).toEqual(oak.branches.map(() => undefined));
+    const tips = generateTree(drawn, 1).skeleton.branches.filter((b) => b.tip);
+    expect(new Set(tips.map((b) => b.level))).toEqual(new Set([1, 2].filter((level) => level <= drawn.branches.length)));
+    // Set on the Species: kept, and 0 everywhere draws no Tip Branch.
+    const set = style.apply({ ...oak, branches: oak.branches.map((level, i) => ({ ...level, tipBranches: i === 0 ? 3 : 0 })) });
+    expect(set.branches.map((level) => level.tipBranches)).toEqual(oak.branches.map((_, i) => (i === 0 ? 3 : 0)));
+    const none = style.apply({ ...oak, branches: oak.branches.map((level) => ({ ...level, tipBranches: 0 })) });
+    expect(generateTree(none, 1).skeleton.branches.some((b) => b.tip)).toBe(false);
+    // Re-applying a Style to a drawn Definition keeps them too.
+    expect(style.apply(set).branches.map((level) => level.tipBranches)).toEqual(set.branches.map((level) => level.tipBranches));
   });
 });
 
