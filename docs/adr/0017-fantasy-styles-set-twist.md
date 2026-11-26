@@ -9,4 +9,6 @@ The two Fantasy Styles, Whimsical (Corkscrew) and Enchanted (Snake), each write 
 
 ## Consequences
 
-Switching a tree from a Fantasy Style to another Style in the Tree Editor keeps its Twist, as switching away from Painterly keeps its size: the Twist is now part of the Definition.
+Switching a tree from a Fantasy Style to another Style in the Tree Editor keeps everything the Fantasy Style wrote, its Twist, its Leaf Palettes, its Season leaf colours, its bark colour and its Inner Glow (ignored by other shadings), as switching away from Painterly keeps its size: these are now part of the Definition and may hold the user's edits. We rejected restoring the Species' colours or Twist from the remembered Species id, because it would silently throw away hand edits. Switching between the two Fantasy Styles replaces the Twist, palettes and Inner Glow with the new Style's. To get the real Species back, start from it again.
+
+A Fantasy Style also brings its own colours (Leaf Palettes and Season leaf colours, keeping the Species' Season timing) and its own shading (`whimsical`, `enchanted`), so the rule "one shading per Style" still holds.
