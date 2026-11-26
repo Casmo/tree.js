@@ -252,7 +252,9 @@ A branch level's `twistStyle` picks the kind of Twist: `'snake'` (the default, a
 where each branch spirals around its own course: it leans `twist` × 45° off it while the side it leans to
 goes round one full turn per `twists`, easing in from its start direction. `spin` sets which way round:
 `'clockwise'` or `'counterclockwise'` (seen from the branch's base), or `'random'` (the default, the Seed
-picks per branch). A Corkscrew branch gets max(`sections`, 6 × `twists`) Sections. `twistCurve` (0..1,
+picks per branch). A Corkscrew branch gets max(`sections`, 6 × `twists`) Sections. Its bark and tube
+facets roll with the spiral (one full roll per `twists`, the same way round), and so do its side branches,
+leaves and Fruit, so it looks wrung as a whole; Snake branches keep their unrolled bark. `twistCurve` (0..1,
 default 0) also turns a Corkscrew's course while it spirals, eased in and out, by up to `twistCurve` × 180°
 to a side the Seed picks per branch: 0 is a plain corkscrew, 1 curls the branch back on itself. It adds no
 Sections and does nothing on a Snake.

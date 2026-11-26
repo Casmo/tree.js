@@ -395,3 +395,102 @@ describe('Twist Curve on Corkscrew branch levels', () => {
     expect(mean(heights(1))).toBeGreaterThan(flat + 0.1);
   });
 });
+
+describe('Corkscrew rolls its bark and what grows on it (ADR 0016)', () => {
+  /** Signed angle (turns) from `a` to `b` around unit `axis`, both first made perpendicular to it: positive clockwise seen looking along `axis`. */
+  const turnAbout = (a: Vec3, b: Vec3, axis: Vec3) => {
+    const [x, y] = [a, b].map((v) => sub(v, scaled(axis, dotted(v, axis))));
+    return Math.atan2(dotted(crossed(x!, y!), axis), dotted(x!, y!)) / (2 * Math.PI);
+  };
+  /** `x` (turns) wrapped into -0.5 .. 0.5. */
+  const wrapped = (x: number) => x - Math.round(x);
+  /**
+   * Barely-twisted courses (straight, Twist 0.02 so the lean is under 1°), so what is measured is
+   * the roll of the frames, not the path. Level 1 holds side branches, level 2 leaves and Fruit.
+   */
+  const tree = (more: Partial<BranchLevelDefinition>[]) =>
+    generateTree(
+      parseDefinition({
+        schemaVersion: 3,
+        branches: more.map((m, i) => ({ count: i === 0 ? 3 : 6, sections: i === 0 ? 2 : 7, bend: 0, gravity: 0, spiral: 0, ...m })),
+        leaves: { count: 8 },
+        fruit: { count: 3, hang: 0 },
+      }),
+      5,
+    );
+  const barely = (more: Partial<BranchLevelDefinition> = {}): Partial<BranchLevelDefinition> => ({ twistStyle: 'corkscrew', twist: 0.02, ...more });
+
+  /** The u = 0 bark seam of a branch: per ring, its seam vertex's way out from the ring's centre. */
+  function seam(data: ReturnType<typeof generateTree>, b: SkeletonBranch): Vec3[] {
+    const { positions } = data.wood;
+    const { aOrigin } = data.wood.attributes;
+    const base = b.points[0]!.position.map((x) => Math.fround(x));
+    const mine: number[] = [];
+    for (let v = 0; v < aOrigin.array.length / 3; v++) if ([0, 1, 2].every((k) => aOrigin.array[v * 3 + k] === base[k])) mine.push(v);
+    const rings = b.points.length;
+    const ringSize = (mine.length - 1) / rings;
+    expect(Number.isInteger(ringSize)).toBe(true);
+    return b.points.map((p, r) => {
+      const v = mine[0]! + r * ringSize;
+      return sub([positions[v * 3]!, positions[v * 3 + 1]!, positions[v * 3 + 2]!], p.position);
+    });
+  }
+  /** Turns the bark seam makes around a branch from base to tip. */
+  const seamTurns = (data: ReturnType<typeof generateTree>, b: SkeletonBranch) => {
+    const out = seam(data, b);
+    const axes = segments(b);
+    let total = 0;
+    for (let r = 1; r < out.length; r++) total += turnAbout(out[r - 1]!, out[r]!, axes[r - 1]!);
+    return total;
+  };
+
+  it('rolls the bark seam (UVs and tube facets) one full turn per Twists, in the Spin direction', () => {
+    for (const [spin, sign] of [['clockwise', 1], ['counterclockwise', -1]] as const) {
+      for (const twists of [1, 3]) {
+        const data = tree([barely({ spin, twists }), barely({ spin, twists: 2 })]);
+        for (const b of data.skeleton.branches.filter((b) => b.level > 0)) {
+          const expected = sign * (b.level === 1 ? twists : 2);
+          expect(seamTurns(data, b), `${spin} ${b.path}`).toBeCloseTo(expected, 1);
+        }
+      }
+    }
+  });
+
+  it('keeps unrolled bark on Snake, untwisted and Twist 0 branches', () => {
+    for (const twist of [{}, { twist: 0.02, twists: 3 }, { twistStyle: 'corkscrew' as const, twist: 0, twists: 3 }]) {
+      const data = tree([twist, twist]);
+      for (const b of data.skeleton.branches.filter((b) => b.level > 0)) expect(Math.abs(seamTurns(data, b)), JSON.stringify(twist)).toBeLessThan(0.02);
+    }
+  });
+
+  it('rolls the side branches around a Corkscrew parent with its bark', () => {
+    for (const [spin, sign] of [['clockwise', 1], ['counterclockwise', -1]] as const) {
+      const plain = tree([{ twist: 0 }, {}]);
+      const data = tree([barely({ spin, twists: 3 }), {}]);
+      const byPath = new Map(plain.skeleton.branches.map((b) => [b.path, b]));
+      const children = onLevel(data, 2);
+      expect(children.length).toBeGreaterThan(0);
+      for (const child of children) {
+        const before = plain.skeleton.branches.find((b) => b.path === child.path)!;
+        const axis = tangentAt(byPath.get(child.parent!)!, child.attach);
+        expect(wrapped(turnAbout(before.direction, child.direction, axis) - sign * 3 * child.attach), child.path).toBeCloseTo(0, 1);
+      }
+    }
+  });
+
+  it('rolls the leaves and Fruit around a Corkscrew branch with its bark', () => {
+    const plain = tree([{}, { twist: 0 }]);
+    const data = tree([{}, barely({ spin: 'clockwise', twists: 2 })]);
+    const branches = new Map(plain.skeleton.branches.map((b) => [b.path, b]));
+    for (const parts of ['leaves', 'fruit'] as const) {
+      const before = new Map(plain.skeleton[parts].map((p) => [p.id, p]));
+      expect(data.skeleton[parts].length).toBeGreaterThan(0);
+      for (const part of data.skeleton[parts]) {
+        const axis = tangentAt(branches.get(part.branch)!, part.attach);
+        const was = before.get(part.id)!;
+        const turned = turnAbout(was.direction, part.direction, axis);
+        expect(wrapped(turned - 2 * part.attach), `${parts} ${part.id}`).toBeCloseTo(0, 1);
+      }
+    }
+  });
+});

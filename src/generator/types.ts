@@ -23,6 +23,12 @@ export interface SkeletonBranch {
   /** Unit direction the branch leaves its parent in (before bend and gravity); straight up for the trunk. */
   direction: Vec3;
   points: SkeletonPoint[];
+  /**
+   * How far a Corkscrew's cross-section rolls around its centre line from base to tip, radians, on top
+   * of parallel transport (ADR 0016): spin × 2π × Twists, spread evenly along its length. Its bark, side
+   * branches, leaves and Fruit roll with it. Absent (no roll) for a Snake, without Twist and for Roots.
+   */
+  roll?: number;
 }
 
 /**
