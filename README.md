@@ -158,8 +158,9 @@ scene.add(oak, pine, birch, tallPine);
 
 ![A Whimsical grove by day: corkscrewing trees with candy-striped trunks and round pom-poms in pink, mint and orange; and an Enchanted Forest at night: sinuous dark trees whose teal leaves glow, with bloom and a violet ground mist](docs/images/fantasy.png)
 
-*Left: a Whimsical grove by day, with its suggested Tree Effects. Right: an Enchanted Forest at night (no sun),
-through `createScenePipeline(renderer, scene, camera, { style: 'enchanted' })`: its bloom makes the Inner Glow shine.*
+*Left: a Whimsical grove by day, through `createScenePipeline(renderer, scene, camera, { style: 'whimsical' })`
+(its suggested Tree Effects and Scene Effects). Right: an Enchanted Forest at night (no sun), through
+`createScenePipeline(renderer, scene, camera, { style: 'enchanted' })`: its bloom makes the Inner Glow shine.*
 
 `whimsical` and `enchanted` are the two **Fantasy Styles**: they draw trees as no real tree looks. Like
 every Style they apply to any Species or Definition, keeping its Crown Shape, branch counts, Fruit and Roots
@@ -1343,7 +1344,7 @@ forest (trees 10-30 m away); scale it up for large worlds:
 | `stylized` | AgX | SMAA | yes | soft | distance + low mist | - |
 | `realistic` | AgX | SMAA | yes | subtle | distance + mist + far haze | yes (needs `sun`) |
 | `painterly` | - (the renderer's own; keeps the painted colours) | SMAA | light | - | distance | - |
-| `whimsical` | AgX | SMAA | light | faint | distance, pastel pink | - |
+| `whimsical` | Neutral (keeps the candy colours saturated) | SMAA | light | faint | far distance, light pastel pink | - |
 | `enchanted` | AgX | SMAA | yes | strong, low threshold (the Inner Glow blooms) | distance + low mist, violet | - |
 
 SMAA is in every suggestion because the [Tree ID](#tree-id) channel turns MSAA off. TRAA and motion

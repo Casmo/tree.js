@@ -179,8 +179,8 @@ const SHOTS: Record<string, (stage: Stage) => Promise<Shot>> = {
   },
 
   /**
-   * Fantasy Styles (captured twice, side by side): a Whimsical grove by day (?part=day) with its suggested Tree
-   * Effects (its pastel Scene Effects would wash out the candy colours in a small picture), and an Enchanted Forest
+   * Fantasy Styles (captured twice, side by side): a Whimsical grove by day (?part=day) through the Scene Pipeline
+   * with its suggested Tree Effects and Scene Effects, and an Enchanted Forest
    * at night (?part=night: no sun, a faint cool sky light) through the Scene Pipeline with its suggested Tree
    * Effects and Scene Effects (the bloom makes the Inner Glow shine). The Wind clock stays at 0 (pulse pinned).
    */
@@ -211,7 +211,7 @@ const SHOTS: Record<string, (stage: Stage) => Promise<Shot>> = {
     camera.position.set(night ? -8 : -4, night ? 4 : 3.5, night ? 46 : 28);
     camera.lookAt(0, night ? 7 : 5, 0);
     camera.updateProjectionMatrix();
-    const pipeline = createScenePipeline(renderer, scene, camera, night ? { style: 'enchanted' } : { style: 'whimsical', sceneEffects: null });
+    const pipeline = createScenePipeline(renderer, scene, camera, { style: night ? 'enchanted' : 'whimsical' });
     return {
       frames: 1,
       async render() {
