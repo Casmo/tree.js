@@ -112,6 +112,10 @@ _Avoid_: Inherit twist, chain twist
 How far a tree has grown, a value from 0 (sapling) to 1 (fully grown) that the app may change at any moment to animate it.
 _Avoid_: Age, progress, scale
 
+**Leaf Start**:
+The Growth at which a tree's first leaves may begin to unfold; from there leaves fill out until they are full size at Growth 1.
+_Avoid_: Leaf delay, leaf growth offset, leaf phase
+
 **Season**:
 The point in the yearly cycle, a value from 0 (first day of spring) to 1 (last day of winter), that sets a tree's leaf colour and leaf coverage.
 _Avoid_: Weather, time of year
