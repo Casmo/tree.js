@@ -45,6 +45,13 @@ export interface TwistPath {
    * rolls its frames, ADR 0016). Always 0 for a Snake or without Twist.
    */
   roll(u: number): number;
+  /**
+   * The unit axis across `start` a Corkscrew's Twist Curve turns its course about (right-handed, by
+   * up to Twist Curve × 180°), picked by the Seed; carried onto the course like the spiral's side.
+   * Drawn also while Twist Curve is 0, so a branch's children can bend the same way (Follow Twist).
+   * Null for a Snake or without Twist.
+   */
+  readonly curveAxis: Vec3 | null;
 }
 
 /**
@@ -71,12 +78,12 @@ export function originalSectionStart(j: number, sections: number, built: number)
  * `random` must be the branch's or Stem's own Twist stream (ADR 0003: never a stream today's draws
  * use); it picks the direction of every turn around the branch's axis, each turn roughly opposite
  * the last so the path snakes. A Corkscrew makes the same draws (the first turn's direction is where
- * its spiral starts) and then one for its Spin, also when the Spin is given, so later draws (the Twist
- * Curve's) always come from the same place in the stream.
+ * its spiral starts), then one for its Spin, also when the Spin is given, and then one for the axis
+ * its Twist Curve turns the course about, also when the Twist Curve is 0 (ADR 0003).
  */
 export function twistPath(settings: TwistSettings, sections: number, start: Vec3, random: Random): TwistPath {
   const twist = settings.twist ?? 0;
-  if (twist <= 0) return { sections, spin: 0, takesBend: () => true, steer: (course) => course, roll: () => 0 };
+  if (twist <= 0) return { sections, spin: 0, curveAxis: null, takesBend: () => true, steer: (course) => course, roll: () => 0 };
 
   const turns = settings.twists ?? DEFAULT_TWISTS;
   const builtSections = twistedSections(sections, settings);
@@ -98,10 +105,14 @@ export function twistPath(settings: TwistSettings, sections: number, start: Vec3
   if (settings.twistStyle === 'corkscrew') {
     const picked = random.next() < 0.5 ? 1 : -1;
     const spin = settings.spin === 'clockwise' ? 1 : settings.spin === 'counterclockwise' ? -1 : picked;
+    const curveAzimuth = random.range(0, Math.PI * 2);
+    const curveAxis = add(scale(axisA, cos(curveAzimuth)), scale(axisB, sin(curveAzimuth)));
+    const curve = (settings.twistCurve ?? 0) * Math.PI;
     const roll = (u: number) => spin * 2 * Math.PI * turns * Math.min(Math.max(u, 0), 1);
     return {
       sections: builtSections,
       spin,
+      curveAxis,
       takesBend,
       roll,
       steer: (course, u) => {
@@ -109,8 +120,16 @@ export function twistPath(settings: TwistSettings, sections: number, start: Vec3
         // The side it leans to goes round `start` (right-handed for spin 1), carried onto the course by
         // the smallest rotation from `start` to it, so the spiral follows a course that Gravity or Bend turn.
         const phase = spiralStart + roll(u);
-        const side = carry(add(scale(axisA, cos(phase)), scale(axisB, sin(phase))), start, course);
+        let side = carry(add(scale(axisA, cos(phase)), scale(axisB, sin(phase))), start, course);
         if (!side) return course;
+        // The Twist Curve turns the course, and the spiral's side with it, about the curve axis carried
+        // onto the course: eased in and out over the whole length, so it adds no kinks.
+        if (curve > 0) {
+          const axis = carry(curveAxis, start, course)!;
+          const angle = curve * smoothstep(Math.min(Math.max(u, 0), 1));
+          course = rotate(course, axis, angle);
+          side = rotate(side, axis, angle);
+        }
         const lean = swing * smoothstep(Math.min(along / EASE_TURNS, 1));
         return normalize(add(scale(course, cos(lean)), scale(side, sin(lean))));
       },
@@ -120,6 +139,7 @@ export function twistPath(settings: TwistSettings, sections: number, start: Vec3
   return {
     sections: builtSections,
     spin: 0,
+    curveAxis: null,
     takesBend,
     roll: () => 0,
     steer: (course, u) => {
@@ -135,7 +155,13 @@ export function twistPath(settings: TwistSettings, sections: number, start: Vec3
   };
 }
 
-/** 0 at 0, 1 at 1, with no slope at either end: the Corkscrew's lean eases in without a kink. */
+/** Unit `v` turned by `angle` radians about the unit `axis` (right-handed). */
+function rotate(v: Vec3, axis: Vec3, angle: number): Vec3 {
+  const c = cos(angle);
+  return add(add(scale(v, c), scale(cross(axis, v), sin(angle))), scale(axis, dot(axis, v) * (1 - c)));
+}
+
+/** 0 at 0, 1 at 1, with no slope at either end: the Corkscrew's lean and its Twist Curve ease in (and out) without a kink. */
 const smoothstep = (x: number) => x * x * (3 - 2 * x);
 
 /**

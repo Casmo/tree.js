@@ -74,7 +74,7 @@ describe('Twisted trees downstream', () => {
 
 /** A Style's broadleaf with Corkscrew branch levels (the trunk keeps its Twist settings). */
 const corkscrewed = (definition: TreeDefinition, twist = 0.7, twists = 3) =>
-  extendDefinition(definition, { branches: definition.branches.map((level, i) => ({ ...level, twist, twists, twistStyle: 'corkscrew' as const, spin: i % 2 ? 'clockwise' as const : 'random' as const })) });
+  extendDefinition(definition, { branches: definition.branches.map((level, i) => ({ ...level, twist, twists, twistStyle: 'corkscrew' as const, twistCurve: 0.6, spin: i % 2 ? 'clockwise' as const : 'random' as const })) });
 
 describe('Corkscrew trees downstream', () => {
   it('grow, change with the Season and carry Wind attributes like any tree', () => {

@@ -3,7 +3,7 @@ import type { BranchLevelDefinition, TreeDefinition } from '../definition';
 import type { Random } from '../random';
 import { sampleTrack } from '../season/profile';
 import { branchFrames, pathLength, sampleBranch } from './frames';
-import { twistPath } from './twist';
+import { twistPath, type TwistPath } from './twist';
 import type { SkeletonBranch, SkeletonPoint, Vec3 } from './types';
 import { add, normalize, scale } from './vec';
 
@@ -22,11 +22,13 @@ const GRAVITY_PER_BRANCH = 1.5;
 export function buildBranches(definition: TreeDefinition, stems: SkeletonBranch[], random: Random): SkeletonBranch[] {
   const out: SkeletonBranch[] = [];
   const queue: SkeletonBranch[] = [...stems];
+  // Each grown branch's Twist (its Spin, roll and curve axis), there for its children when they are grown (Follow Twist).
+  const twists = new Map<string, TwistPath>();
   for (let q = 0; q < queue.length; q++) {
     const parent = queue[q]!;
     const level = definition.branches[parent.level];
     if (!level) continue;
-    const children = growChildren(parent, level, random);
+    const children = growChildren(parent, level, random, twists);
     out.push(...children);
     queue.push(...children);
   }
@@ -38,9 +40,10 @@ const crownShape = (curve: BranchLevelDefinition['lengthProfile'], t: number) =>
 
 /**
  * Grows one parent's children. The Crown Shape curves (`lengthProfile`, `angleProfile`) scale each
- * child's length and angle by where it sits on the parent (ADR 0004).
+ * child's length and angle by where it sits on the parent (ADR 0004). Each child's Twist goes into
+ * `twists` under its path, so its own children can read it.
  */
-function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, random: Random): SkeletonBranch[] {
+function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, random: Random, twists: Map<string, TwistPath>): SkeletonBranch[] {
   const count = level.count;
   const azimuth0 = random.fork(parent.path).range(0, Math.PI * 2);
   const frames = branchFrames(parent);
@@ -58,6 +61,7 @@ function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, rand
     const across = add(scale(at.normal, cos(azimuth)), scale(at.binormal, sin(azimuth)));
     const start = normalize(add(scale(at.tangent, cos(angle)), scale(across, sin(angle))));
     const twisting = twistPath(level, level.sections, start, r.fork('twist'));
+    twists.set(path, twisting);
     const sections = twisting.sections;
     // Gravity bends the branch up (+) or down (-) a little more with every Section; spread over the
     // Sections, so a Twist's extra Sections do not add to its total pull (ADR 0015).
