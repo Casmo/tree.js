@@ -159,6 +159,13 @@ export interface BranchLevelDefinition extends TwistSettings {
   lengthProfile?: Keyframe<number>[];
   /** Crown Shape: multiplies `angle` by the attach position on the parent, like `lengthProfile` (values >= 0; the angle stays <= 180). */
   angleProfile?: Keyframe<number>[];
+  /**
+   * Follow Twist (GLOSSARY.md): a Corkscrew branch on a Corkscrew parent (both with Twist > 0; the trunk
+   * for the first level) takes the parent's Spin, starts its spiral where the parent's is at the attach
+   * point and bends its Twist Curve to the parent's side; its own Twist, Twists and Twist Curve still
+   * set the amounts. No effect in any other combination. Branch levels only. Absent = false.
+   */
+  followTwist?: boolean;
 }
 
 /** Maximum number of branching levels below the trunk. */
