@@ -12,7 +12,7 @@ import enchanted from '../src/styles/enchanted';
 import whimsical from '../src/styles/whimsical';
 import { definitionForSeed, evaluateSeason } from '../src/season';
 import { installGltfExporterGlobals } from './fixtures/node-gltf';
-import { withoutTipBranches } from './branch-geometry';
+import { withoutTipBranches } from './definitions';
 
 // GLTFExporter writes its buffers through FileReader, which plain Node lacks (browsers have it).
 beforeAll(() => {

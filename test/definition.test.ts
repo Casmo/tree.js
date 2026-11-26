@@ -17,7 +17,7 @@ import {
   tipBranchesOf,
   type TreeDefinitionInput,
 } from '../src/index';
-import { withoutTipBranches } from './branch-geometry';
+import { withoutTipBranches } from './definitions';
 
 const fixture = (name: string): unknown =>
   JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'));

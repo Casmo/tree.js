@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { hashTreeData, parseDefinition, type SpeciesDefinition, type TreeData } from '../../src/index';
 import { generateTree } from '../../src/generator';
-import { withoutTipBranches } from '../branch-geometry';
+import { withoutTipBranches } from '../definitions';
 import * as collection from '../../src/species';
 import lowPoly from '../../src/styles/low-poly';
 import stylized from '../../src/styles/stylized';

@@ -7,7 +7,7 @@ import { parseDefinition, type SpeciesDefinition, type TreeData } from '../../sr
 import { generateTree } from '../../src/generator';
 import { SPECIES_NAMES, loadSpecies, type SpeciesName } from '../../src/species';
 import lowPoly from '../../src/styles/low-poly';
-import { withoutTipBranches } from '../branch-geometry';
+import { withoutTipBranches } from '../definitions';
 import stylized from '../../src/styles/stylized';
 import realistic from '../../src/styles/realistic';
 

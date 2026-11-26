@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition, TreeDefinitionError } from '../definition';
-import { withoutTipBranches } from '../../test/branch-geometry';
+import { withoutTipBranches } from '../../test/definitions';
 import { generateTree, hashGeometry, hashTreeData, type GeometryBuffers, type TreeData, type Vec3 } from './index';
 
 const base = parseDefinition({

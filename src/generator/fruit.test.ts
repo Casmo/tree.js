@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition } from '../definition';
 import { growPositions } from '../growth/evaluate';
-import { withoutTipBranches } from '../../test/branch-geometry';
+import { withoutTipBranches } from '../../test/definitions';
 import { generateTree, hashGeometry, hashTreeData } from './index';
 
 const plain = parseDefinition({ schemaVersion: 3, branches: [{ count: 5 }, { count: 3, start: 0.2 }] });

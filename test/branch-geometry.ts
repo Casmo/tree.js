@@ -32,9 +32,3 @@ export function expectNoKinks(dirs: Vec3[], maxStep: number, maxChange: number, 
   for (const step of steps) expect(step, label).toBeLessThan(maxStep);
   for (let i = 1; i < steps.length; i++) expect(Math.abs(steps[i]! - steps[i - 1]!), label).toBeLessThan(maxChange);
 }
-
-/** `definition` with Tip Branches off on every level: every parent ends in a stump, the tree from before Tip Branches. */
-export const withoutTipBranches = <T extends { branches: object[] }>(definition: T): T => ({
-  ...definition,
-  branches: definition.branches.map((level) => ({ ...level, tipBranches: 0 })),
-});
