@@ -10,7 +10,6 @@ import type {
   InnerGlowDefinition,
   Keyframe,
   LeafPalette,
-  LeafType,
   Spin,
   TreeDefinition,
   TreeForm,
@@ -69,18 +68,22 @@ export interface FantasyRecipe {
   innerGlow?: InnerGlowDefinition;
 }
 
-/** The Form of a tree drawn with this Leaf Type: needle and scale foliage is a conifer's. */
-export const formOfLeafType = (type: LeafType): TreeForm => (type === 'needle' || type === 'scale' ? 'conifer' : 'broadleaf');
+/** The Season moments a palette's leaf colours are timed to (see `leafTiming`). */
+export interface LeafTiming {
+  full: number;
+  fall: number;
+  bare: number;
+}
 
 /** When an evergreen holds its colours: the Stylized evergreen's timing. */
-const EVERGREEN_TIMING = { full: 0.2, fall: 0.55, bare: 0.75 };
+const EVERGREEN_TIMING: LeafTiming = { full: 0.2, fall: 0.55, bare: 0.75 };
 
 /**
  * The Season moments a palette is timed to, from the leaf coverage track: `full` when the leaves are
  * first fully out, `fall` when they start to drop, `bare` when the coverage reaches its lowest. A track
  * whose coverage never falls is an evergreen's.
  */
-export function leafTiming(coverage: Keyframe<number>[]): { full: number; fall: number; bare: number; evergreen: boolean } {
+export function leafTiming(coverage: Keyframe<number>[]): LeafTiming & { evergreen: boolean } {
   const values = coverage.map((k) => k.value);
   const max = Math.max(...values);
   const full = coverage.findIndex((k) => k.value === max);
@@ -94,7 +97,7 @@ export function leafTiming(coverage: Keyframe<number>[]): { full: number; fall: 
 }
 
 /** A palette's leaf colour keyframes: spring at Season 0, summer while full, autumn as the leaves fall. */
-function leafColorOf(palette: FantasyPalette, { full, fall, bare }: { full: number; fall: number; bare: number }): Keyframe<HexColor>[] {
+function leafColorOf(palette: FantasyPalette, { full, fall, bare }: LeafTiming): Keyframe<HexColor>[] {
   // The leaves warm up over the first part of their fall and keep that colour until the end of winter.
   const turned = fall + (bare - fall) * 0.4;
   const hold = Math.max(turned, 0.97);

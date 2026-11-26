@@ -19,7 +19,7 @@ export interface TreeStyle {
    * Painterly also scales the tree uniformly to 2-4 m and records it in `styleScale` (ADR 0013), unless
    * the source is already Painterly-sized (has a `styleScale`, or is a Painterly Definition): it never
    * shrinks a tree twice. The other Styles keep real sizes.
-   * A Fantasy Style (whimsical) also writes its own Twist recipe onto the trunk and every branch level
+   * A Fantasy Style (Whimsical or Enchanted) also writes its own Twist recipe onto the trunk and every branch level
    * (milder for conifers), its bark colour, Season leaf colours and Leaf Palettes, keeping the source's
    * Season timing (ADR 0017). The other Styles keep what a Fantasy Style wrote.
    * `overrides` are merged on top like `extendDefinition`. Pure.

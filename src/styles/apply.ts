@@ -14,6 +14,7 @@ import {
   type LeafMaterialDefinition,
   type LeafShape,
   type LeafType,
+  type TreeForm,
   type TreeDefinition,
   type TreeDefinitionInput,
 } from '../definition/types';
@@ -22,7 +23,7 @@ import { styleOfShading, styleShading, type StyleName } from './names';
 import { materialFeaturesOf } from './material-features';
 import { BARK_TEXTURES, LEAF_TEXTURES } from './realistic/textures';
 import { compressHeight } from './painterly/height';
-import { applyFantasy, formOfLeafType, type FantasyRecipe } from './fantasy';
+import { applyFantasy, type FantasyRecipe } from './fantasy';
 import { WHIMSICAL } from './whimsical/recipe';
 import { ENCHANTED } from './enchanted/recipe';
 import { BARK_TEXTURE as VEINED_BARK, LEAF_TEXTURES as GLOWING_LEAVES } from './enchanted/textures';
@@ -67,6 +68,8 @@ interface StyleLook {
 }
 
 const isNeedleLike = (type: LeafType) => type === 'needle' || type === 'scale';
+/** The Form of a tree drawn with this Leaf Type: needle and scale foliage is a conifer's. */
+const formOfLeafType = (type: LeafType): TreeForm => (isNeedleLike(type) ? 'conifer' : 'broadleaf');
 const untexturedLeaf: LeafMaterialDefinition = { roughness: 1, map: null, alphaTest: 0.5 };
 const untexturedBark = () => ({ roughness: 1, map: null, normalMap: null });
 
@@ -153,10 +156,12 @@ const LOOKS = {
     fruitSides: 6,
     roots: { sides: 6, sections: 4 },
     fantasy: ENCHANTED,
-    leaf: (type) =>
-      isNeedleLike(type)
-        ? { shape: 'card', perDensity: 40, sizeScale: 1.9, material: { roughness: 0.8, map: GLOWING_LEAVES[type], alphaTest: 0.4 } }
-        : { shape: 'card', perDensity: 24, sizeScale: 2.4, material: { roughness: 0.8, map: GLOWING_LEAVES[type], alphaTest: 0.4 } },
+    leaf: (type) => {
+      const material = { roughness: 0.8, map: GLOWING_LEAVES[type], alphaTest: 0.4 };
+      return isNeedleLike(type)
+        ? { shape: 'card', perDensity: 40, sizeScale: 1.9, material }
+        : { shape: 'card', perDensity: 24, sizeScale: 2.4, material };
+    },
   },
 } satisfies Record<StyleName, StyleLook>;
 
