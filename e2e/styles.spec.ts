@@ -6,7 +6,7 @@ async function waitForExample(page: Page) {
 }
 
 // Reference screenshots for every built-in Style x Form, on both backends of WebGPURenderer.
-const styles = ['low-poly', 'stylized', 'realistic', 'whimsical', 'enchanted'];
+const styles = ['low-poly', 'stylized', 'realistic', 'whimsical', 'enchanted', 'stylized-painterly'];
 // The Enchanted Inner Glow pulses with the Wind clock: pin it so its screenshots are the same every run.
 const pinned = (style: string) => (style === 'enchanted' ? '&windTime=0' : '');
 const forms = ['broadleaf', 'conifer'];
@@ -113,12 +113,19 @@ const enchantedStates = [
   { form: 'broadleaf', name: 'night-autumn', query: '&night=1&season=0.66' },
   { form: 'broadleaf', name: 'night-pulse-low', query: '&night=1&windTime=1.75' },
 ];
+// Stylized Painterly: Enchanted's snaking shapes in Painterly's paint, from a tycoon camera too, and a
+// Species (Species colours, Enchanted Twist recipe).
+const stylizedPainterlyStates = [
+  ...forms.map((form) => ({ form, name: 'tycoon', query: '&view=tycoon' })),
+  { form: 'broadleaf', name: 'oak', query: '&species=oak' },
+];
 const shots = [
   ...styles.flatMap((style) => forms.flatMap((form) => states.map((state) => ({ style, form, ...state })))),
   ...stylizedStates.map((state) => ({ style: 'stylized', ...state })),
   ...painterlyStates.map((state) => ({ style: 'painterly', ...state })),
   ...whimsicalStates.map((state) => ({ style: 'whimsical', ...state })),
   ...enchantedStates.map((state) => ({ style: 'enchanted', ...state })),
+  ...stylizedPainterlyStates.map((state) => ({ style: 'stylized-painterly', ...state })),
 ];
 for (const { style, form, name, query } of shots) {
   test(`${style} ${form}: ${name}`, async ({ page }) => {

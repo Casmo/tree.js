@@ -59,6 +59,10 @@
       "types": "./dist/styles/enchanted/index.d.ts",
       "import": "./dist/styles/enchanted.js"
     },
+    "./styles/stylized-painterly": {
+      "types": "./dist/styles/stylized-painterly/index.d.ts",
+      "import": "./dist/styles/stylized-painterly.js"
+    },
     "./react": {
       "types": "./dist/react/index.d.ts",
       "import": "./dist/react.js"

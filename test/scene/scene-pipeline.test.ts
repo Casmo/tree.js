@@ -27,7 +27,7 @@ const outputsOf = (pipeline: ScenePipeline) => Object.keys(pipeline.scenePass.pa
 
 describe('SUGGESTED_SCENE_EFFECTS', () => {
   it('suggests Neutral tone mapping for low-poly, AgX for stylized and realistic, and none for painterly (its own colours)', () => {
-    expect(Object.keys(SUGGESTED_SCENE_EFFECTS).sort()).toEqual(['enchanted', 'low-poly', 'painterly', 'realistic', 'stylized', 'whimsical']);
+    expect(Object.keys(SUGGESTED_SCENE_EFFECTS).sort()).toEqual(['enchanted', 'low-poly', 'painterly', 'realistic', 'stylized', 'stylized-painterly', 'whimsical']);
     expect(SUGGESTED_SCENE_EFFECTS.painterly.toneMapping).toBeUndefined();
     expect(SUGGESTED_SCENE_EFFECTS['low-poly'].toneMapping?.mapping).toBe('neutral');
     expect(SUGGESTED_SCENE_EFFECTS.stylized.toneMapping?.mapping).toBe('agx');

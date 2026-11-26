@@ -51,6 +51,12 @@ export const SUGGESTED_SCENE_EFFECTS: Record<StyleName, SceneEffectsSettings> = 
     antialias: 'smaa',
     fog: { near: 15, far: 130 },
   },
+  // Painterly's paint on Enchanted's shapes: Painterly's Scene Effects (renderer output, soft AO, SMAA, fog).
+  'stylized-painterly': {
+    ao: { radius: 1, scale: 0.7, thickness: 1.5 },
+    antialias: 'smaa',
+    fog: { near: 15, far: 130 },
+  },
   // Bright and saturated: Neutral, not AgX (AgX greys the candy colours and the sky at any exposure), light
   // AO (the shade is meant to stay bright), a light pastel pink fog that only touches the far trees and
   // almost no bloom (the colours glow on their own).

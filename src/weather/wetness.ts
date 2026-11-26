@@ -2,6 +2,7 @@ import { dot, float, mix, smoothstep, step, uniform, vec3 } from 'three/tsl';
 import { Color, type ColorRepresentation, type Node } from 'three/webgpu';
 import { TREE_PARTS, type TreePart } from '../effects/mask';
 import { readyMadeShaderHook, type TreeShaderHook, type TreeShaderInput } from '../materials/shader-hooks';
+import { isPaintedShading } from '../definition';
 import { LUMINANCE } from '../materials/painted';
 import { degreesValue, glints, paintStrokes, slopeRange, softnessValue, strengthsWith, unitValue, WeatherAmount } from './shared';
 
@@ -132,7 +133,7 @@ export function wetnessHooks(settings: WetnessSettings & { wetness?: Wetness } =
       // A light glint band on the surfaces that face most up: toon lighting draws no specular.
       const glint = smoothstep(0.8, 0.85, normal.y).mul(u.sheen).mul(w).mul(0.25);
       wetColor = wetColor.add(tint.mul(glint));
-    } else if (shading === 'painted') {
+    } else if (isPaintedShading(shading)) {
       // Painterly: wet paint is deeper (a little more saturated as well as darker), and its sheen is a
       // soft, brushed light on what faces up: painted lighting draws no specular either.
       const luma = dot(wetColor, vec3(...LUMINANCE));

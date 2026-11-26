@@ -1,7 +1,7 @@
 import { DoubleSide, type MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, mix, uv, float } from 'three/tsl';
 import type { Node } from 'three/webgpu';
-import type { TreeDefinition } from '../definition';
+import { isPaintedShading, type TreeDefinition } from '../definition';
 import { fruitTracks } from '../season/profile';
 import type { TextureOptions } from '../textures';
 import { applyGroundTint } from './ground-tint';
@@ -77,7 +77,7 @@ export function createLeafMaterial(
 
 /** Whether the Definition's leaves are painted Leaf Masses (painted shading, leaf shape 'mass'): see `paintLeafMasses`. */
 export function paintsLeafMasses(definition: TreeDefinition): boolean {
-  return definition.materials.shading === 'painted' && definition.leaves.shape === 'mass';
+  return isPaintedShading(definition.materials.shading) && definition.leaves.shape === 'mass';
 }
 
 /**

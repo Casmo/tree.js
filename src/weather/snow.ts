@@ -2,6 +2,7 @@ import { Color, type ColorRepresentation, type Node } from 'three/webgpu';
 import { dot, float, mix, mx_noise_float, smoothstep, step, uniform, vec3 } from 'three/tsl';
 import { TREE_PARTS, type TreePart } from '../effects/mask';
 import { readyMadeShaderHook, type TreeShaderHook, type TreeShaderInput, type TreeShaderOutput } from '../materials/shader-hooks';
+import { isPaintedShading } from '../definition';
 import { LUMINANCE } from '../materials/painted';
 import { degreesValue, glints, paintStrokes, slopeRange, softnessValue, strengthsWith, WeatherAmount } from './shared';
 
@@ -177,7 +178,7 @@ export function snowCoverShading(input: TreeShaderInput, settings: SnowCoverShad
   } else if (shading === 'toon') {
     // Stylized: toon bands. The cover in three steps, so the edge reads as bands, like the toon light.
     cover = lies.mul(amount).mul(3).add(0.5).floor().div(3);
-  } else if (shading === 'painted') {
+  } else if (isPaintedShading(shading)) {
     // Painterly: brushed snow. Its edge is broken by brush strokes (none where a surface faces away), and
     // it is painted cool blue where it thins out towards the edge, warm white where it lies thick.
     const strokes = paintStrokes(position);

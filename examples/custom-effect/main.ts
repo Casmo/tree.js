@@ -20,6 +20,7 @@ const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
   painterly: () => import('@casmo/tree.js/styles/painterly'),
   whimsical: () => import('@casmo/tree.js/styles/whimsical'),
   enchanted: () => import('@casmo/tree.js/styles/enchanted'),
+  'stylized-painterly': () => import('@casmo/tree.js/styles/stylized-painterly'),
 };
 
 declare global {

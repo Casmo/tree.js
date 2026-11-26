@@ -57,7 +57,7 @@ test('the Fantasy starts load from the picker and the Shading field offers both 
   await page.goto('/editor/?start=oak/realistic&seed=1');
   await waitForEditor(page);
   const shading = byId(page, 'materials.shading');
-  await expect(shading.locator('option')).toHaveText(['standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted']);
+  await expect(shading.locator('option')).toHaveText(['standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted', 'stylized-painted']);
   const style = page.getByLabel('Style', { exact: true });
   await expect(style.locator('option')).toContainText(['Whimsical', 'Enchanted']);
 

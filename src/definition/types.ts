@@ -289,12 +289,16 @@ export interface RootsDefinition {
 
 /**
  * Material shading model. Low-poly uses `flat`, stylized `toon`, realistic `standard`, painterly `painted`,
- * whimsical `whimsical`, enchanted `enchanted`.
+ * whimsical `whimsical`, enchanted `enchanted`, stylized painterly `stylized-painted` (drawn exactly like
+ * `painted`; its own value so a Definition's Style can be told from its shading).
  */
 export type Shading = (typeof SHADINGS)[number];
 
 /** Every shading model the schema accepts (each Style draws with one of them). */
-export const SHADINGS = ['standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted'] as const;
+export const SHADINGS = ['standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted', 'stylized-painted'] as const;
+
+/** Whether a shading model is drawn with the painted look (`painted` and `stylized-painted`). */
+export const isPaintedShading = (shading: Shading): boolean => shading === 'painted' || shading === 'stylized-painted';
 
 export interface BarkMaterialDefinition {
   /** Bark Type the bark was drawn from (set by `Style.apply`), so a Style can be re-applied. Optional. */

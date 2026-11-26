@@ -17,7 +17,7 @@ import {
 
 describe('Tree Effects', () => {
   it('suggests a combination of effects for each built-in Style', () => {
-    expect(Object.keys(SUGGESTED_TREE_EFFECTS).sort()).toEqual(['enchanted', 'low-poly', 'painterly', 'realistic', 'stylized', 'whimsical']);
+    expect(Object.keys(SUGGESTED_TREE_EFFECTS).sort()).toEqual(['enchanted', 'low-poly', 'painterly', 'realistic', 'stylized', 'stylized-painterly', 'whimsical']);
     for (const settings of Object.values(SUGGESTED_TREE_EFFECTS)) {
       expect(Object.keys(settings).length).toBeGreaterThan(0);
     }

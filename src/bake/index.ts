@@ -15,7 +15,7 @@ import {
   type Texture,
 } from 'three/webgpu';
 import { GLTFExporter, type GLTFExporterPlugin, type GLTFWriter } from 'three/addons/exporters/GLTFExporter.js';
-import { DEFAULT_LEAF_MASSES, type InnerGlowDefinition, type MaterialFeatures, type TranslucencyDefinition, type TreeDefinition } from '../definition';
+import { DEFAULT_LEAF_MASSES, isPaintedShading, type InnerGlowDefinition, type MaterialFeatures, type TranslucencyDefinition, type TreeDefinition } from '../definition';
 import { crownDistance, crownNormal, type CrownVolume, type GeometryBuffers } from '../generator';
 import { clampGrowth, growPositions, treeScale } from '../growth';
 import { groundTintAmount } from '../materials/ground-tint';
@@ -463,7 +463,7 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
   const features = tree.materialFeatures;
   const occlusion = bakedOcclusion(features.occlusion?.strength ?? null, options.occlusionInVertexColors ?? false);
   const featureExtras = materialFeatureExtras(features, tree.data.crown, growth, options.occlusionInVertexColors ?? false);
-  const painted = definition.materials.shading === 'painted';
+  const painted = isPaintedShading(definition.materials.shading);
   const masses = paintsLeafMasses(definition);
   // Painted Leaf Masses: the spray's grey is a paint value, baked into a brightness map around its mean.
   const spray = masses ? bakedSprayMap(tree.leaves.material.map, definition.materials.leaf.alphaTest) : null;
