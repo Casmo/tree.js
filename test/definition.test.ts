@@ -10,6 +10,7 @@ import {
   createTree,
   DEFAULT_BRANCH_LEVEL,
   DEFAULT_DEFINITION,
+  DEFAULT_LEAF_GROWTH_START,
   extendDefinition,
   fetchDefinition,
   parseDefinition,
@@ -165,6 +166,23 @@ describe('Definition defaults', () => {
     expect([def.branches[1]!.followTwist, def.branches[2]!.followTwist]).toEqual([true, false]);
   });
 
+  it('keeps the optional Leaf Start (leaves.growthStart): absent stays absent and means 0.1, given values 0..1 are kept', () => {
+    const plain = parseDefinition({ schemaVersion: 3 });
+    expect('growthStart' in plain.leaves).toBe(false);
+    expect(plain.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(DEFAULT_LEAF_GROWTH_START).toBe(0.1);
+    for (const growthStart of [0, 0.35, 1]) {
+      expect(parseDefinition({ schemaVersion: 3, leaves: { growthStart } }).leaves.growthStart).toBe(growthStart);
+    }
+  });
+
+  it('keeps Leaf Start through a Definition JSON round-trip', () => {
+    const def = parseDefinition({ schemaVersion: 3, leaves: { growthStart: 0.4 } });
+    const back = parseDefinition(JSON.stringify(def));
+    expect(back.leaves.growthStart).toBe(0.4);
+    expect(back).toEqual(def);
+  });
+
   it('never returns objects shared with the defaults or the input', () => {
     const input = { schemaVersion: 2, trunk: { length: 3 } };
     const def = parseDefinition(input);
@@ -237,6 +255,10 @@ describe('Definition validation names the bad field', () => {
     ['branch end before start', { schemaVersion: 2, branches: [{ start: 0.8, end: 0.2 }] }, 'branches[0].end'],
     ['too many branch levels', { schemaVersion: 2, branches: [{}, {}, {}, {}, {}] }, 'branches'],
     ['leaf shape', { schemaVersion: 2, leaves: { shape: 'square' } }, 'leaves.shape'],
+    ['Leaf Start above 1', { schemaVersion: 3, leaves: { growthStart: 1.2 } }, 'leaves.growthStart'],
+    ['Leaf Start below 0', { schemaVersion: 3, leaves: { growthStart: -0.1 } }, 'leaves.growthStart'],
+    ['Leaf Start not a number', { schemaVersion: 3, leaves: { growthStart: '0.2' } }, 'leaves.growthStart'],
+    ['Leaf Start not finite', { schemaVersion: 3, leaves: { growthStart: NaN } }, 'leaves.growthStart'],
     ['bark colour', { schemaVersion: 2, materials: { bark: { color: 'brown' } } }, 'materials.bark.color'],
     ['texture url', { schemaVersion: 2, materials: { leaf: { map: 3 } } }, 'materials.leaf.map'],
     ['shading', { schemaVersion: 2, materials: { shading: 'pbr' } }, 'materials.shading'],

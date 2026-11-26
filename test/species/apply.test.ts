@@ -359,6 +359,15 @@ describe('Style.apply on a Tree Definition re-applies only the look', () => {
     expect(stylized.apply(realistic.broadleaf).leaves.type).toBe('broad');
   });
 
+  it('keeps a Definition\'s Leaf Start (leaves.growthStart); a Species gives none (default)', () => {
+    const withStart = extendDefinition(lowPoly.apply(testOak), { leaves: { growthStart: 0.3 } });
+    for (const style of Object.values(styles)) {
+      expect('growthStart' in style.apply(testOak).leaves).toBe(false);
+      expect(style.apply(withStart).leaves.growthStart).toBe(0.3);
+      expect('growthStart' in style.apply(lowPoly.apply(testOak)).leaves).toBe(false);
+    }
+  });
+
   it('does not mutate its input', () => {
     const before = structuredClone(lowPoly.broadleaf);
     realistic.apply(lowPoly.broadleaf, { trunk: { length: 9 } });
