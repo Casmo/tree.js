@@ -3,6 +3,7 @@
 //   ?shot=<name>  which scene (see SHOTS below)
 //   ?backend=webgl  force WebGPURenderer's WebGL2 fallback
 //   ?effects=0|1  the 'effects' shot without / with the Style's suggested Tree Effects
+//   ?part=day|night  the 'fantasy' shot: a Whimsical grove by day / an Enchanted Forest at night
 // The page exposes window.readmeShot: once status is 'ready', `frames` is the number of frames and
 // `show(i)` sets up and draws frame i (a still has one frame).
 import * as THREE from 'three/webgpu';
@@ -19,10 +20,13 @@ import {
   type TreeDefinitionInput,
 } from '@casmo/tree.js';
 import { createTreeEffects, SUGGESTED_TREE_EFFECTS } from '@casmo/tree.js/effects';
+import { createScenePipeline } from '@casmo/tree.js/scene';
 import lowPoly from '@casmo/tree.js/styles/low-poly';
 import stylized from '@casmo/tree.js/styles/stylized';
 import realistic from '@casmo/tree.js/styles/realistic';
 import painterly from '@casmo/tree.js/styles/painterly';
+import whimsical from '@casmo/tree.js/styles/whimsical';
+import enchanted from '@casmo/tree.js/styles/enchanted';
 import { framingBox } from '../../examples/framing';
 import { EXTREME_CORKSCREW, followTwistTree, TWIST_STYLE_TREES } from './twist-trees';
 
@@ -162,23 +166,62 @@ const SHOTS: Record<string, (stage: Stage) => Promise<Shot>> = {
     return { frames: 1 };
   },
 
-  /** Styles: low-poly, stylized, realistic and painterly, broadleaf and conifer each (scaled to one height). */
+  /** Styles: all six, broadleaf and conifer each (scaled to one height). The Wind clock is pinned (Inner Glow pulse). */
   async styles({ scene, camera }) {
-    const trees = [
-      createTree(lowPoly.broadleaf, { seed: 1, season: 0.37 }),
-      createTree(lowPoly.conifer, { seed: 1, season: 0.37 }),
-      createTree(stylized.broadleaf, { seed: 1, season: 0.37 }),
-      createTree(stylized.conifer, { seed: 1, season: 0.37 }),
-      createTree(realistic.broadleaf, { seed: 1, season: 0.37 }),
-      createTree(realistic.conifer, { seed: 1, season: 0.37 }),
-      createTree(painterly.broadleaf, { seed: 1, season: 0.37 }),
-      createTree(painterly.conifer, { seed: 1, season: 0.37 }),
-    ];
+    const styles = [lowPoly, stylized, realistic, painterly, whimsical, enchanted];
+    const trees = styles.flatMap((style) => [createTree(style.broadleaf, { seed: 1, season: 0.37 }), createTree(style.conifer, { seed: 1, season: 0.37 })]);
     await Promise.all(trees.map((tree) => tree.ready));
     scene.add(...trees);
-    ground({ scene } as Stage, 60);
-    frame(camera, lineUp(trees, 0.8, 6), 1.12, new THREE.Vector3(0, 0.2, 1).normalize());
+    ground({ scene } as Stage, 80);
+    narrow(camera, 30);
+    frame(camera, lineUp(trees, 0.8, 6), 1.08, new THREE.Vector3(0, 0.2, 1).normalize());
     return { frames: 1 };
+  },
+
+  /**
+   * Fantasy Styles (captured twice, side by side): a Whimsical grove by day (?part=day) with its suggested Tree
+   * Effects (its pastel Scene Effects would wash out the candy colours in a small picture), and an Enchanted Forest
+   * at night (?part=night: no sun, a faint cool sky light) through the Scene Pipeline with its suggested Tree
+   * Effects and Scene Effects (the bloom makes the Inner Glow shine). The Wind clock stays at 0 (pulse pinned).
+   */
+  async fantasy({ scene, camera, renderer }) {
+    const night = params.get('part') === 'night';
+    const style = night ? enchanted : whimsical;
+    const placements = grid(night ? 36 : 25, night ? 11 : 7, night ? 11 : 5);
+    const forests = [
+      createForest(style.broadleaf, placements.filter((_, i) => i % 3 !== 0), { variants: 5, seed: 1, season: 0.37 }),
+      createForest(style.conifer, placements.filter((_, i) => i % 3 === 0), { variants: 3, seed: 2, season: 0.37 }),
+    ];
+    await Promise.all(forests.map((forest) => forest.ready));
+    scene.add(...forests);
+    const plane = new THREE.Mesh(
+      new THREE.CircleGeometry(160, 64).rotateX(-Math.PI / 2),
+      new THREE.MeshStandardNodeMaterial({ color: night ? '#1c2030' : '#9ccf72' }),
+    );
+    scene.add(plane);
+    if (night) {
+      scene.background = new THREE.Color('#0b0a1c');
+      for (const light of scene.children.filter((child) => child instanceof THREE.Light)) {
+        (light as THREE.Light).intensity = light instanceof THREE.HemisphereLight ? 0.12 : 0;
+      }
+    } else {
+      scene.background = new THREE.Color('#9fd8f2');
+    }
+    camera.far = 400;
+    camera.position.set(night ? -8 : -4, night ? 4 : 3.5, night ? 46 : 28);
+    camera.lookAt(0, night ? 7 : 5, 0);
+    camera.updateProjectionMatrix();
+    const pipeline = createScenePipeline(renderer, scene, camera, night ? { style: 'enchanted' } : { style: 'whimsical', sceneEffects: null });
+    return {
+      frames: 1,
+      async render() {
+        // The pipeline builds its passes on first use: draw a few frames.
+        for (let i = 0; i < 4; i++) {
+          pipeline.render();
+          await new Promise(requestAnimationFrame);
+        }
+      },
+    };
   },
 
   /** Tree Definitions and Seeds: the README's birch, five Seeds. */
