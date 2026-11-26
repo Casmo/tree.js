@@ -232,9 +232,9 @@ describe('the Whimsical suggestions', () => {
     expect(glow).toBeUndefined();
   });
 
-  it('Scene Effects: AgX, light AO, pastel-tinted fog and almost no bloom', () => {
+  it('Scene Effects: Neutral tone mapping (AgX greys the candy colours), light AO, pastel-tinted fog and almost no bloom', () => {
     const { toneMapping, ao, fog, bloom } = SUGGESTED_SCENE_EFFECTS.whimsical;
-    expect(toneMapping?.mapping).toBe('agx');
+    expect(toneMapping?.mapping).toBe('neutral');
     expect(ao!.scale!).toBeLessThan(SUGGESTED_SCENE_EFFECTS.stylized.ao!.scale!);
     const fogColor = String(fog!.color);
     expect(saturationOf(fogColor)).toBeGreaterThan(0.05);
