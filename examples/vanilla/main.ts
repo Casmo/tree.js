@@ -7,7 +7,7 @@
 //   ?season=<0..1>  Season (default 0.37, summer)
 //   ?form=conifer  an evergreen conifer instead of the deciduous broadleaf
 //   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (sets in late spring, ripens green -> red, drops in autumn)
-//   ?style=low-poly|stylized|realistic|painterly|whimsical  grow that built-in Style's Definition for the form (loaded with a dynamic import)
+//   ?style=low-poly|stylized|realistic|painterly|whimsical|enchanted  grow that built-in Style's Definition for the form (loaded with a dynamic import)
 //   ?species=<id>  grow that Species (loadSpecies, e.g. oak) in the ?style (default low-poly)
 //   ?leafType=<Leaf Type>&barkType=<Bark Type>  re-apply the Style with this Leaf / Bark Type (e.g. palmate, papery)
 //   ?textureBase=<url>  load relative texture URLs (the realistic Style's) from this base path / CDN
@@ -19,6 +19,7 @@
 //   ?view=top  with ?style / ?species: look straight down
 //   ?shadows=1  enable shadow mapping (sun casts, ground receives)
 //   ?backlight=1  put the sun low behind the tree, facing the camera (to see Leaf Translucency)
+//   ?night=1  a night scene with no light at all (dark sky; only an Enchanted tree's Inner Glow shows)
 //   Material Features (off by default; applied with withMaterialFeatures):
 //   ?features=suggested  the ?style's SUGGESTED_MATERIAL_FEATURES (low-poly without a ?style)
 //   ?crownNormals=<0..1>  Crown Normals at that amount (overrides the suggestion)
@@ -67,6 +68,7 @@ const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
   realistic: () => import("@casmo/tree.js/styles/realistic"),
   painterly: () => import("@casmo/tree.js/styles/painterly"),
   whimsical: () => import("@casmo/tree.js/styles/whimsical"),
+  enchanted: () => import("@casmo/tree.js/styles/enchanted"),
 };
 
 declare global {
@@ -112,11 +114,12 @@ const windStrength = Number(params.get("wind") ?? 0);
 const windTime = params.get("windTime");
 const shadows = params.get("shadows") === "1";
 const backlight = params.get("backlight") === "1";
+const night = params.get("night") === "1";
 sceneWind.set({ direction: [1, 0, -0.4], strength: windStrength });
 if (windTime !== null) sceneWind.time = Number(windTime);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color("#cfe3f0");
+scene.background = new THREE.Color(night ? "#0b0a1c" : "#cfe3f0");
 const camera = new THREE.PerspectiveCamera(
   45,
   innerWidth / innerHeight,
@@ -126,8 +129,9 @@ const camera = new THREE.PerspectiveCamera(
 camera.position.set(8.5, 4.5, 8.5);
 camera.lookAt(0, 3, 0);
 
-scene.add(new THREE.HemisphereLight("#ffffff", "#6a7a4a", 1.5));
-const sun = new THREE.DirectionalLight("#ffffff", 2.5);
+// At night (?night=1) both lights are off: the scene is unlit.
+scene.add(new THREE.HemisphereLight("#ffffff", "#6a7a4a", night ? 0 : 1.5));
+const sun = new THREE.DirectionalLight("#ffffff", night ? 0 : 2.5);
 sun.position.set(
   ...((backlight ? [-6, 3.5, -6] : [5, 8, 3]) as [number, number, number]),
 );

@@ -60,6 +60,9 @@ export class EnchantedNodeMaterial extends MeshStandardNodeMaterial {
 export const INNER_GLOW_PERIOD = 7;
 /** The pulse swings the glow between this share of its strength and the full strength. */
 const PULSE_LOW = 0.6;
+/** How bright the glow is at strength 1: the leaves' glowing cards are mostly dark, so it is boosted. */
+const LEAF_GAIN = 2.6;
+const VEIN_GAIN = 1.8;
 /** Leaves deep inside the crown keep this share of their glow; the thin edge of the Crown Volume glows fully. */
 const CROWN_CORE = 0.3;
 
@@ -104,11 +107,11 @@ export function applyInnerGlow(strength: InnerGlowUniforms, { bark, leaf, defini
   const wave = sin(time.mul((2 * Math.PI) / INNER_GLOW_PERIOD).add(phase));
   const pulse = mix(float(PULSE_LOW), float(1), wave.mul(0.5).add(0.5));
   const edge = mix(float(CROWN_CORE), float(1), smoothstep(0.35, 1, crownNodes(crown, growth).distance));
-  leaf.emissiveNode = diffuseColor.rgb.mul(strength.leaf).mul(edge).mul(pulse);
+  leaf.emissiveNode = diffuseColor.rgb.mul(strength.leaf.mul(LEAF_GAIN)).mul(edge).mul(pulse);
   if (bark.map) {
     const vein = texture(bark.map, uv().mul(vec2(...BARK_REPEAT))).a;
     const colour = varying(seasonLeafColorNode(definition.season, season)) as unknown as Node<'vec3'>;
-    bark.emissiveNode = colour.mul(vein).mul(strength.veins).mul(pulse);
+    bark.emissiveNode = colour.mul(vein).mul(strength.veins.mul(VEIN_GAIN)).mul(pulse);
   }
   bark.needsUpdate = true;
   leaf.needsUpdate = true;
