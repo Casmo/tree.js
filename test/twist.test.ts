@@ -72,9 +72,12 @@ describe('Twisted trees downstream', () => {
   });
 });
 
-/** A Style's broadleaf with Corkscrew branch levels (the trunk keeps its Twist settings). */
+/** A Style's broadleaf with a Corkscrew trunk (two Stems) and Corkscrew branch levels. */
 const corkscrewed = (definition: TreeDefinition, twist = 0.7, twists = 3) =>
-  extendDefinition(definition, { branches: definition.branches.map((level, i) => ({ ...level, twist, twists, twistStyle: 'corkscrew' as const, twistCurve: 0.6, spin: i % 2 ? 'clockwise' as const : 'random' as const })) });
+  extendDefinition(definition, {
+    trunk: { stems: 2, spread: 15, twist: 0.5, twists: 2, twistStyle: 'corkscrew', twistCurve: 0.4 },
+    branches: definition.branches.map((level, i) => ({ ...level, twist, twists, twistStyle: 'corkscrew' as const, twistCurve: 0.6, spin: i % 2 ? 'clockwise' as const : 'random' as const })),
+  });
 
 describe('Corkscrew trees downstream', () => {
   it('grow, change with the Season and carry Wind attributes like any tree', () => {
@@ -95,6 +98,13 @@ describe('Corkscrew trees downstream', () => {
     const wood = (definition: TreeDefinition) => generateLightTree(definition, 3).wood.positions.length;
     const snake = wood(twisted(extendDefinition(lowPoly.broadleaf, { trunk: { twist: 0 } })));
     expect(wood(corkscrewed(lowPoly.broadleaf))).toBeGreaterThan(snake * 1.5);
+  });
+
+  it('keep a Corkscrew trunk on the Light Detail Level: its Stems are swept with 6 Sections per Twists, more than a Snake keeps', () => {
+    const rings = (trunk: Partial<TreeDefinition['trunk']>) =>
+      generateLightTree(extendDefinition(lowPoly.broadleaf, { trunk: { flare: 0, ...trunk }, branches: [], leaves: { count: 0 } }), 3).wood.positions.length;
+    const snake = rings({ twist: 0.7, twists: 4 });
+    expect(rings({ twist: 0.7, twists: 4, twistStyle: 'corkscrew' })).toBeGreaterThan(snake * 1.5);
   });
 
   it('roll their bark on the Light Detail Level as on the full tree (ADR 0016)', () => {

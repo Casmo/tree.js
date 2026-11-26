@@ -2,7 +2,7 @@ import { cos, sin } from '../math';
 import type { TreeDefinition, TrunkDefinition } from '../definition';
 import type { Random } from '../random';
 import type { SkeletonBranch, SkeletonPoint, Vec3 } from './types';
-import { originalSectionStart, twistPath } from './twist';
+import { originalSectionStart, twistPath, type TwistPath } from './twist';
 import { add, cross, dot, length, scale, sub } from './vec';
 
 const DEG = Math.PI / 180;
@@ -32,8 +32,12 @@ export const FLARE_SECTIONS = 3;
  * single trunk always did, Stem i > 0 from `random.fork('trunk/<i>')`; each Stem's Twist turns come
  * from that stream's own `fork('twist')` (ADR 0015); the ring and the leans come from
  * `random.fork('stems')`. So a single upright Stem without gravity is today's trunk, bit for bit.
+ *
+ * Each Stem's Twist goes into `twists` under its path, as `buildBranches` keeps a branch's, so the
+ * branches on it can read it (Follow Twist); its `curveAxis` is turned with the Stem's lean, so it lies
+ * across the Stem's `direction` as a branch's lies across its start.
  */
-export function buildStems(definition: TreeDefinition, random: Random): SkeletonBranch[] {
+export function buildStems(definition: TreeDefinition, random: Random, twists = new Map<string, TwistPath>()): SkeletonBranch[] {
   const { trunk } = definition;
   const { stems: count = 1, spread = 0, gravity = 0 } = trunk;
   const ring = random.fork('stems');
@@ -44,8 +48,13 @@ export function buildStems(definition: TreeDefinition, random: Random): Skeleton
     const azimuth = turn + ((i + r.range(-RING_JITTER, RING_JITTER)) / count) * Math.PI * 2;
     const tilt = Math.min(spread * (1 + r.range(-SPREAD_VARIATION, SPREAD_VARIATION)), 90) * DEG;
     const offset = count > 1 ? trunk.radius * RING_RADIUS : 0;
-    const line = centreLine(trunk, random.fork(i === 0 ? 'trunk' : `trunk/${i}`));
-    stems.push(placeStem(String(i), line, gravity, azimuth, tilt, offset));
+    const { points, twisting } = centreLine(trunk, random.fork(i === 0 ? 'trunk' : `trunk/${i}`));
+    const stem = placeStem(String(i), points, gravity, azimuth, tilt, offset);
+    // A Corkscrew Stem rolls its bark and what grows on it with its spiral (ADR 0016).
+    const roll = twisting.roll(1);
+    stems.push(roll ? { ...stem, roll } : stem);
+    const axis = cross([0, 1, 0], [cos(azimuth), 0, sin(azimuth)]);
+    twists.set(stem.path, twisting.curveAxis ? { ...twisting, curveAxis: rotate(twisting.curveAxis, axis, tilt) } : twisting);
   }
   return stems;
 }
@@ -54,11 +63,12 @@ export function buildStems(definition: TreeDefinition, random: Random): Skeleton
  * One upright, unbent Stem's centre line at the origin, varied by the Seed within the trunk's ranges,
  * then snaked by the trunk's Twist (ADR 0015: max(Sections, 3 × Twists) Sections). The Twist's turns
  * come from the Stem's own `random.fork('twist')`, so the draws of today's centre line never shift.
+ * A Corkscrew Stem (6 × Twists Sections, ADR 0016) spirals the same way, around its upright course.
  */
-function centreLine(trunk: TrunkDefinition, random: Random): SkeletonPoint[] {
+function centreLine(trunk: TrunkDefinition, random: Random): { points: SkeletonPoint[]; twisting: TwistPath } {
   const line = straightLine(trunk, random);
-  if ((trunk.twist ?? 0) <= 0) return line;
   const twisting = twistPath(trunk, trunk.sections, [0, 1, 0], random.fork('twist'));
+  if ((trunk.twist ?? 0) <= 0) return { points: line, twisting };
 
   // Today's line on the Twist's Sections (Bend's drift stays tied to the original Sections), then every
   // Section steered along the Twist. The base Section grows upright (sampled at the very start); the
@@ -72,7 +82,7 @@ function centreLine(trunk: TrunkDefinition, random: Random): SkeletonPoint[] {
     const direction = size > 0 ? twisting.steer(scale(segment, 1 / size), u) : segment;
     points.push({ position: add(points[k]!.position, scale(direction, size)), radius: untwisted[k + 1]!.radius });
   }
-  return points;
+  return { points, twisting };
 }
 
 /** Today's centre line: upright, drifting sideways by up to `bend` per Section. */

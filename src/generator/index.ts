@@ -12,6 +12,7 @@ import { bakeOcclusion } from './occlusion';
 import { growRoots, rootSides } from './roots';
 import { sculptBranches, sculptLeaves, sculptsFor } from './sculpt';
 import { buildStems, FLARE_SECTIONS } from './trunk';
+import type { TwistPath } from './twist';
 import { branchSway, writeTrunkSway } from './wind';
 import type { GeometryBuffers, TreeData, TreeSkeleton } from './types';
 
@@ -29,9 +30,10 @@ export type { GrowthTiming, GrowthWindow, GeometryBuffers, TreeAttributes, Verte
  */
 export function generateTree(definition: TreeDefinition, seed: number): TreeData {
   const random = createRandom(seed);
-  const stems = buildStems(definition, random);
+  const twists = new Map<string, TwistPath>();
+  const stems = buildStems(definition, random, twists);
   const sculpts = sculptsFor(definition, seed);
-  const branches = sculptBranches([...stems, ...buildBranches(definition, stems, random.fork('branches'))], sculpts);
+  const branches = sculptBranches([...stems, ...buildBranches(definition, stems, random.fork('branches'), twists)], sculpts);
   const sidesOf = (level: number) => (level === 0 ? definition.trunk.sides : definition.branches[level - 1]!.sides);
   const leaves = sculptLeaves(placeLeaves(definition, branches, random.fork('leaves')), sculpts, seed);
   const fruit = placeFruit(definition, branches, random.fork('fruit'));

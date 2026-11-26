@@ -18,12 +18,12 @@ const GRAVITY_PER_BRANCH = 1.5;
  * and each child's shape from `random.fork(childPath)`; a child's Twist turns come from that stream's
  * own `fork('twist')`, so Twist never shifts the draws of its shape (ADR 0015). So a branch depends
  * only on its ancestors and its own path, never on its siblings' subtrees, on deeper levels or on leaves.
+ * `twists` holds the Stems' Twists (filled by `buildStems`); each grown branch's is added under its path.
  */
-export function buildBranches(definition: TreeDefinition, stems: SkeletonBranch[], random: Random): SkeletonBranch[] {
+export function buildBranches(definition: TreeDefinition, stems: SkeletonBranch[], random: Random, twists = new Map<string, TwistPath>()): SkeletonBranch[] {
   const out: SkeletonBranch[] = [];
   const queue: SkeletonBranch[] = [...stems];
-  // Each grown branch's Twist (its Spin, roll and curve axis), there for its children when they are grown (Follow Twist).
-  const twists = new Map<string, TwistPath>();
+  // Each Stem's (from `buildStems`) and grown branch's Twist (its Spin, roll and curve axis), there for its children when they are grown (Follow Twist).
   for (let q = 0; q < queue.length; q++) {
     const parent = queue[q]!;
     const level = definition.branches[parent.level];
