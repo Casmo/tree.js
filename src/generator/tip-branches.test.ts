@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition, type DefinitionPatch } from '../definition';
 import { oak } from '../species';
 import { loadStyle, STYLE_NAMES } from '../styles/registry';
-import { angleBetween, segments, turnAbout, unit, sub } from '../../test/branch-geometry';
+import { angleBetween, carried, segments, sideAt, turnAbout, unit, sub } from '../../test/branch-geometry';
 import { generateTree, hashTreeData, type SkeletonBranch, type TreeData } from './index';
 
 // Level 1 grows Tip Branches by default, level 2 too; a third level does not.
@@ -218,6 +218,57 @@ describe('Tip Branches', () => {
       expect(tip.points[0]!.position).toEqual(last(all.get(stem)!).position);
       // It carries on the nodding direction (within the level's angle variation), not straight up.
       expect(angleBetween(tip.direction, segments(all.get(stem)!).at(-1)!)).toBeLessThanOrEqual(0.5 * 45 * 0.2 + 1e-6);
+    }
+  });
+
+  it("follow the parent's Corkscrew with Follow Twist: the spiral picks up where the parent's is at its tip (t = 1)", () => {
+    // Straight courses (no Bend, Gravity or angle variation), so a Corkscrew's spiral is all that turns it.
+    const corkscrew = { bend: 0, gravity: 0, angleVariation: 0, twistStyle: 'corkscrew' as const, twist: 0.6 };
+    const tipsOf = (followTwist: boolean) => {
+      const data = grow({ branches: [{ count: 4, sections: 2, ...corkscrew, twists: 3 }, { count: 2, sections: 7, ...corkscrew, twist: 0.4, twists: 2, followTwist }] });
+      const all = byPath(data);
+      // How far each level-2 Tip Branch's spiral starts from its parent's spiral at the tip (degrees).
+      return data.skeleton.branches
+        .filter((b) => b.level === 2 && b.tip)
+        .map((tip) => {
+          const parent = all.get(tip.parent!)!;
+          return angleBetween(sideAt(tip, 0, 2), carried(sideAt(parent, 1, 3), parent.direction, tip.direction));
+        });
+    };
+    const followed = tipsOf(true);
+    expect(followed).toHaveLength(4 + 1);
+    for (const miss of followed) expect(miss).toBeLessThan(2);
+    // Without Follow Twist the Seed picks where each spiral starts.
+    expect(Math.max(...tipsOf(false))).toBeGreaterThan(30);
+  });
+
+  it('sway in the Wind on from their parent, as attached at its tip: a Tip Branch\'s base sways as much as the parent\'s tip', () => {
+    const data = grow();
+    const { aWind, aAlong, aOrigin } = data.wood.attributes;
+    /** Branch sway (aWind.y) of the wood vertices of `b` (by its origin, its first point) at `along`. */
+    const swayAt = (b: SkeletonBranch, along: number) => {
+      const out: number[] = [];
+      const origin = b.points[0]!.position.map((x) => Math.fround(x)).join();
+      for (let v = 0; v < aAlong.array.length; v++) {
+        if (aAlong.array[v] === along && [...aOrigin.array.subarray(v * 3, v * 3 + 3)].join() === origin) out.push(aWind.array[v * 3 + 1]!);
+      }
+      return out;
+    };
+    const all = byPath(data);
+    const tips = data.skeleton.branches.filter((b) => b.level === 2 && b.tip);
+    expect(tips).toHaveLength(4 + 1);
+    for (const tip of tips) {
+      const parentTip = swayAt(all.get(tip.parent!)!, 1);
+      const base = swayAt(tip, 0);
+      expect(parentTip.length, tip.path).toBeGreaterThan(0);
+      expect(base.length, tip.path).toBeGreaterThan(0);
+      for (const sway of base) expect(sway, tip.path).toBeCloseTo(parentTip[0]!, 5);
+      // Its side siblings ride on the parent further down, where it sways less.
+      for (const side of data.skeleton.branches.filter((b) => b.parent === tip.parent && !b.tip)) {
+        const sides = swayAt(side, 0);
+        expect(sides.length, side.path).toBeGreaterThan(0);
+        for (const sway of sides) expect(sway, side.path).toBeLessThan(base[0]!);
+      }
     }
   });
 
