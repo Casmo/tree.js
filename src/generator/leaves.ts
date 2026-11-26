@@ -3,7 +3,7 @@ import type { TreeDefinition, VariationDefinition } from '../definition';
 import { leafSeasonAttribute } from '../season/profile';
 import type { Random } from '../random';
 import { seedRandom } from '../random';
-import { createAttributes, leafPartGrowth, writePart } from './attributes';
+import { createLeafAttributes, leafPartGrowth, writePart } from './attributes';
 import { branchFrames, sampleBranch } from './frames';
 import type { GeometryBuffers, LeafGrowth, SkeletonBranch, SkeletonLeaf, Vec3 } from './types';
 import { leafSway, NO_SWAY, type PartSway } from './wind';
@@ -70,7 +70,7 @@ export function leafGeometry(
   const uvs = new Float32Array(leaves.length * 4 * 2);
   const colors = new Float32Array(leaves.length * 4 * 3);
   const indices = new Uint32Array(leaves.length * 6);
-  const attributes = createAttributes(leaves.length * 4, true);
+  const attributes = createLeafAttributes(leaves.length * 4);
   leaves.forEach((leaf, l) => {
     const side = cross(leaf.direction, leaf.normal); // right-handed: direction x normal points to the card's right
     const halfWidth = (leaf.size * LEAF_WIDTH) / 2;

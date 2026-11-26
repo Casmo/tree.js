@@ -32,9 +32,14 @@ export const MIN_WINDOW = 1e-5;
 export const treeScale = (growth: number): number => SAPLING_SCALE + (1 - SAPLING_SCALE) * growth;
 export const thickness = (growth: number): number => SAPLING_THICKNESS + (1 - SAPLING_THICKNESS) * growth;
 
+/** Where `growth` is in a window, 0..1 (linear), 1 from `end` on (a zero-width window is done at `end`). */
+function windowProgress(growth: number, start: number, end: number): number {
+  return Math.min(Math.max((growth - end) / Math.max(end - start, MIN_WINDOW) + 1, 0), 1);
+}
+
 /** How far one part has sprouted (0 = not yet, 1 = full size), eased; 1 from `end` on. */
 export function partProgress(growth: number, start: number, end: number): number {
-  const p = Math.min(Math.max((growth - end) / Math.max(end - start, MIN_WINDOW) + 1, 0), 1);
+  const p = windowProgress(growth, start, end);
   return p * p * (3 - 2 * p);
 }
 
@@ -43,8 +48,8 @@ export function partProgress(growth: number, start: number, end: number): number
  * `1 - (1 - p)^2` over its window, 1 from `end` on (a zero-width window pops in at `end`).
  */
 export function leafProgress(growth: number, start: number, end: number): number {
-  const p = Math.min(Math.max((growth - end) / Math.max(end - start, MIN_WINDOW) + 1, 0), 1);
-  return 1 - (1 - p) * (1 - p);
+  const rest = 1 - windowProgress(growth, start, end);
+  return 1 - rest * rest;
 }
 
 /** Clamps a Growth value to 0..1 (NaN becomes 1, fully grown). */
@@ -60,19 +65,21 @@ export function growPositions(buffers: GeometryBuffers, growth: number): Float32
   const g = clampGrowth(growth);
   const { positions, normals } = buffers;
   const { aOrigin, aGrowth, aTwigGrowth, aTwigOrigin } = buffers.attributes;
+  // Leaf buffers carry both twig attributes (`createLeafAttributes`); wood and Fruit carry neither.
+  const twigs = aTwigGrowth && aTwigOrigin ? { window: aTwigGrowth.array, origin: aTwigOrigin.array } : undefined;
   const out = new Float32Array(positions.length);
   const scale = treeScale(g);
   const thin = 1 - thickness(g);
   for (let v = 0; v < positions.length / 3; v++) {
     const [start, end, radius] = [aGrowth.array[v * 3]!, aGrowth.array[v * 3 + 1]!, aGrowth.array[v * 3 + 2]!];
     // A leaf rides on its twig: unfolds by its leaf curve times the twig's progress, carried by the twig.
-    const twig = aTwigGrowth && aTwigOrigin ? partProgress(g, aTwigGrowth.array[v * 2]!, aTwigGrowth.array[v * 2 + 1]!) : 1;
-    const shrink = 1 - (aTwigGrowth ? leafProgress(g, start, end) * twig : partProgress(g, start, end));
+    const twig = twigs ? partProgress(g, twigs.window[v * 2]!, twigs.window[v * 2 + 1]!) : 1;
+    const shrink = 1 - (twigs ? leafProgress(g, start, end) * twig : partProgress(g, start, end));
     for (let k = 0; k < 3; k++) {
       const i = v * 3 + k;
       const thick = positions[i]! - normals[i]! * radius * thin;
       const sprouted = thick - (thick - aOrigin.array[i]!) * shrink;
-      const carried = aTwigOrigin ? sprouted - (sprouted - aTwigOrigin.array[i]!) * (1 - twig) : sprouted;
+      const carried = twigs ? sprouted - (sprouted - twigs.origin[i]!) * (1 - twig) : sprouted;
       out[i] = carried - carried * (1 - scale);
     }
   }

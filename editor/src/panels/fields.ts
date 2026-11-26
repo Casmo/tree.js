@@ -98,7 +98,7 @@ export const PARAMETER_GROUPS: FieldGroup[] = [
       { kind: 'choice', path: 'leaves.shape', label: 'Leaf shape', options: ['card', 'clump', 'needle', 'puff'] },
       num('leaves.size', 'Leaf size', 0.01, 5, 0.01),
       fraction('leaves.sizeVariation', 'Size variation'),
-      fraction('leaves.start', 'Leaves start'),
+      fraction('leaves.start', 'Leaves along twig'),
       { ...optionalNum('leaves.growthStart', 'Leaf Start', 0, 1, 0.01, DEFAULT_LEAF_GROWTH_START), hint: 'Growth at which leaves begin' },
       num('leaves.angle', 'Leaf angle', 0, 180, 1),
     ],

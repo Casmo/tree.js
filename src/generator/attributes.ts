@@ -1,5 +1,5 @@
 import type { PartSeason } from '../season/profile';
-import type { GrowthWindow, LeafGrowth, TreeAttributes, Vec3, VertexAttribute } from './types';
+import type { GrowthWindow, LeafGrowth, TreeAttributes, Vec3 } from './types';
 import { NO_SWAY, type PartSway } from './wind';
 
 /** The facts shared by every vertex of one part (branch or leaf). */
@@ -17,17 +17,10 @@ export interface PartInfo {
   sway?: PartSway;
 }
 
-/**
- * Allocates the per-vertex attributes for `vertexCount` vertices; `leaves` adds the twig attributes
- * leaves grow with (`aTwigGrowth`, `aTwigOrigin`).
- */
-export function createAttributes(vertexCount: number, leaves = false): TreeAttributes {
+/** Allocates the per-vertex attributes of a wood (or Fruit) mesh for `vertexCount` vertices. */
+export function createAttributes(vertexCount: number): TreeAttributes {
   const scalar = () => ({ array: new Float32Array(vertexCount), itemSize: 1 });
-  const twig: Record<string, VertexAttribute> = leaves
-    ? { aTwigGrowth: { array: new Float32Array(vertexCount * 2), itemSize: 2 }, aTwigOrigin: { array: new Float32Array(vertexCount * 3), itemSize: 3 } }
-    : {};
   return {
-    ...twig,
     aLevel: scalar(),
     aAlong: scalar(),
     aAttach: scalar(),
@@ -36,6 +29,18 @@ export function createAttributes(vertexCount: number, leaves = false): TreeAttri
     aGrowth: { array: new Float32Array(vertexCount * 3), itemSize: 3 },
     aSeason: { array: new Float32Array(vertexCount * 3), itemSize: 3 },
     aWind: { array: new Float32Array(vertexCount * 3), itemSize: 3 },
+  };
+}
+
+/**
+ * Allocates the per-vertex attributes of a leaf mesh for `vertexCount` vertices: those of
+ * {@link createAttributes} plus the twig a leaf rides on (`aTwigGrowth`, `aTwigOrigin`, ADR 0019).
+ */
+export function createLeafAttributes(vertexCount: number): TreeAttributes {
+  return {
+    aTwigGrowth: { array: new Float32Array(vertexCount * 2), itemSize: 2 },
+    aTwigOrigin: { array: new Float32Array(vertexCount * 3), itemSize: 3 },
+    ...createAttributes(vertexCount),
   };
 }
 

@@ -2,7 +2,7 @@ import { cos, sin } from '../math';
 import { DEFAULT_LEAF_MASSES, type LeavesDefinition, type LeafShape, type VariationDefinition } from '../definition';
 import { leafSeasonAttribute } from '../season/profile';
 import { seedRandom } from '../random';
-import { createAttributes, leafPartGrowth, writePart, type PartInfo } from './attributes';
+import { createAttributes, createLeafAttributes, leafPartGrowth, writePart, type PartInfo } from './attributes';
 import { massLeafGeometry } from './leaf-masses';
 import { leafGeometry } from './leaves';
 import type { GeometryBuffers, LeafGrowth, SkeletonLeaf, Vec3 } from './types';
@@ -178,7 +178,7 @@ export function solidGeometry<P extends SolidPlacement>(
   const colors = new Float32Array(placements.length * n * 3);
   const indices = new Uint32Array(placements.length * template.triangles.length * 3);
   const parts = placements.map((placement, l) => part(placement, l));
-  const attributes = createAttributes(placements.length * n, parts.some((info) => info.twig));
+  const attributes = (parts.some((info) => info.twig) ? createLeafAttributes : createAttributes)(placements.length * n);
   placements.forEach((placement, l) => {
     const side = cross(placement.normal, placement.direction); // (side, normal, direction) is right-handed, so winding is kept
     const toWorld = ([x, y, z]: Vec3): Vec3 =>

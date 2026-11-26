@@ -49,7 +49,7 @@ The kind of bark surface a Species has, such as furrowed, smooth, papery, fibrou
 _Avoid_: Bark texture, bark style
 
 **Fruit**:
-What a tree bears on its outermost twigs after blossom, such as apples, nuts or cones; it swells, ripens and drops across Season and only appears on a fully grown tree.
+What a tree bears on its outermost twigs after blossom, such as apples, nuts or cones; it swells, ripens and drops across Season, and only appears late in Growth (from about 0.7), never before its twig is fully grown.
 _Avoid_: Produce, seeds
 
 **Fruit Type**:
