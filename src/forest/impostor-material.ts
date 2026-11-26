@@ -17,7 +17,6 @@ import {
   modelWorldMatrix,
   modelWorldMatrixInverse,
   positionGeometry,
-  diffuseColor,
   select,
   texture,
   transformNormalToView,
@@ -29,7 +28,7 @@ import {
 import type { TreeDefinition } from '../definition';
 import type { CrownVolume } from '../generator';
 import { createShadedMaterial, paintsLeafMasses } from '../materials';
-import { innerGlowPulse, LEAF_GAIN, VEIN_GAIN, type InnerGlowUniforms } from '../materials/enchanted';
+import { innerGlowPulse, leafGlowNode, veinGlowNode, type InnerGlowUniforms } from '../materials/enchanted';
 import { paintGradient, PaintedNodeMaterial, softenLeafShadows, type LeafMassPaint } from '../materials/painted';
 import { crownAt } from '../materials/crown-nodes';
 import { applyLeafTranslucencyTerm } from '../materials/leaf-translucency-model';
@@ -389,8 +388,8 @@ export function createImpostorMaterial(
   if (glows) {
     const texel = view.blend((frame) => frameState(frame).glow!).div(covered);
     const pulse = innerGlowPulse(wind ? wind.source.uniforms.time : float(0), varying(instanceState().windPhase) as Node<'float'>);
-    const leafGlow = diffuseColor.rgb.mul(texel.r).mul(glow.leaf.mul(LEAF_GAIN));
-    const veinGlow = (seasonLeafColorNode(definition.season, treeSeason) as Node<'vec3'>).mul(texel.g).mul(glow.veins.mul(VEIN_GAIN));
+    const leafGlow = leafGlowNode(glow, texel.r);
+    const veinGlow = veinGlowNode(glow, seasonLeafColorNode(definition.season, treeSeason) as Node<'vec3'>, texel.g);
     material.emissiveNode = leafGlow.add(veinGlow).mul(pulse);
   }
   // Tree Effects: tree pixels, leaves where the (Season-aware) leaf flag says so (wood elsewhere).

@@ -1,6 +1,6 @@
 import { MeshStandardNodeMaterial, PhysicalLightingModel, type LightingModelDirectInput, type NodeBuilder } from 'three/webgpu';
 import { diffuseColor, float, mix, sin, smoothstep, texture, uniform, uv, varying, vec2, vec3 } from 'three/tsl';
-import type { Node, UniformNode } from 'three/webgpu';
+import type { Node, Texture, UniformNode } from 'three/webgpu';
 import type { InnerGlowDefinition, TreeDefinition } from '../definition';
 import type { CrownVolume } from '../generator';
 import { seasonLeafColorNode } from '../season/nodes';
@@ -85,6 +85,17 @@ export function innerGlowPulse(time: Node<'float'>, phase: Node<'float'>): Node<
   return mix(float(PULSE_LOW), float(1), wave.mul(0.5).add(0.5));
 }
 
+/** The bark veins: the bark map's alpha, sampled as the bark is (1 = vein). */
+export const barkVeins = (map: Texture): Node<'float'> => texture(map, uv().mul(vec2(...BARK_REPEAT))).a as Node<'float'>;
+
+/** The leaves' Inner Glow before the pulse: their drawn colour × `leaf`, × `share` (how much of its glow the leaf shows). */
+export const leafGlowNode = (strength: InnerGlowUniforms, share: Node<'float'>): Node<'vec3'> =>
+  diffuseColor.rgb.mul(strength.leaf.mul(LEAF_GAIN)).mul(share) as Node<'vec3'>;
+
+/** The bark veins' Inner Glow before the pulse: `colour` (the Season leaf colour) × the vein mask × `veins`. */
+export const veinGlowNode = (strength: InnerGlowUniforms, colour: Node<'vec3'>, vein: Node<'float'>): Node<'vec3'> =>
+  colour.mul(vein).mul(strength.veins.mul(VEIN_GAIN)) as Node<'vec3'>;
+
 /** The Inner Glow strengths as uniforms (shared by every material of a Tree or Forest, tunable live). */
 export interface InnerGlowUniforms {
   leaf: UniformNode<'float', number>;
@@ -126,11 +137,10 @@ export interface InnerGlowTarget {
 export function applyInnerGlow(strength: InnerGlowUniforms, { bark, leaf, definition, crown, growth, season, time, phase }: InnerGlowTarget): void {
   const pulse = innerGlowPulse(time, phase);
   const edge = crownEdgeGlow(crownNodes(crown, growth).distance);
-  leaf.emissiveNode = diffuseColor.rgb.mul(strength.leaf.mul(LEAF_GAIN)).mul(edge).mul(pulse);
+  leaf.emissiveNode = leafGlowNode(strength, edge).mul(pulse);
   if (bark.map) {
-    const vein = texture(bark.map, uv().mul(vec2(...BARK_REPEAT))).a;
     const colour = varying(seasonLeafColorNode(definition.season, season)) as unknown as Node<'vec3'>;
-    bark.emissiveNode = colour.mul(vein).mul(strength.veins.mul(VEIN_GAIN)).mul(pulse);
+    bark.emissiveNode = veinGlowNode(strength, colour, barkVeins(bark.map)).mul(pulse);
   }
   bark.needsUpdate = true;
   leaf.needsUpdate = true;

@@ -24,13 +24,12 @@ import {
   type Renderer,
   type Texture,
 } from 'three/webgpu';
-import { attribute, float, frontFacing, mrt, normalGeometry, output, positionGeometry, select, texture, uv, vec2, vec4 } from 'three/tsl';
+import { attribute, float, frontFacing, mrt, normalGeometry, output, positionGeometry, select, vec4 } from 'three/tsl';
 import type { TreeDefinition } from '../definition';
 import type { CrownVolume, GeometryBuffers } from '../generator';
 import { createBarkMaterial, createLeafMaterial, paintsLeafMasses } from '../materials';
 import { crownAt } from '../materials/crown-nodes';
-import { crownEdgeGlow, type InnerGlowUniforms } from '../materials/enchanted';
-import { BARK_REPEAT } from '../materials/maps';
+import { barkVeins, crownEdgeGlow, type InnerGlowUniforms } from '../materials/enchanted';
 import { PaintedNodeMaterial, type LeafMassPaint } from '../materials/painted';
 import type { TextureOptions } from '../textures';
 import type { WindResponse, WindSource } from '../wind';
@@ -207,7 +206,7 @@ function bakeMaterials(
   wood.name = 'tree.js impostor bake wood';
   wood.colorNode = bark.colorNode;
   // The Inner Glow's veins: the bark map's alpha, as the bark's emissive reads it.
-  const veins = bark.map ? (texture(bark.map, uv().mul(vec2(...BARK_REPEAT))).a as Node<'float'>) : null;
+  const veins = bark.map ? barkVeins(bark.map) : null;
   bark.dispose();
 
   const leaf = createLeafMaterial(definition, textures);
