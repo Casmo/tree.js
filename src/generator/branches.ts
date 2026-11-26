@@ -102,8 +102,10 @@ function growChildren(
   for (let j = 0; j < tips; j++) {
     const path = `${parent.path}.${count + j}`;
     const r = random.fork(path);
-    // Straight on along the parent's tip tangent; only angleVariation lets it wander, by up to half the level's Angle.
-    const lean = Math.min(0.5 * level.angle * crownShape(level.angleProfile, 1) * r.range(-level.angleVariation, level.angleVariation), 180) * DEG;
+    // One carries straight on along the parent's tip tangent, a fork leans out by half the level's Angle (at the
+    // angle curve's tip value); angleVariation lets either wander by that half Angle times the variation.
+    const splay = (tips > 1 ? 1 : 0) + r.range(-level.angleVariation, level.angleVariation);
+    const lean = Math.min(0.5 * level.angle * crownShape(level.angleProfile, 1) * splay, 180) * DEG;
     const start = leaning(at, lean, turn + (j * Math.PI * 2) / tips);
     const length = lengthAt(1, r);
     // As thick as the parent's tip: the level's radius fraction does not apply, its taper does.

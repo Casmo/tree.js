@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition, type DefinitionPatch } from '../definition';
 import { oak } from '../species';
 import { loadStyle, STYLE_NAMES } from '../styles/registry';
-import { angleBetween, segments, unit, sub } from '../../test/branch-geometry';
+import { angleBetween, segments, turnAbout, unit, sub } from '../../test/branch-geometry';
 import { generateTree, hashTreeData, type SkeletonBranch, type TreeData } from './index';
 
 // Level 1 grows Tip Branches by default, level 2 too; a third level does not.
@@ -80,6 +80,43 @@ describe('Tip Branches', () => {
           expect(tip.points[0]!.position).toEqual(last(all.get(parent.path)!).position);
           expect(tip.points[0]!.radius).toBe(last(all.get(parent.path)!).radius);
         }
+      }
+    }
+  });
+
+  it("splay a fork by half the Angle times the angle curve at the tip, its N branches 360°/N apart", () => {
+    const forksOf = (data: TreeData) =>
+      data.skeleton.branches
+        .filter((b) => b.level < 2)
+        .map((parent) => ({ tangent: segments(parent).at(-1)!, tips: data.skeleton.branches.filter((b) => b.parent === parent.path && b.tip) }));
+    for (const n of [2, 3, 4]) {
+      // Without angle variation: exactly half the Angle, times the angle curve at 1 (0.5 here) on level 2.
+      const exact = grow({
+        branches: [
+          { count: 4, angle: 60, angleVariation: 0, tipBranches: n },
+          { count: 2, angle: 40, angleVariation: 0, angleProfile: [{ t: 0, value: 2 }, { t: 1, value: 0.5 }], tipBranches: n },
+        ],
+      });
+      const forks = forksOf(exact);
+      expect(forks.length).toBeGreaterThan(1);
+      for (const { tangent, tips } of forks) {
+        const lean = tips[0]!.level === 1 ? 0.5 * 60 : 0.5 * 40 * 0.5;
+        for (const tip of tips) expect(angleBetween(tip.direction, tangent)).toBeCloseTo(lean, 6);
+        // Evenly around the parent's tip tangent, in path order.
+        tips.forEach((tip, j) => {
+          const turn = (turnAbout(tips[0]!.direction, tip.direction, tangent) + 1) % 1;
+          expect(Math.min(Math.abs(turn - j / n), 1 - Math.abs(turn - j / n))).toBeLessThan(1e-6);
+        });
+      }
+      // With angle variation: within it, around the same half Angle.
+      for (const seed of [1, 2, 3]) {
+        const varied = grow({ branches: [{ count: 4, angle: 60, angleVariation: 0.4, tipBranches: n }, { count: 2, angle: 60, angleVariation: 0.4, tipBranches: n }] }, seed);
+        const leans = forksOf(varied).flatMap(({ tangent, tips }) => tips.map((tip) => angleBetween(tip.direction, tangent)));
+        for (const lean of leans) {
+          expect(lean).toBeGreaterThanOrEqual(30 * 0.6 - 1e-6);
+          expect(lean).toBeLessThanOrEqual(30 * 1.4 + 1e-6);
+        }
+        expect(Math.max(...leans) - Math.min(...leans)).toBeGreaterThan(1);
       }
     }
   });
