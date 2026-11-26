@@ -1,0 +1,138 @@
+{
+ "title": "Leaves grow from Leaf Start",
+ "kicker": "Tree Editor \u00b7 Growth",
+ "app": "tree-js",
+ "url": "http://localhost:41695/?start=birch/realistic&seed=1&growth=0",
+ "chapters": [
+  {
+   "title": "Scrub Growth from 0 to 1: leaves ride on the growing twigs",
+   "steps": [
+    {
+     "click": "[id=\"growth\"]"
+    },
+    {
+     "press": "Home"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    }
+   ]
+  },
+  {
+   "title": "The new Leaf Start slider in the Leaves panel",
+   "steps": [
+    {
+     "scroll": "[id=\"leaves.growthStart\"]"
+    },
+    {
+     "hover": "[id=\"leaves.growthStart\"]",
+     "zoom": true
+    }
+   ]
+  },
+  {
+   "title": "Move Leaf Start to 0.8",
+   "steps": [
+    {
+     "click": "[id=\"leaves.growthStart\"]",
+     "zoom": true
+    },
+    {
+     "press": "End"
+    },
+    {
+     "press": "Backspace"
+    },
+    {
+     "press": "Backspace"
+    },
+    {
+     "press": "Backspace"
+    },
+    {
+     "press": "Backspace"
+    },
+    {
+     "press": "0"
+    },
+    {
+     "press": "."
+    },
+    {
+     "press": "8"
+    },
+    {
+     "press": "Enter"
+    }
+   ]
+  },
+  {
+   "title": "Scrub Growth again: leaves now appear late",
+   "steps": [
+    {
+     "scroll": "[id=\"growth\"]"
+    },
+    {
+     "click": "[id=\"growth\"]"
+    },
+    {
+     "press": "Home"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    },
+    {
+     "press": "PageUp"
+    }
+   ]
+  }
+ ]
+}
