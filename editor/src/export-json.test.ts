@@ -22,6 +22,15 @@ describe('JSON export', () => {
     }
   });
 
+  it('keeps each level\'s Tip Branches, 0 included, and leaves an absent one absent', () => {
+    const [first, second] = DEFAULT_DEFINITION.branches;
+    const definition = { ...DEFAULT_DEFINITION, branches: [{ ...first!, tipBranches: 3 }, { ...second!, tipBranches: 0 }, { ...second! }] };
+    const written = JSON.parse(definitionToJson(definition)) as { branches: { tipBranches?: number }[] };
+    expect(written.branches.map((level) => level.tipBranches)).toEqual([3, 0, undefined]);
+    expect('tipBranches' in written.branches[2]!).toBe(false);
+    expect(parseDefinition(definitionToJson(definition))).toEqual(definition);
+  });
+
   it('names the file after the Definition', () => {
     expect(definitionFileName({ ...DEFAULT_DEFINITION, name: 'Low-poly broadleaf' })).toBe('low-poly-broadleaf.tree.json');
     expect(definitionFileName({ ...DEFAULT_DEFINITION, name: '  Oak / Tall!  ' })).toBe('oak-tall.tree.json');

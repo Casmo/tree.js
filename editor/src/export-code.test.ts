@@ -41,6 +41,12 @@ describe('Copy code snippet', () => {
     expect(parseDefinition(inlinedDefinition(snippet))).toEqual(sculpted);
   });
 
+  it.each(['three', 'react'] as const)('%s: keeps each level\'s Tip Branches, 0 included', (target) => {
+    const branches = sculpted.branches.map((level, i) => ({ ...level, tipBranches: i === 0 ? 2 : 0 }));
+    const snippet = treeCodeSnippet({ ...state, definition: { ...sculpted, branches } }, target);
+    expect(parseDefinition(inlinedDefinition(snippet)).branches.map((level) => level.tipBranches)).toEqual(branches.map((level) => level.tipBranches));
+  });
+
   it('writes identifier keys unquoted and keeps other keys and strings intact', () => {
     const snippet = treeCodeSnippet({ ...state, definition: DEFAULT_DEFINITION }, 'three');
     expect(snippet).toMatch(/^ {2}schemaVersion: \d+,$/m);
