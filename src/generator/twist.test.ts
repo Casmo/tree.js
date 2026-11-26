@@ -1,16 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition, type BranchLevelDefinition, type TreeDefinitionInput } from '../definition';
+import { angleBetween, apart, cross, DEG, dot, expectNoKinks, mean, scale, segments, sub, turnAbout, unit } from '../../test/branch-geometry';
 import { generateTree, hashTreeData, type SkeletonBranch, type Vec3 } from './index';
 
-const DEG = 180 / Math.PI;
-const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const unit = (a: Vec3): Vec3 => {
-  const l = Math.hypot(...a);
-  return [a[0] / l, a[1] / l, a[2] / l];
-};
-const angleBetween = (a: Vec3, b: Vec3) => Math.acos(Math.min(1, Math.max(-1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))) * DEG;
-/** The unit direction of every segment of a branch's centre line. */
-const segments = (b: SkeletonBranch) => b.points.slice(1).map((p, i) => unit(sub(p.position, b.points[i]!.position)));
 /** Turns of a branch: the local peaks of how far its segments swing away from its start direction. */
 const turnsOf = (b: SkeletonBranch) => {
   const away = segments(b).map((d) => angleBetween(d, b.direction));
@@ -114,7 +106,7 @@ describe('Twist on branch levels', () => {
     for (let i = 1; i < firstTurn.length; i++) expect(angleBetween(firstTurn[i]!, firstTurn[0]!)).toBeGreaterThan(1);
     const sides = onLevel(generateTree(define(twist.map((t) => ({ ...t, bend: 0, gravity: 0 }))), 5), 1).map((b) => {
       const side = sub(segments(b)[1]!, b.direction);
-      return unit(sub(side, scaled(b.direction, side[0] * b.direction[0] + side[1] * b.direction[1] + side[2] * b.direction[2])));
+      return unit(sub(side, scale(b.direction, side[0] * b.direction[0] + side[1] * b.direction[1] + side[2] * b.direction[2])));
     });
     expect(new Set(sides.map((s) => s.map((v) => v.toFixed(3)).join())).size).toBe(sides.length);
   });
@@ -190,7 +182,6 @@ describe('Twist on branch levels', () => {
   it('lets Gravity still pull a twisted branch down or up overall', () => {
     const twist = { twist: 0.6, twists: 3, bend: 0 };
     const heights = (gravity: number) => onLevel(grow([{ ...twist, gravity }, { ...twist, gravity }]), 2).map((b) => tipOf(b)[1] - b.points[0]!.position[1]);
-    const mean = (values: number[]) => values.reduce((a, v) => a + v, 0) / values.length;
     const flat = mean(heights(0));
     expect(mean(heights(-1))).toBeLessThan(flat - 0.1);
     expect(mean(heights(1))).toBeGreaterThan(flat + 0.1);
@@ -206,17 +197,14 @@ describe('Twist on branch levels', () => {
   });
 });
 
-const scaled = (a: Vec3, s: number): Vec3 => [a[0] * s, a[1] * s, a[2] * s];
-const crossed = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const dotted = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 /**
  * How many times a straight-course branch's segments go round its start direction, signed: positive
  * clockwise seen from its base looking along it (right-handed about the direction), negative counter-clockwise.
  */
 function turnsAround(b: SkeletonBranch): number {
-  const sides = segments(b).map((d) => sub(d, scaled(b.direction, dotted(d, b.direction))));
+  const sides = segments(b).map((d) => sub(d, scale(b.direction, dot(d, b.direction))));
   let total = 0;
-  for (let i = 1; i < sides.length; i++) total += Math.atan2(dotted(crossed(sides[i - 1]!, sides[i]!), b.direction), dotted(sides[i - 1]!, sides[i]!));
+  for (let i = 1; i < sides.length; i++) total += Math.atan2(dot(cross(sides[i - 1]!, sides[i]!), b.direction), dot(sides[i - 1]!, sides[i]!));
   return total / (2 * Math.PI);
 }
 
@@ -264,10 +252,8 @@ describe('Corkscrew Twist on branch levels', () => {
     for (const b of data.skeleton.branches.filter((b) => b.level > 0)) {
       const dirs = segments(b);
       expect(angleBetween(dirs[0]!, b.direction)).toBeLessThan(10);
-      const steps = dirs.slice(1).map((d, i) => angleBetween(dirs[i]!, d));
       // Never more than the steady step of a 45° lean on 6 Sections per turn (≈ 41°).
-      for (const step of steps) expect(step).toBeLessThan(42);
-      for (let i = 1; i < steps.length; i++) expect(Math.abs(steps[i]! - steps[i - 1]!)).toBeLessThan(25);
+      expectNoKinks(dirs, 42, 25);
     }
   });
 
@@ -307,7 +293,6 @@ describe('Corkscrew Twist on branch levels', () => {
   it('lets Gravity and Bend still apply on top of a Corkscrew', () => {
     const twist = corkscrew(0.6, 3, { bend: 0 });
     const heights = (gravity: number) => onLevel(grow([{ ...twist, gravity }, { ...twist, gravity }]), 2).map((b) => tipOf(b)[1] - b.points[0]!.position[1]);
-    const mean = (values: number[]) => values.reduce((a, v) => a + v, 0) / values.length;
     const flat = mean(heights(0));
     expect(mean(heights(-1))).toBeLessThan(flat - 0.1);
     expect(mean(heights(1))).toBeGreaterThan(flat + 0.1);
@@ -348,10 +333,8 @@ describe('Twist Curve on Corkscrew branch levels', () => {
       const data = straight([curved(1, { twist }), curved(1, { twist, twists: 3 })]);
       for (const b of twigs(data)) {
         const dirs = segments(b);
-        const steps = dirs.slice(1).map((d, i) => angleBetween(dirs[i]!, d));
-        for (const step of steps) expect(step, `${b.path} twist ${twist}`).toBeLessThan(60);
         // The turn between Sections changes gradually: no Section turns much more than the one before it.
-        for (let i = 1; i < steps.length; i++) expect(Math.abs(steps[i]! - steps[i - 1]!), `${b.path} twist ${twist}`).toBeLessThan(30);
+        expectNoKinks(dirs, 60, 30, `${b.path} twist ${twist}`);
         for (const d of dirs) for (const v of d) expect(Number.isFinite(v)).toBe(true);
       }
     }
@@ -379,17 +362,15 @@ describe('Twist Curve on Corkscrew branch levels', () => {
     // Each first-level branch's bend side around its start direction, measured from straight up (degrees).
     const sides = onLevel(data, 1).map((b) => {
       const mean = segments(b).reduce((a, d) => [a[0] + d[0], a[1] + d[1], a[2] + d[2]] as Vec3, [0, 0, 0] as Vec3);
-      const side = sub(mean, scaled(b.direction, dotted(mean, b.direction)));
-      const up = unit(sub([0, 1, 0], scaled(b.direction, b.direction[1])));
-      return Math.atan2(dotted(crossed(up, side), b.direction), dotted(up, side)) * DEG;
+      const side = sub(mean, scale(b.direction, dot(mean, b.direction)));
+      const up = unit(sub([0, 1, 0], scale(b.direction, b.direction[1])));
+      return Math.atan2(dot(cross(up, side), b.direction), dot(up, side)) * DEG;
     });
-    const apart = (a: number, b: number) => 180 - Math.abs(180 - Math.abs(a - b));
     expect(Math.max(...sides.flatMap((a) => sides.map((b) => apart(a, b))))).toBeGreaterThan(90);
   });
 
   it('lets Gravity and Bend still apply on top of a curved Corkscrew', () => {
     const heights = (gravity: number) => onLevel(grow([curved(0.6, { gravity, bend: 0 }), curved(0.6, { gravity, bend: 0 })]), 2).map((b) => tipOf(b)[1] - b.points[0]!.position[1]);
-    const mean = (values: number[]) => values.reduce((a, v) => a + v, 0) / values.length;
     const flat = mean(heights(0));
     expect(mean(heights(-1))).toBeLessThan(flat - 0.1);
     expect(mean(heights(1))).toBeGreaterThan(flat + 0.1);
@@ -397,11 +378,6 @@ describe('Twist Curve on Corkscrew branch levels', () => {
 });
 
 describe('Corkscrew rolls its bark and what grows on it (ADR 0016)', () => {
-  /** Signed angle (turns) from `a` to `b` around unit `axis`, both first made perpendicular to it: positive clockwise seen looking along `axis`. */
-  const turnAbout = (a: Vec3, b: Vec3, axis: Vec3) => {
-    const [x, y] = [a, b].map((v) => sub(v, scaled(axis, dotted(v, axis))));
-    return Math.atan2(dotted(crossed(x!, y!), axis), dotted(x!, y!)) / (2 * Math.PI);
-  };
   /** `x` (turns) wrapped into -0.5 .. 0.5. */
   const wrapped = (x: number) => x - Math.round(x);
   /**
@@ -506,12 +482,12 @@ describe('Follow Twist between Corkscrew branch levels', () => {
   const turned = (v: Vec3, axis: Vec3, angle: number): Vec3 => {
     const c = Math.cos(angle);
     const s = Math.sin(angle);
-    const k = dotted(axis, v) * (1 - c);
-    const x = crossed(axis, v);
+    const k = dot(axis, v) * (1 - c);
+    const x = cross(axis, v);
     return [v[0] * c + x[0] * s + axis[0] * k, v[1] * c + x[1] * s + axis[1] * k, v[2] * c + x[2] * s + axis[2] * k];
   };
   /** Unit `v` (across `from`) taken along by the smallest rotation from unit `from` onto unit `to`. */
-  const carried = (v: Vec3, from: Vec3, to: Vec3) => turned(v, unit(crossed(from, to)), Math.acos(Math.min(1, Math.max(-1, dotted(from, to)))));
+  const carried = (v: Vec3, from: Vec3, to: Vec3) => turned(v, unit(cross(from, to)), Math.acos(Math.min(1, Math.max(-1, dot(from, to)))));
   /**
    * The side a straight-course Corkscrew leans to at fraction `u`: every segment's lean side (across
    * its start direction), turned on to `u` by its Spin at one turn per Twists, averaged.
@@ -520,7 +496,7 @@ describe('Follow Twist between Corkscrew branch levels', () => {
     const spin = Math.sign(turnsAround(b));
     const n = sectionsOf(b);
     const sum = segments(b).reduce((a, d, k) => {
-      const across = sub(d, scaled(b.direction, dotted(d, b.direction)));
+      const across = sub(d, scale(b.direction, dot(d, b.direction)));
       const side = turned(across, b.direction, spin * 2 * Math.PI * twists * (u - (k + 0.5) / n));
       return [a[0] + side[0], a[1] + side[1], a[2] + side[2]] as Vec3;
     }, [0, 0, 0] as Vec3);
@@ -556,7 +532,7 @@ describe('Follow Twist between Corkscrew branch levels', () => {
 
   it('bends its Twist Curve to the parent\'s curve side', () => {
     /** The axis a straight-course Corkscrew's Twist Curve turns it about: from its start to its end heading (a slight Twist barely leans it). */
-    const curveAxisOf = (b: SkeletonBranch) => unit(crossed(b.direction, segments(b).at(-1)!));
+    const curveAxisOf = (b: SkeletonBranch) => unit(cross(b.direction, segments(b).at(-1)!));
     const slight = { twist: 0.05, twistCurve: 0.6 };
     const check = (data: ReturnType<typeof generateTree>) =>
       onLevel(data, 2).map((b) => {
@@ -573,7 +549,7 @@ describe('Follow Twist between Corkscrew branch levels', () => {
     /** Straight, leaning Stems (no Bend, no Trunk gravity) with first-level branches on them. */
     const onStems = (trunk: Partial<BranchLevelDefinition>, level: Partial<BranchLevelDefinition>) =>
       generateTree(define([{ sections: 2, bend: 0, gravity: 0, ...level }, {}], { schemaVersion: 3, trunk: { stems: 2, spread: 40, bend: 0, ...trunk } }), 5);
-    const curveAxisOf = (b: SkeletonBranch) => unit(crossed(b.direction, segments(b).at(-1)!));
+    const curveAxisOf = (b: SkeletonBranch) => unit(cross(b.direction, segments(b).at(-1)!));
     const spun = onStems(corkscrew({ twists: 3, spin: 'clockwise' }), following({ twist: 0.4, spin: 'counterclockwise' }));
     for (const b of onLevel(spun, 1)) {
       const stem = parentOf(spun, b);

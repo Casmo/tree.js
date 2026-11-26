@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition, TreeDefinitionError, type DefinitionPatch } from '../definition';
+import { angleBetween, apart, DEG, expectNoKinks, segments, sub, turnAbout } from '../../test/branch-geometry';
 import { generateTree, hashTreeData, trunkHeight, type SkeletonBranch, type Vec3 } from './index';
 
-const DEG = 180 / Math.PI;
 const base = parseDefinition({ schemaVersion: 3, branches: [{ count: 4 }, { count: 2 }], leaves: { count: 3 } });
 const grow = (trunk: DefinitionPatch['trunk'], seed = 5) => generateTree(extendDefinition(base, { trunk }), seed);
 const stemsOf = (data: ReturnType<typeof generateTree>) => data.skeleton.branches.filter((b) => b.parent === null);
 /** Angle of a Stem's base direction from vertical, degrees. */
 const tiltOf = (b: SkeletonBranch) => Math.acos(b.direction[1]) * DEG;
 const tip = (b: SkeletonBranch) => b.points[b.points.length - 1]!.position;
-const sub3 = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 
 describe('Stems', () => {
   it('grows the declared number of Stems, paths "0", "1", ..., each with the full branch structure', () => {
@@ -152,14 +151,6 @@ describe('several Stems: Wind, Growth and Bake scale', () => {
 
 describe('Twist on the trunk', () => {
   const straight = { bend: 0, lengthVariation: 0, sections: 4 };
-  const unit = (a: Vec3): Vec3 => {
-    const l = Math.hypot(...a);
-    return [a[0] / l, a[1] / l, a[2] / l];
-  };
-  const angleBetween = (a: Vec3, b: Vec3) => Math.acos(Math.min(1, Math.max(-1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))) * DEG;
-  /** The unit direction of every segment of a Stem's centre line. */
-  const segments = (b: SkeletonBranch) =>
-    b.points.slice(1).map((p, i) => unit([p.position[0] - b.points[i]!.position[0], p.position[1] - b.points[i]!.position[1], p.position[2] - b.points[i]!.position[2]]));
 
   it('Twist 0 or absent gives exactly today\'s trunk (skeleton and geometry hash)', () => {
     const plain = generateTree(base, 5);
@@ -222,7 +213,7 @@ describe('Twist on the trunk', () => {
       const points = stemsOf(grow({ ...bent, twist: 1e-9, twists }))[0]!.points.map((p) => p.position);
       expect(points).toHaveLength(Math.max(sections, 3 * twists) + 1);
       for (const corner of corners) {
-        const nearest = Math.min(...points.map((p) => Math.hypot(...sub3(p, corner))));
+        const nearest = Math.min(...points.map((p) => Math.hypot(...sub(p, corner))));
         expect(nearest, `${sections} Sections, ${twists} Twists`).toBeLessThan(1e-6);
       }
     }
@@ -239,7 +230,7 @@ describe('Twist on the trunk', () => {
     // The lean tilts the whole twisted Stem: base direction and overall course lean out by the spread.
     const leaning = stemsOf(grow({ ...twist, spread: 30 }))[0]!;
     expect(tiltOf(leaning)).toBeGreaterThan(30 * 0.6);
-    const [x, y, z] = sub3(tip(leaning), leaning.points[0]!.position);
+    const [x, y, z] = sub(tip(leaning), leaning.points[0]!.position);
     expect(Math.atan2(Math.hypot(x, z), y) * DEG).toBeGreaterThan(10);
     const first = segments(leaning)[0]!;
     expect(angleBetween(first, leaning.direction)).toBeLessThan(1e-9);
@@ -274,21 +265,7 @@ describe('Twist on the trunk', () => {
 describe('Corkscrew on the trunk', () => {
   const straight = { bend: 0, lengthVariation: 0, sections: 4 };
   const corkscrew = (twist: number, twists: number, more: DefinitionPatch['trunk'] = {}): DefinitionPatch['trunk'] => ({ ...straight, twistStyle: 'corkscrew', twist, twists, ...more });
-  const unit = (a: Vec3): Vec3 => {
-    const l = Math.hypot(...a);
-    return [a[0] / l, a[1] / l, a[2] / l];
-  };
-  const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-  const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-  const scale = (a: Vec3, s: number): Vec3 => [a[0] * s, a[1] * s, a[2] * s];
-  const angleBetween = (a: Vec3, b: Vec3) => Math.acos(Math.min(1, Math.max(-1, dot(a, b)))) * DEG;
-  const segments = (b: SkeletonBranch) => b.points.slice(1).map((p, i) => unit(sub3(p.position, b.points[i]!.position)));
   const UP: Vec3 = [0, 1, 0];
-  /** Signed angle (turns) from `a` to `b` around unit `axis`, both made perpendicular to it: positive clockwise seen looking along `axis`. */
-  const turnAbout = (a: Vec3, b: Vec3, axis: Vec3) => {
-    const [x, y] = [a, b].map((v) => sub3(v, scale(axis, dot(v, axis))));
-    return Math.atan2(dot(cross(x!, y!), axis), dot(x!, y!)) / (2 * Math.PI);
-  };
   /** How many times an upright Stem's segments go round straight up, signed: positive clockwise seen from its base. */
   const turnsAround = (b: SkeletonBranch) => {
     const dirs = segments(b);
@@ -331,9 +308,7 @@ describe('Corkscrew on the trunk', () => {
         // last: on 6 Sections per turn that is a third of a turn short of Twists.
         expect(Math.abs(turns)).toBeCloseTo(twists - 1 / 3, 6);
         // No kinks: never more than the steady step of a 45° lean on 6 Sections per turn (≈ 41°).
-        const steps = dirs.slice(1).map((d, i) => angleBetween(dirs[i]!, d));
-        for (const step of steps) expect(step).toBeLessThan(42);
-        for (let i = 1; i < steps.length; i++) expect(Math.abs(steps[i]! - steps[i - 1]!)).toBeLessThan(25);
+        expectNoKinks(dirs, 42, 25);
       }
     }
   });
@@ -347,9 +322,7 @@ describe('Corkscrew on the trunk', () => {
     expect(endHeading(1)).toBeGreaterThan(165);
     const dirs = segments(stemsOf(grow(corkscrew(1, 3, { twistCurve: 1 })))[0]!);
     expect(angleBetween(dirs[0]!, UP)).toBeLessThan(1e-9);
-    const steps = dirs.slice(1).map((d, i) => angleBetween(dirs[i]!, d));
-    for (const step of steps) expect(step).toBeLessThan(60);
-    for (let i = 1; i < steps.length; i++) expect(Math.abs(steps[i]! - steps[i - 1]!)).toBeLessThan(30);
+    expectNoKinks(dirs, 60, 30);
   });
 
   it('lets Trunk gravity, the Stem lean and the ring offset still apply on top', () => {
@@ -384,7 +357,6 @@ describe('Corkscrew on the trunk', () => {
       const [x, , z] = segments(s).at(-1)!;
       return Math.atan2(z, x) * DEG;
     });
-    const apart = (a: number, b: number) => 180 - Math.abs(180 - Math.abs(a - b));
     expect(Math.max(...sides.flatMap((a) => sides.map((b) => apart(a, b))))).toBeGreaterThan(90);
     expect(stemsOf(grow(trunk, 6)).map(segments)).not.toEqual(stemsOf(data).map(segments));
   });
