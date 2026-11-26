@@ -168,6 +168,10 @@ _Avoid_: Weather, frost, winter
 A ready-made, opt-in Tree Shader Hook that darkens trees and gives them a sheen by a scene-wide wetness amount, as after rain, drawn to suit the tree's Style.
 _Avoid_: Rain, weather, wet look
 
+**Glow**:
+Light a tree gives off by itself, from its leaves and from veins in its bark, so it shines even with no light on it, strongest at the thin edge of the crown and slowly pulsing; drawn only by the Enchanted Style. Unlike Leaf Translucency it needs no light behind the leaves.
+_Avoid_: Emissive, bioluminescence, leaf glow (that is Leaf Translucency)
+
 **Crown Volume**:
 The single smooth ellipsoid that encloses a tree's leaves when fully grown, used to light and shade the crown as one shape.
 _Avoid_: Crown hull, crown sphere, bounding volume
