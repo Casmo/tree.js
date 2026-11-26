@@ -75,7 +75,7 @@ export interface TwistSettings {
  * Trunk parameters (branch level 0). A twisted Stem (an olive or juniper) keeps its base in place and
  * starting upright; Trunk gravity and the Stem lean still apply on top of its Twist.
  */
-export interface TrunkDefinition extends Omit<TwistSettings, 'twistStyle' | 'spin' | 'twistCurve'> {
+export interface TrunkDefinition extends TwistSettings {
   /** Trunk length at full Growth, metres (> 0). */
   length: number;
   /** Radius at the base, metres (> 0). */

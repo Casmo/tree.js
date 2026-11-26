@@ -152,6 +152,13 @@ describe('Definition defaults', () => {
     expect([def.branches[1]!.twistCurve, def.branches[2]!.twistCurve]).toEqual([0.6, 1]);
   });
 
+  it('keeps the trunk\'s optional Twist Style, Spin and Twist Curve: absent stays absent (Snake, Random, 0), given values are kept', () => {
+    const plain = parseDefinition({ schemaVersion: 3 });
+    for (const key of ['twistStyle', 'spin', 'twistCurve']) expect(key in plain.trunk, key).toBe(false);
+    const def = parseDefinition({ schemaVersion: 3, trunk: { twistStyle: 'corkscrew', spin: 'counterclockwise', twistCurve: 0.6 } });
+    expect([def.trunk.twistStyle, def.trunk.spin, def.trunk.twistCurve]).toEqual(['corkscrew', 'counterclockwise', 0.6]);
+  });
+
   it('keeps a branch level\'s optional Follow Twist: absent stays absent (off), given values are kept', () => {
     const def = parseDefinition({ schemaVersion: 3, branches: [{}, { followTwist: true }, { twistStyle: 'corkscrew', followTwist: false }] });
     expect('followTwist' in def.branches[0]!).toBe(false);
@@ -223,6 +230,10 @@ describe('Definition validation names the bad field', () => {
     ['trunk twists not an integer', { schemaVersion: 3, trunk: { twists: 2.5 } }, 'trunk.twists'],
     ['trunk twists below 1', { schemaVersion: 3, trunk: { twists: 0 } }, 'trunk.twists'],
     ['trunk twists above 8', { schemaVersion: 3, trunk: { twists: 9 } }, 'trunk.twists'],
+    ['unknown trunk Twist Style', { schemaVersion: 3, trunk: { twistStyle: 'helix' } }, 'trunk.twistStyle'],
+    ['unknown trunk Spin', { schemaVersion: 3, trunk: { spin: 'left' } }, 'trunk.spin'],
+    ['trunk Twist Curve above 1', { schemaVersion: 3, trunk: { twistCurve: 1.5 } }, 'trunk.twistCurve'],
+    ['trunk Twist Curve below 0', { schemaVersion: 3, trunk: { twistCurve: -0.1 } }, 'trunk.twistCurve'],
     ['branch end before start', { schemaVersion: 2, branches: [{ start: 0.8, end: 0.2 }] }, 'branches[0].end'],
     ['too many branch levels', { schemaVersion: 2, branches: [{}, {}, {}, {}, {}] }, 'branches'],
     ['leaf shape', { schemaVersion: 2, leaves: { shape: 'square' } }, 'leaves.shape'],

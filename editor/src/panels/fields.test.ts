@@ -29,7 +29,7 @@ function parameterPaths(node: unknown, prefix = ''): string[] {
 const FULL_DEFINITION = parseDefinition({
   ...DEFAULT_DEFINITION,
   species: 'test-oak',
-  trunk: { ...DEFAULT_DEFINITION.trunk, stems: 3, spread: 20, gravity: -0.2, twist: 0.3, twists: 3, flare: 0.5, flareSections: 2 },
+  trunk: { ...DEFAULT_DEFINITION.trunk, stems: 3, spread: 20, gravity: -0.2, twist: 0.3, twists: 3, twistStyle: 'corkscrew', spin: 'clockwise', twistCurve: 0.5, flare: 0.5, flareSections: 2 },
   branches: DEFAULT_DEFINITION.branches.map((level) => ({
     ...level,
     twist: 0.3,
@@ -97,8 +97,11 @@ describe('parameter panels', () => {
       'trunk.stems': 1,
       'trunk.spread': 0,
       'trunk.gravity': 0,
+      'trunk.twistStyle': 'snake',
       'trunk.twist': 0,
       'trunk.twists': 2,
+      'trunk.spin': 'random',
+      'trunk.twistCurve': 0,
       'trunk.flare': 0,
       'trunk.flareSections': 3,
       'leaves.type': '',
@@ -154,6 +157,8 @@ describe('parameter panels', () => {
   it('offer exactly the choices the schema accepts', () => {
     const choices = allFields().filter((field) => field.kind === 'choice');
     expect(Object.fromEntries(choices.map((field) => [field.path, field.options]))).toEqual({
+      'trunk.twistStyle': ['snake', 'corkscrew'],
+      'trunk.spin': ['random', 'clockwise', 'counterclockwise'],
       'leaves.shape': ['card', 'clump', 'needle', 'puff'],
       'leaves.type': LEAF_TYPES,
       'materials.shading': ['standard', 'flat', 'toon'],
@@ -163,6 +168,8 @@ describe('parameter panels', () => {
     const fruitType = (type: string) => () => parseDefinition({ ...DEFAULT_DEFINITION, fruit: { type } });
     for (const type of ['round', 'pear', 'nut', 'cone', 'berry']) expect(fruitType(type)).not.toThrow();
     expect(fruitType('apple')).toThrow(/fruit.type/);
+    expect(() => parseDefinition({ ...DEFAULT_DEFINITION, trunk: { ...DEFAULT_DEFINITION.trunk, twistStyle: 'helix' } })).toThrow(/trunk.twistStyle/);
+    expect(() => parseDefinition({ ...DEFAULT_DEFINITION, trunk: { ...DEFAULT_DEFINITION.trunk, spin: 'left' } })).toThrow(/trunk.spin/);
   });
 
   it('offer the Twist group right after Gravity on each branch level: Twist style, Twist, Twists, Spin, Twist curve, Follow twist, showing Snake / no Twist / Random / 0 / off while absent', () => {
@@ -183,15 +190,20 @@ describe('parameter panels', () => {
     }
   });
 
-  it('offer Twist (0..1) and Twists (1..8, whole) on the trunk right after Trunk gravity, showing no Twist while absent; Follow twist only on branch levels', () => {
+  it('offer the Twist group on the trunk right after Trunk gravity: Twist style, Twist, Twists, Spin, Twist curve, showing Snake / no Twist / Random / 0 while absent; Follow twist only on branch levels', () => {
     const fields = PARAMETER_GROUPS.find((group) => group.id === 'trunk')!.fields;
     const paths = fields.map((field) => field.path);
     expect(allFields().filter((field) => field.path.endsWith('followTwist'))).toEqual([]);
     const at = paths.indexOf('trunk.gravity');
-    expect(paths.slice(at, at + 3)).toEqual(['trunk.gravity', 'trunk.twist', 'trunk.twists']);
+    expect(paths.slice(at, at + 6)).toEqual(['trunk.gravity', 'trunk.twistStyle', 'trunk.twist', 'trunk.twists', 'trunk.spin', 'trunk.twistCurve']);
     const field = (path: string) => fields.find((f) => f.path === path);
+    expect(field('trunk.twistStyle')).toEqual({ kind: 'choice', path: 'trunk.twistStyle', label: 'Twist style', options: TWIST_STYLES, absent: 'snake' });
     expect(field('trunk.twist')).toEqual({ kind: 'number', path: 'trunk.twist', label: 'Twist', min: 0, max: 1, step: 0.01, absent: 0 });
     expect(field('trunk.twists')).toEqual({ kind: 'number', path: 'trunk.twists', label: 'Twists', min: 1, max: 8, step: 1, absent: 2 });
+    expect(field('trunk.spin')).toEqual({ kind: 'choice', path: 'trunk.spin', label: 'Spin', options: SPINS, absent: 'random', hint: 'Corkscrew only' });
+    expect(field('trunk.twistCurve')).toEqual({ kind: 'number', path: 'trunk.twistCurve', label: 'Twist curve', min: 0, max: 1, step: 0.01, absent: 0, hint: 'Corkscrew only' });
+    // The trunk has no Follow Twist.
+    expect(paths.filter((path) => path.includes('follow'))).toEqual([]);
   });
 
   it('let a Crown Shape curve go beyond 1 (longer or wider branches) but not below 0', () => {

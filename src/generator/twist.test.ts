@@ -569,6 +569,27 @@ describe('Follow Twist between Corkscrew branch levels', () => {
     expect(Math.max(...check(straight([corkscrew(slight), corkscrew({ ...slight, twistCurve: 0.5 })])))).toBeGreaterThan(30);
   });
 
+  it('follows a Corkscrew trunk on the first level: each Stem\'s Spin, its spiral where they attach and its curve side', () => {
+    /** Straight, leaning Stems (no Bend, no Trunk gravity) with first-level branches on them. */
+    const onStems = (trunk: Partial<BranchLevelDefinition>, level: Partial<BranchLevelDefinition>) =>
+      generateTree(define([{ sections: 2, bend: 0, gravity: 0, ...level }, {}], { schemaVersion: 3, trunk: { stems: 2, spread: 40, bend: 0, ...trunk } }), 5);
+    const curveAxisOf = (b: SkeletonBranch) => unit(crossed(b.direction, segments(b).at(-1)!));
+    const spun = onStems(corkscrew({ twists: 3, spin: 'clockwise' }), following({ twist: 0.4, spin: 'counterclockwise' }));
+    for (const b of onLevel(spun, 1)) {
+      const stem = parentOf(spun, b);
+      expect(Math.sign(turnsAround(b)), b.path).toBe(1);
+      expect(angleBetween(sideAt(b, 0, 2), carried(sideAt(stem, b.attach, 3), stem.direction, b.direction)), b.path).toBeLessThan(2);
+    }
+    const slight = { twist: 0.05, twistCurve: 0.6 };
+    const curved = onStems(corkscrew(slight), following({ ...slight, twistCurve: 0.5 }));
+    for (const b of onLevel(curved, 1)) {
+      const stem = parentOf(curved, b);
+      const axis = curveAxisOf(stem);
+      const course = turned(stem.direction, axis, 0.6 * Math.PI * b.attach * b.attach * (3 - 2 * b.attach));
+      expect(angleBetween(curveAxisOf(b), carried(axis, course, b.direction)), b.path).toBeLessThan(8);
+    }
+  });
+
   it('keeps its own Twist, Twists and Twist Curve amounts', () => {
     const data = straight([corkscrew({ twist: 0.9, twists: 2, twistCurve: 0 }), following({ twist: 0.4, twists: 3, twistCurve: 0 })]);
     for (const b of onLevel(data, 2)) {

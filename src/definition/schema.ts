@@ -170,12 +170,9 @@ function track<V>(value: Schema<V>): Schema<Keyframe<V>[]> {
 }
 
 /** The Twist fields shared by branch levels and the trunk (TwistSettings). */
-const twistFields: { [K in keyof TrunkDefinition & keyof TwistSettings]-?: Schema<TwistSettings[K]> } = {
+const twistFields: { [K in keyof TwistSettings]-?: Schema<TwistSettings[K]> } = {
   twist: optional(unit),
   twists: optional(intRange(1, 8)),
-};
-/** The Corkscrew fields of TwistSettings (branch levels only, for now). */
-const corkscrewFields: { [K in Exclude<keyof TwistSettings, keyof typeof twistFields>]-?: Schema<TwistSettings[K]> } = {
   twistStyle: optional(oneOf(...TWIST_STYLES)),
   spin: optional(oneOf(...SPINS)),
   twistCurve: optional(unit),
@@ -198,7 +195,6 @@ const branchLevel = refine(
     bend: unit,
     gravity: range(-1, 1),
     ...twistFields,
-    ...corkscrewFields,
     followTwist: optional(bool),
     lengthProfile: optional(track(nonNegative)),
     angleProfile: optional(track(nonNegative)),
