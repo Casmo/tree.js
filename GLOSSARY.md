@@ -112,6 +112,10 @@ _Avoid_: Age, progress, scale
 The point in the yearly cycle, a value from 0 (first day of spring) to 1 (last day of winter), that sets a tree's leaf colour and leaf coverage.
 _Avoid_: Weather, time of year
 
+**Leaf Palette**:
+One of several alternative sets of leaf colours across Season in a Tree Definition, with a matching accent colour for the bark; the Seed picks one per tree, so a Forest of one Definition can come in many colours.
+_Avoid_: Colour scheme, theme, colour variant
+
 **Season Profile**:
 The part of a Tree Definition that says how leaf colour, leaf coverage and blossom change across Season, as keyframes from 0 to 1.
 _Avoid_: Season preset, season style
