@@ -15,8 +15,8 @@ const DEG = Math.PI / 180;
 const FRUIT_TILT = 60;
 /** Fruit sits on the outer part of its twig: from this fraction of the twig length to its tip. */
 const FRUIT_START = 0.3;
-/** Fruit starts to grow no earlier than this Growth (it only shows on a fully grown tree) ... */
-const FRUIT_GROWTH_START = 0.9;
+/** Fruit starts to grow no earlier than this Growth (it shows for the last part of Growth) ... */
+const FRUIT_GROWTH_START = 0.7;
 /** ... plus up to this much per Fruit (from the Seed). */
 const FRUIT_GROWTH_JITTER = 0.05;
 
@@ -67,7 +67,7 @@ export function placeFruit(definition: TreeDefinition, branches: SkeletonBranch[
 }
 
 /**
- * When each Fruit grows: only at the very end of Growth (from about {@link FRUIT_GROWTH_START},
+ * When each Fruit grows: only in the last part of Growth (from about {@link FRUIT_GROWTH_START},
  * never before its twig is fully grown), so a sapling bears none. Computed apart from the other
  * parts' timing, so Fruit never shifts the Growth of wood or leaves.
  */

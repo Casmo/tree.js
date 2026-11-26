@@ -187,7 +187,7 @@ export interface GrowthTiming {
   branches: GrowthWindow[];
   /** Each leaf's own window, from Leaf Start (plus its stagger) to Growth 1; it also rides on its twig's sprout (ADR 0019). */
   leaves: GrowthWindow[];
-  /** Fruit grows only at the end of Growth (from about 0.9), on a fully grown twig. */
+  /** Fruit grows only in the last part of Growth (from about 0.7), on a fully grown twig. */
   fruit: GrowthWindow[];
   /** Roots grow like the trunk: present from Growth 0 ({ start: 0, end: 0 }), scaled with the whole tree. */
   roots: GrowthWindow[];
