@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition, type DefinitionPatch } from '../definition';
 import { angleBetween, segments, unit, sub } from '../../test/branch-geometry';
-import { generateTree, type SkeletonBranch, type TreeData } from './index';
+import { generateTree, hashTreeData, type SkeletonBranch, type TreeData } from './index';
 
 // Level 1 grows Tip Branches by default, level 2 too; a third level does not.
 const base = parseDefinition({ schemaVersion: 3, branches: [{ count: 4 }, { count: 2 }], leaves: { count: 3 } });
@@ -95,4 +95,46 @@ describe('Tip Branches', () => {
       }
     }
   });
+
+  it('grow next-level branches of their own, and leaves and Fruit when they are outermost', () => {
+    const data = grow({ fruit: { type: 'round', count: 1 } });
+    const { branches, leaves, fruit } = data.skeleton;
+    // The trunk's Tip Branch (level 1) has the level-2 side branches and its own Tip Branch.
+    expect(branches.filter((b) => b.parent === '0.4').map((b) => b.path)).toEqual(['0.4.0', '0.4.1', '0.4.2']);
+    // Level-2 Tip Branches are outermost: leaves and Fruit like their side siblings.
+    for (const twig of branches.filter((b) => b.level === 2)) {
+      expect(leaves.filter((l) => l.branch === twig.path)).toHaveLength(3);
+      expect(fruit.filter((f) => f.branch === twig.path)).toHaveLength(1);
+    }
+    expect(branches.filter((b) => b.level === 2 && b.tip).length).toBe(4 + 1); // one on each first-level branch
+
+    // A tree with only one level: the trunk's Tip Branch is outermost and bears leaves.
+    const single = generateTree(parseDefinition({ schemaVersion: 3, branches: [{ count: 3 }], leaves: { count: 4 }, fruit: { type: 'round', count: 2 } }), 5);
+    expect(single.skeleton.branches.map((b) => [b.path, !!b.tip])).toEqual([['0', false], ['0.0', false], ['0.1', false], ['0.2', false], ['0.3', true]]);
+    expect(single.skeleton.leaves.filter((l) => l.branch === '0.3')).toHaveLength(4);
+    expect(single.skeleton.fruit.filter((f) => f.branch === '0.3')).toHaveLength(2);
+  });
+
+  it('carry every Stem of a multi-Stem tree on, also a Stem nodding over under Trunk gravity', () => {
+    const data = grow({ trunk: { stems: 3, spread: 20, gravity: -0.8 } });
+    const all = byPath(data);
+    for (const stem of ['0', '1', '2']) {
+      const tip = all.get(`${stem}.4`)!;
+      expect(tip.tip).toBe(true);
+      expect(tip.points[0]!.position).toEqual(last(all.get(stem)!).position);
+      // It carries on the nodding direction (within the level's angle variation), not straight up.
+      expect(angleBetween(tip.direction, segments(all.get(stem)!).at(-1)!)).toBeLessThanOrEqual(0.5 * 45 * 0.2 + 1e-6);
+    }
+  });
+
+  it('give the same tree for the same Definition and Seed, and Tip Branches 0 on every level gives the tree from before them', () => {
+    expect(hashTreeData(grow({}, 11))).toBe(hashTreeData(grow({}, 11)));
+    expect(grow({}, 11).skeleton).toEqual(grow({}, 11).skeleton);
+    expect(hashTreeData(grow({}, 11))).not.toBe(hashTreeData(grow({}, 12)));
+    // Hashes of this Definition generated before Tip Branches existed.
+    expect([5, 11].map((seed) => hashTreeData(grow({ branches: levels(0, 0) }, seed)))).toEqual(BEFORE_TIP_BRANCHES);
+  });
 });
+
+/** Seeds 5 and 11, recorded with the generator from before Tip Branches (commit abc43a8). */
+const BEFORE_TIP_BRANCHES = ['6996ecf8', 'b4eb192d'];
