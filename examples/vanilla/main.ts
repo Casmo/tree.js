@@ -7,7 +7,7 @@
 //   ?season=<0..1>  Season (default 0.37, summer)
 //   ?form=conifer  an evergreen conifer instead of the deciduous broadleaf
 //   ?fruit=round|pear|nut|cone|berry  add Fruit of that Fruit Type (sets in late spring, ripens green -> red, drops in autumn)
-//   ?style=low-poly|stylized|realistic|painterly  grow that built-in Style's Definition for the form (loaded with a dynamic import)
+//   ?style=low-poly|stylized|realistic|painterly|whimsical  grow that built-in Style's Definition for the form (loaded with a dynamic import)
 //   ?species=<id>  grow that Species (loadSpecies, e.g. oak) in the ?style (default low-poly)
 //   ?leafType=<Leaf Type>&barkType=<Bark Type>  re-apply the Style with this Leaf / Bark Type (e.g. palmate, papery)
 //   ?textureBase=<url>  load relative texture URLs (the realistic Style's) from this base path / CDN
@@ -66,6 +66,7 @@ const styles: Record<string, () => Promise<{ default: TreeStyle }>> = {
   stylized: () => import("@casmo/tree.js/styles/stylized"),
   realistic: () => import("@casmo/tree.js/styles/realistic"),
   painterly: () => import("@casmo/tree.js/styles/painterly"),
+  whimsical: () => import("@casmo/tree.js/styles/whimsical"),
 };
 
 declare global {

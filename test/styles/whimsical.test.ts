@@ -17,6 +17,7 @@ import {
 import { SUGGESTED_TREE_EFFECTS } from '../../src/effects';
 import { SUGGESTED_SCENE_EFFECTS } from '../../src/scene';
 import { generateTree } from '../../src/generator';
+import { coneCurve } from '../../src/definition/crown-shape';
 import { loadSpecies, oak, SPECIES_NAMES } from '../../src/species';
 import stylized from '../../src/styles/stylized';
 
@@ -243,5 +244,41 @@ describe('the Whimsical suggestions', () => {
 
   it('Material Features: Crown Normals 1', () => {
     expect(SUGGESTED_MATERIAL_FEATURES.whimsical.crownNormals).toBe(1);
+  });
+});
+
+describe('the Whimsical showpieces', () => {
+  const forms = { broadleaf: whimsical.broadleaf, conifer: whimsical.conifer };
+
+  for (const [form, definition] of Object.entries(forms)) {
+    it(`${form}: is a complete, valid Definition at real size, in the Style's colours and shading`, () => {
+      expect(parseDefinition(definition)).toEqual(definition);
+      expect(definition.styleScale).toBeUndefined();
+      expect(definition.trunk.length).toBeGreaterThan(4);
+      expect(definition.materials.shading).toBe('whimsical');
+      expect(definition.season.leafPalettes).toHaveLength(5);
+      expect(definition.leaves.shape).toBe('puff');
+    });
+
+    it(`${form}: corkscrews as one (Follow Twist on every level)`, () => {
+      expect(definition.trunk.twistStyle).toBe('corkscrew');
+      for (const level of definition.branches) expect(level).toMatchObject({ twistStyle: 'corkscrew', followTwist: true });
+    });
+
+    it(`${form}: matches the golden geometry hash (determinism across releases)`, () => {
+      expect(hashTreeData(generateTree(parseDefinition(definition), 42))).toMatchSnapshot();
+    });
+  }
+
+  it('the broadleaf is a tall, thin Truffula: a strong Twist Curve and a few long branches', () => {
+    const { trunk, branches } = whimsical.broadleaf;
+    expect(trunk.length / trunk.radius).toBeGreaterThan(40);
+    expect(trunk.twistCurve!).toBeGreaterThanOrEqual(0.35);
+    expect(branches[0]!.count).toBeLessThanOrEqual(5);
+  });
+
+  it('the conifer is a helter-skelter: Twists 8 on the trunk, a cone of whorls', () => {
+    expect(whimsical.conifer.trunk.twists).toBe(8);
+    expect(whimsical.conifer.branches[0]!.lengthProfile).toEqual(coneCurve(whimsical.conifer.branches[0]!.start));
   });
 });

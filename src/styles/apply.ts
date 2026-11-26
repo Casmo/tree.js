@@ -125,18 +125,19 @@ const LOOKS = {
         : { shape: 'mass', perDensity: 150, sizeScale: 1.43, material };
     },
   },
-  // Stylized's detail; fewer, bigger pom-pom puffs (about half the count at 1.6× the size), smaller and
+  // Stylized's detail (one side fewer on the first branch level: a Corkscrew needs 6 Sections per Twists,
+  // ADR 0016); fewer, bigger pom-pom puffs (about half the count at 1.6× the size), smaller and
   // denser for needle / scale foliage. Its Twist recipe and colours: ./whimsical/recipe.ts.
   whimsical: {
     trunk: { sides: 10, sections: 8, flareSections: 3 },
-    branches: [{ sides: 6, sections: 3 }, { sides: 4, sections: 1 }, { sides: 3, sections: 1 }],
+    branches: [{ sides: 5, sections: 3 }, { sides: 4, sections: 1 }, { sides: 3, sections: 1 }],
     bark: untexturedBark,
     fruitSides: 6,
     roots: { sides: 6, sections: 4 },
     fantasy: WHIMSICAL,
     leaf: (type) =>
       isNeedleLike(type)
-        ? { shape: 'puff', perDensity: 5, sizeScale: 2.7, material: untexturedLeaf }
+        ? { shape: 'puff', perDensity: 6, sizeScale: 2, material: untexturedLeaf }
         : { shape: 'puff', perDensity: 2, sizeScale: 5, material: untexturedLeaf },
   },
 } satisfies Record<StyleName, StyleLook>;

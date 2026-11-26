@@ -6,7 +6,7 @@ async function waitForExample(page: Page) {
 }
 
 // Reference screenshots for every built-in Style x Form, on both backends of WebGPURenderer.
-const styles = ['low-poly', 'stylized', 'realistic'];
+const styles = ['low-poly', 'stylized', 'realistic', 'whimsical'];
 const forms = ['broadleaf', 'conifer'];
 const backends = [
   { name: 'webgpu', query: '' },
@@ -102,10 +102,13 @@ const painterlyStates = [
   { form: 'broadleaf', name: 'cherry-blossom', query: '&species=cherry&season=0.06' },
   { form: 'broadleaf', name: 'apple-fruit', query: '&species=apple&season=0.5' },
 ];
+// Whimsical (#140): its pastel spring colours too.
+const whimsicalStates = [{ form: 'broadleaf', name: 'spring', query: '&season=0.04' }];
 const shots = [
   ...styles.flatMap((style) => forms.flatMap((form) => states.map((state) => ({ style, form, ...state })))),
   ...stylizedStates.map((state) => ({ style: 'stylized', ...state })),
   ...painterlyStates.map((state) => ({ style: 'painterly', ...state })),
+  ...whimsicalStates.map((state) => ({ style: 'whimsical', ...state })),
 ];
 for (const { style, form, name, query } of shots) {
   test(`${style} ${form}: ${name}`, async ({ page }) => {
