@@ -3,7 +3,7 @@ import type { BranchLevelDefinition, TreeDefinition } from '../definition';
 import type { Random } from '../random';
 import { sampleTrack } from '../season/profile';
 import { branchFrames, pathLength, sampleBranch } from './frames';
-import { twistPath, type SpiralAlong } from './twist';
+import { twistPath, type CorkscrewAlong } from './twist';
 import type { SkeletonBranch, SkeletonPoint, Vec3 } from './types';
 import { add, normalize, scale } from './vec';
 
@@ -19,24 +19,24 @@ const GRAVITY_PER_BRANCH = 1.5;
  * own `fork('twist')`, so Twist never shifts the draws of its shape (ADR 0015). So a branch depends
  * only on its ancestors and its own path, never on its siblings' subtrees, on deeper levels or on leaves.
  *
- * `stemSpirals` holds each Corkscrew Stem's spiral along its length (by path), which first-level
+ * `stemCorkscrews` holds each Corkscrew Stem's phase along its length (by path), which first-level
  * branches with Follow Twist pick up; a Stem without one is not followed.
  */
 export function buildBranches(
   definition: TreeDefinition,
   stems: SkeletonBranch[],
   random: Random,
-  stemSpirals: ReadonlyMap<string, SpiralAlong> = new Map(),
+  stemCorkscrews: ReadonlyMap<string, CorkscrewAlong> = new Map(),
 ): SkeletonBranch[] {
   const out: SkeletonBranch[] = [];
   const queue: SkeletonBranch[] = [...stems];
-  // Each Corkscrew's spiral along its length, there for its children when they are grown (Follow Twist).
-  const twists = new Map<string, SpiralAlong>(stemSpirals);
+  // Each Corkscrew's phase along its length, there for its children when they are grown (Follow Twist).
+  const corkscrews = new Map<string, CorkscrewAlong>(stemCorkscrews);
   for (let q = 0; q < queue.length; q++) {
     const parent = queue[q]!;
     const level = definition.branches[parent.level];
     if (!level) continue;
-    const children = growChildren(parent, level, random, twists);
+    const children = growChildren(parent, level, random, corkscrews);
     out.push(...children);
     queue.push(...children);
   }
@@ -48,12 +48,12 @@ const crownShape = (curve: BranchLevelDefinition['lengthProfile'], t: number) =>
 
 /**
  * Grows one parent's children. The Crown Shape curves (`lengthProfile`, `angleProfile`) scale each
- * child's length and angle by where it sits on the parent (ADR 0004). Each Corkscrew child's spiral
- * goes into `twists` under its path, so its own children can follow it (Follow Twist).
+ * child's length and angle by where it sits on the parent (ADR 0004). Each Corkscrew child's phase
+ * goes into `corkscrews` under its path, so its own children can follow it (Follow Twist).
  */
-function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, random: Random, twists: Map<string, SpiralAlong>): SkeletonBranch[] {
+function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, random: Random, corkscrews: Map<string, CorkscrewAlong>): SkeletonBranch[] {
   const count = level.count;
-  const followed = level.followTwist ? twists.get(parent.path) : undefined;
+  const followed = level.followTwist ? corkscrews.get(parent.path) : undefined;
   const azimuth0 = random.fork(parent.path).range(0, Math.PI * 2);
   const frames = branchFrames(parent);
   const parentLength = pathLength(parent);
@@ -81,7 +81,7 @@ function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, rand
     const step = length / sections;
     const baseRadius = at.radius * level.radius;
 
-    // Each Section's course, for where its children pick up its spiral (Follow Twist); kept for Corkscrews only.
+    // Each Section's course, for where its children pick up its Corkscrew phase (Follow Twist); kept for Corkscrews only.
     const courses: Vec3[] | null = twisting.spin ? [] : null;
     const points: SkeletonPoint[] = [];
     let position: Vec3 = at.position;
@@ -94,8 +94,8 @@ function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, rand
       courses?.push(course);
       position = add(position, scale(twisting.steer(course, (s + 0.5) / sections), step));
     }
-    // A Corkscrew rolls its bark and what grows on it with its spiral (ADR 0016).
-    if (courses) twists.set(path, (u) => twisting.spiral(courses[Math.min(Math.floor(u * sections), sections - 1)]!, u));
+    // A Corkscrew rolls its bark and what grows on it with its Corkscrew turn (ADR 0016).
+    if (courses) corkscrews.set(path, (u) => twisting.corkscrewAt(courses[Math.min(Math.floor(u * sections), sections - 1)]!, u));
     const roll = twisting.roll(1);
     children.push({ path, parent: parent.path, level: parent.level + 1, attach: t, direction: start, points, ...(roll ? { roll } : {}) });
   }

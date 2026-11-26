@@ -2,8 +2,8 @@ import { cos, sin } from '../math';
 import type { TreeDefinition, TrunkDefinition } from '../definition';
 import type { Random } from '../random';
 import type { SkeletonBranch, SkeletonPoint, Vec3 } from './types';
-import { originalSectionStart, twistPath, type SpiralAlong, type TwistPath } from './twist';
-import { add, cross, dot, length, scale, sub } from './vec';
+import { originalSectionStart, turnCorkscrew, twistPath, type CorkscrewAlong, type TwistPath } from './twist';
+import { add, cross, length, rotate, scale, sub } from './vec';
 
 const DEG = Math.PI / 180;
 /** The leader: the part of a Stem above this fraction of its length is what trunk gravity bends. */
@@ -33,11 +33,11 @@ export const FLARE_SECTIONS = 3;
  * from that stream's own `fork('twist')` (ADR 0015); the ring and the leans come from
  * `random.fork('stems')`. So a single upright Stem without gravity is today's trunk, bit for bit.
  *
- * Each Corkscrew Stem's spiral along its length goes into `spirals` under its path, turned with the
+ * Each Corkscrew Stem's phase along its length goes into `corkscrews` under its path, turned with the
  * Stem as it is placed (Trunk gravity, lean), so the first-level branches on it with Follow Twist can
  * pick it up (`buildBranches`).
  */
-export function buildStems(definition: TreeDefinition, random: Random, spirals = new Map<string, SpiralAlong>()): SkeletonBranch[] {
+export function buildStems(definition: TreeDefinition, random: Random, corkscrews = new Map<string, CorkscrewAlong>()): SkeletonBranch[] {
   const { trunk } = definition;
   const { stems: count = 1, spread = 0, gravity = 0 } = trunk;
   const ring = random.fork('stems');
@@ -50,15 +50,15 @@ export function buildStems(definition: TreeDefinition, random: Random, spirals =
     const offset = count > 1 ? trunk.radius * RING_RADIUS : 0;
     const { points, twisting, courses } = centreLine(trunk, random.fork(i === 0 ? 'trunk' : `trunk/${i}`));
     const { stem, place } = placeStem(String(i), points, gravity, azimuth, tilt, offset);
-    // A Corkscrew Stem rolls its bark and what grows on it with its spiral (ADR 0016).
+    // A Corkscrew Stem rolls its bark and what grows on it with its Corkscrew turn (ADR 0016).
     const roll = twisting.roll(1);
     stems.push(roll ? { ...stem, roll } : stem);
     if (twisting.spin) {
       // Worked out upright on the Section's course, then turned as that Section was placed.
-      spirals.set(stem.path, (u) => {
+      corkscrews.set(stem.path, (u) => {
         const k = Math.min(Math.floor(u * courses.length), courses.length - 1);
-        const at = twisting.spiral(courses[k]!, u);
-        return at && { spin: at.spin, course: place(at.course, k), side: place(at.side, k), curveAxis: place(at.curveAxis, k) };
+        const at = twisting.corkscrewAt(courses[k]!, u);
+        return at && turnCorkscrew(at, (v) => place(v, k));
       });
     }
   }
@@ -69,7 +69,7 @@ export function buildStems(definition: TreeDefinition, random: Random, spirals =
  * One upright, unbent Stem's centre line at the origin, varied by the Seed within the trunk's ranges,
  * then snaked by the trunk's Twist (ADR 0015: max(Sections, 3 × Twists) Sections). The Twist's turns
  * come from the Stem's own `random.fork('twist')`, so the draws of today's centre line never shift.
- * A Corkscrew Stem (6 × Twists Sections, ADR 0016) spirals the same way, around its upright course.
+ * A Corkscrew Stem (6 × Twists Sections, ADR 0016) corkscrews the same way, around its upright course.
  */
 function centreLine(trunk: TrunkDefinition, random: Random): { points: SkeletonPoint[]; twisting: TwistPath; courses: Vec3[] } {
   const line = straightLine(trunk, random);
@@ -81,7 +81,7 @@ function centreLine(trunk: TrunkDefinition, random: Random): { points: SkeletonP
   // others are sampled at their middle like a branch's, so every turn reaches its full swing.
   const untwisted = resample(line, twisting.sections);
   const points: SkeletonPoint[] = [untwisted[0]!];
-  // Each Section's unit course (upright when it has no length), where the branches on it pick up its spiral (Follow Twist).
+  // Each Section's unit course (upright when it has no length), where the branches on it pick up its Corkscrew phase (Follow Twist).
   const courses: Vec3[] = [];
   for (let k = 0; k < twisting.sections; k++) {
     const segment = sub(untwisted[k + 1]!.position, untwisted[k]!.position);
@@ -175,12 +175,4 @@ function placeStem(
     stem: { path, parent: null, level: 0, attach: 0, direction: rotate([0, 1, 0], axis, tilt), points },
     place: (v, k) => rotate(v, axis, tilt + (bends[k] ?? 0)),
   };
-}
-
-/** Rotates `v` about the unit `axis` by `angle` radians (Rodrigues). */
-function rotate(v: Vec3, axis: Vec3, angle: number): Vec3 {
-  if (angle === 0) return v;
-  const c = cos(angle);
-  const s = sin(angle);
-  return add(add(scale(v, c), scale(cross(axis, v), s)), scale(axis, dot(axis, v) * (1 - c)));
 }
