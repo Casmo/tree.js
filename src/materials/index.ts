@@ -8,11 +8,13 @@ import { applyGroundTint } from './ground-tint';
 import { applyBarkMaps, applyLeafMap } from './maps';
 import { PaintedNodeMaterial, paintLeafMasses } from './painted';
 import { createShadedMaterial, isFlatShading } from './shading';
+import { candyStripes } from './whimsical';
 
 export { createShadedMaterial } from './shading';
 export { applyCrownNormals } from './crown-normals';
 export { crownNodes, type CrownNodes } from './crown-nodes';
 export { PaintedNodeMaterial } from './painted';
+export { WhimsicalNodeMaterial } from './whimsical';
 
 /**
  * Bark material: a TSL node material (ADR 0002). Growth/Season/Wind uniforms and
@@ -30,7 +32,9 @@ export function createBarkMaterial(
   const material = createShadedMaterial(definition.materials.shading);
   material.name = 'tree.js bark';
   material.userData.treePart = 'bark'; // Tree Effects (`/effects`) find tree pixels by it
-  const base = color(definition.materials.bark.color);
+  // Whimsical bark: candy stripes in the tree's accent colour, winding with a Corkscrew (pass the per-tree Definition).
+  const plain = color(definition.materials.bark.color);
+  const base = definition.materials.shading === 'whimsical' ? candyStripes(plain, definition) : plain;
   // Slightly darker towards the base for a little depth, purely in TSL (flat colour for flat shading).
   const shaded = isFlatShading(definition.materials.shading)
     ? base

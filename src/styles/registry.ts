@@ -13,6 +13,7 @@ const STYLE_LOADERS: Record<StyleName, () => Promise<{ default: TreeStyle }>> = 
   stylized: () => import('./stylized'),
   realistic: () => import('./realistic'),
   painterly: () => import('./painterly'),
+  whimsical: () => import('./whimsical'),
 };
 
 /** Downloads a built-in Style (dynamic import) and resolves to it. Rejects for an unknown name. */

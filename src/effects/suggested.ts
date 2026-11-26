@@ -41,4 +41,11 @@ export const SUGGESTED_TREE_EFFECTS: Record<StyleName, TreeEffectsSettings> = {
   painterly: {
     grade: { contrast: 1.04, tint: '#fff6e8' },
   },
+  // Cartoon candy: a coloured (plum) outline instead of black ink, soft Inner Lines on the pom-poms and a
+  // saturation boost. No Leaf Glow: the rim light already brightens the edges.
+  whimsical: {
+    grade: { saturation: 1.25, contrast: 1.05 },
+    innerLines: { color: '#6a3a7a', thickness: 1, strength: 0.35, normalThreshold: 0.5 },
+    outline: { color: '#7a3d8f', thickness: 2, strength: 0.75 },
+  },
 };

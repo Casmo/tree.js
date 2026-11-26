@@ -51,4 +51,13 @@ export const SUGGESTED_SCENE_EFFECTS: Record<StyleName, SceneEffectsSettings> = 
     antialias: 'smaa',
     fog: { near: 15, far: 130 },
   },
+  // Like stylized but lighter: AgX keeps the candy colours from clipping, light AO (the shade is meant to
+  // stay bright), a pastel lavender-pink fog and almost no bloom (the colours glow on their own).
+  whimsical: {
+    toneMapping: { mapping: 'agx', exposure: 1.2 },
+    ao: { radius: 1, scale: 0.8, thickness: 1.5 },
+    bloom: { strength: 0.03, radius: 0.4, threshold: 0.7 },
+    antialias: 'smaa',
+    fog: { color: '#f6e1f0', near: 15, far: 130 },
+  },
 };

@@ -287,8 +287,11 @@ export interface RootsDefinition {
   sections?: number;
 }
 
-/** Material shading model. Low-poly uses `flat`, stylized `toon`, realistic `standard`, painterly `painted`. */
-export type Shading = 'standard' | 'flat' | 'toon' | 'painted';
+/**
+ * Material shading model. Low-poly uses `flat`, stylized `toon`, realistic `standard`, painterly `painted`,
+ * whimsical `whimsical`.
+ */
+export type Shading = 'standard' | 'flat' | 'toon' | 'painted' | 'whimsical';
 
 export interface BarkMaterialDefinition {
   /** Bark Type the bark was drawn from (set by `Style.apply`), so a Style can be re-applied. Optional. */

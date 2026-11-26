@@ -268,7 +268,7 @@ const treeDefinition = obj<TreeDefinition>({
     DEFAULT_ROOTS,
   ),
   materials: obj<MaterialsDefinition>({
-    shading: oneOf('standard', 'flat', 'toon', 'painted'),
+    shading: oneOf('standard', 'flat', 'toon', 'painted', 'whimsical'),
     bark: obj<BarkMaterialDefinition>({
       type: optional(oneOf(...BARK_TYPES)),
       color: hexColor,

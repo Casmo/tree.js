@@ -1,7 +1,8 @@
 // Style.apply (ADR 0005): a Style turns a Style-neutral Species (or an existing Tree Definition)
 // into a complete Tree Definition by choosing only the look: shading, polygon detail, how the
 // Leaf Type and Bark Type are drawn, and textures. Shape fields pass through untouched; only Painterly
-// also sets the overall size (ADR 0013, ./painterly/height.ts).
+// also sets the overall size (ADR 0013, ./painterly/height.ts), and a Fantasy Style also sets Twist and
+// brings its own colours (ADR 0017, ./fantasy.ts).
 import { extendDefinition, parseDefinition, type DefinitionPatch } from '../definition/parse';
 import {
   CURRENT_SCHEMA_VERSION,
@@ -20,6 +21,8 @@ import { styleOfShading, styleShading, type StyleName } from './names';
 import { materialFeaturesOf } from './material-features';
 import { BARK_TEXTURES, LEAF_TEXTURES } from './realistic/textures';
 import { compressHeight } from './painterly/height';
+import { applyFantasy, formOfLeafType, type FantasyRecipe } from './fantasy';
+import { WHIMSICAL } from './whimsical/recipe';
 import { BARK_TEXTURES as PAINTED_BARK, LEAF_TEXTURES as SPRAY_TEXTURES } from './painterly/textures';
 
 /** Polygon detail of one tree part. */
@@ -56,6 +59,8 @@ interface StyleLook {
   fruitSides: number;
   /** Detail of each Root (`roots.sides`, `roots.sections`). */
   roots: Detail;
+  /** A Fantasy Style's Twist recipe and colours (ADR 0017); absent for the other Styles. */
+  fantasy?: FantasyRecipe;
 }
 
 const isNeedleLike = (type: LeafType) => type === 'needle' || type === 'scale';
@@ -119,6 +124,20 @@ const LOOKS = {
         ? { shape: 'mass', perDensity: 170, sizeScale: 1.15, material, masses: { masses: 12, massLayering: 1.8 } }
         : { shape: 'mass', perDensity: 150, sizeScale: 1.43, material };
     },
+  },
+  // Stylized's detail; fewer, bigger pom-pom puffs (about half the count at 1.6× the size), smaller and
+  // denser for needle / scale foliage. Its Twist recipe and colours: ./whimsical/recipe.ts.
+  whimsical: {
+    trunk: { sides: 10, sections: 8, flareSections: 3 },
+    branches: [{ sides: 6, sections: 3 }, { sides: 4, sections: 1 }, { sides: 3, sections: 1 }],
+    bark: untexturedBark,
+    fruitSides: 6,
+    roots: { sides: 6, sections: 4 },
+    fantasy: WHIMSICAL,
+    leaf: (type) =>
+      isNeedleLike(type)
+        ? { shape: 'puff', perDensity: 5, sizeScale: 2.7, material: untexturedLeaf }
+        : { shape: 'puff', perDensity: 2, sizeScale: 5, material: untexturedLeaf },
   },
 } satisfies Record<StyleName, StyleLook>;
 
@@ -226,6 +245,10 @@ export function applyStyle(name: StyleName, source: StyleSource, overrides?: Def
   const isDefinition = 'schemaVersion' in source;
   const neutral = isDefinition ? fromDefinition(source) : fromSpecies(source);
   let definition = draw(name, neutral);
+  // A Fantasy Style writes its Twist and colours (ADR 0017), milder for conifers: a Species' Form, or a
+  // Definition's from its Leaf Type. Other Styles keep the ones a Fantasy Style wrote: `draw` passes them through.
+  const { fantasy } = LOOKS[name] as StyleLook;
+  if (fantasy) definition = parseDefinition(applyFantasy(fantasy, definition, isDefinition ? formOfLeafType(neutral.foliage.type) : source.form));
   // Painterly sets the overall size (ADR 0013): real-sized trees shrink to 2-4 m. A Painterly-sized tree
   // (a `styleScale`, kept through other Styles) or a Painterly Definition from before `styleScale` is
   // already small; re-applying Painterly to it keeps its size.

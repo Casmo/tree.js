@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { MeshStandardNodeMaterial } from 'three/webgpu';
 import { createForest, createTree, type Shading, type TreeDefinitionInput } from '../src/index';
 
-const SHADINGS: Shading[] = ['flat', 'standard', 'toon'];
+const SHADINGS: Shading[] = ['flat', 'standard', 'toon', 'whimsical'];
 const TRANSLUCENCY = { strength: 0.6, edge: 0.7, ambient: 0.3 };
 
 /** A small tree with Fruit, in one shading, optionally with Leaf Translucency. */
