@@ -49,14 +49,17 @@ export function leafPalettesEditor(context: PanelContext): HTMLElement {
           remove.setAttribute('aria-label', `Remove Leaf ${name}`);
           remove.addEventListener('click', () => reportEdit(context, () => removeLeafPalette(store, i)));
           legend.append(name, remove);
+          const accent = colorControl(context, {
+            id: `${path}.accent`,
+            label: 'Accent',
+            get: (state) => state.definition.season.leafPalettes?.[i]?.accent ?? '#000000',
+            set: (target, value) => setDefinitionValue(target, `${path}.accent`, value),
+          });
+          // A short visible label; the full accessible name.
+          accent.querySelector('input')!.setAttribute('aria-label', `${name} ${LEAF_PALETTES.accent}`);
           fieldset.append(
             legend,
-            colorControl(context, {
-              id: `${path}.accent`,
-              label: `${name} ${LEAF_PALETTES.accent}`,
-              get: (state) => state.definition.season.leafPalettes?.[i]?.accent ?? '#000000',
-              set: (target, value) => setDefinitionValue(target, `${path}.accent`, value),
-            }),
+            accent,
             trackEditor(context, {
               path: `${path}.leafColor`,
               id: `track-leafPalettes-${i}`,
