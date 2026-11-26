@@ -52,7 +52,30 @@ export interface TwistPath {
    * Null for a Snake or without Twist.
    */
   readonly curveAxis: Vec3 | null;
+  /**
+   * Where a Corkscrew's spiral stands at fraction `u` of the length, given the unit `course` there (as
+   * passed to {@link steer}): what a child with Follow Twist picks up. Null for a Snake or without Twist.
+   */
+  spiral(course: Vec3, u: number): Spiral | null;
 }
+
+/**
+ * Where a Corkscrew's spiral stands at one point along a branch or Stem, in world directions: what the
+ * branches growing there with Follow Twist pick up (GLOSSARY.md).
+ */
+export interface Spiral {
+  /** Its Spin: 1 clockwise seen from its base looking along it, −1 counter-clockwise. */
+  readonly spin: -1 | 1;
+  /** Unit: where it heads there without the spiral's lean (its course, turned by its Twist Curve). */
+  readonly course: Vec3;
+  /** Unit, across `course`: the side the spiral leans to there (its phase). */
+  readonly side: Vec3;
+  /** Unit, across `course`: the axis its Twist Curve turns it about. */
+  readonly curveAxis: Vec3;
+}
+
+/** A branch's or Stem's {@link Spiral} at each fraction (0..1) of its length; null where it has none (Snake, no Twist). */
+export type SpiralAlong = (u: number) => Spiral | null;
 
 /**
  * The Sections a branch or Stem with these Twist settings is built with when twisted: max(`sections`,
@@ -80,10 +103,15 @@ export function originalSectionStart(j: number, sections: number, built: number)
  * the last so the path snakes. A Corkscrew makes the same draws (the first turn's direction is where
  * its spiral starts), then one for its Spin, also when the Spin is given, and then one for the axis
  * its Twist Curve turns the course about, also when the Twist Curve is 0 (ADR 0003).
+ *
+ * `follow` is the parent's {@link Spiral} where this branch attaches, given when its level has Follow
+ * Twist: a Corkscrew then takes its Spin, starts its spiral at its side and bends its Twist Curve about
+ * its curve axis, both carried from the parent's course onto `start` (the draws stay the same). A Snake
+ * or a branch without Twist ignores it.
  */
-export function twistPath(settings: TwistSettings, sections: number, start: Vec3, random: Random): TwistPath {
+export function twistPath(settings: TwistSettings, sections: number, start: Vec3, random: Random, follow?: Spiral | null): TwistPath {
   const twist = settings.twist ?? 0;
-  if (twist <= 0) return { sections, spin: 0, curveAxis: null, takesBend: () => true, steer: (course) => course, roll: () => 0 };
+  if (twist <= 0) return { sections, spin: 0, curveAxis: null, takesBend: () => true, steer: (course) => course, roll: () => 0, spiral: () => null };
 
   const turns = settings.twists ?? DEFAULT_TWISTS;
   const builtSections = twistedSections(sections, settings);
@@ -104,34 +132,51 @@ export function twistPath(settings: TwistSettings, sections: number, start: Vec3
 
   if (settings.twistStyle === 'corkscrew') {
     const picked = random.next() < 0.5 ? 1 : -1;
-    const spin = settings.spin === 'clockwise' ? 1 : settings.spin === 'counterclockwise' ? -1 : picked;
+    let spin: -1 | 1 = settings.spin === 'clockwise' ? 1 : settings.spin === 'counterclockwise' ? -1 : picked;
     const curveAzimuth = random.range(0, Math.PI * 2);
-    const curveAxis = add(scale(axisA, cos(curveAzimuth)), scale(axisB, sin(curveAzimuth)));
+    let curveAxis = add(scale(axisA, cos(curveAzimuth)), scale(axisB, sin(curveAzimuth)));
+    // Follow Twist: the parent's Spin, and its spiral's side and curve axis carried from its course onto `start`.
+    const side = follow && carry(follow.side, follow.course, start);
+    const axis = follow && carry(follow.curveAxis, follow.course, start);
+    // The spiral goes round `start` from `fromA` towards `fromB` (right-handed), starting at angle `phase0`.
+    let [fromA, fromB, phase0] = [axisA, axisB, spiralStart];
+    if (follow && side && axis) {
+      spin = follow.spin;
+      [fromA, fromB, phase0] = [side, cross(start, side), 0];
+      curveAxis = axis;
+    }
     const curve = (settings.twistCurve ?? 0) * Math.PI;
     const roll = (u: number) => spin * 2 * Math.PI * turns * Math.min(Math.max(u, 0), 1);
+    /** The course at `u` turned by the Twist Curve, the side the spiral leans to there and the curve axis; null where the course turned right round from `start`. */
+    const spiralAt = (course: Vec3, u: number): Spiral | null => {
+      // The side it leans to goes round `start` (right-handed for spin 1), carried onto the course by
+      // the smallest rotation from `start` to it, so the spiral follows a course that Gravity or Bend turn.
+      const phase = phase0 + roll(u);
+      let side = carry(add(scale(fromA, cos(phase)), scale(fromB, sin(phase))), start, course);
+      if (!side) return null;
+      // The Twist Curve turns the course, and the spiral's side with it, about the curve axis carried
+      // onto the course: eased in and out over the whole length, so it adds no kinks.
+      const axis = carry(curveAxis, start, course)!;
+      if (curve > 0) {
+        const angle = curve * smoothstep(Math.min(Math.max(u, 0), 1));
+        course = rotate(course, axis, angle);
+        side = rotate(side, axis, angle);
+      }
+      return { spin, course, side, curveAxis: axis };
+    };
     return {
       sections: builtSections,
       spin,
       curveAxis,
       takesBend,
       roll,
+      spiral: spiralAt,
       steer: (course, u) => {
+        const at = spiralAt(course, u);
+        if (!at) return course;
         const along = Math.min(Math.max(u, 0), 1) * turns;
-        // The side it leans to goes round `start` (right-handed for spin 1), carried onto the course by
-        // the smallest rotation from `start` to it, so the spiral follows a course that Gravity or Bend turn.
-        const phase = spiralStart + roll(u);
-        let side = carry(add(scale(axisA, cos(phase)), scale(axisB, sin(phase))), start, course);
-        if (!side) return course;
-        // The Twist Curve turns the course, and the spiral's side with it, about the curve axis carried
-        // onto the course: eased in and out over the whole length, so it adds no kinks.
-        if (curve > 0) {
-          const axis = carry(curveAxis, start, course)!;
-          const angle = curve * smoothstep(Math.min(Math.max(u, 0), 1));
-          course = rotate(course, axis, angle);
-          side = rotate(side, axis, angle);
-        }
         const lean = swing * smoothstep(Math.min(along / EASE_TURNS, 1));
-        return normalize(add(scale(course, cos(lean)), scale(side, sin(lean))));
+        return normalize(add(scale(at.course, cos(lean)), scale(at.side, sin(lean))));
       },
     };
   }
@@ -142,6 +187,7 @@ export function twistPath(settings: TwistSettings, sections: number, start: Vec3
     curveAxis: null,
     takesBend,
     roll: () => 0,
+    spiral: () => null,
     steer: (course, u) => {
       const along = Math.min(Math.max(u, 0), 1) * turns;
       const turn = Math.min(Math.floor(along), turns - 1);

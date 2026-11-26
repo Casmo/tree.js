@@ -494,3 +494,122 @@ describe('Corkscrew rolls its bark and what grows on it (ADR 0016)', () => {
     }
   });
 });
+
+describe('Follow Twist between Corkscrew branch levels', () => {
+  const corkscrew = (more: Partial<BranchLevelDefinition> = {}): Partial<BranchLevelDefinition> => ({ twistStyle: 'corkscrew', twist: 0.6, twists: 2, ...more });
+  const following = (more: Partial<BranchLevelDefinition> = {}) => corkscrew({ followTwist: true, ...more });
+  /** Straight courses (no Bend, no Gravity), so without a Twist Curve each branch's course is its start direction. */
+  const straight = (more: Partial<BranchLevelDefinition>[], seed = 5) =>
+    generateTree(define(more.map((m, i) => ({ sections: i === 0 ? 2 : 7, bend: 0, gravity: 0, ...m }))), seed);
+  const parentOf = (data: ReturnType<typeof generateTree>, b: SkeletonBranch) => data.skeleton.branches.find((p) => p.path === b.parent)!;
+  /** Unit `v` turned right-handed by `angle` radians about unit `axis`. */
+  const turned = (v: Vec3, axis: Vec3, angle: number): Vec3 => {
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    const k = dotted(axis, v) * (1 - c);
+    const x = crossed(axis, v);
+    return [v[0] * c + x[0] * s + axis[0] * k, v[1] * c + x[1] * s + axis[1] * k, v[2] * c + x[2] * s + axis[2] * k];
+  };
+  /** Unit `v` (across `from`) taken along by the smallest rotation from unit `from` onto unit `to`. */
+  const carried = (v: Vec3, from: Vec3, to: Vec3) => turned(v, unit(crossed(from, to)), Math.acos(Math.min(1, Math.max(-1, dotted(from, to)))));
+  /**
+   * The side a straight-course Corkscrew leans to at fraction `u`: every segment's lean side (across
+   * its start direction), turned on to `u` by its Spin at one turn per Twists, averaged.
+   */
+  function sideAt(b: SkeletonBranch, u: number, twists: number): Vec3 {
+    const spin = Math.sign(turnsAround(b));
+    const n = sectionsOf(b);
+    const sum = segments(b).reduce((a, d, k) => {
+      const across = sub(d, scaled(b.direction, dotted(d, b.direction)));
+      const side = turned(across, b.direction, spin * 2 * Math.PI * twists * (u - (k + 0.5) / n));
+      return [a[0] + side[0], a[1] + side[1], a[2] + side[2]] as Vec3;
+    }, [0, 0, 0] as Vec3);
+    return unit(sum);
+  }
+
+  it('takes the parent\'s Spin, ignoring its own', () => {
+    const data = straight([corkscrew({ spin: 'clockwise' }), following({ spin: 'counterclockwise', twists: 3 })]);
+    for (const b of onLevel(data, 2)) expect(Math.sign(turnsAround(b)), b.path).toBe(1);
+    // With a Random Spin each branch turns the way its own parent does.
+    const random = straight([corkscrew(), following({ twists: 3 })]);
+    const signs = onLevel(random, 1).map((p) => Math.sign(turnsAround(p)));
+    expect(signs).toContain(1);
+    expect(signs).toContain(-1);
+    for (const b of onLevel(random, 2)) expect(Math.sign(turnsAround(b)), b.path).toBe(Math.sign(turnsAround(parentOf(random, b))));
+  });
+
+  it('starts its spiral where the parent\'s spiral is at the attach point', () => {
+    const data = straight([corkscrew({ twists: 3 }), following({ twist: 0.4, twists: 2 })]);
+    for (const b of onLevel(data, 2)) {
+      const parent = parentOf(data, b);
+      const expected = carried(sideAt(parent, b.attach, 3), parent.direction, b.direction);
+      expect(angleBetween(sideAt(b, 0, 2), expected), b.path).toBeLessThan(2);
+    }
+    // Without Follow Twist the Seed picks where each spiral starts.
+    const own = straight([corkscrew({ twists: 3 }), corkscrew({ twist: 0.4, twists: 2 })]);
+    const misses = onLevel(own, 2).map((b) => {
+      const parent = parentOf(own, b);
+      return angleBetween(sideAt(b, 0, 2), carried(sideAt(parent, b.attach, 3), parent.direction, b.direction));
+    });
+    expect(Math.max(...misses)).toBeGreaterThan(30);
+  });
+
+  it('bends its Twist Curve to the parent\'s curve side', () => {
+    /** The axis a straight-course Corkscrew's Twist Curve turns it about: from its start to its end heading (a slight Twist barely leans it). */
+    const curveAxisOf = (b: SkeletonBranch) => unit(crossed(b.direction, segments(b).at(-1)!));
+    const slight = { twist: 0.05, twistCurve: 0.6 };
+    const check = (data: ReturnType<typeof generateTree>) =>
+      onLevel(data, 2).map((b) => {
+        const parent = parentOf(data, b);
+        const axis = curveAxisOf(parent);
+        const course = turned(parent.direction, axis, 0.6 * Math.PI * b.attach * b.attach * (3 - 2 * b.attach));
+        return angleBetween(curveAxisOf(b), carried(axis, course, b.direction));
+      });
+    for (const miss of check(straight([corkscrew(slight), following({ ...slight, twistCurve: 0.5 })]))) expect(miss).toBeLessThan(8);
+    expect(Math.max(...check(straight([corkscrew(slight), corkscrew({ ...slight, twistCurve: 0.5 })])))).toBeGreaterThan(30);
+  });
+
+  it('keeps its own Twist, Twists and Twist Curve amounts', () => {
+    const data = straight([corkscrew({ twist: 0.9, twists: 2, twistCurve: 0 }), following({ twist: 0.4, twists: 3, twistCurve: 0 })]);
+    for (const b of onLevel(data, 2)) {
+      expect(sectionsOf(b)).toBe(18);
+      expect(Math.abs(turnsAround(b))).toBeGreaterThan(2.75);
+      expect(Math.abs(turnsAround(b))).toBeLessThan(3.05);
+      const lean = segments(b).map((d) => angleBetween(d, b.direction));
+      for (const a of lean.slice(3)) expect(a, b.path).toBeCloseTo(0.4 * 45, 0);
+    }
+    const hooked = straight([corkscrew({ twist: 0.2, twistCurve: 0.3 }), following({ twist: 0.2, twistCurve: 1 })]);
+    for (const b of onLevel(hooked, 2)) expect(angleBetween(segments(b).at(-1)!, b.direction), b.path).toBeGreaterThan(165);
+  });
+
+  it('does nothing with a Snake parent, a Snake child or Twist 0, or on the first level while the trunk does not corkscrew', () => {
+    const cases: Partial<BranchLevelDefinition>[][] = [
+      [{ twist: 0.6, twists: 2 }, corkscrew()],
+      [corkscrew(), { twist: 0.5, twists: 3 }],
+      [corkscrew({ twist: 0 }), corkscrew()],
+      [corkscrew(), corkscrew({ twist: 0 })],
+      [{}, corkscrew()],
+    ];
+    for (const [first, second] of cases) {
+      const plain = grow([first!, second!]);
+      const followed = grow([first!, { ...second, followTwist: true }]);
+      expect(followed.skeleton, JSON.stringify([first, second])).toEqual(plain.skeleton);
+      expect(hashTreeData(followed)).toBe(hashTreeData(plain));
+    }
+    // The first level follows the trunk, which does not corkscrew here (snaking or untwisted).
+    for (const trunk of [{}, { twist: 0.5, twists: 3 }]) {
+      const plain = generateTree(define([corkscrew(), {}], { schemaVersion: 3, trunk }), 5);
+      const followed = generateTree(define([following(), {}], { schemaVersion: 3, trunk }), 5);
+      expect(followed.skeleton).toEqual(plain.skeleton);
+    }
+    const off = grow([corkscrew({ followTwist: false }), corkscrew({ followTwist: false })]);
+    expect(off.skeleton).toEqual(grow([corkscrew(), corkscrew()]).skeleton);
+  });
+
+  it('is Seed-bound: the same Seed gives the same tree, another Seed another', () => {
+    const levels = [corkscrew({ twistCurve: 0.5 }), following({ twistCurve: 0.5 })];
+    expect(straight(levels).skeleton).toEqual(straight(levels).skeleton);
+    expect(hashTreeData(straight(levels))).toBe(hashTreeData(straight(levels)));
+    expect(straight(levels, 6).skeleton).not.toEqual(straight(levels).skeleton);
+  });
+});
