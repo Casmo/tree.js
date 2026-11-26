@@ -25,7 +25,7 @@ The Fantasy Style built on Corkscrew: every tree swirls as one around a single S
 _Avoid_: Seuss, cartoon, Truffula
 
 **Enchanted**:
-The Fantasy Style built on Snake: long, sinuous trunks and branches with deep blue-violet bark and leaves that glow from within, made for dark scenes.
+The Fantasy Style built on Snake: long, sinuous trunks and branches with deep blue-violet bark, sparse leaves and an Inner Glow, made for dark scenes.
 _Avoid_: Magic, glowing, bioluminescent style
 
 **Species**:
@@ -168,9 +168,9 @@ _Avoid_: Weather, frost, winter
 A ready-made, opt-in Tree Shader Hook that darkens trees and gives them a sheen by a scene-wide wetness amount, as after rain, drawn to suit the tree's Style.
 _Avoid_: Rain, weather, wet look
 
-**Glow**:
+**Inner Glow**:
 Light a tree gives off by itself, from its leaves and from veins in its bark, so it shines even with no light on it, strongest at the thin edge of the crown and slowly pulsing; drawn only by the Enchanted Style. Unlike Leaf Translucency it needs no light behind the leaves.
-_Avoid_: Emissive, bioluminescence, leaf glow (that is Leaf Translucency)
+_Avoid_: Glow, emissive, bioluminescence, Leaf Glow (that is the Tree Effect)
 
 **Crown Volume**:
 The single smooth ellipsoid that encloses a tree's leaves when fully grown, used to light and shade the crown as one shape.
