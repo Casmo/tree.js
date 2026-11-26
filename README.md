@@ -239,34 +239,82 @@ and `angle` (linear between keyframes, flat = 1 when absent). A cone is
 `lengthProfile: [{ t: 0.2, value: 1 }, { t: 1, value: 0.1 }]` on the first level; a ball, column, vase
 or flat top are other curves.
 
-A branch level can also **Twist**: `twist` (0..1) makes every branch follow a smooth, snaking path that
-swings about `twist` × 45° away from its course at each turn, and `twists` (integer 1..8, absent = 2) is
-how many times it changes direction over its length (1 = an arc, 2 = an S). The Seed picks each turn's
-direction, so siblings twist differently; Gravity and Bend still apply on top. A twisted branch gets
-max(`sections`, 3 × `twists`) Sections, so the turns show on low-poly trees too. Absent or 0, nothing
-changes, and changing it never moves branches, leaves or Sculpts to other branches.
-The trunk takes the same `twist` and `twists` for winding trunks like an olive or juniper: each Stem
-snakes in its own Seed-picked way, its base stays put and starts upright, and `trunk.gravity` and the
-Stem lean still apply on top.
-A branch level's `twistStyle` picks the kind of Twist: `'snake'` (the default, above) or `'corkscrew'`,
-where each branch spirals around its own course: it leans `twist` × 45° off it while the side it leans to
-goes round one full turn per `twists`, easing in from its start direction. `spin` sets which way round:
-`'clockwise'` or `'counterclockwise'` (seen from the branch's base), or `'random'` (the default, the Seed
-picks per branch). A Corkscrew branch gets max(`sections`, 6 × `twists`) Sections. Its bark and tube
-facets roll with the spiral (one full roll per `twists`, the same way round), and so do its side branches,
-leaves and Fruit, so it looks wrung as a whole; Snake branches keep their unrolled bark. `twistCurve` (0..1,
-default 0) also turns a Corkscrew's course while it spirals, eased in and out, by up to `twistCurve` × 180°
-to a side the Seed picks per branch: 0 is a plain corkscrew, 1 curls the branch back on itself. It adds no
-Sections and does nothing on a Snake.
-The trunk takes `twistStyle`, `spin` and `twistCurve` too: a Corkscrew trunk spirals each Stem around its
-upright course (the base stays put and starts upright; `trunk.gravity`, the Stem lean and the ring still apply
-on top), each Stem with its own Seed-picked Spin and curve side, and rolls its bark and the branches, leaves
-and Fruit on it.
-With `followTwist: true` (branch levels only, default off) a level's Corkscrew branches on a Corkscrew
-parent (the trunk, for the first level) swirl on with it: they take the parent's Spin (ignoring their own
-`spin`), start their spiral where the parent's spiral is at the point they attach, and bend their Twist
-Curve the same way as the parent; their own `twist`, `twists` and `twistCurve` still set how much. With a
-Snake parent or child, or Twist 0 on either, it does nothing.
+The trunk and every branch level can also **Twist**: its Stems or branches make smooth twists and turns
+along their length (unlike bark that spirals round a branch, a Twist moves where the branch goes). All the
+Twist fields are optional; absent, a tree does not Twist:
+
+| Field | Values | Absent | On |
+| --- | --- | --- | --- |
+| `twist` | 0..1, how far it Twists | 0: no Twist | trunk, branch levels |
+| `twists` | integer 1..8, its Twists (how many times) | 2 | trunk, branch levels |
+| `twistStyle` | `'snake'` or `'corkscrew'` (the **Twist Style**) | `'snake'` | trunk, branch levels |
+| `spin` | `'clockwise'`, `'counterclockwise'` or `'random'` | `'random'` | trunk, branch levels; Corkscrew only |
+| `twistCurve` | 0..1 | 0 | trunk, branch levels; Corkscrew only |
+| `followTwist` | `true` or `false` | `false` (off) | branch levels only; Corkscrew only |
+
+![Four bare trees with one Seed: no Twist, Snake, Corkscrew and Corkscrew with Twist Curve 0.6](docs/images/twist-styles.png)
+
+*From left to right: no Twist, a Snake, a Corkscrew and a Corkscrew with Twist Curve 0.6 (all `twist: 1`,
+`twists: 2`, Spin clockwise; same Seed).*
+
+A **Snake** (the default Twist Style) swings each branch out to one side and back onto its course, about
+`twist` × 45° at each turn, `twists` times over its length (1 = an arc, 2 = an S); each turn goes roughly the
+opposite way of the last, so the branch ends heading where it would have without Twist. The Seed picks each
+turn's direction, so siblings Twist differently. On the trunk this gives winding trunks like an olive or
+juniper: each Stem snakes in its own Seed-picked way, its base stays put and starts upright.
+
+A **Corkscrew** spirals each branch around its own course like a helix: it leans `twist` × 45° off its course
+while the side it leans to goes round one full turn per Twist, easing in from its start direction. Its bark
+and tube facets roll with it (one full roll per Twist, the same way round), and so do the side branches,
+leaves and Fruit on it, so it looks wrung as a whole; a Snake keeps its bark unrolled. **Spin** is which way
+round a Corkscrew turns, seen from the branch's base: `'clockwise'`, `'counterclockwise'`, or `'random'`
+(absent), where the Seed picks per branch or Stem.
+
+A Corkscrew's **Twist Curve** (`twistCurve`) also bends its course while it spirals, eased in and out, by up
+to `twistCurve` × 180° to a side the Seed picks per branch or Stem, so it ends up heading in a clearly turned
+direction: 0 (absent) is a plain Corkscrew, 1 curls the branch back on itself. A Corkscrew trunk spirals each
+Stem around its upright course (the base stays put and starts upright), each Stem with its own Seed-picked
+Spin and Twist Curve side. Spin and Twist Curve do nothing on a Snake.
+
+![A Corkscrew trunk with Corkscrew branches: Follow Twist off (left), on (right)](docs/images/follow-twist.png)
+
+*A Corkscrew trunk (Twist Curve 0.4) with Corkscrew branches of Random Spin (Twist Curve 0.6): Follow Twist
+off (left), each branch spirals and curves its own way; on (right), the branches swirl on with the trunk.*
+
+**Follow Twist** (`followTwist: true`, branch levels only, absent = off) makes a level's Corkscrew branches on a
+Corkscrew parent (the trunk, for the first level) swirl on with it, so the tree swirls as one: they take the
+parent's Spin (ignoring their own `spin`), start their spiral where the parent's spiral is at the point they
+attach, and bend their Twist Curve the same way as the parent. Their own `twist`, `twists` and `twistCurve`
+still set how much. With a Snake parent or child, or Twist 0 on either, it does nothing.
+
+`trunk.gravity`, the Stem lean, Gravity and Bend still apply on top of a Twist. A Twist adds Sections so its
+turns show on low-poly trees too: max(`sections`, 3 × `twists`) for a Snake, max(`sections`, 6 × `twists`) for a
+Corkscrew; Twist Curve adds none ([ADR 0015](docs/adr/0015-twist-adds-sections.md),
+[ADR 0016](docs/adr/0016-corkscrew-rolls-bark-and-attachments.md)). Changing a Twist never moves branches,
+leaves or Sculpts to other branches. The Tree Editor has every Twist field in the trunk and branch level
+groups (Twist style, Twist, Twists, Spin, Twist curve, Follow twist).
+
+![An extreme stylized Corkscrew tree: a wrung trunk arching over, with swirling branches](docs/images/corkscrew-extreme.png)
+
+*Taken to the extreme: the stylized broadleaf with a Corkscrew trunk with Twist Curve 0.6 and following
+Corkscrew branches (the Definition below, Seed 3).*
+
+```ts
+import { createTree, extendDefinition } from '@casmo/tree.js';
+import stylized from '@casmo/tree.js/styles/stylized';
+
+const [first, second] = stylized.broadleaf.branches;
+const follow = { bend: 0, twists: 2, twistStyle: 'corkscrew', twistCurve: 0.3, followTwist: true } as const;
+const wrung = extendDefinition(stylized.broadleaf, {
+  trunk: { length: 4.5, bend: 0, twist: 0.8, twists: 2, twistStyle: 'corkscrew', spin: 'clockwise', twistCurve: 0.6 },
+  branches: [
+    { ...first, ...follow, length: 0.7, twist: 0.9 },
+    { ...second, ...follow, twist: 0.8 },
+  ],
+  leaves: { count: 1, size: 0.6 },
+});
+const tree = createTree(wrung, { seed: 3 });
+```
 
 A tree can grow several **Stems** from the ground: `trunk: { stems: 3, spread: 20 }` stands three full
 trunks (each with the whole branch structure) in a small ring, leaning out about 20° from vertical (the
