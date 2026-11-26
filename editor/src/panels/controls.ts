@@ -195,6 +195,7 @@ export function textControl(
 /**
  * A drop-down for one Definition parameter. An optional field with `absent` '' also offers "not set",
  * which removes the field; with `absent` one of the choices, an absent field shows that choice.
+ * `labels` gives the text a choice shows instead of its value, where given.
  */
 export function definitionChoice(
   context: PanelContext,
@@ -202,11 +203,12 @@ export function definitionChoice(
   label: string,
   choices: readonly string[],
   absent?: string,
+  labels?: Readonly<Record<string, string>>,
 ): HTMLElement {
   const select = document.createElement('select');
   const notSet = absent !== undefined && !choices.includes(absent);
   if (notSet) select.add(new Option('not set', absent));
-  for (const choice of choices) select.add(new Option(choice, choice));
+  for (const choice of choices) select.add(new Option(labels?.[choice] ?? choice, choice));
   const row = controlRow(context, path, label, select);
   row.row.classList.add('wide');
   select.addEventListener('change', () =>
@@ -291,7 +293,7 @@ function bareFieldControl(context: PanelContext, field: Field, path: string): HT
     case 'number':
       return definitionNumber(context, path, { label: field.label, min: field.min, max: field.max, step: field.step, absent: field.absent });
     case 'choice':
-      return definitionChoice(context, path, field.label, field.options, field.absent);
+      return definitionChoice(context, path, field.label, field.options, field.absent, field.labels);
     case 'color':
       return colorControl(context, {
         id: path,

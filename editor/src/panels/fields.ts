@@ -21,11 +21,12 @@ import {
  * field writes the field on the first edit; a choice field with `absent` '' offers "not set", which
  * removes it, and one with `absent` among its options (what absent means) shows that option. A toggle
  * shows `absent` while absent; switching it to `absent` removes the field again.
+ * `labels` (choice fields): the text a choice shows instead of its value, where given.
  * `hint`: a short note shown under the control (e.g. when the field applies).
  */
 export type Field = (
   | { kind: 'number'; path: string; label: string; min: number; max: number; step: number; absent?: number }
-  | { kind: 'choice'; path: string; label: string; options: readonly string[]; absent?: string }
+  | { kind: 'choice'; path: string; label: string; options: readonly string[]; labels?: Readonly<Record<string, string>>; absent?: string }
   | { kind: 'color'; path: string; label: string }
   /** A texture URL; empty = null (no texture). */
   | { kind: 'url'; path: string; label: string }
@@ -49,6 +50,9 @@ const optionalNum = (path: string, label: string, min: number, max: number, step
 
 /** The hint on Twist fields that only apply to a Corkscrew (they are never hidden or disabled). */
 const CORKSCREW_ONLY = 'Corkscrew only';
+/** What the Twist style and Spin drop-downs show for each choice. */
+const TWIST_STYLE_LABELS = { snake: 'Snake', corkscrew: 'Corkscrew' } as const;
+const SPIN_LABELS = { random: 'Random', clockwise: 'Clockwise', counterclockwise: 'Counter-clockwise' } as const;
 
 export const PARAMETER_GROUPS: FieldGroup[] = [
   {
@@ -72,10 +76,10 @@ export const PARAMETER_GROUPS: FieldGroup[] = [
       optionalNum('trunk.stems', 'Stems', 1, 8, 1, 1),
       optionalNum('trunk.spread', 'Stem spread', 0, 90, 1, 0),
       optionalNum('trunk.gravity', 'Trunk gravity', -1, 1, 0.01, 0),
-      { kind: 'choice', path: 'trunk.twistStyle', label: 'Twist style', options: TWIST_STYLES, absent: 'snake' },
+      { kind: 'choice', path: 'trunk.twistStyle', label: 'Twist style', options: TWIST_STYLES, labels: TWIST_STYLE_LABELS, absent: 'snake' },
       optionalNum('trunk.twist', 'Twist', 0, 1, 0.01, 0),
       optionalNum('trunk.twists', 'Twists', 1, 8, 1, 2),
-      { kind: 'choice', path: 'trunk.spin', label: 'Spin', options: SPINS, absent: 'random', hint: CORKSCREW_ONLY },
+      { kind: 'choice', path: 'trunk.spin', label: 'Spin', options: SPINS, labels: SPIN_LABELS, absent: 'random', hint: CORKSCREW_ONLY },
       { ...optionalNum('trunk.twistCurve', 'Twist curve', 0, 1, 0.01, 0), hint: CORKSCREW_ONLY },
       optionalNum('trunk.flare', 'Root Flare', 0, 1, 0.01, 0),
       optionalNum('trunk.flareSections', 'Root Flare sections', 1, 8, 1, 3),
@@ -218,10 +222,10 @@ export const BRANCH_LEVEL_FIELDS: Field[] = [
   { kind: 'number', path: 'sections', label: 'Sections', min: 1, max: 16, step: 1 },
   { kind: 'number', path: 'bend', label: 'Bend', min: 0, max: 1, step: 0.01 },
   { kind: 'number', path: 'gravity', label: 'Gravity', min: -1, max: 1, step: 0.01 },
-  { kind: 'choice', path: 'twistStyle', label: 'Twist style', options: TWIST_STYLES, absent: 'snake' },
+  { kind: 'choice', path: 'twistStyle', label: 'Twist style', options: TWIST_STYLES, labels: TWIST_STYLE_LABELS, absent: 'snake' },
   { kind: 'number', path: 'twist', label: 'Twist', min: 0, max: 1, step: 0.01, absent: 0 },
   { kind: 'number', path: 'twists', label: 'Twists', min: 1, max: 8, step: 1, absent: 2 },
-  { kind: 'choice', path: 'spin', label: 'Spin', options: SPINS, absent: 'random', hint: CORKSCREW_ONLY },
+  { kind: 'choice', path: 'spin', label: 'Spin', options: SPINS, labels: SPIN_LABELS, absent: 'random', hint: CORKSCREW_ONLY },
   { kind: 'number', path: 'twistCurve', label: 'Twist curve', min: 0, max: 1, step: 0.01, absent: 0, hint: CORKSCREW_ONLY },
   { kind: 'toggle', path: 'followTwist', label: 'Follow twist', absent: false, hint: CORKSCREW_ONLY },
 ];

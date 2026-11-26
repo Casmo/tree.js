@@ -177,10 +177,10 @@ describe('parameter panels', () => {
     const at = paths.indexOf('gravity');
     expect(paths.slice(at, at + 7)).toEqual(['gravity', 'twistStyle', 'twist', 'twists', 'spin', 'twistCurve', 'followTwist']);
     const field = (path: string) => BRANCH_LEVEL_FIELDS.find((f) => f.path === path);
-    expect(field('twistStyle')).toEqual({ kind: 'choice', path: 'twistStyle', label: 'Twist style', options: TWIST_STYLES, absent: 'snake' });
+    expect(field('twistStyle')).toEqual({ kind: 'choice', path: 'twistStyle', label: 'Twist style', options: TWIST_STYLES, labels: { snake: 'Snake', corkscrew: 'Corkscrew' }, absent: 'snake' });
     expect(field('twist')).toEqual({ kind: 'number', path: 'twist', label: 'Twist', min: 0, max: 1, step: 0.01, absent: 0 });
     expect(field('twists')).toEqual({ kind: 'number', path: 'twists', label: 'Twists', min: 1, max: 8, step: 1, absent: 2 });
-    expect(field('spin')).toEqual({ kind: 'choice', path: 'spin', label: 'Spin', options: SPINS, absent: 'random', hint: 'Corkscrew only' });
+    expect(field('spin')).toEqual({ kind: 'choice', path: 'spin', label: 'Spin', options: SPINS, labels: { random: 'Random', clockwise: 'Clockwise', counterclockwise: 'Counter-clockwise' }, absent: 'random', hint: 'Corkscrew only' });
     expect(field('twistCurve')).toEqual({ kind: 'number', path: 'twistCurve', label: 'Twist curve', min: 0, max: 1, step: 0.01, absent: 0, hint: 'Corkscrew only' });
     expect(field('followTwist')).toEqual({ kind: 'toggle', path: 'followTwist', label: 'Follow twist', absent: false, hint: 'Corkscrew only' });
     expect(TWIST_STYLES).toEqual(['snake', 'corkscrew']);
@@ -197,10 +197,10 @@ describe('parameter panels', () => {
     const at = paths.indexOf('trunk.gravity');
     expect(paths.slice(at, at + 6)).toEqual(['trunk.gravity', 'trunk.twistStyle', 'trunk.twist', 'trunk.twists', 'trunk.spin', 'trunk.twistCurve']);
     const field = (path: string) => fields.find((f) => f.path === path);
-    expect(field('trunk.twistStyle')).toEqual({ kind: 'choice', path: 'trunk.twistStyle', label: 'Twist style', options: TWIST_STYLES, absent: 'snake' });
+    expect(field('trunk.twistStyle')).toEqual({ kind: 'choice', path: 'trunk.twistStyle', label: 'Twist style', options: TWIST_STYLES, labels: { snake: 'Snake', corkscrew: 'Corkscrew' }, absent: 'snake' });
     expect(field('trunk.twist')).toEqual({ kind: 'number', path: 'trunk.twist', label: 'Twist', min: 0, max: 1, step: 0.01, absent: 0 });
     expect(field('trunk.twists')).toEqual({ kind: 'number', path: 'trunk.twists', label: 'Twists', min: 1, max: 8, step: 1, absent: 2 });
-    expect(field('trunk.spin')).toEqual({ kind: 'choice', path: 'trunk.spin', label: 'Spin', options: SPINS, absent: 'random', hint: 'Corkscrew only' });
+    expect(field('trunk.spin')).toEqual({ kind: 'choice', path: 'trunk.spin', label: 'Spin', options: SPINS, labels: { random: 'Random', clockwise: 'Clockwise', counterclockwise: 'Counter-clockwise' }, absent: 'random', hint: 'Corkscrew only' });
     expect(field('trunk.twistCurve')).toEqual({ kind: 'number', path: 'trunk.twistCurve', label: 'Twist curve', min: 0, max: 1, step: 0.01, absent: 0, hint: 'Corkscrew only' });
     // The trunk has no Follow Twist.
     expect(paths.filter((path) => path.includes('follow'))).toEqual([]);
