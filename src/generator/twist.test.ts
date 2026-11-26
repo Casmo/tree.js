@@ -207,3 +207,112 @@ describe('Twist on branch levels', () => {
 });
 
 const scaled = (a: Vec3, s: number): Vec3 => [a[0] * s, a[1] * s, a[2] * s];
+const crossed = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const dotted = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+/**
+ * How many times a straight-course branch's segments go round its start direction, signed: positive
+ * clockwise seen from its base looking along it (right-handed about the direction), negative counter-clockwise.
+ */
+function turnsAround(b: SkeletonBranch): number {
+  const sides = segments(b).map((d) => sub(d, scaled(b.direction, dotted(d, b.direction))));
+  let total = 0;
+  for (let i = 1; i < sides.length; i++) total += Math.atan2(dotted(crossed(sides[i - 1]!, sides[i]!), b.direction), dotted(sides[i - 1]!, sides[i]!));
+  return total / (2 * Math.PI);
+}
+
+describe('Corkscrew Twist on branch levels', () => {
+  const corkscrew = (twist: number, twists?: number, more: Partial<BranchLevelDefinition> = {}): Partial<BranchLevelDefinition> => ({
+    twistStyle: 'corkscrew',
+    twist,
+    ...(twists === undefined ? {} : { twists }),
+    ...more,
+  });
+
+  it('builds a Corkscrew branch with max(Sections, 6 × Twists) Sections; Twist 0 changes nothing', () => {
+    const data = grow([corkscrew(0.5), corkscrew(0.5, 1)]);
+    for (const b of onLevel(data, 1)) expect(sectionsOf(b)).toBe(12); // max(2, 6 × 2)
+    for (const b of onLevel(data, 2)) expect(sectionsOf(b)).toBe(7); // max(7, 6 × 1)
+    const tight = grow([corkscrew(0.5, 4), corkscrew(0.5, 3)]);
+    for (const b of onLevel(tight, 1)) expect(sectionsOf(b)).toBe(24);
+    for (const b of onLevel(tight, 2)) expect(sectionsOf(b)).toBe(18);
+    const plain = grow();
+    const untwisted = grow([corkscrew(0, 4, { spin: 'clockwise' }), corkscrew(0)]);
+    expect(untwisted.skeleton).toEqual(plain.skeleton);
+    expect(hashTreeData(untwisted)).toBe(hashTreeData(plain));
+  });
+
+  /** Straight courses (no Bend, no Gravity), so the course is each branch's start direction. */
+  const straight = (more: Partial<BranchLevelDefinition>[]) =>
+    generateTree(define(more.map((m, i) => ({ sections: i === 0 ? 2 : 7, bend: 0, gravity: 0, ...m }))), 5);
+
+  it('spirals around its course: leaning about Twist × 45° off it while its side makes Twists full turns', () => {
+    for (const [twist, twists] of [[1, 2], [0.5, 3], [0.8, 1]] as const) {
+      const data = straight([corkscrew(twist, twists), corkscrew(twist, twists)]);
+      for (const b of data.skeleton.branches.filter((b) => b.level > 0)) {
+        const lean = segments(b).map((d) => angleBetween(d, b.direction));
+        // Past the ease-in (the first half turn) it leans steadily by Twist × 45°.
+        const steady = lean.slice(Math.ceil(sectionsOf(b) / twists / 2));
+        for (const a of steady) expect(a, `${b.path} twist ${twist}`).toBeCloseTo(twist * 45, 0);
+        expect(Math.abs(turnsAround(b)), `${b.path} twists ${twists}`).toBeGreaterThan(twists - 0.25);
+        expect(Math.abs(turnsAround(b))).toBeLessThan(twists + 0.05);
+      }
+    }
+  });
+
+  it('leaves its start direction smoothly and has no kinks anywhere', () => {
+    const data = straight([corkscrew(1, 2), corkscrew(1, 3)]);
+    for (const b of data.skeleton.branches.filter((b) => b.level > 0)) {
+      const dirs = segments(b);
+      expect(angleBetween(dirs[0]!, b.direction)).toBeLessThan(10);
+      const steps = dirs.slice(1).map((d, i) => angleBetween(dirs[i]!, d));
+      // Never more than the steady step of a 45° lean on 6 Sections per turn (≈ 41°).
+      for (const step of steps) expect(step).toBeLessThan(42);
+      for (let i = 1; i < steps.length; i++) expect(Math.abs(steps[i]! - steps[i - 1]!)).toBeLessThan(25);
+    }
+  });
+
+  it('turns clockwise or counter-clockwise (seen from its base) as its Spin says', () => {
+    for (const [spin, sign] of [['clockwise', 1], ['counterclockwise', -1]] as const) {
+      const data = straight([corkscrew(0.6, 2, { spin }), corkscrew(0.6, 3, { spin })]);
+      for (const b of data.skeleton.branches.filter((b) => b.level > 0)) expect(Math.sign(turnsAround(b)), `${spin} ${b.path}`).toBe(sign);
+    }
+  });
+
+  it('picks a Random Spin per branch from the Seed: the same Seed gives the same tree, siblings may turn either way', () => {
+    const random = [corkscrew(0.6, 2), corkscrew(0.6, 2, { spin: 'random' })];
+    const data = straight(random);
+    expect(straight(random).skeleton).toEqual(data.skeleton);
+    expect(hashTreeData(straight(random))).toBe(hashTreeData(data));
+    const spins = data.skeleton.branches.filter((b) => b.level > 0).map((b) => Math.sign(turnsAround(b)));
+    expect(spins).toContain(1);
+    expect(spins).toContain(-1);
+  });
+
+  it('only reshapes the curves: paths, lengths, start directions and attach fractions stay; Snake trees stay as they were', () => {
+    const plain = grow();
+    const data = grow([corkscrew(0.9, 3), corkscrew(0.9, 2)]);
+    expect(data.skeleton.branches.map((b) => [b.path, b.attach])).toEqual(plain.skeleton.branches.map((b) => [b.path, b.attach]));
+    expect(data.skeleton.leaves.map((l) => [l.id, l.attach])).toEqual(plain.skeleton.leaves.map((l) => [l.id, l.attach]));
+    data.skeleton.branches.forEach((b, i) => {
+      if (b.level === 1) expect(b.direction).toEqual(plain.skeleton.branches[i]!.direction);
+      expect(lengthOf(b)).toBeCloseTo(lengthOf(plain.skeleton.branches[i]!), 9);
+    });
+    // A Snake written out is the Snake of today.
+    const snake = [{ twist: 0.7, twists: 3 }, { twist: 0.5 }];
+    const written = grow(snake.map((t) => ({ ...t, twistStyle: 'snake' as const, spin: 'clockwise' as const })));
+    expect(written.skeleton).toEqual(grow(snake).skeleton);
+    expect(hashTreeData(written)).toBe(hashTreeData(grow(snake)));
+  });
+
+  it('lets Gravity and Bend still apply on top of a Corkscrew', () => {
+    const twist = corkscrew(0.6, 3, { bend: 0 });
+    const heights = (gravity: number) => onLevel(grow([{ ...twist, gravity }, { ...twist, gravity }]), 2).map((b) => tipOf(b)[1] - b.points[0]!.position[1]);
+    const mean = (values: number[]) => values.reduce((a, v) => a + v, 0) / values.length;
+    const flat = mean(heights(0));
+    expect(mean(heights(-1))).toBeLessThan(flat - 0.1);
+    expect(mean(heights(1))).toBeGreaterThan(flat + 0.1);
+    const tips = (bend: number) => onLevel(grow([corkscrew(0.6, 3, { bend, gravity: 0 })]), 1).map(tipOf);
+    const bent = tips(0.4);
+    tips(0).forEach((tip, i) => expect(Math.hypot(...sub(tip, bent[i]!))).toBeGreaterThan(0.01));
+  });
+});

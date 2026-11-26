@@ -6,19 +6,26 @@ import { add, cross, dot, length, normalize, perpendicular, scale, sub } from '.
 
 /** Twists while `twists` is absent: an S. */
 export const DEFAULT_TWISTS = 2;
-/** How far `twist` = 1 swings a branch away from its course at every turn, radians (45°). */
+/** How far `twist` = 1 swings a branch away from its course at every turn, or leans a Corkscrew off it, radians (45°). */
 const SWING = Math.PI / 4;
-/** Sections a twisted branch or Stem needs per turn for the turn to show (ADR 0015). */
-const SECTIONS_PER_TURN = 3;
+/** Over how many turns a Corkscrew's lean eases in from its start direction (half a turn). */
+const EASE_TURNS = 0.5;
+/** Sections a twisted branch or Stem needs per turn for the turn to show: 3 for a Snake (ADR 0015), 6 for a Corkscrew's full turn around its course (ADR 0016). */
+const SECTIONS_PER_TURN = { snake: 3, corkscrew: 6 } as const;
 
 /**
  * The smooth twisting path one branch or Stem follows while it grows, and the Sections it is built
- * with (ADR 0015). Without Twist it changes nothing: the original Sections, every Section takes its
- * Bend jitter, and {@link steer} returns the course itself.
+ * with (ADR 0015, 0016). Without Twist it changes nothing: the original Sections, every Section takes its
+ * Bend jitter, {@link steer} returns the course itself and {@link roll} is 0.
  */
 export interface TwistPath {
-  /** Sections to build: max(Sections, 3 × Twists) with Twist > 0, else the Sections given. */
+  /** Sections to build: max(Sections, 3 × Twists) for a Snake, 6 × Twists for a Corkscrew, with Twist > 0; else the Sections given. */
   readonly sections: number;
+  /**
+   * Which way a Corkscrew turns: 1 clockwise seen from its base looking along it (right-handed about
+   * its course), −1 counter-clockwise; the Seed's pick when its Spin is Random. 0 for a Snake or without Twist.
+   */
+  readonly spin: -1 | 0 | 1;
   /**
    * Whether built Section `n` (0 .. sections − 1) takes Bend's jitter: true where an original Section
    * starts, false for an in-between Section that only follows the smooth path. Exactly one built Section
@@ -32,11 +39,21 @@ export interface TwistPath {
    * kinks: its direction never jumps, also where one turn hands over to the next.
    */
   steer(course: Vec3, u: number): Vec3;
+  /**
+   * How far a Corkscrew has turned around its course at fraction `u` (0..1) of the length, radians:
+   * `spin` × 2π × Twists × `u`, so one full turn per Twists, 0 at the start (the spiral phase, which
+   * rolls its frames, ADR 0016). Always 0 for a Snake or without Twist.
+   */
+  roll(u: number): number;
 }
 
-/** The Sections a branch or Stem with these Twist settings is built with: max(`sections`, 3 × Twists) when twisted (ADR 0015). */
+/**
+ * The Sections a branch or Stem with these Twist settings is built with when twisted: max(`sections`,
+ * 3 × Twists) for a Snake (ADR 0015), max(`sections`, 6 × Twists) for a Corkscrew (ADR 0016).
+ */
 export function twistedSections(sections: number, settings: TwistSettings): number {
-  return (settings.twist ?? 0) > 0 ? Math.max(sections, SECTIONS_PER_TURN * (settings.twists ?? DEFAULT_TWISTS)) : sections;
+  if ((settings.twist ?? 0) <= 0) return sections;
+  return Math.max(sections, SECTIONS_PER_TURN[settings.twistStyle ?? 'snake'] * (settings.twists ?? DEFAULT_TWISTS));
 }
 
 /**
@@ -53,11 +70,13 @@ export function originalSectionStart(j: number, sections: number, built: number)
  * base Section at the very start (so the base grows upright) and the others at their middle.
  * `random` must be the branch's or Stem's own Twist stream (ADR 0003: never a stream today's draws
  * use); it picks the direction of every turn around the branch's axis, each turn roughly opposite
- * the last so the path snakes.
+ * the last so the path snakes. A Corkscrew makes the same draws (the first turn's direction is where
+ * its spiral starts) and then one for its Spin, also when the Spin is given, so later draws (the Twist
+ * Curve's) always come from the same place in the stream.
  */
 export function twistPath(settings: TwistSettings, sections: number, start: Vec3, random: Random): TwistPath {
   const twist = settings.twist ?? 0;
-  if (twist <= 0) return { sections, takesBend: () => true, steer: (course) => course };
+  if (twist <= 0) return { sections, spin: 0, takesBend: () => true, steer: (course) => course, roll: () => 0 };
 
   const turns = settings.twists ?? DEFAULT_TWISTS;
   const builtSections = twistedSections(sections, settings);
@@ -67,15 +86,42 @@ export function twistPath(settings: TwistSettings, sections: number, start: Vec3
   const axisB = cross(start, axisA);
   const sides: Vec3[] = [];
   let azimuth = random.range(0, Math.PI * 2);
+  const spiralStart = azimuth; // Where a Corkscrew's spiral starts around `start`.
   for (let j = 0; j < turns; j++) {
     if (j > 0) azimuth += Math.PI + random.range(-Math.PI / 2, Math.PI / 2);
     sides.push(add(scale(axisA, cos(azimuth)), scale(axisB, sin(azimuth))));
   }
 
+  // Original Section j starts at fraction j / sections: its jitter goes on the first built Section there.
+  const takesBend = (n: number) => originalSectionStart(Math.floor((n * sections) / builtSections), sections, builtSections) === n;
+
+  if (settings.twistStyle === 'corkscrew') {
+    const picked = random.next() < 0.5 ? 1 : -1;
+    const spin = settings.spin === 'clockwise' ? 1 : settings.spin === 'counterclockwise' ? -1 : picked;
+    const roll = (u: number) => spin * 2 * Math.PI * turns * Math.min(Math.max(u, 0), 1);
+    return {
+      sections: builtSections,
+      spin,
+      takesBend,
+      roll,
+      steer: (course, u) => {
+        const along = Math.min(Math.max(u, 0), 1) * turns;
+        // The side it leans to goes round `start` (right-handed for spin 1), carried onto the course by
+        // the smallest rotation from `start` to it, so the spiral follows a course that Gravity or Bend turn.
+        const phase = spiralStart + roll(u);
+        const side = carry(add(scale(axisA, cos(phase)), scale(axisB, sin(phase))), start, course);
+        if (!side) return course;
+        const lean = swing * smoothstep(Math.min(along / EASE_TURNS, 1));
+        return normalize(add(scale(course, cos(lean)), scale(side, sin(lean))));
+      },
+    };
+  }
+
   return {
     sections: builtSections,
-    // Original Section j starts at fraction j / sections: its jitter goes on the first built Section there.
-    takesBend: (n) => originalSectionStart(Math.floor((n * sections) / builtSections), sections, builtSections) === n,
+    spin: 0,
+    takesBend,
+    roll: () => 0,
     steer: (course, u) => {
       const along = Math.min(Math.max(u, 0), 1) * turns;
       const turn = Math.min(Math.floor(along), turns - 1);
@@ -87,4 +133,18 @@ export function twistPath(settings: TwistSettings, sections: number, start: Vec3
       return normalize(add(scale(course, cos(angle)), scale(side, sin(angle) / size)));
     },
   };
+}
+
+/** 0 at 0, 1 at 1, with no slope at either end: the Corkscrew's lean eases in without a kink. */
+const smoothstep = (x: number) => x * x * (3 - 2 * x);
+
+/**
+ * The unit vector `v` (across `from`) turned by the smallest rotation taking unit `from` onto unit
+ * `to`, so it lies across `to`; null where `to` is (almost) opposite `from` and there is no such rotation.
+ */
+function carry(v: Vec3, from: Vec3, to: Vec3): Vec3 | null {
+  const c = dot(from, to);
+  if (c < -1 + 1e-9) return null;
+  const w = cross(from, to);
+  return normalize(add(add(scale(v, c), cross(w, v)), scale(w, dot(w, v) / (1 + c))));
 }
