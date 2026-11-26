@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BARK_TYPES, DEFAULT_DEFINITION, LEAF_TYPES, parseDefinition } from '@casmo/tree.js';
+import { BARK_TYPES, DEFAULT_DEFINITION, LEAF_TYPES, SPINS, TWIST_STYLES, parseDefinition } from '@casmo/tree.js';
 import {
   BRANCH_LEVEL_CURVES,
   BRANCH_LEVEL_FIELDS,
@@ -34,6 +34,8 @@ const FULL_DEFINITION = parseDefinition({
     ...level,
     twist: 0.3,
     twists: 3,
+    twistStyle: 'corkscrew',
+    spin: 'clockwise',
     lengthProfile: [{ t: 0, value: 1 }],
     angleProfile: [{ t: 0, value: 1 }],
   })),
@@ -161,12 +163,20 @@ describe('parameter panels', () => {
     expect(fruitType('apple')).toThrow(/fruit.type/);
   });
 
-  it('offer Twist (0..1) and Twists (1..8, whole) right after Gravity on each branch level, showing no Twist while absent', () => {
+  it('offer the Twist group right after Gravity on each branch level: Twist style, Twist, Twists, Spin, showing Snake / no Twist / Random while absent', () => {
     const paths = BRANCH_LEVEL_FIELDS.map((field) => field.path);
-    expect(paths.slice(paths.indexOf('gravity'), paths.indexOf('gravity') + 3)).toEqual(['gravity', 'twist', 'twists']);
+    const at = paths.indexOf('gravity');
+    expect(paths.slice(at, at + 5)).toEqual(['gravity', 'twistStyle', 'twist', 'twists', 'spin']);
     const field = (path: string) => BRANCH_LEVEL_FIELDS.find((f) => f.path === path);
+    expect(field('twistStyle')).toEqual({ kind: 'choice', path: 'twistStyle', label: 'Twist style', options: TWIST_STYLES, absent: 'snake' });
     expect(field('twist')).toEqual({ kind: 'number', path: 'twist', label: 'Twist', min: 0, max: 1, step: 0.01, absent: 0 });
     expect(field('twists')).toEqual({ kind: 'number', path: 'twists', label: 'Twists', min: 1, max: 8, step: 1, absent: 2 });
+    expect(field('spin')).toEqual({ kind: 'choice', path: 'spin', label: 'Spin', options: SPINS, absent: 'random', hint: 'Corkscrew only' });
+    expect(TWIST_STYLES).toEqual(['snake', 'corkscrew']);
+    expect(SPINS).toEqual(['random', 'clockwise', 'counterclockwise']);
+    for (const [path, value] of [['twistStyle', 'helix'], ['spin', 'left']]) {
+      expect(() => parseDefinition({ ...DEFAULT_DEFINITION, branches: [{ ...DEFAULT_DEFINITION.branches[0]!, [path!]: value }] })).toThrow(`branches[0].${path}`);
+    }
   });
 
   it('offer Twist (0..1) and Twists (1..8, whole) on the trunk right after Trunk gravity, showing no Twist while absent', () => {

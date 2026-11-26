@@ -22,6 +22,7 @@ button { margin: 4px 4px 4px 0; }
 .control.slider { grid-template-columns: 7.5em 1fr 4.5em; }
 .control.slider input[type='number'] { width: 100%; box-sizing: border-box; }
 .control .field-error { grid-column: 1 / -1; color: #b22; font-size: 11px; }
+.control .hint { grid-column: 2 / -1; margin: 0; }
 .control output { overflow: hidden; text-overflow: ellipsis; }
 section h3 { font-size: 12px; font-weight: 600; margin: 10px 0 4px; color: #3d4a38; }
 fieldset.branch-level { border: 1px solid #d5dccd; border-radius: 4px; margin: 6px 0; padding: 2px 8px 6px; }

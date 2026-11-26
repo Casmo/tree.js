@@ -193,8 +193,8 @@ export function textControl(
 }
 
 /**
- * A drop-down for one Definition parameter. An optional field (`absent` given, '') also offers
- * "not set", which removes the field.
+ * A drop-down for one Definition parameter. An optional field with `absent` '' also offers "not set",
+ * which removes the field; with `absent` one of the choices, an absent field shows that choice.
  */
 export function definitionChoice(
   context: PanelContext,
@@ -204,12 +204,13 @@ export function definitionChoice(
   absent?: string,
 ): HTMLElement {
   const select = document.createElement('select');
-  if (absent !== undefined) select.add(new Option('not set', absent));
+  const notSet = absent !== undefined && !choices.includes(absent);
+  if (notSet) select.add(new Option('not set', absent));
   for (const choice of choices) select.add(new Option(choice, choice));
   const row = controlRow(context, path, label, select);
   row.row.classList.add('wide');
   select.addEventListener('change', () =>
-    attempt(context, row, () => setDefinitionValue(context.store, path, absent !== undefined && select.value === absent ? undefined : select.value)),
+    attempt(context, row, () => setDefinitionValue(context.store, path, notSet && select.value === absent ? undefined : select.value)),
   );
   follow(context, row.row, (state) => (getAt(state.definition, path) as string | undefined) ?? absent ?? '', (value) => {
     select.value = value;
@@ -250,8 +251,23 @@ export function definitionUrl(context: PanelContext, path: string, label: string
   });
 }
 
-/** The control for one entry of the field table (`fields.ts`); `path` overrides the field's own path. */
+/** The control for one entry of the field table (`fields.ts`) with its hint, if any; `path` overrides the field's own path. */
 export function fieldControl(context: PanelContext, field: Field, path = field.path): HTMLElement {
+  const row = bareFieldControl(context, field, path);
+  if (field.hint) {
+    const hint = document.createElement('small');
+    hint.className = 'hint';
+    hint.id = `${path}-hint`;
+    hint.textContent = field.hint;
+    row.querySelector('.field-error')!.before(hint);
+    for (const input of row.querySelectorAll('input:not([aria-hidden]), select')) {
+      input.setAttribute('aria-describedby', `${input.getAttribute('aria-describedby') ?? ''} ${hint.id}`.trim());
+    }
+  }
+  return row;
+}
+
+function bareFieldControl(context: PanelContext, field: Field, path: string): HTMLElement {
   switch (field.kind) {
     case 'number':
       return definitionNumber(context, path, { label: field.label, min: field.min, max: field.max, step: field.step, absent: field.absent });

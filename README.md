@@ -248,6 +248,11 @@ changes, and changing it never moves branches, leaves or Sculpts to other branch
 The trunk takes the same `twist` and `twists` for winding trunks like an olive or juniper: each Stem
 snakes in its own Seed-picked way, its base stays put and starts upright, and `trunk.gravity` and the
 Stem lean still apply on top.
+A branch level's `twistStyle` picks the kind of Twist: `'snake'` (the default, above) or `'corkscrew'`,
+where each branch spirals around its own course: it leans `twist` × 45° off it while the side it leans to
+goes round one full turn per `twists`, easing in from its start direction. `spin` sets which way round:
+`'clockwise'` or `'counterclockwise'` (seen from the branch's base), or `'random'` (the default, the Seed
+picks per branch). A Corkscrew branch gets max(`sections`, 6 × `twists`) Sections.
 
 A tree can grow several **Stems** from the ground: `trunk: { stems: 3, spread: 20 }` stands three full
 trunks (each with the whole branch structure) in a small ring, leaning out about 20° from vertical (the
