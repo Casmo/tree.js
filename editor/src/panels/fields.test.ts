@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BARK_TYPES, DEFAULT_DEFINITION, LEAF_TYPES, SPINS, TWIST_STYLES, parseDefinition } from '@casmo/tree.js';
+import { BARK_TYPES, DEFAULT_DEFINITION, DEFAULT_LEAF_GROWTH_START, LEAF_TYPES, SPINS, TWIST_STYLES, parseDefinition } from '@casmo/tree.js';
 import {
   BRANCH_LEVEL_CURVES,
   BRANCH_LEVEL_FIELDS,
@@ -43,7 +43,7 @@ const FULL_DEFINITION = parseDefinition({
     lengthProfile: [{ t: 0, value: 1 }],
     angleProfile: [{ t: 0, value: 1 }],
   })),
-  leaves: { ...DEFAULT_DEFINITION.leaves, type: 'lobed' },
+  leaves: { ...DEFAULT_DEFINITION.leaves, type: 'lobed', growthStart: 0.3 },
   materials: {
     ...DEFAULT_DEFINITION.materials,
     bark: { ...DEFAULT_DEFINITION.materials.bark, type: 'smooth', groundTint: {} },
@@ -89,6 +89,7 @@ describe('parameter panels', () => {
     expect(paths).toContain('branches.*.gravity');
     expect(paths).toContain('branches.*.angleProfile');
     expect(paths).toContain('trunk.stems');
+    expect(paths).toContain('leaves.growthStart');
     expect(paths).toContain('trunk.flare');
     expect(paths).toContain('trunk.flareSections');
     expect(paths).toContain('fruit.hang');
@@ -117,6 +118,7 @@ describe('parameter panels', () => {
       'trunk.flare': 0,
       'trunk.flareSections': 3,
       'leaves.type': '',
+      'leaves.growthStart': 0.1,
       'materials.bark.type': '',
       'fruit.sides': 8,
     });
@@ -174,6 +176,17 @@ describe('parameter panels', () => {
     const glow = (leaf: number) => () => parseDefinition({ ...DEFAULT_DEFINITION, materials: { ...DEFAULT_DEFINITION.materials, innerGlow: { leaf } } });
     expect(glow(4)).not.toThrow();
     expect(glow(4.1)).toThrow(/materials.innerGlow.leaf/);
+  });
+
+  it('offer a Leaf Start slider (0..1) in the leaves panel, showing the default Leaf Start while absent', () => {
+    const leaves = PARAMETER_GROUPS.find((group) => group.id === 'leaves')!.fields;
+    expect(leaves.find((field) => field.path === 'leaves.growthStart')).toEqual({
+      kind: 'number', path: 'leaves.growthStart', label: 'Leaf Start', min: 0, max: 1, step: 0.01, absent: DEFAULT_LEAF_GROWTH_START, hint: 'Growth at which leaves begin',
+    });
+    const leafStart = (growthStart: number) => () => parseDefinition({ ...DEFAULT_DEFINITION, leaves: { ...DEFAULT_DEFINITION.leaves, growthStart } });
+    expect(leafStart(0)).not.toThrow();
+    expect(leafStart(1)).not.toThrow();
+    expect(leafStart(1.1)).toThrow(/leaves.growthStart/);
   });
 
   it('offer exactly the choices the schema accepts', () => {
