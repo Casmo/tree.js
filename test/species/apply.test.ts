@@ -6,6 +6,7 @@ import stylized from '../../src/styles/stylized';
 import realistic from '../../src/styles/realistic';
 import painterly from '../../src/styles/painterly';
 import whimsical from '../../src/styles/whimsical';
+import enchanted from '../../src/styles/enchanted';
 
 /** A small test Species: a short broadleaf with lobed leaves and plated bark. */
 const testOak: SpeciesDefinition = {
@@ -42,7 +43,7 @@ const testFir: SpeciesDefinition = {
   variation: { color: 0.08, growth: 0.1, season: 0.05 },
 };
 
-const styles = { 'low-poly': lowPoly, stylized, realistic, painterly, whimsical };
+const styles = { 'low-poly': lowPoly, stylized, realistic, painterly, whimsical, enchanted };
 /** The Styles that choose only the look (and Painterly its size): a Fantasy Style also sets Twist and colours (ADR 0017). */
 const lookStyles = { 'low-poly': lowPoly, stylized, realistic, painterly };
 
@@ -168,7 +169,7 @@ describe('Style.apply: each Style draws the Leaf Type and Bark Type its own way'
 
   it('every Style uses more foliage for a denser Species, and every non-fantasy Style the Species bark colour', () => {
     for (const style of Object.values(styles)) {
-      if (style !== whimsical) expect(style.apply(testOak).materials.bark.color).toBe('#6e5a48');
+      if (style !== whimsical && style !== enchanted) expect(style.apply(testOak).materials.bark.color).toBe('#6e5a48');
       const sparse = style.apply({ ...testOak, foliage: { ...testOak.foliage, density: 0.25 } }).leaves.count;
       const dense = style.apply({ ...testOak, foliage: { ...testOak.foliage, density: 1 } }).leaves.count;
       expect(dense).toBeGreaterThan(sparse);
@@ -260,6 +261,7 @@ describe('Style.apply draws the Root Flare the Style\'s way', () => {
       realistic: 3,
       painterly: 3,
       whimsical: 3,
+      enchanted: 3,
     });
     for (const style of Object.values(styles)) {
       expect(trunkRings(style.apply(flared)) - trunkRings(style.apply(testOak))).toBe(style.apply(flared).trunk.flareSections);
@@ -286,6 +288,7 @@ describe('Style.apply draws Roots the Style\'s way', () => {
       realistic: [8, 6],
       painterly: [6, 3],
       whimsical: [6, 4],
+      enchanted: [6, 4],
     });
     for (const style of Object.values(styles)) {
       const { skeleton } = generateTree(style.apply(rooted), 1);

@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the Enchanted showpieces > broadleaf: matches the golden geometry hash (determinism across releases) 1`] = `"47532135"`;
+
+exports[`the Enchanted showpieces > conifer: matches the golden geometry hash (determinism across releases) 1`] = `"9c2e9f17"`;

@@ -2,6 +2,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import type { Shading } from '../definition';
 import { PaintedNodeMaterial } from './painted';
 import { SoftToonNodeMaterial } from './toon';
+import { EnchantedNodeMaterial } from './enchanted';
 import { WhimsicalNodeMaterial } from './whimsical';
 
 /**
@@ -19,6 +20,8 @@ import { WhimsicalNodeMaterial } from './whimsical';
  *   a Leaf Mass crown is painted onto its gradient (`paintLeafMasses`).
  * - `whimsical` (whimsical): three crisp toon tones and a coloured rim light (`WhimsicalNodeMaterial`);
  *   the bark gets candy stripes in the tree's accent colour (`createBarkMaterial`).
+ * - `enchanted` (enchanted): dim, cool physical lighting (`EnchantedNodeMaterial`); a Tree or Forest adds
+ *   the Inner Glow as its emissive (`applyInnerGlow`).
  */
 export function createShadedMaterial(shading: Shading): MeshStandardNodeMaterial {
   const material =
@@ -28,7 +31,9 @@ export function createShadedMaterial(shading: Shading): MeshStandardNodeMaterial
         ? new PaintedNodeMaterial()
         : shading === 'whimsical'
           ? new WhimsicalNodeMaterial()
-          : new MeshStandardNodeMaterial();
+          : shading === 'enchanted'
+            ? new EnchantedNodeMaterial()
+            : new MeshStandardNodeMaterial();
   material.flatShading = shading === 'flat';
   return material;
 }

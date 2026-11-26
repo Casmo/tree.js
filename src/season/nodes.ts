@@ -58,6 +58,14 @@ export function leafSeasonNode(profile: SeasonProfileDefinition): (season: Float
   };
 }
 
+/**
+ * The Season Profile's leaf colour (vec3, linear) at a Season node, for the whole tree (no per-leaf timing
+ * shift, never the blossom colour): what the `enchanted` bark veins glow in.
+ */
+export function seasonLeafColorNode(profile: Pick<SeasonProfileDefinition, 'leafColor'>, season: FloatNode<'float'>): Node {
+  return keyframeNode(season, profile.leafColor, (v) => uniform(new Color(v)));
+}
+
 /** The Season nodes of one tree's leaves; `S` is the Season input node (a uniform by default). */
 export interface SeasonNodes<S extends FloatNode<'float'> = SeasonUniform> {
   /** Season 0..1 (first day of spring .. last day of winter). For a uniform: write `.value`; nothing recompiles. */

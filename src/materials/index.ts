@@ -15,6 +15,7 @@ export { applyCrownNormals } from './crown-normals';
 export { crownNodes, type CrownNodes } from './crown-nodes';
 export { PaintedNodeMaterial } from './painted';
 export { WhimsicalNodeMaterial } from './whimsical';
+export { EnchantedNodeMaterial } from './enchanted';
 
 /**
  * Bark material: a TSL node material (ADR 0002). Growth/Season/Wind uniforms and

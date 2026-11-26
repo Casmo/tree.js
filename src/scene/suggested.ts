@@ -67,6 +67,6 @@ export const SUGGESTED_SCENE_EFFECTS: Record<StyleName, SceneEffectsSettings> = 
     ao: { radius: 1.2, scale: 1.2, thickness: 2 },
     bloom: { strength: 0.6, radius: 0.6, threshold: 0.15 },
     antialias: 'smaa',
-    fog: { color: '#3a2a66', near: 20, far: 140, mist: { height: 1.8, strength: 0.6, near: 8, far: 45 } },
+    fog: { color: '#5e3888', near: 20, far: 140, mist: { height: 1.8, strength: 0.6, near: 8, far: 45 } },
   },
 };

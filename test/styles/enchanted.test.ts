@@ -137,7 +137,7 @@ describe('enchanted.apply: colours from the Style, Season timing from the source
     });
   });
 
-  it.each(['douglas-fir', 'pine', 'cedar'])('%s (evergreen) stays teal all year', async (id) => {
+  it.each(['douglas-fir', 'pine', 'cedar'] as const)('%s (evergreen) stays teal all year', async (id) => {
     const definition = enchanted.default.apply(await loadSpecies(id));
     definition.season.leafPalettes!.forEach((_, i) => {
       for (let t = 0; t <= 1; t += 0.05) expect(isTeal(paletteAt(definition, i, t)), `palette ${i} at ${t}`).toBe(true);
@@ -222,5 +222,128 @@ describe('re-styling an Enchanted Definition (ADR 0017)', () => {
     const realistic = await loadStyle('realistic');
     expect(enchanted.default.apply(realistic.apply(fir))).toEqual(enchanted.default.apply(fir));
     expect(enchanted.default.apply(enchanted.default.conifer).trunk.twist).toBe(0.3);
+  });
+});
+
+describe('the enchanted shading and its Inner Glow', () => {
+  const fruit = { type: 'round' as const, count: 2, size: 0.15, sizeVariation: 0.1, hang: 0.7 };
+
+  it.each(['broadleaf', 'conifer'] as const)('the %s showpiece: bark, leaves and Fruit are enchanted materials, in a Tree and a Forest', (form) => {
+    const definition = { ...enchanted[form], fruit };
+    const tree = createTree(definition, { seed: 1 });
+    const forest = createForest(definition, [{ position: [0, 0, 0] }], { variants: 1, seed: 1 });
+    const variant = forest.variants[0]!;
+    for (const material of [tree.wood.material, tree.leaves.material, tree.fruit.material, variant.barkMaterial, variant.leafMaterial, variant.fruitMaterial]) {
+      expect(material).toMatchObject({ isEnchantedMaterial: true, flatShading: false });
+    }
+    tree.dispose();
+    forest.dispose();
+  });
+
+  it('glows with no light: the leaves and bark veins shine by themselves (emissive), the Fruit does not', () => {
+    const tree = createTree(enchanted.broadleaf, { seed: 1 });
+    expect(tree.innerGlow).toEqual({ leaf: 1, veins: 1 });
+    expect(tree.leaves.material.emissiveNode).not.toBeNull();
+    expect((tree.wood.material as unknown as { emissiveNode: unknown }).emissiveNode).not.toBeNull();
+    expect(tree.fruit.material.emissiveNode).toBeNull();
+    tree.dispose();
+    const forest = createForest(enchanted.broadleaf, [{ position: [0, 0, 0] }], { variants: 1, seed: 1 });
+    expect(forest.variants[0]!.innerGlow).toEqual({ leaf: 1, veins: 1 });
+    expect(forest.variants[0]!.leafMaterial.emissiveNode).not.toBeNull();
+    expect(forest.variants[0]!.barkMaterial.emissiveNode).not.toBeNull();
+    forest.dispose();
+  });
+
+  it('can be tuned live on a Tree', () => {
+    const tree = createTree(enchanted.broadleaf, { seed: 1 });
+    tree.innerGlow = { veins: 0.3 };
+    expect(tree.innerGlow).toEqual({ leaf: 1, veins: 0.3 });
+    tree.dispose();
+  });
+
+  it('only the enchanted shading draws it: other shadings ignore it, and without it nothing glows', () => {
+    const glowing = stylized.apply(enchanted.broadleaf);
+    expect(glowing.materials.innerGlow).toBeDefined();
+    const restyled = createTree(glowing, { seed: 1 });
+    expect(restyled.innerGlow).toBeNull();
+    expect(restyled.leaves.material.emissiveNode).toBeNull();
+    restyled.dispose();
+    const materials = { ...enchanted.broadleaf.materials };
+    delete materials.innerGlow;
+    const plain = createTree({ ...enchanted.broadleaf, materials }, { seed: 1 });
+    expect(plain.innerGlow).toBeNull();
+    expect(plain.leaves.material.emissiveNode).toBeNull();
+    expect(plain.wood.material).toMatchObject({ isEnchantedMaterial: true, emissiveNode: null });
+    plain.dispose();
+  });
+});
+
+describe('the Enchanted suggestions', () => {
+  it('Tree Effects: no outline, a teal Leaf Glow and a cool blue-violet grade', async () => {
+    const { SUGGESTED_TREE_EFFECTS } = await import('../../src/effects');
+    const { outline, glow, grade } = SUGGESTED_TREE_EFFECTS.enchanted;
+    expect(outline).toBeUndefined();
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(String(glow!.color).slice(i, i + 2), 16));
+    expect(isTeal([r!, g!, b!])).toBe(true);
+    const tint = [1, 3, 5].map((i) => parseInt(String(grade!.tint).slice(i, i + 2), 16));
+    expect(tint[2]!).toBeGreaterThan(tint[1]!); // cool
+    expect(tint[2]!).toBeGreaterThan(tint[0]! - 1); // blue-violet
+  });
+
+  it('Scene Effects: a strong, low-threshold bloom and a violet ground mist', async () => {
+    const { SUGGESTED_SCENE_EFFECTS } = await import('../../src/scene');
+    const { bloom, fog } = SUGGESTED_SCENE_EFFECTS.enchanted;
+    for (const style of ['stylized', 'realistic', 'whimsical'] as const) {
+      expect(bloom!.strength!).toBeGreaterThan(SUGGESTED_SCENE_EFFECTS[style].bloom!.strength! * 3);
+      expect(bloom!.threshold!).toBeLessThan(SUGGESTED_SCENE_EFFECTS[style].bloom!.threshold!);
+    }
+    expect(fog!.mist).toBeTruthy();
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(String(fog!.color).slice(i, i + 2), 16));
+    expect(isMagentaOrViolet([r!, g!, b!])).toBe(true);
+  });
+
+  it('Material Features: Leaf Translucency on', async () => {
+    const { SUGGESTED_MATERIAL_FEATURES } = await import('../../src/index');
+    expect(SUGGESTED_MATERIAL_FEATURES.enchanted.translucency).toBeDefined();
+  });
+});
+
+describe('the Enchanted showpieces', () => {
+  const forms = { broadleaf: enchanted.broadleaf, conifer: enchanted.conifer };
+
+  for (const [form, definition] of Object.entries(forms)) {
+    it(`${form}: is a complete, valid Definition at real size, in the Style's colours, shading and Inner Glow`, () => {
+      expect(parseDefinition(definition)).toEqual(definition);
+      expect(definition.styleScale).toBeUndefined();
+      expect(definition.trunk.length).toBeGreaterThan(4);
+      expect(definition.materials.shading).toBe('enchanted');
+      expect(definition.materials.innerGlow).toBeDefined();
+      expect(definition.season.leafPalettes!.length).toBeGreaterThanOrEqual(2);
+      expect(definition.leaves.shape).toBe('card');
+    });
+
+    it(`${form}: snakes on every level`, () => {
+      expect(definition.trunk.twistStyle).toBe('snake');
+      for (const level of definition.branches) expect(level).toMatchObject({ twistStyle: 'snake', followTwist: false });
+    });
+
+    it(`${form}: matches the golden geometry hash (determinism across releases)`, () => {
+      expect(hashTreeData(generateTree(parseDefinition(definition), 42))).toMatchSnapshot();
+    });
+  }
+
+  it('the broadleaf is ancient and wide: several snaking Stems on Roots, long low boughs', () => {
+    const { trunk, branches, roots } = enchanted.broadleaf;
+    expect(trunk.stems!).toBeGreaterThanOrEqual(2);
+    expect(roots!.count).toBeGreaterThanOrEqual(4);
+    expect(branches[0]!.start).toBeLessThanOrEqual(0.35);
+    expect(branches[0]!.length).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it('the conifer is a slim spire with drooping branches', () => {
+    const { trunk, branches } = enchanted.conifer;
+    expect(trunk.length / trunk.radius).toBeGreaterThan(30);
+    expect(branches[0]!.angle).toBeGreaterThan(90);
+    expect(branches[0]!.gravity).toBeGreaterThan(0.2);
   });
 });

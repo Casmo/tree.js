@@ -19,9 +19,10 @@ import {
   type Scene,
 } from 'three/webgpu';
 import { and, positionGeometry, varying } from 'three/tsl';
-import type { LeafPalette, MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
+import type { InnerGlowDefinition, LeafPalette, MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
 import { generateLightTree, generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
+import { applyInnerGlow, innerGlowOf, innerGlowUniforms } from '../materials/enchanted';
 import { LiveMaterialFeatures, type MaterialFeatureNodes, type MaterialFeatureTarget } from '../materials/material-features';
 import { LiveShaderHooks, partHookTarget, ShaderHookedGroup, type ShaderHookTarget, type TreeShaderHooks } from '../materials/shader-hooks';
 import { webgpuRenderer } from '../renderer';
@@ -196,6 +197,8 @@ export class ForestVariant {
   readonly windResponse: WindResponse;
   /** The Leaf Palette this Variant's Seed picked (as `Tree.leafPalette`); null without Leaf Palettes. */
   readonly leafPalette: LeafPalette | null;
+  /** The Inner Glow this Variant draws (as `Tree.innerGlow`, not tunable); null without one or outside the enchanted shading. */
+  readonly innerGlow: InnerGlowDefinition | null;
   readonly barkMaterial: MeshStandardNodeMaterial;
   readonly leafMaterial: MeshStandardNodeMaterial;
   /** Fruit material, null when the Definition has no Fruit. */
@@ -242,6 +245,22 @@ export class ForestVariant {
     this.leafMaterial = createLeafMaterial(definition, textures, { toObject: (normal) => instanceRotate(normal) });
     this.leafMaterial.positionNode = position;
     applySeasonToLeafMaterial(this.leafMaterial, createSeasonNodes(definition.season, instanceState().season));
+    // Inner Glow (enchanted shading only): each tree pulses out of phase, by its own Wind phase.
+    const glow = innerGlowOf(definition);
+    this.innerGlow = glow && { ...glow };
+    if (glow) {
+      const { growth, season, windPhase } = instanceState();
+      applyInnerGlow(innerGlowUniforms(glow), {
+        bark: this.barkMaterial,
+        leaf: this.leafMaterial,
+        definition,
+        crown: this.data.crown,
+        growth,
+        season,
+        time: wind.uniforms.time,
+        phase: varying(windPhase) as Node<'float'>,
+      });
+    }
 
     this.woodSource = interleavedGeometry(this.data.wood, height * WIND_BOUNDS);
     this.leafSource = interleavedGeometry(this.data.leaves, height * WIND_BOUNDS);

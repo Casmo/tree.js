@@ -11,10 +11,11 @@ import {
   type UniformNode,
 } from 'three/webgpu';
 import { uniform } from 'three/tsl';
-import type { LeafPalette, MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
+import type { InnerGlowDefinition, LeafPalette, MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
 import { trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { clampGrowth, growthPosition } from '../growth';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
+import { applyInnerGlow, innerGlowOf, innerGlowUniforms, type InnerGlowUniforms } from '../materials/enchanted';
 import { LiveMaterialFeatures } from '../materials/material-features';
 import { LiveShaderHooks, partHookTarget, ShaderHookedGroup, type TreeShaderHooks } from '../materials/shader-hooks';
 import { assertWebGPURenderer } from '../renderer';
@@ -118,6 +119,7 @@ export class Tree extends ShaderHookedGroup {
   readonly windResponse: WindResponse;
   private readonly windBinding: WindBinding;
   private readonly features: LiveMaterialFeatures;
+  private readonly glow: InnerGlowUniforms | null;
   protected readonly hooks: LiveShaderHooks;
 
   /**
@@ -171,6 +173,21 @@ export class Tree extends ShaderHookedGroup {
     const motion = { source: this.windBinding, offset, shift: (previous: Node<'float'>) => windOffset(this.windBinding, this.windResponse, { time: previous }).sub(offset) };
     for (const material of [bark, leaf, fruit]) setWindMotion(material.positionNode as Node, motion);
     this.season = options.season ?? 0;
+    // Inner Glow (enchanted shading only): pulses with the shared Wind time, out of phase per tree by Seed.
+    const glow = innerGlowOf(look);
+    this.glow = glow && innerGlowUniforms(glow);
+    if (this.glow) {
+      applyInnerGlow(this.glow, {
+        bark,
+        leaf,
+        definition: look,
+        crown: data.crown,
+        growth: this.growthUniform,
+        season: this.seasonUniform,
+        time: this.windBinding.uniforms.time,
+        phase: uniform(seedRandom(data.seed, 'inner-glow') * Math.PI * 2),
+      });
+    }
     this.features = new LiveMaterialFeatures(definition, [
       { leaf, materials: [bark, leaf, fruit], crown: data.crown, growth: this.growthUniform },
     ]);
@@ -210,6 +227,22 @@ export class Tree extends ShaderHookedGroup {
 
   set translucency(value: Partial<TranslucencyDefinition>) {
     this.features.translucency = value;
+  }
+
+  /**
+   * Inner Glow strengths (a copy), from the Definition's `materials.innerGlow`; null when the tree draws
+   * none (no Inner Glow, or a shading other than `enchanted`). Setting any of them (each clamped to 0..4,
+   * the others kept) only writes uniforms: no regeneration, no recompile. Throws on a tree without one.
+   */
+  get innerGlow(): InnerGlowDefinition | null {
+    return this.glow && { leaf: this.glow.leaf.value, veins: this.glow.veins.value };
+  }
+
+  set innerGlow(value: Partial<InnerGlowDefinition>) {
+    if (!this.glow) throw new Error('This tree draws no Inner Glow (it needs materials.innerGlow and the enchanted shading)');
+    const clamp = (v: number) => Math.min(Math.max(v, 0), 4);
+    if (value.leaf !== undefined) this.glow.leaf.value = clamp(value.leaf);
+    if (value.veins !== undefined) this.glow.veins.value = clamp(value.veins);
   }
 
   /**
