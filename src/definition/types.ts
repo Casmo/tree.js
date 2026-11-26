@@ -27,29 +27,48 @@ export type Vec3Tuple = [number, number, number];
  */
 export type TreeForm = 'broadleaf' | 'conifer';
 
+/** Twist Style (GLOSSARY.md): the kind of Twist a branch level or trunk makes. */
+export type TwistStyle = 'snake' | 'corkscrew';
+/** All Twist Styles. */
+export const TWIST_STYLES: readonly TwistStyle[] = ['snake', 'corkscrew'];
+
+/** Spin (GLOSSARY.md): which way round a Corkscrew turns; 'random' lets the Seed pick per branch or Stem. */
+export type Spin = 'random' | 'clockwise' | 'counterclockwise';
+/** All Spins. */
+export const SPINS: readonly Spin[] = ['random', 'clockwise', 'counterclockwise'];
+
 /**
- * The Twist of a branch level or the trunk (GLOSSARY.md): each branch or Stem follows a smooth,
- * snaking path. Both fields are optional; with Twist absent or 0 nothing changes.
+ * The Twist of a branch level or the trunk (GLOSSARY.md): each branch or Stem follows a smooth
+ * path, snaking or corkscrewing. All fields are optional; with Twist absent or 0 nothing changes.
  */
 export interface TwistSettings {
   /**
-   * Twist (0..1): how far each branch or Stem swings away from its course at every turn; 1 ≈ 45°.
-   * The Seed picks each turn's direction around it, per branch or Stem. With Twist > 0 it is built
-   * with max(`sections`, 3 × `twists`) Sections (ADR 0015). Absent = 0 (none).
+   * Twist (0..1): how far each branch or Stem swings away from its course; 1 ≈ 45°. A Snake swings
+   * out and back at every turn, the Seed picking each turn's direction around it; a Corkscrew leans
+   * off its course by that much all along while it spirals. With Twist > 0 it is built with
+   * max(`sections`, 3 × `twists`) Sections, 6 × `twists` for a Corkscrew (ADR 0015, 0016). Absent = 0 (none).
    */
   twist?: number;
   /**
    * Twists (integer 1..8): how many times a twisted branch or Stem changes direction over its whole
-   * length, whatever that length is: 1 = a single arc, 2 = an S, 3+ = snaking. Absent = 2.
+   * length, whatever that length is: 1 = a single arc, 2 = an S, 3+ = snaking. A Corkscrew makes
+   * this many full turns around its course. Absent = 2.
    */
   twists?: number;
+  /** Twist Style: 'snake' (swings out and back onto its course) or 'corkscrew' (spirals around it). Absent = 'snake'. */
+  twistStyle?: TwistStyle;
+  /**
+   * Spin of a Corkscrew: 'clockwise' or 'counterclockwise' seen from its base looking along it, or
+   * 'random' (the Seed picks per branch or Stem). No effect on a Snake. Absent = 'random'.
+   */
+  spin?: Spin;
 }
 
 /**
  * Trunk parameters (branch level 0). A twisted Stem (an olive or juniper) keeps its base in place and
  * starting upright; Trunk gravity and the Stem lean still apply on top of its Twist.
  */
-export interface TrunkDefinition extends TwistSettings {
+export interface TrunkDefinition extends Omit<TwistSettings, 'twistStyle' | 'spin'> {
   /** Trunk length at full Growth, metres (> 0). */
   length: number;
   /** Radius at the base, metres (> 0). */

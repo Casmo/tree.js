@@ -1,4 +1,4 @@
-export { BARK_TYPES, CURRENT_SCHEMA_VERSION, DEFAULT_LEAF_MASSES, FRUIT_TYPES, LEAF_TYPES, MAX_BRANCH_LEVELS } from './types';
+export { BARK_TYPES, CURRENT_SCHEMA_VERSION, DEFAULT_LEAF_MASSES, FRUIT_TYPES, LEAF_TYPES, MAX_BRANCH_LEVELS, SPINS, TWIST_STYLES } from './types';
 export type {
   TreeDefinition,
   TreeDefinitionInput,
@@ -7,6 +7,8 @@ export type {
   Vec3Tuple,
   TreeForm,
   TwistSettings,
+  TwistStyle,
+  Spin,
   TrunkDefinition,
   BranchLevelDefinition,
   LeafShape,

@@ -137,6 +137,15 @@ describe('Definition defaults', () => {
     expect([def.branches[1]!.twist, def.branches[1]!.twists]).toEqual([0.4, 5]);
   });
 
+  it('keeps a branch level\'s optional Twist Style and Spin: absent stays absent (Snake, Random), given values are kept', () => {
+    const def = parseDefinition({ schemaVersion: 3, branches: [{}, { twistStyle: 'corkscrew', spin: 'counterclockwise' }, { twistStyle: 'snake', spin: 'random' }] });
+    expect('twistStyle' in def.branches[0]!).toBe(false);
+    expect('spin' in def.branches[0]!).toBe(false);
+    expect([def.branches[1]!.twistStyle, def.branches[1]!.spin]).toEqual(['corkscrew', 'counterclockwise']);
+    expect([def.branches[2]!.twistStyle, def.branches[2]!.spin]).toEqual(['snake', 'random']);
+    expect(parseDefinition({ schemaVersion: 3, branches: [{ spin: 'clockwise' }] }).branches[0]!.spin).toBe('clockwise');
+  });
+
   it('never returns objects shared with the defaults or the input', () => {
     const input = { schemaVersion: 2, trunk: { length: 3 } };
     const def = parseDefinition(input);
@@ -190,6 +199,8 @@ describe('Definition validation names the bad field', () => {
     ['branch twists not an integer', { schemaVersion: 3, branches: [{ twists: 2.5 }] }, 'branches[0].twists'],
     ['branch twists below 1', { schemaVersion: 3, branches: [{ twists: 0 }] }, 'branches[0].twists'],
     ['branch twists above 8', { schemaVersion: 3, branches: [{ twists: 9 }] }, 'branches[0].twists'],
+    ['unknown branch Twist Style', { schemaVersion: 3, branches: [{ twistStyle: 'helix' }] }, 'branches[0].twistStyle'],
+    ['unknown branch Spin', { schemaVersion: 3, branches: [{}, { spin: 'left' }] }, 'branches[1].spin'],
     ['trunk twist above 1', { schemaVersion: 3, trunk: { twist: 1.2 } }, 'trunk.twist'],
     ['trunk twist below 0', { schemaVersion: 3, trunk: { twist: -0.1 } }, 'trunk.twist'],
     ['trunk twists not an integer', { schemaVersion: 3, trunk: { twists: 2.5 } }, 'trunk.twists'],
