@@ -7,6 +7,7 @@ import { parseDefinition, type SpeciesDefinition, type TreeData } from '../../sr
 import { generateTree } from '../../src/generator';
 import { SPECIES_NAMES, loadSpecies, type SpeciesName } from '../../src/species';
 import lowPoly from '../../src/styles/low-poly';
+import { withoutTipBranches } from '../branch-geometry';
 import stylized from '../../src/styles/stylized';
 import realistic from '../../src/styles/realistic';
 
@@ -23,10 +24,14 @@ function measure(tree: TreeData) {
   return { height, width, ratio: width / height, trunk: tree.skeleton.branches[0]!.points[0]!.radius };
 }
 
-/** Mean measurements over the test Seeds (low-poly; the skeleton is the same shape in every Style). */
+/**
+ * Mean measurements over the test Seeds (low-poly; the skeleton is the same shape in every Style), of the
+ * proportions the Species sets: without the Tip Branches every tree gets by default (ADR 0019), which
+ * carry each trunk on by the same rule and so make the crowns of similar Species more alike.
+ */
 const crown = Object.fromEntries(
   SPECIES_NAMES.map((id) => {
-    const all = SEEDS.map((seed) => measure(grow(id, seed)));
+    const all = SEEDS.map((seed) => measure(generateTree(parseDefinition(withoutTipBranches(lowPoly.apply(species.get(id)!))), seed)));
     const mean = (key: keyof (typeof all)[number]) => all.reduce((sum, m) => sum + m[key], 0) / all.length;
     return [id, { height: mean('height'), width: mean('width'), ratio: mean('ratio'), trunk: mean('trunk') }];
   }),

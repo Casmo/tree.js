@@ -124,9 +124,11 @@ function fingerprint(forest: Forest) {
 
 describe('a Forest without lod', () => {
   it('draws exactly the meshes, geometry, instance data and materials it drew before Detail Levels', () => {
-    const forest = createForest(definition, placements, { variants: 3, seed: 5, growth: 0.8, season: 0.3 });
+    // Without Tip Branches (ADR 0019), as the tree was before them too.
+    const stumps = { ...definition, branches: [{ count: 3, tipBranches: 0 }] };
+    const forest = createForest(stumps, placements, { variants: 3, seed: 5, growth: 0.8, season: 0.3 });
     expect(fingerprint(forest)).toMatchSnapshot();
-    expect(fingerprint(createForest(definition, placements, { variants: 3, seed: 5, growth: 0.8, season: 0.3, lod: false }))).toEqual(fingerprint(forest));
+    expect(fingerprint(createForest(stumps, placements, { variants: 3, seed: 5, growth: 0.8, season: 0.3, lod: false }))).toEqual(fingerprint(forest));
   });
 });
 

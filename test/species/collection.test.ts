@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { hashTreeData, parseDefinition, type SpeciesDefinition, type TreeData } from '../../src/index';
 import { generateTree } from '../../src/generator';
+import { withoutTipBranches } from '../branch-geometry';
 import * as collection from '../../src/species';
 import lowPoly from '../../src/styles/low-poly';
 import stylized from '../../src/styles/stylized';
@@ -113,6 +114,8 @@ describe('the Species collection', () => {
  * Per Style: triangles of its own generic broadleaf / conifer (the larger), at the test Seeds, given a
  * Root Flare and Roots like every Species has (the generic trees have neither; the flare's extra trunk rings
  * and the Roots are not crown detail). The Roots are a light-tier Species' (apple's), in the Style's own detail.
+ * The budget is for what a Species author sets, so it is counted without Tip Branches on either side:
+ * those come with every tree by default (ADR 0019) and cost most where a Species has few branches per level.
  */
 const withFlareAndRoots = <T extends { trunk: object }>(d: T, style: (typeof styles)[keyof typeof styles]): T => ({
   ...d,
@@ -129,7 +132,7 @@ const ownTriangles = Object.fromEntries(
     name,
     Math.max(
       ...[style.broadleaf, style.conifer].flatMap((d) =>
-        SEEDS.map((seed) => triangles(generateTree(parseDefinition(withFlareAndRoots(d, style)), seed))),
+        SEEDS.map((seed) => triangles(generateTree(parseDefinition(withoutTipBranches(withFlareAndRoots(d, style))), seed))),
       ),
     ),
   ]),
@@ -155,7 +158,7 @@ describe.each(SPECIES_NAMES)('Species %s in every Style', (id) => {
 
       it(`stays within the triangle budget (at most +50% of the ${BUDGET_OF[name] ?? name} Style's own trees)`, () => {
         for (const seed of SEEDS) {
-          expect(triangles(generateTree(parseDefinition(definition), seed))).toBeLessThanOrEqual(styleTriangles[name]! * 1.5);
+          expect(triangles(generateTree(parseDefinition(withoutTipBranches(definition)), seed))).toBeLessThanOrEqual(styleTriangles[name]! * 1.5);
         }
       });
 

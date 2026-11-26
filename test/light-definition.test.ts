@@ -121,6 +121,7 @@ describe('generateLightTree', () => {
 
   it('keeps branches deleted by a Sculpt deleted, and grows no leaves where the Full tree has none', () => {
     // Branch 0.1 is deleted; branch 0.0 keeps no twigs, so in the Full tree it bears no leaves.
+    // 0.3 is the trunk's Tip Branch, untouched: its twigs' leaves move onto it.
     const sculpted = parseDefinition({
       schemaVersion: 3,
       branches: [{ count: 3 }, { count: 2 }],
@@ -128,11 +129,12 @@ describe('generateLightTree', () => {
         { seed: 11, path: '0.1', action: 'delete' },
         { seed: 11, path: '0.0.0', action: 'delete' },
         { seed: 11, path: '0.0.1', action: 'delete' },
+        { seed: 11, path: '0.0.2', action: 'delete' }, // its Tip Branch
       ],
     });
     const light = generateLightTree(sculpted, 11).skeleton;
-    expect(light.branches.map((b) => b.path)).toEqual(['0', '0.0', '0.2']);
-    expect(new Set(light.leaves.map((l) => l.branch))).toEqual(new Set(['0.2']));
+    expect(light.branches.map((b) => b.path)).toEqual(['0', '0.0', '0.2', '0.3']);
+    expect(new Set(light.leaves.map((l) => l.branch))).toEqual(new Set(['0.2', '0.3']));
   });
 
   it.each([

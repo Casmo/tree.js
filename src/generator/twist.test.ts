@@ -17,7 +17,8 @@ const levels = [
 const define = (twists: Partial<BranchLevelDefinition>[] = [], extra: TreeDefinitionInput = { schemaVersion: 3 }) =>
   parseDefinition({ ...extra, schemaVersion: 3, branches: levels.map((level, i) => ({ ...level, ...twists[i] })), leaves: { count: 4 } });
 const grow = (twists: Partial<BranchLevelDefinition>[] = [], seed = 5) => generateTree(define(twists), seed);
-const onLevel = (data: ReturnType<typeof generateTree>, level: number) => data.skeleton.branches.filter((b) => b.level === level);
+/** The side branches on `level` (a Tip Branch leaves its parent straight on, see tip-branches.test.ts). */
+const onLevel = (data: ReturnType<typeof generateTree>, level: number) => data.skeleton.branches.filter((b) => b.level === level && !b.tip);
 const sectionsOf = (b: SkeletonBranch) => b.points.length - 1;
 const lengthOf = (b: SkeletonBranch) => segmentLengths(b).reduce((a, l) => a + l, 0);
 const segmentLengths = (b: SkeletonBranch) => b.points.slice(1).map((p, i) => Math.hypot(...sub(p.position, b.points[i]!.position)));

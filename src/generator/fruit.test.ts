@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition } from '../definition';
 import { growPositions } from '../growth/evaluate';
+import { withoutTipBranches } from '../../test/branch-geometry';
 import { generateTree, hashGeometry, hashTreeData } from './index';
 
 const plain = parseDefinition({ schemaVersion: 3, branches: [{ count: 5 }, { count: 3, start: 0.2 }] });
@@ -14,7 +15,8 @@ describe('Fruit placement', () => {
   it('grows `count` Fruit on every outermost twig and none elsewhere', () => {
     const { skeleton } = generateTree(fruiting, 7);
     const twigs = skeleton.branches.filter((b) => b.level === 2);
-    expect(twigs.length).toBe(15);
+    // 5 side branches and a Tip Branch on the trunk, each with 3 side twigs and a Tip Branch twig.
+    expect(twigs.length).toBe(24);
     expect(skeleton.fruit).toHaveLength(twigs.length * 2);
     for (const twig of twigs) expect(skeleton.fruit.filter((f) => f.branch === twig.path)).toHaveLength(2);
   });
@@ -50,7 +52,8 @@ describe('Fruit placement', () => {
       berry: ['bf6b2f5a', 'caac64b9', '3ed2bda8'],
     } as const;
     for (const [type, hashes] of Object.entries(golden)) {
-      const definition = extendDefinition(fruiting, { fruit: { type: type as keyof typeof golden } });
+      // Without Tip Branches (ADR 0019), which add twigs and their Fruit.
+      const definition = extendDefinition(withoutTipBranches(fruiting), { fruit: { type: type as keyof typeof golden } });
       expect([1, 7, 42].map((seed) => hashTreeData(generateTree(definition, seed))), type).toEqual(hashes);
     }
   });

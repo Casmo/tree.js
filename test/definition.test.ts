@@ -17,6 +17,7 @@ import {
   tipBranchesOf,
   type TreeDefinitionInput,
 } from '../src/index';
+import { withoutTipBranches } from './branch-geometry';
 
 const fixture = (name: string): unknown =>
   JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'));
@@ -95,6 +96,7 @@ describe('Definition migration', () => {
 
   // Golden hashes recorded with the v2 generator (special-cased `form: 'conifer'`) before the migration existed;
   // re-recorded once when the trunk's base ring sank below the ground (ADR 0007: only that ring changed).
+  // Tip Branches (ADR 0019) add branches to these trees; turned off, the trees are exactly as before.
   const before = {
     broadleaf: { 1: '376931fb', 7: '37e4b84b', 42: '66fa5e97' },
     conifer: { 1: 'd7549c0d', 7: '00a6864a', 42: '72b65ae6' },
@@ -103,7 +105,7 @@ describe('Definition migration', () => {
     it(`a migrated v2 ${form} grows exactly the same tree as before (geometry hash)`, () => {
       const def = parseDefinition(fixture(`definition-v2-${form}.json`));
       for (const [seed, hash] of Object.entries(hashes)) {
-        expect(hashTreeData(generateTree(def, Number(seed)))).toBe(hash);
+        expect(hashTreeData(generateTree(withoutTipBranches(def), Number(seed)))).toBe(hash);
       }
     });
   }
