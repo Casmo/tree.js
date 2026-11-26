@@ -2,7 +2,7 @@ import { dot, float, mix, smoothstep, step, uniform, vec3 } from 'three/tsl';
 import { Color, type ColorRepresentation, type Node } from 'three/webgpu';
 import { TREE_PARTS, type TreePart } from '../effects/mask';
 import { readyMadeShaderHook, type TreeShaderHook, type TreeShaderInput } from '../materials/shader-hooks';
-import { degreesValue, paintStrokes, slopeRange, softnessValue, strengthsWith, unitValue, WeatherAmount } from './shared';
+import { degreesValue, glints, paintStrokes, slopeRange, softnessValue, strengthsWith, unitValue, WeatherAmount } from './shared';
 
 export interface WetnessOptions {
   /** How wet the trees are: 0 = dry (default), 1 = soaked. */
@@ -74,6 +74,14 @@ export interface WetnessHooks {
 
 /** How much more saturated soaked paint is on `'painted'` (painterly). */
 const PAINTED_SATURATION = 0.25;
+/** Whimsical candy glaze: how much more saturated, and the glossy highlight's colour (× the tint) and strength. */
+const CANDY_SATURATION = 0.5;
+const GLAZE_COLOR = [1, 0.92, 0.97] as const;
+const GLAZE = 0.6;
+/** Enchanted: soaked surfaces are darker by this much more than the darkening, and their stars' colour and strength. */
+const ENCHANTED_DARKER = 0.35;
+const STAR_COLOR = [0.8, 0.84, 1] as const;
+const STARS = 1.5;
 
 const DEFAULTS: WetnessLook = {
   color: new Color('#dfe6ee'),
@@ -89,8 +97,10 @@ const DEFAULTS: WetnessLook = {
  * `wetness` (default {@link sceneWetness}), most on surfaces that face up, drawn to suit the Style:
  * smooth on `'standard'` (realistic), whole facets on `'flat'` (low-poly), and in toon bands with a light
  * glint band on top on `'toon'` (stylized; its lighting has no specular), and deeper, more saturated
- * paint with a soft brushed sheen on what faces up on `'painted'` (painterly; no specular either). With the amount at 0 the trees
- * look as without the hooks. They run before the app's own hooks in every stack.
+ * paint with a soft brushed sheen on what faces up on `'painted'` (painterly; no specular either), a candy
+ * glaze on `'whimsical'` (deep, saturated colour with a crisp glossy highlight on top; no specular either),
+ * and a dark, glossy, starry sheen on `'enchanted'` (darker still, with tiny glints that twinkle as the view
+ * moves; on leaves they glow with the Inner Glow). With the amount at 0 the trees look as without the hooks. They run before the app's own hooks in every stack.
  */
 export function wetnessHooks(settings: WetnessSettings & { wetness?: Wetness } = {}): WetnessHooks {
   const source = settings.wetness ?? sceneWetness;
@@ -114,7 +124,8 @@ export function wetnessHooks(settings: WetnessSettings & { wetness?: Wetness } =
       shading === 'flat' ? step(0.5, facing) : shading === 'toon' ? facing.mul(2).add(0.5).floor().mul(0.5) : facing;
     const w = coverage.mul(source.uniforms.amount).mul(u.strength[part]);
     const tint = u.color as unknown as Node<'vec3'>;
-    const soaked = color.mul(tint).mul(float(1).sub(u.darkening));
+    const darkening = shading === 'enchanted' ? u.darkening.mul(1 + ENCHANTED_DARKER).min(1) : u.darkening;
+    const soaked = color.mul(tint).mul(float(1).sub(darkening));
     let wetColor: Node<'vec3'> = mix(color, soaked, w);
     if (shading === 'toon') {
       // A light glint band on the surfaces that face most up: toon lighting draws no specular.
@@ -128,6 +139,18 @@ export function wetnessHooks(settings: WetnessSettings & { wetness?: Wetness } =
       const strokes = paintStrokes(position).mul(0.5).add(0.5);
       const glint = smoothstep(0.65, 0.95, normal.y).mul(smoothstep(0.45, 0.8, strokes)).mul(u.sheen).mul(w).mul(0.2);
       wetColor = wetColor.add(tint.mul(glint));
+    } else if (shading === 'whimsical') {
+      // Whimsical: a candy glaze. Wet sugar is deeper and more saturated, and the glaze has a crisp glossy
+      // highlight on what faces up: whimsical lighting draws no specular, so it is painted in.
+      const luma = dot(wetColor, vec3(0.2126, 0.7152, 0.0722));
+      wetColor = mix(wetColor, mix(vec3(luma), wetColor, 1 + CANDY_SATURATION), w);
+      const glaze = smoothstep(0.8, 0.84, normal.y).mul(u.sheen).mul(w).mul(GLAZE);
+      wetColor = mix(wetColor, tint.mul(vec3(...GLAZE_COLOR)), glaze);
+    } else if (shading === 'enchanted') {
+      // Enchanted: a dark, starry sheen. Besides the gloss (its lighting has specular), a few tiny drops
+      // catch the light like stars, twinkling as the view moves (on leaves they glow with the Inner Glow).
+      const stars = glints(position, 30, 0.985).mul(u.sheen).mul(w).mul(STARS);
+      wetColor = wetColor.add(tint.mul(vec3(...STAR_COLOR)).mul(stars));
     }
     return { color: wetColor, roughness: mix(roughness, roughness.mul(float(1).sub(u.sheen)), w) };
   });

@@ -1,7 +1,7 @@
 // Shared by the vanilla and forest examples (and e2e/snow-cover.spec.ts): Snow Cover, the ready-made Tree
 // Shader Hook from the opt-in `@casmo/tree.js/weather` entry, on the scene-wide snow amount. The entry is
 // loaded only once snow is asked for.
-import { select, vec3 } from 'three/tsl';
+import { dot, select, vec3 } from 'three/tsl';
 import type { TreeShaderHook, TreeShaderHooks } from '@casmo/tree.js';
 import type { SnowCoverHooks, SnowCoverSettings } from '@casmo/tree.js/weather';
 
@@ -17,11 +17,12 @@ let snowCover: SnowCoverHooks | undefined;
 
 /**
  * A test hook that paints what a surface faces, by the same world normal Snow Cover reads: magenta where
- * it faces up (normal y > 0.85), cyan where it faces down (normal y < -0.1), the colour as is elsewhere.
+ * it faces up (normal y > 0.85), cyan where it faces down (normal y < -0.1), elsewhere the colour's grey
+ * (so a Style's own teal or pink is never taken for either).
  */
 const facing: TreeShaderHook = ({ color, normal }) => {
   const y = normal.normalize().y;
-  return select(y.greaterThan(0.85), vec3(1, 0, 1), select(y.lessThan(-0.1), vec3(0, 1, 1), color));
+  return select(y.greaterThan(0.85), vec3(1, 0, 1), select(y.lessThan(-0.1), vec3(0, 1, 1), vec3(dot(color, vec3(0.2126, 0.7152, 0.0722)))));
 };
 const facingHooks: TreeShaderHooks = { bark: facing, leaves: facing, fruit: facing };
 

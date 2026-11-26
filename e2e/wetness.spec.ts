@@ -39,10 +39,8 @@ async function compare(page: Page, a: Buffer, b: Buffer): Promise<{ changed: num
   );
 }
 
-const cases = [
-  ...(['low-poly', 'stylized', 'realistic', 'painterly'] as const).map((style) => ({ style, backend: 'webgpu' as const })),
-  ...(['low-poly', 'stylized', 'realistic', 'painterly'] as const).map((style) => ({ style, backend: 'webgl' as const })),
-];
+const STYLES = ['low-poly', 'stylized', 'realistic', 'painterly', 'whimsical', 'enchanted'] as const;
+const cases = [...STYLES.map((style) => ({ style, backend: 'webgpu' as const })), ...STYLES.map((style) => ({ style, backend: 'webgl' as const }))];
 
 for (const { style, backend } of cases) {
   test(`Wetness darkens a ${style} tree, live, and at 0 changes nothing (${backend})`, async ({ page }) => {
@@ -50,7 +48,9 @@ for (const { style, backend } of cases) {
     page.on('console', (m) => {
       if (m.type() === 'error') errors.push(m.text());
     });
-    await page.goto(`/examples/vanilla/?style=${style}&form=broadleaf&seed=1&wetness=0${backend === 'webgl' ? '&backend=webgl' : ''}`);
+    // Enchanted: the Inner Glow pulses with the Wind clock, pinned so the shots compare.
+    const pinned = style === 'enchanted' ? '&windTime=0' : '';
+    await page.goto(`/examples/vanilla/?style=${style}&form=broadleaf&seed=1&wetness=0${pinned}${backend === 'webgl' ? '&backend=webgl' : ''}`);
     await settled(page);
     expect(await page.evaluate(() => window.treeExample)).toMatchObject({ status: 'rendered', backend: backend === 'webgl' ? 'webgl2' : 'webgpu' });
     await page.addStyleTag({ content: '#status { display: none; }' });
@@ -73,6 +73,31 @@ for (const { style, backend } of cases) {
     expect((await compare(page, await shot(page, { settings: { sheen: 0 } }), sheen)).changed).toBeGreaterThan(50);
 
     expect((await compare(page, dry, await shot(page, { amount: 0 }))).changed).toBe(0);
+    expect(errors).toEqual([]);
+  });
+}
+
+// The Fantasy Styles' own Wetness (#142): a candy glaze on Whimsical (deeper, more saturated colour and a
+// glossy highlight on top), a dark, glossy, starry sheen on Enchanted (tiny glints that glow at night).
+// Enchanted shots pin the Wind clock (`windTime=0`): the Inner Glow pulses with it.
+const fantasy = [
+  ['whimsical', 'broadleaf', ''],
+  ['whimsical', 'conifer', ''],
+  ['enchanted', 'broadleaf', '&windTime=0'],
+  ['enchanted', 'conifer', '&windTime=0'],
+  ['enchanted', 'broadleaf', '&windTime=0&night=1'],
+] as const;
+for (const [style, form, extra] of fantasy) {
+  const night = extra.includes('night') ? '-night' : '';
+  test(`Wetness on a ${style} ${form}${night ? ' at night' : ''} (screenshot)`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error') errors.push(m.text());
+    });
+    await page.goto(`/examples/vanilla/?style=${style}&form=${form}&seed=1&wetness=1${extra}`);
+    await settled(page);
+    await page.addStyleTag({ content: '#status { display: none; }' });
+    await expect(page.locator('canvas')).toHaveScreenshot(`wetness-${style}-${form}${night}.png`);
     expect(errors).toEqual([]);
   });
 }

@@ -1,4 +1,4 @@
-import { mx_noise_float, uniform, vec3 } from 'three/tsl';
+import { cameraPosition, hash, mx_noise_float, step, uniform, vec3 } from 'three/tsl';
 import type { Node, UniformNode } from 'three/webgpu';
 import { TREE_PARTS, type TreePart } from '../effects/mask';
 
@@ -78,6 +78,16 @@ export function slopeRange(slope: number, softness: number): { none: number; ful
   const cosOf = (degrees: number) => Math.cos((Math.min(180, Math.max(0, degrees)) * Math.PI) / 180);
   const none = cosOf(slope);
   return { none, full: Math.max(cosOf(slope - softness), none + 1e-4) };
+}
+
+/**
+ * Glints: 1 in a few tiny cells of world space (`density` cells per metre, the share `1 - threshold` of
+ * them), 0 elsewhere, changing with the view as the eye moves, like light caught by crystals or drops.
+ */
+export function glints(position: Node<'vec3'>, density: number, threshold: number): Node<'float'> {
+  const view = cameraPosition.sub(position).normalize();
+  const cell = position.mul(density).floor().add(view.mul(6).floor());
+  return step(threshold, hash(cell.x.add(cell.y.mul(57)).add(cell.z.mul(113)))) as unknown as Node<'float'>;
 }
 
 /**
