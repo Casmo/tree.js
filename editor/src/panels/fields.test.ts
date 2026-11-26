@@ -183,7 +183,7 @@ describe('parameter panels', () => {
       'trunk.spin': ['random', 'clockwise', 'counterclockwise'],
       'leaves.shape': ['card', 'clump', 'needle', 'puff'],
       'leaves.type': LEAF_TYPES,
-      'materials.shading': ['standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted'],
+      'materials.shading': ['standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted', 'stylized-painted'],
       'materials.bark.type': BARK_TYPES,
       'fruit.type': ['round', 'pear', 'nut', 'cone', 'berry'],
     });
@@ -191,7 +191,7 @@ describe('parameter panels', () => {
     for (const type of ['round', 'pear', 'nut', 'cone', 'berry']) expect(fruitType(type)).not.toThrow();
     expect(fruitType('apple')).toThrow(/fruit.type/);
     const shading = (value: string) => () => parseDefinition({ ...DEFAULT_DEFINITION, materials: { ...DEFAULT_DEFINITION.materials, shading: value } });
-    for (const value of ['standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted']) expect(shading(value)).not.toThrow();
+    for (const value of ['standard', 'flat', 'toon', 'painted', 'whimsical', 'enchanted', 'stylized-painted']) expect(shading(value)).not.toThrow();
     expect(shading('glow')).toThrow(/materials.shading/);
     expect(() => parseDefinition({ ...DEFAULT_DEFINITION, trunk: { ...DEFAULT_DEFINITION.trunk, twistStyle: 'helix' } })).toThrow(/trunk.twistStyle/);
     expect(() => parseDefinition({ ...DEFAULT_DEFINITION, trunk: { ...DEFAULT_DEFINITION.trunk, spin: 'left' } })).toThrow(/trunk.spin/);

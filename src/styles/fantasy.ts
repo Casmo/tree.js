@@ -129,18 +129,29 @@ export function fantasySeason(recipe: FantasyRecipe, season: TreeDefinition['sea
  * Style has none, so switching Enchanted -> Whimsical leaves no glow behind). Every other field is kept. Pure.
  */
 export function applyFantasy(recipe: FantasyRecipe, definition: TreeDefinition, form: TreeForm): TreeDefinition {
-  const twist = recipe.twist[form];
   const materials = { ...definition.materials };
   delete materials.innerGlow;
   return {
-    ...definition,
-    trunk: { ...definition.trunk, ...twist.trunk },
-    branches: definition.branches.map((level, i): BranchLevelDefinition => ({ ...level, ...(i === 0 ? twist.level1 : twist.deeper) })),
+    ...applyTwist(recipe.twist, definition, form),
     materials: {
       ...materials,
       bark: { ...definition.materials.bark, color: recipe.barkColor },
       ...(recipe.innerGlow && { innerGlow: { ...recipe.innerGlow } }),
     },
     season: fantasySeason(recipe, definition.season),
+  };
+}
+
+/**
+ * Writes only a Twist recipe onto a Definition: the Twist per depth for the tree's Form on the trunk and
+ * every branch level (overwriting the source's Twist). Every other field is kept. Pure. Used by the Fantasy
+ * Styles and by Stylized Painterly, which takes Enchanted's Twist but keeps its own colours.
+ */
+export function applyTwist(recipe: Record<TreeForm, FantasyTwistRecipe>, definition: TreeDefinition, form: TreeForm): TreeDefinition {
+  const twist = recipe[form];
+  return {
+    ...definition,
+    trunk: { ...definition.trunk, ...twist.trunk },
+    branches: definition.branches.map((level, i): BranchLevelDefinition => ({ ...level, ...(i === 0 ? twist.level1 : twist.deeper) })),
   };
 }

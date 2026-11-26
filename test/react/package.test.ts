@@ -55,7 +55,7 @@ describe('Style registry', () => {
 
   it('names each Style and tells which Style a Definition was drawn in, from its shading', async () => {
     const { loadStyle, STYLE_NAMES, styleLabel, styleOfShading } = await import('../../src/index');
-    expect(STYLE_NAMES.map(styleLabel)).toEqual(['Low-poly', 'Stylized', 'Realistic', 'Painterly', 'Whimsical', 'Enchanted']);
+    expect(STYLE_NAMES.map(styleLabel)).toEqual(['Low-poly', 'Stylized', 'Realistic', 'Painterly', 'Whimsical', 'Enchanted', 'Stylized Painterly']);
     for (const name of STYLE_NAMES) {
       const style = await loadStyle(name);
       expect(styleOfShading(style.broadleaf.materials.shading)).toBe(name);

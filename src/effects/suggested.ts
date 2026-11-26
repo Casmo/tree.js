@@ -41,6 +41,10 @@ export const SUGGESTED_TREE_EFFECTS: Record<StyleName, TreeEffectsSettings> = {
   painterly: {
     grade: { contrast: 1.04, tint: '#fff6e8' },
   },
+  // Painterly's paint on Enchanted's shapes: Painterly's gentle warm grade, no post.
+  'stylized-painterly': {
+    grade: { contrast: 1.04, tint: '#fff6e8' },
+  },
   // Cartoon candy: a coloured (plum) outline instead of black ink, soft Inner Lines on the pom-poms and a
   // saturation boost. No Leaf Glow: the rim light already brightens the edges.
   whimsical: {

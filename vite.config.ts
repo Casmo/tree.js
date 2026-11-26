@@ -59,6 +59,7 @@ export default defineConfig(({ command }) => ({
         'styles/painterly': resolve(import.meta.dirname, 'src/styles/painterly/index.ts'),
         'styles/whimsical': resolve(import.meta.dirname, 'src/styles/whimsical/index.ts'),
         'styles/enchanted': resolve(import.meta.dirname, 'src/styles/enchanted/index.ts'),
+        'styles/stylized-painterly': resolve(import.meta.dirname, 'src/styles/stylized-painterly/index.ts'),
         // React Three Fiber bindings; react and @react-three/fiber are optional peers, kept external.
         react: resolve(import.meta.dirname, 'src/react/index.ts'),
         // Tree Effects: opt-in post-processing nodes (three/addons stay external).

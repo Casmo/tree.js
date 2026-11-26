@@ -39,7 +39,7 @@ async function compare(page: Page, a: Buffer, b: Buffer): Promise<{ changed: num
   );
 }
 
-const STYLES = ['low-poly', 'stylized', 'realistic', 'painterly', 'whimsical', 'enchanted'] as const;
+const STYLES = ['low-poly', 'stylized', 'realistic', 'painterly', 'whimsical', 'enchanted', 'stylized-painterly'] as const;
 const cases = [...STYLES.map((style) => ({ style, backend: 'webgpu' as const })), ...STYLES.map((style) => ({ style, backend: 'webgl' as const }))];
 
 for (const { style, backend } of cases) {

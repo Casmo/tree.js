@@ -43,6 +43,12 @@ export const SUGGESTED_MATERIAL_FEATURES: Record<StyleName, MaterialFeatures> = 
     crownNormals: 1,
     occlusion: { strength: 0.7 },
   },
+  // Painterly's paint on Enchanted's shapes: Painterly's features.
+  'stylized-painterly': {
+    crownNormals: 0.3,
+    translucency: { strength: 0.3, edge: 0.8, ambient: 0.15 },
+    occlusion: { strength: 0.35 },
+  },
   // Leaves lit from behind (a moon, a lantern) glow at the thin edge of the crown on top of their Inner
   // Glow; some of the crown's shape and occlusion so the dark inside stays dark.
   enchanted: {

@@ -56,6 +56,12 @@ describe('Snow Cover and Wetness on the Fantasy Styles', () => {
     }
   });
 
+  it('draw stylized painterly trees as painterly ones (stylized-painted is the painted look)', () => {
+    for (const [name, hooks] of [['Snow Cover', snowCoverHooks()], ['Wetness', wetnessHooks()]] as const) {
+      expect(shape(hooks.leaves(input('stylized-painted'))), name).toBe(shape(hooks.leaves(input('painted'))));
+    }
+  });
+
   it('reach every part of a Whimsical and an Enchanted tree, and at amount 0 change nothing there', () => {
     for (const style of [whimsical, enchanted]) {
       const tree = createTree(style.broadleaf, { seed: 1 });

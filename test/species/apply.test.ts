@@ -7,6 +7,7 @@ import realistic from '../../src/styles/realistic';
 import painterly from '../../src/styles/painterly';
 import whimsical from '../../src/styles/whimsical';
 import enchanted from '../../src/styles/enchanted';
+import stylizedPainterly from '../../src/styles/stylized-painterly';
 
 /** A small test Species: a short broadleaf with lobed leaves and plated bark. */
 const testOak: SpeciesDefinition = {
@@ -43,7 +44,7 @@ const testFir: SpeciesDefinition = {
   variation: { color: 0.08, growth: 0.1, season: 0.05 },
 };
 
-const styles = { 'low-poly': lowPoly, stylized, realistic, painterly, whimsical, enchanted };
+const styles = { 'low-poly': lowPoly, stylized, realistic, painterly, whimsical, enchanted, 'stylized-painterly': stylizedPainterly };
 /** The Styles that choose only the look (and Painterly its size): a Fantasy Style also sets Twist and colours (ADR 0017). */
 const lookStyles = { 'low-poly': lowPoly, stylized, realistic, painterly };
 
@@ -262,6 +263,7 @@ describe('Style.apply draws the Root Flare the Style\'s way', () => {
       painterly: 3,
       whimsical: 3,
       enchanted: 3,
+      'stylized-painterly': 3,
     });
     for (const style of Object.values(styles)) {
       expect(trunkRings(style.apply(flared)) - trunkRings(style.apply(testOak))).toBe(style.apply(flared).trunk.flareSections);
@@ -289,6 +291,7 @@ describe('Style.apply draws Roots the Style\'s way', () => {
       painterly: [6, 3],
       whimsical: [6, 4],
       enchanted: [6, 4],
+      'stylized-painterly': [6, 3],
     });
     for (const style of Object.values(styles)) {
       const { skeleton } = generateTree(style.apply(rooted), 1);

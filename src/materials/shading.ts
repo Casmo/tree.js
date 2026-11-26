@@ -1,5 +1,5 @@
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import type { Shading } from '../definition';
+import { isPaintedShading, type Shading } from '../definition';
 import { PaintedNodeMaterial } from './painted';
 import { SoftToonNodeMaterial } from './toon';
 import { EnchantedNodeMaterial } from './enchanted';
@@ -18,6 +18,7 @@ import { WhimsicalNodeMaterial } from './whimsical';
  *   node material underneath), smooth normals so leaf clumps read as rounded.
  * - `painted` (painterly): soft, warm wrap lighting without bands or specular (`PaintedNodeMaterial`);
  *   a Leaf Mass crown is painted onto its gradient (`paintLeafMasses`).
+ * - `stylized-painted` (stylized painterly): the same as `painted`.
  * - `whimsical` (whimsical): three crisp toon tones and a coloured rim light (`WhimsicalNodeMaterial`);
  *   the bark gets candy stripes in the tree's accent colour (`createBarkMaterial`).
  * - `enchanted` (enchanted): dim, cool physical lighting (`EnchantedNodeMaterial`); a Tree or Forest adds
@@ -27,7 +28,7 @@ export function createShadedMaterial(shading: Shading): MeshStandardNodeMaterial
   const material =
     shading === 'toon'
       ? new SoftToonNodeMaterial()
-      : shading === 'painted'
+      : isPaintedShading(shading)
         ? new PaintedNodeMaterial()
         : shading === 'whimsical'
           ? new WhimsicalNodeMaterial()

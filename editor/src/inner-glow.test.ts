@@ -17,7 +17,7 @@ describe('Inner Glow in the editor', () => {
   it('has controls only with the enchanted shading (the only one that draws it)', async () => {
     const { store } = await editor('oak/enchanted');
     expect(hasInnerGlowControls(store.state.definition)).toBe(true);
-    for (const shading of ['standard', 'flat', 'toon', 'painted', 'whimsical'] as const) {
+    for (const shading of ['standard', 'flat', 'toon', 'painted', 'whimsical', 'stylized-painted'] as const) {
       expect(hasInnerGlowControls(extendDefinition(store.state.definition, { materials: { shading } }))).toBe(false);
     }
   });

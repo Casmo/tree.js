@@ -22,6 +22,7 @@ export interface TreeStyle {
    * A Fantasy Style (Whimsical or Enchanted) also writes its own Twist recipe onto the trunk and every branch level
    * (milder for conifers), its bark colour, Season leaf colours and Leaf Palettes, keeping the source's
    * Season timing (ADR 0017). The other Styles keep what a Fantasy Style wrote.
+   * Stylized Painterly writes Enchanted's Twist recipe only, keeping the source's colours (ADR 0018).
    * `overrides` are merged on top like `extendDefinition`. Pure.
    *
    * ```ts

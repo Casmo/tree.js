@@ -1,8 +1,8 @@
 // Style.apply (ADR 0005): a Style turns a Style-neutral Species (or an existing Tree Definition)
 // into a complete Tree Definition by choosing only the look: shading, polygon detail, how the
 // Leaf Type and Bark Type are drawn, and textures. Shape fields pass through untouched; only Painterly
-// also sets the overall size (ADR 0013, ./painterly/height.ts), and a Fantasy Style also sets Twist and
-// brings its own colours (ADR 0017, ./fantasy.ts).
+// also sets the overall size (ADR 0013, ./painterly/height.ts), a Fantasy Style also sets Twist and
+// brings its own colours (ADR 0017, ./fantasy.ts), and Stylized Painterly sets Enchanted's Twist only (ADR 0018).
 import { extendDefinition, parseDefinition, type DefinitionPatch } from '../definition/parse';
 import {
   CURRENT_SCHEMA_VERSION,
@@ -23,11 +23,12 @@ import { styleOfShading, styleShading, type StyleName } from './names';
 import { materialFeaturesOf } from './material-features';
 import { BARK_TEXTURES, LEAF_TEXTURES } from './realistic/textures';
 import { compressHeight } from './painterly/height';
-import { applyFantasy, type FantasyRecipe } from './fantasy';
+import { applyFantasy, applyTwist, type FantasyRecipe, type FantasyTwistRecipe } from './fantasy';
 import { WHIMSICAL } from './whimsical/recipe';
 import { ENCHANTED } from './enchanted/recipe';
 import { BARK_TEXTURE as VEINED_BARK, LEAF_TEXTURES as GLOWING_LEAVES } from './enchanted/textures';
 import { BARK_TEXTURES as PAINTED_BARK, LEAF_TEXTURES as SPRAY_TEXTURES } from './painterly/textures';
+import { STYLIZED_PAINTERLY_TWIST } from './stylized-painterly/recipe';
 
 /** Polygon detail of one tree part. */
 interface Detail {
@@ -65,6 +66,8 @@ interface StyleLook {
   roots: Detail;
   /** A Fantasy Style's Twist recipe and colours (ADR 0017); absent for the other Styles. */
   fantasy?: FantasyRecipe;
+  /** A Twist recipe alone (no colours): Stylized Painterly's, borrowed from Enchanted. */
+  twist?: Record<TreeForm, FantasyTwistRecipe>;
 }
 
 const isNeedleLike = (type: LeafType) => type === 'needle' || type === 'scale';
@@ -72,6 +75,23 @@ const isNeedleLike = (type: LeafType) => type === 'needle' || type === 'scale';
 const formOfLeafType = (type: LeafType): TreeForm => (isNeedleLike(type) ? 'conifer' : 'broadleaf');
 const untexturedLeaf: LeafMaterialDefinition = { roughness: 1, map: null, alphaTest: 0.5 };
 const untexturedBark = () => ({ roughness: 1, map: null, normalMap: null });
+
+/** Smooth painted bark per Bark Type (real colours, no normal map): Painterly and Stylized Painterly. */
+const paintedBark = (type: BarkType) => ({ roughness: 1, map: PAINTED_BARK[type], normalMap: null });
+
+/**
+ * Leaf Masses of painted spray cards (ADR 0014), a spray texture per Leaf Type. One card per leaf:
+ * many more leaves than the puffs, but 2 triangles each (puffs have 80). Needle / scale crowns get
+ * more masses, wide and flat and stacked in layers (#113), like the Painterly conifer. Shared by
+ * Painterly and Stylized Painterly: both draw with the `painted` shading, by which a Definition's
+ * Style is recognised (`fromDefinition`), so their leaf looks must be the same.
+ */
+const paintedLeaf = (type: LeafType): LeafLook => {
+  const material = { roughness: 1, map: SPRAY_TEXTURES[type], alphaTest: 0.5 };
+  return isNeedleLike(type)
+    ? { shape: 'mass', perDensity: 170, sizeScale: 1.15, material, masses: { masses: 12, massLayering: 1.8 } }
+    : { shape: 'mass', perDensity: 150, sizeScale: 1.43, material };
+};
 
 // Low-poly and stylized are calibrated so a Species with density 0.5 and leaf-spray size 0.35 m comes
 // out close to each Style's own broadleaf / conifer Definitions. Realistic draws far more (cheap, 2
@@ -117,19 +137,10 @@ const LOOKS = {
   painterly: {
     trunk: { sides: 10, sections: 6, flareSections: 3 },
     branches: [{ sides: 6, sections: 3 }, { sides: 4, sections: 1 }, { sides: 3, sections: 1 }],
-    // Smooth painted bark per Bark Type (real colours, no normal map).
-    bark: (type) => ({ roughness: 1, map: PAINTED_BARK[type], normalMap: null }),
+    bark: paintedBark,
     fruitSides: 6,
     roots: { sides: 6, sections: 3 },
-    // Leaf Masses of painted spray cards (ADR 0014), a spray texture per Leaf Type. One card per leaf:
-    // many more leaves than the puffs, but 2 triangles each (puffs have 80). Needle / scale crowns get
-    // more masses, wide and flat and stacked in layers (#113), like the Painterly conifer.
-    leaf: (type) => {
-      const material = { roughness: 1, map: SPRAY_TEXTURES[type], alphaTest: 0.5 };
-      return isNeedleLike(type)
-        ? { shape: 'mass', perDensity: 170, sizeScale: 1.15, material, masses: { masses: 12, massLayering: 1.8 } }
-        : { shape: 'mass', perDensity: 150, sizeScale: 1.43, material };
-    },
+    leaf: paintedLeaf,
   },
   // Stylized's detail (one side fewer on the first branch level: a Corkscrew needs 6 Sections per Twists,
   // ADR 0016); fewer, bigger pom-pom puffs (about half the count at 1.6× the size), smaller and
@@ -162,6 +173,18 @@ const LOOKS = {
         ? { shape: 'card', perDensity: 40, sizeScale: 1.9, material }
         : { shape: 'card', perDensity: 24, sizeScale: 2.4, material };
     },
+  },
+  // Painterly's look (painted shading, bark and Leaf Masses, the Species' own colours) on Enchanted's
+  // shapes: Enchanted's Snake Twist recipe (./stylized-painterly/recipe.ts), one side fewer on the first
+  // branch level like Enchanted (its Snake adds 3 Sections per Twists, ADR 0015). Keeps real sizes.
+  'stylized-painterly': {
+    trunk: { sides: 10, sections: 6, flareSections: 3 },
+    branches: [{ sides: 5, sections: 3 }, { sides: 4, sections: 1 }, { sides: 3, sections: 1 }],
+    bark: paintedBark,
+    fruitSides: 6,
+    roots: { sides: 6, sections: 3 },
+    twist: STYLIZED_PAINTERLY_TWIST,
+    leaf: paintedLeaf,
   },
 } satisfies Record<StyleName, StyleLook>;
 
@@ -275,8 +298,11 @@ export function applyStyle(name: StyleName, source: StyleSource, overrides?: Def
   let definition = draw(name, neutral);
   // A Fantasy Style writes its Twist and colours (ADR 0017), milder for conifers: a Species' Form, or a
   // Definition's from its Leaf Type. Other Styles keep the ones a Fantasy Style wrote: `draw` passes them through.
-  const { fantasy } = LOOKS[name] as StyleLook;
-  if (fantasy) definition = parseDefinition(applyFantasy(fantasy, definition, isDefinition ? formOfLeafType(neutral.foliage.type) : source.form));
+  const { fantasy, twist } = LOOKS[name] as StyleLook;
+  const form = isDefinition ? formOfLeafType(neutral.foliage.type) : source.form;
+  if (fantasy) definition = parseDefinition(applyFantasy(fantasy, definition, form));
+  // Stylized Painterly writes Enchanted's Twist only and keeps the source's colours and Season.
+  if (twist) definition = parseDefinition(applyTwist(twist, definition, form));
   // Painterly sets the overall size (ADR 0013): real-sized trees shrink to 2-4 m. A Painterly-sized tree
   // (a `styleScale`, kept through other Styles) or a Painterly Definition from before `styleScale` is
   // already small; re-applying Painterly to it keeps its size.

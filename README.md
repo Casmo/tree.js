@@ -3,8 +3,8 @@
 ![A stylized forest of broadleaf trees and conifers going through a year: blossom, summer, autumn, winter](docs/images/hero.gif)
 
 Procedural trees for [three.js](https://threejs.org): one Tree Definition and a Seed grow a unique tree, in a
-low-poly, stylized, realistic or painterly Style, or one of the two [Fantasy Styles](#fantasy-styles), whimsical and
-enchanted. Trees grow (Growth), change through the year (Season) and sway in the
+low-poly, stylized, realistic or painterly Style, one of the two [Fantasy Styles](#fantasy-styles), whimsical and
+enchanted, or [stylized painterly](#stylized-painterly) (Enchanted's shapes in Painterly's paint). Trees grow (Growth), change through the year (Season) and sway in the
 Wind, all on the GPU through TSL node materials, so animating them never regenerates geometry. Place
 thousands at once as an instanced Forest, add opt-in Tree Effects, or design your own trees in the
 [Tree Editor](#tree-editor).
@@ -122,6 +122,7 @@ A Style is a ready-made look with one Tree Definition per Form (`broadleaf`, `co
 | `painterly` | hand-painted: soft wrapped light, crowns of clumped painted Leaf Masses with a dark-to-sunlit gradient, painted bark; small trees (2-4 m) for top-down and tycoon cameras |
 | `whimsical` | a [Fantasy Style](#fantasy-styles): every tree swirls as one Corkscrew, crisp toon bands with a coloured rim light, big round pom-pom puffs in candy colours (a Leaf Palette per tree), cream bark with a candy stripe |
 | `enchanted` | a [Fantasy Style](#fantasy-styles): sinuous Snake trunks and branches, deep blue-violet bark with glowing veins, sparse glowing leaf cards (teal, magenta in autumn) with an Inner Glow; cool light, made for dark and night scenes |
+| `stylized-painterly` | [Enchanted's shapes in Painterly's paint](#stylized-painterly): sinuous Snake trunks and boughs with Enchanted's twists, spin and gravity, drawn with Painterly's painted light, painted bark and Leaf Masses in the Species' own colours; real sizes |
 
 Painterly is the one Style that also sets a tree's size: it scales every Species uniformly so that its
 height maps from the real one into 2-4 m (keeping the order between Species; its own `broadleaf` and
@@ -153,6 +154,32 @@ await birch.ready; // resolves once its textures have loaded (instantly for tree
 const tallPine = createTree(extendDefinition(stylized.conifer, { trunk: { length: 9 } }), { seed: 2 });
 scene.add(oak, pine, birch, tallPine);
 ```
+
+### Stylized Painterly
+
+![Stylized Painterly: a snaking, multi-stemmed broadleaf with painted Leaf Masses, and the Oak Species drawn the same way](e2e/__screenshots__/styles.spec.ts/stylized-painterly-broadleaf-webgpu.png)
+
+`stylized-painterly` combines two Styles: the **shapes** of [Enchanted](#fantasy-styles), its long, sinuous
+Snake trunks and boughs (Enchanted's Twist recipe: Twist, Twists, Spin Random, no Twist Curve, no Follow
+Twist, milder on a conifer's trunk), and the **look** of Painterly: the painted shading, painted bark per
+Bark Type, crowns of painted Leaf Masses and natural colours. Its own `broadleaf` and `conifer` are the
+Enchanted ones (trunk, Stems, branch levels, gravity, Roots) in Painterly's paint; `apply` writes Enchanted's
+Twist onto any Species and keeps the Species' own colours and Season (no Leaf Palettes, no Inner Glow).
+Unlike Painterly it keeps real sizes. It draws with the `stylized-painted` shading, which is the `painted`
+look under its own name (so a Definition's Style can be told from its shading; `isPaintedShading(shading)`
+is true for both), and Snow Cover, Wetness, Detail Levels and Baked Trees treat it exactly as Painterly.
+
+```ts
+import { createTree } from '@casmo/tree.js';
+import { oak } from '@casmo/tree.js/species';
+import stylizedPainterly from '@casmo/tree.js/styles/stylized-painterly';
+
+scene.add(createTree(stylizedPainterly.broadleaf, { seed: 1 }));
+scene.add(createTree(stylizedPainterly.apply(oak), { seed: 2 }));
+```
+
+Its suggested Material Features, Tree Effects and Scene Effects are Painterly's. Re-styling follows the
+[Fantasy Styles](#fantasy-styles) rule: from Enchanted it keeps the colours and glow Enchanted wrote.
 
 ## Fantasy Styles
 

@@ -10,6 +10,8 @@ const STYLES = {
   painterly: { label: 'Painterly', shading: 'painted' },
   whimsical: { label: 'Whimsical', shading: 'whimsical' },
   enchanted: { label: 'Enchanted', shading: 'enchanted' },
+  // Drawn like Painterly (`stylized-painted` is the `painted` look), its own value so its Definitions are recognised.
+  'stylized-painterly': { label: 'Stylized Painterly', shading: 'stylized-painted' },
 } as const satisfies Record<string, { label: string; shading: Shading }>;
 
 /** Name of a built-in Style, e.g. 'low-poly'. */
