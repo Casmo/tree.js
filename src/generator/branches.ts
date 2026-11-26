@@ -63,12 +63,13 @@ const crownShape = (curve: BranchLevelDefinition['lengthProfile'], t: number) =>
  * turning Tip Branches on or off never moves a side branch or shifts its draws (ADR 0003, ADR 0019).
  * The Crown Shape curves (`lengthProfile`, `angleProfile`) scale each child's length and angle by where
  * it sits on the parent (ADR 0004); a Tip Branch sits at `t` = 1. Each Corkscrew child's phase goes into
- * `corkscrews` under its path, so its own children can follow it (Follow Twist).
+ * `corkscrews` under its path, so its own children can follow it (Follow Twist). `levelIndex` is where
+ * `level` sits in the Definition's `branches` (the parent's level), for its default Tip Branches.
  */
 function growChildren(
   parent: SkeletonBranch,
   level: BranchLevelDefinition,
-  index: number,
+  levelIndex: number,
   random: Random,
   corkscrews: Map<string, CorkscrewAlong>,
 ): SkeletonBranch[] {
@@ -95,7 +96,7 @@ function growChildren(
   }
 
   // One Tip Branch carries the parent on; 2-4 fork it.
-  const tips = tipBranchesOf(level, index);
+  const tips = tipBranchesOf(level, levelIndex);
   if (tips === 0) return children;
   const at = tipOf(parent, frames);
   const turn = parentRandom.range(0, Math.PI * 2);
