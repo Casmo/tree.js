@@ -1,10 +1,10 @@
 /* global Buffer, URL, console, process */
-// Generates the realistic and Painterly Styles' textures procedurally, so every image in the package is our own
+// Generates the realistic, Painterly and Enchanted Styles' textures procedurally, so every image in the package is our own
 // (MIT, like the code). Deterministic: the same script always writes the same bytes.
 //
 //   node scripts/generate-textures.mjs [outDir]
 //
-// Output (assets/textures/ by default, shipped as dist/textures/): realistic/ and painterly/.
+// Output (assets/textures/ by default, shipped as dist/textures/): realistic/, painterly/ and enchanted/.
 //
 // realistic/: one set per Bark Type and Leaf Type (src/styles/realistic/textures.ts maps the types to
 // these files):
@@ -33,6 +33,13 @@
 //                                       tips), alpha cut-out; stem at (0.5, 0), tips towards v = 1
 //   bark-<Bark Type>.png  128x256 RGB   tileable painted bark colour per Bark Type (furrowed, smooth,
 //                                       papery, fibrous, plated); no normal maps
+//
+// enchanted/ (the Enchanted Fantasy Style, src/styles/enchanted/textures.ts):
+//   leaf-<Leaf Type>.png  256x256 RGBA  glowing leaf card per Leaf Type (broad, lobed, palmate, compound,
+//                                       needle, scale), the realistic cards' shapes: grey = brightness, bright
+//                                       veins and edge, dark centre; alpha cut-out
+//   bark-veins.png        256x256 RGBA  tileable grey bark grain; alpha = the vein mask the `enchanted`
+//                                       shading's Inner Glow shines through
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -223,7 +230,7 @@ function segment(pu, pv, au, av, bu, bv) {
 
 const TWIG = [0.42, 0.36, 0.3];
 
-function leaf() {
+function leaf(glow = null) {
   // A twig up the middle with alternating leaflets; the top leaflet ends the twig.
   const leaflets = [];
   const count = 7;
@@ -259,16 +266,17 @@ function leaf() {
       const midrib = Math.exp(-Math.pow(t / 0.07, 2));
       const side = Math.pow(Math.abs(Math.sin((s * 9 - Math.abs(t) * 2.2) * Math.PI)), 12) * 0.5;
       const edge = Math.abs(t) / half;
+      if (glow) return glow(Math.max(midrib, side), edge, veins(x + 0.5, v));
       const shade = 0.93 - 0.18 * edge * edge + 0.08 * (veins(x + 0.5, v) - 0.5) - 0.12 * side * (1 - midrib);
       return [shade * 0.97 + 0.04 * midrib, shade + 0.06 * midrib, shade * 0.86 + 0.06 * midrib];
     }
     const twig = segment(x, v, 0, 0, 0, leaflets[count - 1].v0);
-    if (twig.d < 0.007 * (1 - 0.6 * twig.t)) return TWIG;
+    if (twig.d < 0.007 * (1 - 0.6 * twig.t)) return glow ? GLOW_TWIG : TWIG;
     return null;
-  }, [0.85, 0.88, 0.76]);
+  }, glow ? GLOW_FILL : [0.85, 0.88, 0.76]);
 }
 
-function needles() {
+function needles(glow = null) {
   // A twig up the middle, needles in pairs angled up and out, shorter towards the tip.
   const rand = mulberry32(41);
   const segments = [];
@@ -282,16 +290,17 @@ function needles() {
   }
   return card((x, v) => {
     const twig = segment(x, v, 0, 0, 0, 0.96);
-    if (twig.d < 0.006 * (1 - 0.7 * twig.t)) return TWIG;
+    if (twig.d < 0.006 * (1 - 0.7 * twig.t)) return glow ? GLOW_TWIG : TWIG;
     for (const n of segments) {
       const { d, t } = segment(x, v, 0, n.av, n.bu, n.bv);
       if (d < 0.005 * (1 - 0.5 * t)) {
+        if (glow) return glow(Math.exp(-Math.pow(d / 0.0025, 2)), t, n.shade);
         const s = n.shade * (0.88 + 0.12 * t);
         return [s * 0.92, s, s * 0.85];
       }
     }
     return null;
-  }, [0.8, 0.86, 0.72]);
+  }, glow ? GLOW_FILL : [0.8, 0.86, 0.72]);
 }
 
 // ---------- bark per Bark Type ----------
@@ -498,7 +507,7 @@ function hitBlade(b, x, v) {
   return b.shade(s, t);
 }
 /** Renders blades and stalks (segments {a: [x, v], b: [x, v], w}) as a card; blades first win. */
-function spray(blades, stalks, fill) {
+function spray(blades, stalks, fill, twig = TWIG) {
   return card((x, v) => {
     for (const b of blades) {
       const c = hitBlade(b, x, v);
@@ -506,7 +515,7 @@ function spray(blades, stalks, fill) {
     }
     for (const st of stalks) {
       const { d, t } = segment(x, v, st.a[0], st.a[1], st.b[0], st.b[1]);
-      if (d < st.w * (1 - 0.5 * t)) return TWIG;
+      if (d < st.w * (1 - 0.5 * t)) return twig;
     }
     return null;
   }, fill);
@@ -514,7 +523,7 @@ function spray(blades, stalks, fill) {
 /** Where a blade's base is, for its stalk. */
 const baseOf = (b) => [b.x0, b.v0];
 
-function lobedLeaves() {
+function lobedLeaves(glow = null) {
   // Oak: obovate leaves with 4-5 rounded lobes a side and deep sinuses, alternate on a twig.
   const veins = periodicNoise(8, 8, 91);
   const lobes = (s, t) => 4 * s + (t < 0 ? 0.15 : 0) - 0.35 * Math.abs(t);
@@ -530,6 +539,7 @@ function lobedLeaves() {
     const lateral = Math.exp(-Math.pow((q - 0.5) / 0.035, 2)) * smoothstep(0.02, 0.15, Math.abs(t));
     const edge = Math.abs(t) / Math.max(0.05, envelope(s));
     const n = veins(0.5 + s * 0.3, 0.5 + t * 0.2);
+    if (glow) return glow(Math.max(midrib, lateral), edge, n);
     const shadeV = 0.92 - 0.14 * edge * edge + 0.08 * (n - 0.5) - 0.1 * lateral * (1 - midrib);
     return leafColour(shadeV, midrib + 0.5 * lateral);
   };
@@ -548,10 +558,10 @@ function lobedLeaves() {
   }
   stalks.push({ a: [0, 0], b: [0, blades[count - 1].v0], w: 0.008 });
   // Draw the higher leaves over the lower ones.
-  return spray(blades.reverse(), stalks, [0.85, 0.88, 0.76]);
+  return glow ? spray(blades.reverse(), stalks, GLOW_FILL, GLOW_TWIG) : spray(blades.reverse(), stalks, [0.85, 0.88, 0.76]);
 }
 
-function palmateLeaves() {
+function palmateLeaves(glow = null) {
   // Maple: two leaves on long stalks, each with five broad, pointed, toothed lobes spreading from
   // where the stalk meets the blade (blade coordinates: s along, t across in units of the radius).
   const veins = periodicNoise(8, 8, 92);
@@ -609,17 +619,18 @@ function palmateLeaves() {
       }
       const n = veins(0.5 + s * 0.2, 0.5 + t * 0.2);
       const rim = r / edge;
+      if (glow) return glow(vein, rim, n);
       return leafColour(0.93 - 0.16 * rim * rim + 0.08 * (n - 0.5) - 0.04 * (1 - vein), vein);
     }
     for (const st of stalks) {
       const { d, t } = segment(x, v, st.a[0], st.a[1], st.b[0], st.b[1]);
-      if (d < st.w * (1 - 0.4 * t)) return TWIG;
+      if (d < st.w * (1 - 0.4 * t)) return glow ? GLOW_TWIG : TWIG;
     }
     return null;
-  }, [0.85, 0.88, 0.76]);
+  }, glow ? GLOW_FILL : [0.85, 0.88, 0.76]);
 }
 
-function compoundLeaf() {
+function compoundLeaf(glow = null) {
   // Ash / walnut / hickory: one pinnate leaf, opposite pairs of toothed lance-shaped leaflets
   // along a rachis and a terminal leaflet.
   const veins = periodicNoise(8, 8, 93);
@@ -630,6 +641,7 @@ function compoundLeaf() {
     const side = Math.pow(Math.abs(Math.sin((s * 7 - Math.abs(t) * 1.6) * Math.PI)), 14) * 0.4;
     const edge = Math.abs(t) / Math.max(0.05, half(s));
     const n = veins(0.5 + s * 0.3, 0.5 + t * 0.2);
+    if (glow) return glow(Math.max(midrib, side), edge, n);
     return leafColour(0.93 - 0.16 * edge * edge + 0.08 * (n - 0.5) - 0.1 * side * (1 - midrib), midrib);
   };
   const blades = [];
@@ -648,10 +660,10 @@ function compoundLeaf() {
   const terminal = blade(0, top + 0.06, 0, 0.4, 0.27, inside, shade);
   blades.push(terminal);
   stalks.push({ a: [0, 0], b: [0, terminal.v0], w: 0.007 });
-  return spray(blades.reverse(), stalks, [0.85, 0.88, 0.76]);
+  return glow ? spray(blades.reverse(), stalks, GLOW_FILL, GLOW_TWIG) : spray(blades.reverse(), stalks, [0.85, 0.88, 0.76]);
 }
 
-function scaleSpray() {
+function scaleSpray(glow = null) {
   // Cedar / juniper: a flat, fern-like spray of shoots covered in tiny overlapping scale leaves.
   // Shoots are tapered segments; the scales are a repeating bright-tip pattern along each one,
   // with a slightly toothed outline.
@@ -690,11 +702,12 @@ function scaleSpray() {
       const w = mix(sh.w0, sh.w1, t) * (0.82 + 0.18 * Math.sin(Math.PI * f));
       if (d >= w) continue;
       const across = d / w;
+      if (glow) return glow(f * f * (1 - across * across), across, 1);
       const s = (0.68 + 0.3 * f) * (1 - 0.25 * across * across);
       return [s * 0.9, s, s * 0.84];
     }
     return null;
-  }, [0.8, 0.86, 0.72]);
+  }, glow ? GLOW_FILL : [0.8, 0.86, 0.72]);
 }
 
 // ---------- painterly ----------
@@ -1038,6 +1051,53 @@ function paintedBark(type) {
   return bufferPng(buf, 3);
 }
 
+// ---------- enchanted ----------
+// Glowing leaf cards: the realistic card shapes, but grey = how bright the leaf is (the Season colour
+// multiplies it, and the `enchanted` shading's Inner Glow shines in it): dark at the centre of each blade,
+// bright along its veins and towards its edge.
+const GLOW_TWIG = [0.12, 0.12, 0.14];
+const GLOW_FILL = [0.3, 0.3, 0.3];
+/** The glowing grey from how much of a vein the point is (0..1), how near the blade's edge (0 middle .. 1 edge) and a little noise. */
+function glowShade(vein, edge, noise) {
+  const rim = smoothstep(0.55, 1, edge);
+  const g = 0.16 + 0.08 * (noise - 0.5) + 0.84 * Math.max(clamp01(vein), 0.9 * rim);
+  return [g, g, g];
+}
+
+/**
+ * The enchanted bark: a fine grey grain along the branch (the bark colour multiplies it) and, in its alpha,
+ * a vein mask: a few thin, winding veins that run along the branch, fork and wander, so the bark's Inner
+ * Glow runs through them. Tileable.
+ */
+function veinedBark() {
+  const grain = periodicNoise(48, 6, 71);
+  const warp = periodicNoise(3, 4, 72);
+  const veins = periodicNoise(4, 1, 73);
+  const fine = periodicNoise(14, 1, 74);
+  const fineWarp = periodicNoise(6, 8, 75);
+  const px = new Uint8Array(SIZE * SIZE * 4);
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const u = x / SIZE;
+      const v = y / SIZE;
+      // Lines where 1D noise across the branch crosses its middle, warped sideways along it, so they wind
+      // up the branch: a few main veins, and finer, more wandering side veins that come and go.
+      const w = (u + 0.14 * (warp(u, v) - 0.5) + 1) % 1;
+      const main = 1 - smoothstep(0.015, 0.035, Math.abs(veins(w, 0) - 0.5));
+      const wf = (u + 0.1 * (fineWarp(u, v) - 0.5) + 1) % 1;
+      const side = (1 - smoothstep(0.01, 0.025, Math.abs(fine(wf, 0) - 0.5))) * smoothstep(0.45, 0.75, grain(u * 0.5, v)) * 0.6;
+      const vein = Math.max(main, side);
+      const g = 0.62 + 0.22 * grain(u, v) + 0.25 * vein;
+      const i = (y * SIZE + x) * 4;
+      px[i] = byte(g * 0.96);
+      px[i + 1] = byte(g * 0.95);
+      px[i + 2] = byte(g);
+      px[i + 3] = byte(vein);
+    }
+  }
+  return png(SIZE, SIZE, 4, px);
+}
+
 // ---------- output ----------
 const realistic = () => {
   const h = barkHeight();
@@ -1060,7 +1120,16 @@ const painterly = () => {
   for (const type of ['furrowed', 'smooth', 'papery', 'fibrous', 'plated']) files[`bark-${type}.png`] = paintedBark(type);
   return files;
 };
-for (const [set, make] of Object.entries({ realistic, painterly })) {
+const enchanted = () => ({
+  'leaf-broad.png': leaf(glowShade),
+  'leaf-lobed.png': lobedLeaves(glowShade),
+  'leaf-palmate.png': palmateLeaves(glowShade),
+  'leaf-compound.png': compoundLeaf(glowShade),
+  'leaf-needle.png': needles(glowShade),
+  'leaf-scale.png': scaleSpray(glowShade),
+  'bark-veins.png': veinedBark(),
+});
+for (const [set, make] of Object.entries({ realistic, painterly, enchanted })) {
   const dir = new URL(`${set}/`, OUT);
   mkdirSync(dir, { recursive: true });
   for (const [name, bytes] of Object.entries(make())) {
