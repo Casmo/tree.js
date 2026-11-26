@@ -71,3 +71,57 @@ describe('Twisted trees downstream', () => {
     forest.dispose();
   });
 });
+
+/** A Style's broadleaf with Corkscrew branch levels (the trunk keeps its Twist settings). */
+const corkscrewed = (definition: TreeDefinition, twist = 0.7, twists = 3) =>
+  extendDefinition(definition, { branches: definition.branches.map((level, i) => ({ ...level, twist, twists, twistStyle: 'corkscrew' as const, spin: i % 2 ? 'clockwise' as const : 'random' as const })) });
+
+describe('Corkscrew trees downstream', () => {
+  it('grow, change with the Season and carry Wind attributes like any tree', () => {
+    const definition = corkscrewed(lowPoly.broadleaf);
+    const data = generateTree(definition, 3);
+    expect(data.growth.branches).toHaveLength(data.skeleton.branches.length);
+    for (const name of Object.keys(data.wood.attributes)) {
+      expect(data.wood.attributes[name]!.array.every(Number.isFinite), name).toBe(true);
+    }
+    for (const season of [0, 0.6]) {
+      const tree = createTree(definition, { seed: 3, growth: 0.3, season });
+      expect(tree.growth).toBe(0.3);
+      tree.dispose();
+    }
+  });
+
+  it('keep their Corkscrew on the Light Detail Level: branches are swept with 6 Sections per Twists, more than a Snake keeps', () => {
+    const wood = (definition: TreeDefinition) => generateLightTree(definition, 3).wood.positions.length;
+    const snake = wood(twisted(extendDefinition(lowPoly.broadleaf, { trunk: { twist: 0 } })));
+    expect(wood(corkscrewed(lowPoly.broadleaf))).toBeGreaterThan(snake * 1.5);
+  });
+
+  it('bake into static meshes at any Growth', () => {
+    const tree = createTree(corkscrewed(realistic.broadleaf), { seed: 3 });
+    for (const growth of [0.2, 1]) {
+      const wood = bakeTree(tree, { growth }).getObjectByName('wood') as Mesh;
+      const positions = wood.geometry.getAttribute('position').array;
+      expect(positions.length).toBeGreaterThan(0);
+      expect(Array.from(positions).every(Number.isFinite)).toBe(true);
+    }
+    tree.dispose();
+  });
+
+  it('draw far away as Impostors in a Forest', async () => {
+    const definition = corkscrewed(extendDefinition(lowPoly.broadleaf, { leaves: { count: 2 } }));
+    const placements: ForestPlacement[] = Array.from({ length: 6 }, (_, i) => ({ id: i, position: [i * 4, 0, 0], rotation: i }));
+    const forest = createForest(definition, placements, { variants: 2, seed: 3, lod: { light: 10, impostor: 40 } });
+    const target = { isWebGPURenderer: true, backend: { isWebGPUBackend: true }, info: { frame: 1 }, compute: vi.fn(), render: vi.fn(), setRenderTarget: vi.fn() };
+    const renderer = new Proxy(target, {
+      get: (t, key) => (key in t ? t[key as keyof typeof t] : typeof key === 'string' && /^(get|set)[A-Z]/.test(key) ? () => undefined : undefined),
+    });
+    forest.traverse((o) => {
+      if (o instanceof InstancedMesh) (o.onBeforeRender as (...args: unknown[]) => void)(renderer, null, null, o.geometry, o.material, null);
+    });
+    await forest.lodReady;
+    expect(target.render).toHaveBeenCalledTimes(4);
+    expect(forest.lodUniforms!.farthest.value).toBe(DetailLevel.Impostor);
+    forest.dispose();
+  });
+});
