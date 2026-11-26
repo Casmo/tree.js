@@ -41,13 +41,13 @@ describe('Fruit placement', () => {
     expect(Math.max(...perTwig)).toBe(2);
   });
 
-  it('whole counts grow exactly the Fruit they always did (geometry hashes recorded before fractional counts, re-recorded once when the trunk base ring sank below the ground)', () => {
+  it('whole counts grow exactly the Fruit they always did (geometry hashes recorded before fractional counts, re-recorded when the trunk base ring sank below the ground and when Fruit started growing from 0.7)', () => {
     const golden = {
-      round: ['6181c622', '19cd87e7', '1b42f90c'],
-      pear: ['4a97c14f', '7d358b9f', '273b08eb'],
-      nut: ['0c5974f1', '82e4cda4', '348ef271'],
-      cone: ['10be874c', '4af72b6c', 'dd014a23'],
-      berry: ['bf6b2f5a', 'caac64b9', '3ed2bda8'],
+      round: ['d942c186', '003386c7', 'd9142448'],
+      pear: ['380faebb', '5b98a11f', 'e6114317'],
+      nut: ['baea4d6d', '7a55901c', '296778ed'],
+      cone: ['ef19c644', '66b99e6c', '8839f43b'],
+      berry: ['1741f352', '79ce1299', '7a71a3d0'],
     } as const;
     for (const [type, hashes] of Object.entries(golden)) {
       const definition = extendDefinition(fruiting, { fruit: { type: type as keyof typeof golden } });
@@ -166,8 +166,12 @@ describe('Fruit and Growth', () => {
   it('a sapling or half-grown tree bears no Fruit; a fully grown tree does', () => {
     expect(largestFruit(0)).toBeCloseTo(0, 9);
     expect(largestFruit(0.5)).toBeCloseTo(0, 9);
-    expect(largestFruit(0.85)).toBeCloseTo(0, 9);
+    expect(largestFruit(0.69)).toBeCloseTo(0, 9);
     expect(largestFruit(1)).toBeGreaterThan(0.05);
+  });
+
+  it('Fruit shows from about Growth 0.7, well before the end of Growth', () => {
+    expect(largestFruit(0.85)).toBeGreaterThan(0.01);
   });
 
   it('Fruit grows only after its twig is fully grown', () => {
@@ -176,7 +180,7 @@ describe('Fruit and Growth', () => {
     expect(data.growth.fruit).toHaveLength(data.skeleton.fruit.length);
     data.skeleton.fruit.forEach((f, i) => {
       expect(data.growth.fruit[i]!.start).toBeGreaterThanOrEqual(twig.get(f.branch)!.end);
-      expect(data.growth.fruit[i]!.start).toBeGreaterThanOrEqual(0.9);
+      expect(data.growth.fruit[i]!.start).toBeGreaterThanOrEqual(0.7);
       expect(data.growth.fruit[i]!.end).toBe(1);
     });
   });
