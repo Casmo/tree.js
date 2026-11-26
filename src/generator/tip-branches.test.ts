@@ -59,8 +59,27 @@ describe('Tip Branches', () => {
         for (const b of stumps) expect(same.get(b.path), b.path).toEqual(b);
         const added = tipped.filter((b) => !stumps.some((s) => s.path === b.path));
         for (const b of added) expect(b.path.split('.').some((_, i, parts) => same.get(parts.slice(0, i + 1).join('.'))?.tip), b.path).toBe(true);
-        // In this ticket 2-4 still grow a single, straight-on Tip Branch per parent (the fork comes later).
-        expect(tipped.filter((b) => b.tip).length).toBe(grow({ branches: levels(1, 1) }, seed).skeleton.branches.filter((b) => b.tip).length);
+        // Each trunk and first-level branch gets exactly that many Tip Branches.
+        for (const parent of tipped.filter((b) => b.level < 2)) {
+          expect(tipped.filter((b) => b.parent === parent.path && b.tip), parent.path).toHaveLength(tips);
+        }
+      }
+    }
+  });
+
+  it('fork a parent with Tip Branches 2 to 4: N branches from its last point, each as thick as its tip', () => {
+    for (const n of [2, 3, 4]) {
+      const data = grow({ branches: levels(n, n) });
+      const all = byPath(data);
+      for (const parent of data.skeleton.branches.filter((b) => b.level < 2)) {
+        const count = base.branches[parent.level]!.count;
+        const tips = data.skeleton.branches.filter((b) => b.parent === parent.path && b.tip);
+        expect(tips.map((b) => b.path)).toEqual(Array.from({ length: n }, (_, j) => `${parent.path}.${count + j}`));
+        for (const tip of tips) {
+          expect(tip.attach).toBe(1);
+          expect(tip.points[0]!.position).toEqual(last(all.get(parent.path)!).position);
+          expect(tip.points[0]!.radius).toBe(last(all.get(parent.path)!).radius);
+        }
       }
     }
   });

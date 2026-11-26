@@ -94,8 +94,8 @@ function growChildren(
     children.push(growBranch(parent, level, { path, random: r, attach: t, at, start, length, baseRadius: at.radius * level.radius }, followed, corkscrews));
   }
 
-  // Values 2-4 are valid but still grow one Tip Branch: the fork is a later ticket (#150).
-  const tips = Math.min(tipBranchesOf(level, index), 1);
+  // One Tip Branch carries the parent on; 2-4 fork it.
+  const tips = tipBranchesOf(level, index);
   if (tips === 0) return children;
   const at = tipOf(parent, frames);
   const turn = parentRandom.range(0, Math.PI * 2);
