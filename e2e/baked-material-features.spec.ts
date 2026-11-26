@@ -43,3 +43,33 @@ for (const form of ['broadleaf', 'conifer']) {
     expect(errors).toEqual([]);
   });
 }
+
+// The Fantasy Styles' Baked Trees (#142), loaded back with GLTFLoader: Whimsical with its candy stripes in a
+// bark map, Enchanted with its Inner Glow as a steady emissive, which at night (no light at all) is all that
+// shows. Enchanted pins the Wind clock (`windTime=0`) only so the live tree it is baked from is the same.
+for (const [style, extra] of [['whimsical', ''], ['enchanted', '&windTime=0'], ['enchanted', '&windTime=0&night=1']] as const) {
+  const night = extra.includes('night');
+  test(`${style === 'enchanted' ? 'an' : 'a'} ${style} Baked Tree${night ? ' at night' : ''}, loaded back with GLTFLoader`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error') errors.push(m.text());
+    });
+    await renderTree(page, `style=${style}&seed=1&baked=1${extra}`);
+    if (night) {
+      // Unlit: the glow is the emissive, so the tree shows against the dark sky (without it, it would be black).
+      const png = await page.locator('canvas').screenshot(mask(page));
+      const glowing = await page.evaluate(async (base64) => {
+        const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${base64}`)).blob());
+        const context = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d')!;
+        context.drawImage(bitmap, 0, 0);
+        const { data } = context.getImageData(0, 0, bitmap.width, bitmap.height);
+        let count = 0;
+        for (let i = 0; i < data.length; i += 4) if (Math.max(data[i]!, data[i + 1]!, data[i + 2]!) > 60) count++;
+        return count;
+      }, png.toString('base64'));
+      expect(glowing).toBeGreaterThan(2000);
+    }
+    await expect(page.locator('canvas')).toHaveScreenshot(`${style}-baked${night ? '-night' : ''}.png`, mask(page));
+    expect(errors).toEqual([]);
+  });
+}
