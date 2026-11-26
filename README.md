@@ -541,8 +541,7 @@ belong to one Seed: they only change the tree of that Seed.
 
 ![A tree grows from a sapling, then goes through a year: blossom, summer, autumn colours, bare in winter](docs/images/growth-season.gif)
 
-**Growth** goes from 0 (sapling) to 1 (fully grown); branches sprout after their parent and leaves come
-last. **Season** goes from 0 (first day of spring) to 1 (last day of winter) and sets leaf colour, leaf
+**Growth** goes from 0 (sapling) to 1 (fully grown); branches sprout after their parent. **Season** goes from 0 (first day of spring) to 1 (last day of winter) and sets leaf colour, leaf
 coverage and blossom from the Definition's Season Profile (values outside 0..1 wrap around the year).
 Both only write a uniform, so they are cheap to animate every frame:
 
@@ -565,6 +564,24 @@ Profiles; write your own as keyframes in the Definition's `season` (`leafColor`,
 `blossom`, `blossomColor`, and for Fruit `fruit` (amount: each Fruit shows above its own rank and swells
 with the amount; 1 all year when absent) and `fruitColor` (ripening)), and optionally
 [Leaf Palettes](#leaf-palettes) for per-tree leaf colours.
+
+Leaves begin at the Definition's **Leaf Start** (`leaves.growthStart`, 0..1, default 0.1,
+`DEFAULT_LEAF_GROWTH_START`): the Growth at which the tree's first leaves may begin to unfold. Leaves
+don't wait for their twig to finish: each leaf rides on its outermost twig while that twig is still
+sprouting, so it stays attached and never floats, and a leaf on a small, fresh twig is small too. From
+Leaf Start each leaf fills out along an ease-out curve (quick at first, slowing down towards full size),
+a little staggered per leaf by its Seed and its place on the twig, until every leaf is full size at
+Growth 1. So a tree at Growth 0.5 already looks leafy. Set it later for a longer bare phase (1 = the
+leaves appear only at Growth 1):
+
+```ts
+import { createTree } from '@casmo/tree.js';
+
+const tree = createTree({ schemaVersion: 3, leaves: { growthStart: 0.4 } }, { seed: 5, growth: 0.5 });
+```
+
+Fruit appears from about Growth 0.7 (a little later per Fruit by its Seed), never before its twig is
+fully grown. At Growth 1 a tree looks exactly the same whatever its Leaf Start.
 
 ### Leaf Palettes
 
