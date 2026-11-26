@@ -136,6 +136,27 @@ describe('Tip Branches', () => {
     expect(new Set(folded.map((t) => t.toFixed(3))).size).toBe(6);
   });
 
+  it('grow each fork branch like a single Tip Branch: children, leaves and Fruit when outermost, Growth from the parent\'s end', () => {
+    const data = grow({ branches: levels(2, 3), fruit: { type: 'round', count: 1 }, variation: { growth: 0 } });
+    const { branches, leaves, fruit } = data.skeleton;
+    // The trunk forks in two (0.4, 0.5); each gets level-2 side branches and a three-way fork of its own.
+    for (const fork of ['0.4', '0.5']) {
+      expect(branches.filter((b) => b.parent === fork).map((b) => [b.path, !!b.tip])).toEqual([
+        [`${fork}.0`, false], [`${fork}.1`, false], [`${fork}.2`, true], [`${fork}.3`, true], [`${fork}.4`, true],
+      ]);
+    }
+    // Level-2 fork branches are outermost: leaves and Fruit like their side siblings.
+    const twigTips = branches.filter((b) => b.level === 2 && b.tip);
+    expect(twigTips).toHaveLength(3 * (4 + 2));
+    for (const twig of twigTips) {
+      expect(leaves.filter((l) => l.branch === twig.path)).toHaveLength(3);
+      expect(fruit.filter((f) => f.branch === twig.path)).toHaveLength(1);
+    }
+    // Every fork branch starts growing when its parent is fully grown.
+    const windows = new Map(branches.map((b, i) => [b.path, data.growth.branches[i]!]));
+    for (const tip of branches.filter((b) => b.tip)) expect(windows.get(tip.path)!.start).toBeCloseTo(windows.get(tip.parent!)!.end, 9);
+  });
+
   it('take the paths after the side branches, which Sculpts keep addressing; a Tip Branch can be Sculpted too', () => {
     const data = grow({}, 5);
     const children = (path: string) => data.skeleton.branches.filter((b) => b.parent === path);
