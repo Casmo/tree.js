@@ -121,6 +121,21 @@ describe('Tip Branches', () => {
     }
   });
 
+  it('turn a fork by the Seed: the same Seed gives the same fork, other Seeds turn it differently', () => {
+    // The trunk's fork, measured as its first branch's azimuth around the trunk's tip tangent from world +x.
+    const forkTurn = (seed: number) => {
+      const data = grow({ branches: [{ count: 4, angleVariation: 0, tipBranches: 3 }, { count: 2 }] }, seed);
+      const trunk = byPath(data).get('0')!;
+      return turnAbout([1, 0, 0], byPath(data).get('0.4')!.direction, segments(trunk).at(-1)!);
+    };
+    expect(forkTurn(7)).toBe(forkTurn(7));
+    const turns = [1, 2, 3, 4, 5, 6].map(forkTurn);
+    // Six Seeds, six clearly different turns (modulo the fork's own 120° symmetry).
+    const folded = turns.map((t) => (((t * 3) % 1) + 1) % 1).sort((a, b) => a - b);
+    expect(folded.at(-1)! - folded[0]!).toBeGreaterThan(0.2);
+    expect(new Set(folded.map((t) => t.toFixed(3))).size).toBe(6);
+  });
+
   it('take the paths after the side branches, which Sculpts keep addressing; a Tip Branch can be Sculpted too', () => {
     const data = grow({}, 5);
     const children = (path: string) => data.skeleton.branches.filter((b) => b.parent === path);
