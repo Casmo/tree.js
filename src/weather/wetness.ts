@@ -2,6 +2,7 @@ import { dot, float, mix, smoothstep, step, uniform, vec3 } from 'three/tsl';
 import { Color, type ColorRepresentation, type Node } from 'three/webgpu';
 import { TREE_PARTS, type TreePart } from '../effects/mask';
 import { readyMadeShaderHook, type TreeShaderHook, type TreeShaderInput } from '../materials/shader-hooks';
+import { LUMINANCE } from '../materials/painted';
 import { degreesValue, glints, paintStrokes, slopeRange, softnessValue, strengthsWith, unitValue, WeatherAmount } from './shared';
 
 export interface WetnessOptions {
@@ -134,7 +135,7 @@ export function wetnessHooks(settings: WetnessSettings & { wetness?: Wetness } =
     } else if (shading === 'painted') {
       // Painterly: wet paint is deeper (a little more saturated as well as darker), and its sheen is a
       // soft, brushed light on what faces up: painted lighting draws no specular either.
-      const luma = dot(wetColor, vec3(0.2126, 0.7152, 0.0722));
+      const luma = dot(wetColor, vec3(...LUMINANCE));
       wetColor = mix(wetColor, mix(vec3(luma), wetColor, 1 + PAINTED_SATURATION), w);
       const strokes = paintStrokes(position).mul(0.5).add(0.5);
       const glint = smoothstep(0.65, 0.95, normal.y).mul(smoothstep(0.45, 0.8, strokes)).mul(u.sheen).mul(w).mul(0.2);
@@ -142,7 +143,7 @@ export function wetnessHooks(settings: WetnessSettings & { wetness?: Wetness } =
     } else if (shading === 'whimsical') {
       // Whimsical: a candy glaze. Wet sugar is deeper and more saturated, and the glaze has a crisp glossy
       // highlight on what faces up: whimsical lighting draws no specular, so it is painted in.
-      const luma = dot(wetColor, vec3(0.2126, 0.7152, 0.0722));
+      const luma = dot(wetColor, vec3(...LUMINANCE));
       wetColor = mix(wetColor, mix(vec3(luma), wetColor, 1 + CANDY_SATURATION), w);
       const glaze = smoothstep(0.8, 0.84, normal.y).mul(u.sheen).mul(w).mul(GLAZE);
       wetColor = mix(wetColor, tint.mul(vec3(...GLAZE_COLOR)), glaze);

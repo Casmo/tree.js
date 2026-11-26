@@ -2,6 +2,7 @@ import { Color, type ColorRepresentation, type Node } from 'three/webgpu';
 import { dot, float, mix, mx_noise_float, smoothstep, step, uniform, vec3 } from 'three/tsl';
 import { TREE_PARTS, type TreePart } from '../effects/mask';
 import { readyMadeShaderHook, type TreeShaderHook, type TreeShaderInput, type TreeShaderOutput } from '../materials/shader-hooks';
+import { LUMINANCE } from '../materials/painted';
 import { degreesValue, glints, paintStrokes, slopeRange, softnessValue, strengthsWith, WeatherAmount } from './shared';
 
 export interface SnowOptions {
@@ -197,7 +198,7 @@ export function snowCoverShading(input: TreeShaderInput, settings: SnowCoverShad
     cover = lies.mul(amount);
     let frost: Node<'vec3'> = snow.mul(vec3(...FROST_TINT));
     if (input.part === 'leaves') {
-      const luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+      const luma = dot(color, vec3(...LUMINANCE));
       frost = frost.mul(luma.mul(FROST_LEAF_GAIN).clamp(...FROST_LEAF_RANGE));
     }
     snow = frost.mul(glints(position, 60, 0.985).mul(0.5).add(1));
