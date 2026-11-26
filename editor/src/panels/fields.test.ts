@@ -36,6 +36,7 @@ const FULL_DEFINITION = parseDefinition({
     twists: 3,
     twistStyle: 'corkscrew',
     spin: 'clockwise',
+    twistCurve: 0.5,
     lengthProfile: [{ t: 0, value: 1 }],
     angleProfile: [{ t: 0, value: 1 }],
   })),
@@ -163,15 +164,16 @@ describe('parameter panels', () => {
     expect(fruitType('apple')).toThrow(/fruit.type/);
   });
 
-  it('offer the Twist group right after Gravity on each branch level: Twist style, Twist, Twists, Spin, showing Snake / no Twist / Random while absent', () => {
+  it('offer the Twist group right after Gravity on each branch level: Twist style, Twist, Twists, Spin, Twist curve, showing Snake / no Twist / Random / 0 while absent', () => {
     const paths = BRANCH_LEVEL_FIELDS.map((field) => field.path);
     const at = paths.indexOf('gravity');
-    expect(paths.slice(at, at + 5)).toEqual(['gravity', 'twistStyle', 'twist', 'twists', 'spin']);
+    expect(paths.slice(at, at + 6)).toEqual(['gravity', 'twistStyle', 'twist', 'twists', 'spin', 'twistCurve']);
     const field = (path: string) => BRANCH_LEVEL_FIELDS.find((f) => f.path === path);
     expect(field('twistStyle')).toEqual({ kind: 'choice', path: 'twistStyle', label: 'Twist style', options: TWIST_STYLES, absent: 'snake' });
     expect(field('twist')).toEqual({ kind: 'number', path: 'twist', label: 'Twist', min: 0, max: 1, step: 0.01, absent: 0 });
     expect(field('twists')).toEqual({ kind: 'number', path: 'twists', label: 'Twists', min: 1, max: 8, step: 1, absent: 2 });
     expect(field('spin')).toEqual({ kind: 'choice', path: 'spin', label: 'Spin', options: SPINS, absent: 'random', hint: 'Corkscrew only' });
+    expect(field('twistCurve')).toEqual({ kind: 'number', path: 'twistCurve', label: 'Twist curve', min: 0, max: 1, step: 0.01, absent: 0, hint: 'Corkscrew only' });
     expect(TWIST_STYLES).toEqual(['snake', 'corkscrew']);
     expect(SPINS).toEqual(['random', 'clockwise', 'counterclockwise']);
     for (const [path, value] of [['twistStyle', 'helix'], ['spin', 'left']]) {

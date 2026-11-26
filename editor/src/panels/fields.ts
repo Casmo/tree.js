@@ -195,7 +195,7 @@ const CORKSCREW_ONLY = 'Corkscrew only';
 
 /**
  * The fields of one branching level; paths relative to `branches.<i>`. The Twist group (Twist style,
- * Twist, Twists, Spin) is optional (`absent`); fields that only apply to a Corkscrew say so in a hint.
+ * Twist, Twists, Spin, Twist curve) is optional (`absent`); fields that only apply to a Corkscrew say so in a hint.
  */
 export const BRANCH_LEVEL_FIELDS: Field[] = [
   { kind: 'number', path: 'count', label: 'Count', min: 0, max: 32, step: 1 },
@@ -216,6 +216,7 @@ export const BRANCH_LEVEL_FIELDS: Field[] = [
   { kind: 'number', path: 'twist', label: 'Twist', min: 0, max: 1, step: 0.01, absent: 0 },
   { kind: 'number', path: 'twists', label: 'Twists', min: 1, max: 8, step: 1, absent: 2 },
   { kind: 'choice', path: 'spin', label: 'Spin', options: SPINS, absent: 'random', hint: CORKSCREW_ONLY },
+  { kind: 'number', path: 'twistCurve', label: 'Twist curve', min: 0, max: 1, step: 0.01, absent: 0, hint: CORKSCREW_ONLY },
 ];
 
 /** Crown Shape curve flat at 1 (what an absent curve means). */
