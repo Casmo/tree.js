@@ -7,6 +7,7 @@ import { seasonLeafColorNode } from '../season/nodes';
 import { crownNodes } from './crown-nodes';
 import { directLight, lightingContext, translucencyDirect, translucencyIndirect, type LeafTranslucencyTerm } from './leaf-translucency';
 import { BARK_REPEAT } from './maps';
+import { smoothstep as smoothstepNumber } from '../math';
 
 /** Direct light is dimmed and cooled (moonlight), so the Inner Glow carries the tree. */
 const DIRECT_TINT = [0.62, 0.7, 0.95] as const;
@@ -72,8 +73,7 @@ const EDGE_START = 0.35;
 
 /** How much of its glow a leaf at `distance` (`crownAt(...).distance`) shows: `crownEdgeGlow`'s CPU twin. */
 export function crownEdgeGlowAt(distance: number): number {
-  const t = Math.min(Math.max((distance - EDGE_START) / (1 - EDGE_START), 0), 1);
-  return CROWN_CORE + (1 - CROWN_CORE) * t * t * (3 - 2 * t);
+  return CROWN_CORE + (1 - CROWN_CORE) * smoothstepNumber(EDGE_START, 1, distance);
 }
 
 /** How much of its glow a leaf at `distance` from the Crown Volume's centre shows: strongest at the thin edge. */

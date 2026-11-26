@@ -20,7 +20,7 @@ import { crownDistance, crownNormal, type CrownVolume, type GeometryBuffers } fr
 import { clampGrowth, growPositions, treeScale } from '../growth';
 import { groundTintAmount } from '../materials/ground-tint';
 import { BARK_REPEAT } from '../materials/maps';
-import { pow } from '../math';
+import { pow, smoothstep } from '../math';
 import { paintsLeafMasses } from '../materials';
 import { BEND, bendToMass, GAP_DARK, LEAF_SHADOW, leafMassPoint, paintLeafColor, SPRAY_STRENGTH, SUNLIT, WARM, WRAP, wrapLight } from '../materials/painted';
 import { isFlatShading } from '../materials/shading';
@@ -654,11 +654,7 @@ const STRIPE_MAP_SIZE = 64;
  */
 function candyStripesMap(definition: TreeDefinition): DataTexture {
   const base = hexToLinear(definition.materials.bark.color);
-  const accent = hexToLinear(accentOf(definition) as `#${string}`);
-  const smooth = (e0: number, e1: number, x: number) => {
-    const t = Math.min(Math.max((x - e0) / (e1 - e0), 0), 1);
-    return t * t * (3 - 2 * t);
-  };
+  const accent = hexToLinear(accentOf(definition));
   const n = STRIPE_MAP_SIZE;
   const data = new Uint8Array(n * n * 4);
   for (let y = 0; y < n; y++) {
@@ -666,7 +662,7 @@ function candyStripesMap(definition: TreeDefinition): DataTexture {
       const u = (x + 0.5) / n;
       const v = (y + 0.5) / n;
       const along = ((u + v * STRIPE_TURNS) * STRIPES) % 1;
-      const stripe = smooth(0, STRIPE_EDGE, along) * (1 - smooth(STRIPE_WIDTH, STRIPE_WIDTH + STRIPE_EDGE, along));
+      const stripe = smoothstep(0, STRIPE_EDGE, along) * (1 - smoothstep(STRIPE_WIDTH, STRIPE_WIDTH + STRIPE_EDGE, along));
       const i = (y * n + x) * 4;
       for (let c = 0; c < 3; c++) data[i + c] = Math.round(linearToSrgb(base[c]! + (accent[c]! - base[c]!) * stripe) * 255);
       data[i + 3] = 255;

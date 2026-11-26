@@ -6,7 +6,7 @@ import {
   type PhysicalLightingModel,
 } from 'three/webgpu';
 import { BRDF_Lambert, color, diffuseColor, float, fract, mix, normalView, positionViewDirection, smoothstep, uv, vec3 } from 'three/tsl';
-import type { TreeDefinition } from '../definition';
+import type { HexColor, TreeDefinition } from '../definition';
 import { translucencyDirect, translucencyIndirect, type LeafTranslucencyTerm } from './leaf-translucency';
 
 // TSL node types are loosely typed in @types/three; keep our own alias.
@@ -86,7 +86,7 @@ export const STRIPE_EDGE = 0.04;
  * The tree's accent colour: its Leaf Palette's (from the per-tree Definition, `definitionForSeed`), or
  * without Leaf Palettes its first leaf colour.
  */
-export const accentOf = (definition: TreeDefinition): string =>
+export const accentOf = (definition: TreeDefinition): HexColor =>
   definition.season.leafPalettes?.[0]?.accent ?? definition.season.leafColor[0]!.value;
 
 /**
