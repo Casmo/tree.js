@@ -44,6 +44,9 @@ const optionalNum = (path: string, label: string, min: number, max: number, step
   kind: 'number', path, label, min, max, step, absent,
 });
 
+/** The hint on Twist fields that only apply to a Corkscrew (they are never hidden or disabled). */
+const CORKSCREW_ONLY = 'Corkscrew only';
+
 export const PARAMETER_GROUPS: FieldGroup[] = [
   {
     id: 'tree',
@@ -66,8 +69,11 @@ export const PARAMETER_GROUPS: FieldGroup[] = [
       optionalNum('trunk.stems', 'Stems', 1, 8, 1, 1),
       optionalNum('trunk.spread', 'Stem spread', 0, 90, 1, 0),
       optionalNum('trunk.gravity', 'Trunk gravity', -1, 1, 0.01, 0),
+      { kind: 'choice', path: 'trunk.twistStyle', label: 'Twist style', options: TWIST_STYLES, absent: 'snake' },
       optionalNum('trunk.twist', 'Twist', 0, 1, 0.01, 0),
       optionalNum('trunk.twists', 'Twists', 1, 8, 1, 2),
+      { kind: 'choice', path: 'trunk.spin', label: 'Spin', options: SPINS, absent: 'random', hint: CORKSCREW_ONLY },
+      { ...optionalNum('trunk.twistCurve', 'Twist curve', 0, 1, 0.01, 0), hint: CORKSCREW_ONLY },
       optionalNum('trunk.flare', 'Root Flare', 0, 1, 0.01, 0),
       optionalNum('trunk.flareSections', 'Root Flare sections', 1, 8, 1, 3),
     ],
@@ -189,9 +195,6 @@ export const MATERIAL_FEATURES: {
     fields: [fraction('materials.occlusion.strength', 'Occlusion strength')],
   },
 ];
-
-/** The hint on Twist fields that only apply to a Corkscrew (they are never hidden or disabled). */
-const CORKSCREW_ONLY = 'Corkscrew only';
 
 /**
  * The fields of one branching level; paths relative to `branches.<i>`. The Twist group (Twist style,

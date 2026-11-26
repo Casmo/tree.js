@@ -258,6 +258,10 @@ leaves and Fruit, so it looks wrung as a whole; Snake branches keep their unroll
 default 0) also turns a Corkscrew's course while it spirals, eased in and out, by up to `twistCurve` × 180°
 to a side the Seed picks per branch: 0 is a plain corkscrew, 1 curls the branch back on itself. It adds no
 Sections and does nothing on a Snake.
+The trunk takes `twistStyle`, `spin` and `twistCurve` too: a Corkscrew trunk spirals each Stem around its
+upright course (the base stays put and starts upright; `trunk.gravity`, the Stem lean and the ring still apply
+on top), each Stem with its own Seed-picked Spin and curve side, and rolls its bark and the branches, leaves
+and Fruit on it.
 
 A tree can grow several **Stems** from the ground: `trunk: { stems: 3, spread: 20 }` stands three full
 trunks (each with the whole branch structure) in a small ring, leaning out about 20° from vertical (the
