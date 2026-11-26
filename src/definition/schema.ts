@@ -16,6 +16,7 @@ import {
   SPINS,
   TWIST_STYLES,
   MAX_BRANCH_LEVELS,
+  MAX_TIP_BRANCHES,
   MAX_INNER_GLOW,
   SHADINGS,
   type BarkMaterialDefinition,
@@ -186,6 +187,7 @@ const twistFields: { [K in keyof TwistSettings]-?: Schema<TwistSettings[K]> } = 
 const branchLevel = refine(
   obj<BranchLevelDefinition>({
     count: intAtLeast(0),
+    tipBranches: optional(intRange(0, MAX_TIP_BRANCHES)),
     start: unit,
     end: unit,
     angle: range(0, 180),
