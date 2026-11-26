@@ -79,7 +79,9 @@ function growChildren(parent: SkeletonBranch, level: BranchLevelDefinition, rand
       course = normalize(add(wander ? add(course, scale(wander, level.bend)) : course, pull));
       position = add(position, scale(twisting.steer(course, (s + 0.5) / sections), step));
     }
-    children.push({ path, parent: parent.path, level: parent.level + 1, attach: t, direction: start, points });
+    // A Corkscrew rolls its bark and what grows on it with its spiral (ADR 0016).
+    const roll = twisting.roll(1);
+    children.push({ path, parent: parent.path, level: parent.level + 1, attach: t, direction: start, points, ...(roll ? { roll } : {}) });
   }
   return children;
 }

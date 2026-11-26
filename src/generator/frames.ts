@@ -1,3 +1,4 @@
+import { cos, sin } from '../math';
 import type { SkeletonBranch, Vec3 } from './types';
 import { add, cross, dot, length, lerp, normalize, perpendicular, scale, sub } from './vec';
 
@@ -10,7 +11,9 @@ export interface Frame {
 
 /**
  * Parallel-transport frames, one per skeleton point: the cross-section does not twist
- * as the branch bends, so swept rings stay even for branches in any direction.
+ * as the branch bends, so swept rings stay even for branches in any direction. A Corkscrew
+ * (`branch.roll` given) rolls each frame around its tangent on top, by its share of the roll at that
+ * point's fraction of the length (ADR 0016); the roll is not carried on to the next frame.
  */
 export function branchFrames(branch: SkeletonBranch): Frame[] {
   const pts = branch.points.map((p) => p.position);
@@ -34,7 +37,19 @@ export function branchFrames(branch: SkeletonBranch): Frame[] {
     }
     frames.push({ tangent, normal, binormal: cross(tangent, normal) });
   }
-  return frames;
+  if (!branch.roll) return frames;
+  const total = pathLength(branch);
+  let walked = 0;
+  return frames.map((frame, i) => {
+    if (i > 0) walked += length(sub(pts[i]!, pts[i - 1]!));
+    return rolled(frame, total > 0 ? (branch.roll! * walked) / total : 0);
+  });
+}
+
+/** `frame` rolled around its tangent by `angle` radians (right-handed). */
+function rolled({ tangent, normal, binormal }: Frame, angle: number): Frame {
+  const [c, s] = [cos(angle), sin(angle)];
+  return { tangent, normal: add(scale(normal, c), scale(binormal, s)), binormal: sub(scale(binormal, c), scale(normal, s)) };
 }
 
 /** Total length of a branch's centre line. */
@@ -54,7 +69,8 @@ export interface BranchSample extends Frame {
 /** The point, frame and radius at fraction `t` (0..1) of a branch's length. */
 export function sampleBranch(branch: SkeletonBranch, frames: Frame[], t: number): BranchSample {
   const pts = branch.points;
-  const target = Math.min(Math.max(t, 0), 1) * pathLength(branch);
+  const total = pathLength(branch);
+  const target = Math.min(Math.max(t, 0), 1) * total;
   let walked = 0;
   for (let i = 1; i < pts.length; i++) {
     const a = pts[i - 1]!;
@@ -65,12 +81,13 @@ export function sampleBranch(branch: SkeletonBranch, frames: Frame[], t: number)
       // The direction of the centre-line segment itself, so children leave at exactly their declared angle.
       const tangent = normalize(sub(b.position, a.position));
       const normal = normalize(sub(frames[i - 1]!.normal, scale(tangent, dot(frames[i - 1]!.normal, tangent))));
+      const frame = { tangent, normal, binormal: cross(tangent, normal) };
+      // A Corkscrew's frame keeps rolling between its points (ADR 0016).
+      const roll = branch.roll && total > 0 ? (branch.roll * (target - walked)) / total : 0;
       return {
         position: lerp(a.position, b.position, f),
         radius: a.radius + (b.radius - a.radius) * f,
-        tangent,
-        normal,
-        binormal: cross(tangent, normal),
+        ...(roll ? rolled(frame, roll) : frame),
       };
     }
     walked += segment;

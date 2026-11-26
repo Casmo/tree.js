@@ -97,6 +97,15 @@ describe('Corkscrew trees downstream', () => {
     expect(wood(corkscrewed(lowPoly.broadleaf))).toBeGreaterThan(snake * 1.5);
   });
 
+  it('roll their bark on the Light Detail Level as on the full tree (ADR 0016)', () => {
+    const definition = corkscrewed(lowPoly.broadleaf);
+    const rolls = (data: { skeleton: { branches: { path: string; roll?: number }[] } }) => data.skeleton.branches.map((b) => [b.path, b.roll]);
+    const light = rolls(generateLightTree(definition, 3));
+    const full = new Map(rolls(generateTree(definition, 3)) as [string, number | undefined][]);
+    expect(light.filter(([, roll]) => roll).length).toBeGreaterThan(0);
+    for (const [path, roll] of light) expect(roll, String(path)).toBe(full.get(path as string));
+  });
+
   it('bake into static meshes at any Growth', () => {
     const tree = createTree(corkscrewed(realistic.broadleaf), { seed: 3 });
     for (const growth of [0.2, 1]) {
