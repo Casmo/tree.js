@@ -219,6 +219,25 @@ export function definitionChoice(
   return row.row;
 }
 
+/**
+ * A checkbox for one boolean Definition parameter. An absent field shows `absent`; checking it back to
+ * `absent` removes the field, so an untouched Definition stays as it was.
+ */
+export function definitionToggle(context: PanelContext, path: string, label: string, absent?: boolean): HTMLElement {
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  const row = controlRow(context, path, label, input);
+  row.row.classList.add('checkbox');
+  input.addEventListener('change', () =>
+    attempt(context, row, () => setDefinitionValue(context.store, path, input.checked === absent ? undefined : input.checked)),
+  );
+  follow(context, row.row, (state) => (getAt(state.definition, path) as boolean | undefined) ?? absent ?? false, (value) => {
+    input.checked = value;
+    row.showError(null);
+  });
+  return row.row;
+}
+
 /** A colour picker (`#rrggbb`) for one Definition parameter; the preview follows while picking. */
 export function colorControl(
   context: PanelContext,
@@ -282,6 +301,8 @@ function bareFieldControl(context: PanelContext, field: Field, path: string): HT
       });
     case 'url':
       return definitionUrl(context, path, field.label);
+    case 'toggle':
+      return definitionToggle(context, path, field.label, field.absent);
     case 'text':
       return textControl(context, {
         id: path,

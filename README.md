@@ -257,7 +257,11 @@ facets roll with the spiral (one full roll per `twists`, the same way round), an
 leaves and Fruit, so it looks wrung as a whole; Snake branches keep their unrolled bark. `twistCurve` (0..1,
 default 0) also turns a Corkscrew's course while it spirals, eased in and out, by up to `twistCurve` × 180°
 to a side the Seed picks per branch: 0 is a plain corkscrew, 1 curls the branch back on itself. It adds no
-Sections and does nothing on a Snake.
+Sections and does nothing on a Snake. With `followTwist: true` (branch levels only, default off) a level's
+Corkscrew branches on a Corkscrew parent swirl on with it: they take the parent's Spin (ignoring their own
+`spin`), start their spiral where the parent's spiral is at the point they attach, and bend their Twist
+Curve the same way as the parent; their own `twist`, `twists` and `twistCurve` still set how much. With a
+Snake parent or child, or Twist 0 on either, it does nothing.
 
 A tree can grow several **Stems** from the ground: `trunk: { stems: 3, spread: 20 }` stands three full
 trunks (each with the whole branch structure) in a small ring, leaning out about 20° from vertical (the

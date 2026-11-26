@@ -33,12 +33,15 @@ function newValue(field: Field, current: unknown): string {
       return 'realistic/bark.png';
     case 'text':
       return 'Edited tree';
+    case 'toggle':
+      return String(!(current ?? field.absent ?? false));
   }
 }
 
 async function setField(page: Page, field: Field, path: string, value: string): Promise<void> {
   const input = byId(page, path);
   if (field.kind === 'choice') await input.selectOption(value);
+  else if (field.kind === 'toggle') await input.setChecked(value === 'true');
   else if (field.kind === 'color') await input.fill(value);
   else {
     await input.fill(value);
@@ -46,7 +49,12 @@ async function setField(page: Page, field: Field, path: string, value: string): 
   }
 }
 
-const expected = (field: Field, value: string): unknown => (field.kind === 'number' ? Number(value) : value);
+const expected = (field: Field, value: string): unknown => {
+  if (field.kind === 'number') return Number(value);
+  // A toggle switched back to what absent means removes the field.
+  if (field.kind === 'toggle') return value === 'true' ? true : value === String(field.absent ?? false) ? undefined : false;
+  return value;
+};
 
 test('every Definition field can be edited and the preview regenerates', async ({ page }) => {
   test.setTimeout(120_000);

@@ -39,6 +39,7 @@ button.remove { margin: 0; padding: 0 6px; font-size: 11px; }
 .keyframe .control label:empty { display: none; }
 .control.color { grid-template-columns: 7.5em 3em 1fr; }
 .control.color output { text-align: left; }
+.control.checkbox input { justify-self: start; margin: 0; }
 .history { display: flex; padding: 0 12px 4px; }
 .sculpt-tools { display: flex; flex-wrap: wrap; }
 .sculpt-tools button[aria-pressed='true'] { background: #557a3a; color: #fff; border-color: #3f5c2b; }
