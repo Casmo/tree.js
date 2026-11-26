@@ -2,18 +2,21 @@ import {
   BufferAttribute,
   BufferGeometry,
   Color,
+  DataTexture,
   DoubleSide,
   FrontSide,
   Group,
   type Material,
   Mesh,
   MeshStandardMaterial,
+  RepeatWrapping,
   Source,
+  SRGBColorSpace,
   type Texture,
 } from 'three/webgpu';
 import { GLTFExporter, type GLTFExporterPlugin, type GLTFWriter } from 'three/addons/exporters/GLTFExporter.js';
-import { DEFAULT_LEAF_MASSES, type MaterialFeatures, type TranslucencyDefinition, type TreeDefinition } from '../definition';
-import { crownNormal, type CrownVolume, type GeometryBuffers } from '../generator';
+import { DEFAULT_LEAF_MASSES, type InnerGlowDefinition, type MaterialFeatures, type TranslucencyDefinition, type TreeDefinition } from '../definition';
+import { crownDistance, crownNormal, type CrownVolume, type GeometryBuffers } from '../generator';
 import { clampGrowth, growPositions, treeScale } from '../growth';
 import { groundTintAmount } from '../materials/ground-tint';
 import { BARK_REPEAT } from '../materials/maps';
@@ -21,7 +24,9 @@ import { pow } from '../math';
 import { paintsLeafMasses } from '../materials';
 import { BEND, bendToMass, GAP_DARK, LEAF_SHADOW, leafMassPoint, paintLeafColor, SPRAY_STRENGTH, SUNLIT, WARM, WRAP, wrapLight } from '../materials/painted';
 import { isFlatShading } from '../materials/shading';
-import { definitionForSeed, fruitSeason, hexToLinear, leafSeason, partSeasonAt, wrapSeason } from '../season';
+import { crownEdgeGlowAt, INNER_GLOW_PERIOD, LEAF_GAIN, PULSE_LOW, STEADY_PULSE, VEIN_GAIN } from '../materials/enchanted';
+import { accentOf, STRIPE_EDGE, STRIPE_TURNS, STRIPE_WIDTH, STRIPES } from '../materials/whimsical';
+import { definitionForSeed, evaluateSeason, fruitSeason, hexToLinear, leafSeason, partSeasonAt, wrapSeason } from '../season';
 import { srgbToLinear } from '../season/profile';
 import type { Tree } from '../tree';
 
@@ -41,6 +46,12 @@ import type { Tree } from '../tree';
  * live shading (wrap lighting, the crown gradient moved by direct light). Painted Leaf Masses get their lighting
  * normals (bent towards their mass), the crown gradient painted into the vertex colours (lit from above), a brightness spray map and
  * `_MASS_NORMAL` / `_PAINT`; the look's settings go in `treejs.painted` (see {@link PaintedExtras}).
+ *
+ * The Fantasy Styles (#142): an Enchanted tree's Inner Glow is baked as a steady emissive (no Wind clock to
+ * pulse with: the pulse's mean), leaves in their own colour with the card as the emissive texture, bark in the
+ * Season leaf colour through a vein texture from the bark map's alpha, with `KHR_materials_emissive_strength`
+ * where it is brighter than 1; the settings go in `treejs.innerGlow` (see {@link InnerGlowExtras}). Whimsical's
+ * candy stripes are baked into a bark map (its toon lighting and rim light are not carried).
  */
 
 /** Growth and Season to bake at; each defaults to the tree's current value. */
@@ -180,9 +191,10 @@ function bakeWood(definition: TreeDefinition, wood: GeometryBuffers, growth: num
   const positions = growPositions(wood, growth);
   let colors: Float32Array | null = null;
   if (!flat || groundTint) {
-    // Same as the bark colorNode: mix(base * 0.75, base, sqrt(clamp(uv.y))), then the Ground Tint.
+    // Same as the bark colorNode: mix(base * 0.75, base, sqrt(clamp(uv.y))), then the Ground Tint. Whimsical:
+    // the striped colour is the map's, so the shade (and the tint) only.
     colors = new Float32Array(wood.positions.length);
-    const bark = groundTint ? hexToLinear(color) : [1, 1, 1];
+    const bark = groundTint && !stripesBark(definition) ? hexToLinear(color) : [1, 1, 1];
     const tint = groundTint ? hexToLinear(groundTint.color) : [1, 1, 1];
     for (let v = 0; v < colors.length / 3; v++) {
       const shade = flat ? 1 : 0.75 + 0.25 * Math.sqrt(Math.min(Math.max(wood.uvs[v * 2 + 1]!, 0), 1));
@@ -207,7 +219,7 @@ function bakeLeaves(
   crown: CrownVolume,
   amount: number | undefined,
   sprayValue: number,
-): { geometry: BufferGeometry | null; meanColor: [number, number, number] } {
+): { geometry: BufferGeometry | null; meanColor: [number, number, number]; meanGlow: [number, number, number] } {
   const count = leaves.positions.length / 3;
   const aSeason = leaves.attributes.aSeason!.array;
   const shown = new Uint8Array(count);
@@ -221,6 +233,7 @@ function bakeLeaves(
   if (masses) masses.paint(colors, sprayValue);
   const meanColor = meanShownColor(colors, shown);
   const positions = growPositions(leaves, growth);
+  const meanGlow = meanEdgeGlow(colors, shown, positions, growth, crown);
   const crownNormals = amount ? bakedCrownNormals(leaves, positions, growth, crown, amount, definition.leaves.shape === 'card') : undefined;
   const geometry = compact(
     {
@@ -236,7 +249,25 @@ function bakeLeaves(
     leaves.indices,
     isFlatShading(definition.materials.shading),
   );
-  return { geometry, meanColor };
+  return { geometry, meanColor, meanGlow };
+}
+
+/**
+ * The mean of the shown leaves' colours (linear) × how much of the Inner Glow each shows at its place in the
+ * Crown Volume (`crownEdgeGlowAt`, as the live leaf glow measures it on the grown tree).
+ */
+function meanEdgeGlow(colors: Float32Array, shown: Uint8Array, grown: Float32Array, growth: number, crown: CrownVolume): [number, number, number] {
+  const scale = treeScale(growth);
+  const sum: [number, number, number] = [0, 0, 0];
+  let count = 0;
+  shown.forEach((on, v) => {
+    if (!on) return;
+    const i = v * 3;
+    const edge = crownEdgeGlowAt(crownDistance(crown, [grown[i]! / scale, grown[i + 1]! / scale, grown[i + 2]! / scale]));
+    for (let c = 0; c < 3; c++) sum[c]! += colors[i + c]! * edge;
+    count++;
+  });
+  return sum.map((c) => c / Math.max(count, 1)) as [number, number, number];
 }
 
 /**
@@ -436,10 +467,12 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
   const masses = paintsLeafMasses(definition);
   // Painted Leaf Masses: the spray's grey is a paint value, baked into a brightness map around its mean.
   const spray = masses ? bakedSprayMap(tree.leaves.material.map, definition.materials.leaf.alphaTest) : null;
+  // Inner Glow (enchanted shading only), with the strengths the tree shows now (tuned live included).
+  const innerGlow = tree.innerGlow;
   const extrasFor = (part: 'bark' | 'leaves') => {
     const paintedExtras = painted ? paintedSettings(definition, part === 'leaves' && masses ? (spray?.value ?? 0.5) : null) : null;
-    if (!featureExtras && !paintedExtras) return null;
-    return { ...featureExtras, ...(paintedExtras ? { painted: paintedExtras } : {}) };
+    if (!featureExtras && !paintedExtras && !innerGlow) return null;
+    return { ...featureExtras, ...(paintedExtras ? { painted: paintedExtras } : {}), ...(innerGlow ? { innerGlow: innerGlowExtras(innerGlow) } : {}) };
   };
 
   const group = new Group();
@@ -448,22 +481,29 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
 
   const woodGeometry = bakeWood(definition, data.wood, growth, occlusion);
   if (woodGeometry) {
+    const stripes = stripesBark(definition) ? candyStripesMap(definition) : null;
     const material = new MeshStandardMaterial({
       name: 'bark',
-      color: new Color(bark.groundTint ? 0xffffff : bark.color),
+      color: new Color(bark.groundTint || stripes ? 0xffffff : bark.color),
       roughness: bark.roughness,
       metalness: 0,
       vertexColors: woodGeometry.hasAttribute('color'),
       flatShading: flat,
-      map: bakedMap(source.map, BARK_REPEAT),
+      map: stripes ?? bakedMap(source.map, BARK_REPEAT),
       normalMap: bakedMap(source.normalMap, BARK_REPEAT),
     });
+    // The veins glow in the Season leaf colour (unshifted, as the live bark), where the bark map's alpha marks them.
+    const veins = innerGlow && innerGlow.veins > 0 ? veinMap(source.map) : null;
+    if (veins) {
+      const colour = evaluateSeason(definition.season, season).leafColor;
+      setEmissive(material, colour.map((c) => c * innerGlow!.veins * VEIN_GAIN * STEADY_PULSE), veins);
+    }
     const extras = extrasFor('bark');
     if (extras) material.userData = { treejs: extras };
     group.add(bakedMesh('wood', woodGeometry, material));
   }
 
-  const { geometry: leafGeometry, meanColor } = bakeLeaves(
+  const { geometry: leafGeometry, meanColor, meanGlow } = bakeLeaves(
     definition,
     data.leaves,
     growth,
@@ -486,6 +526,8 @@ export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
       map,
       alphaTest: map ? definition.materials.leaf.alphaTest : 0,
     });
+    // The leaves glow in their own colour (× the Seed's tint), strongest at the crown's edge, through the card.
+    if (innerGlow && innerGlow.leaf > 0) setEmissive(material, meanGlow.map((c) => c * innerGlow.leaf * LEAF_GAIN * STEADY_PULSE), map);
     const extras = extrasFor('leaves');
     if (extras) material.userData = { treejs: extras };
     const { translucency } = features;
@@ -545,6 +587,96 @@ function paintedSettings(definition: TreeDefinition, paintValue: number | null):
       ? {}
       : { leafMasses: { masses: masses ?? DEFAULT_LEAF_MASSES, massLayering: massLayering ?? 1, bend: BEND, sunlit: SUNLIT, leafShadow: LEAF_SHADOW, paintValue, paintSun: [...PAINT_SUN] } }),
   };
+}
+
+/**
+ * The Inner Glow's settings (`treejs.innerGlow` in the extras of the baked bark and leaf materials of an Enchanted
+ * tree): the strengths, and the pulse the live glow has, which the Baked Tree leaves out (it glows steadily at the
+ * pulse's mean, `baked`), for engines that animate it themselves.
+ */
+export interface InnerGlowExtras extends InnerGlowDefinition {
+  pulse: {
+    /** Seconds per pulse. */
+    period: number;
+    /** The pulse swings the glow between `low` × its strength and the full strength. */
+    low: number;
+    /** The share of the full strength the emissive is baked at. */
+    baked: number;
+  };
+}
+
+function innerGlowExtras(glow: InnerGlowDefinition): InnerGlowExtras {
+  return { ...glow, pulse: { period: INNER_GLOW_PERIOD, low: PULSE_LOW, baked: STEADY_PULSE } };
+}
+
+/**
+ * Sets a baked material's emissive to `rgb` (linear, may be brighter than 1: then the colour is scaled down to
+ * at most 1 and the rest goes in `emissiveIntensity`, written as `KHR_materials_emissive_strength`), through `map`.
+ */
+function setEmissive(material: MeshStandardMaterial, rgb: number[], map: Texture | null): void {
+  const peak = Math.max(...rgb);
+  if (!(peak > 0)) return;
+  const scale = Math.max(peak, 1);
+  material.emissive.setRGB(rgb[0]! / scale, rgb[1]! / scale, rgb[2]! / scale);
+  material.emissiveIntensity = scale;
+  material.emissiveMap = map;
+}
+
+/**
+ * The Inner Glow's vein mask as a texture glTF can use as emissive (which reads no alpha): the bark map's
+ * alpha as grey, tiled as the bark map. Null without a readable bark map (live: no bark map, no vein glow).
+ */
+function veinMap(texture: Texture | null | undefined): Texture | null {
+  const pixels = texture?.image ? readPixels(texture.image as TexImage) : null;
+  if (!texture || !pixels) return null;
+  const { data, width, height } = pixels;
+  const out = new Uint8ClampedArray(new ArrayBuffer(data.length));
+  for (let i = 0; i < data.length; i += 4) {
+    out.fill(data[i + 3]!, i, i + 3);
+    out[i + 3] = 255;
+  }
+  const map = texture.clone();
+  map.source = new Source(writePixels(out, width, height, texture.image as TexImage));
+  map.repeat.set(...BARK_REPEAT);
+  map.needsUpdate = true;
+  return map;
+}
+
+/** Whether the bark is drawn with Whimsical's candy stripes (baked into a map). */
+const stripesBark = (definition: TreeDefinition) => definition.materials.shading === 'whimsical';
+
+/** Texels across the candy stripe map (one tile: the stripes repeat in whole periods across uv 0..1). */
+const STRIPE_MAP_SIZE = 64;
+
+/**
+ * Whimsical's candy stripes as a bark map (sRGB, repeating): the bark colour with stripes in the tree's accent
+ * colour, laid out over uv exactly as `candyStripes` draws them (`uv.x` round the branch, `uv.y` along it).
+ */
+function candyStripesMap(definition: TreeDefinition): DataTexture {
+  const base = hexToLinear(definition.materials.bark.color);
+  const accent = hexToLinear(accentOf(definition) as `#${string}`);
+  const smooth = (e0: number, e1: number, x: number) => {
+    const t = Math.min(Math.max((x - e0) / (e1 - e0), 0), 1);
+    return t * t * (3 - 2 * t);
+  };
+  const n = STRIPE_MAP_SIZE;
+  const data = new Uint8Array(n * n * 4);
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const u = (x + 0.5) / n;
+      const v = (y + 0.5) / n;
+      const along = ((u + v * STRIPE_TURNS) * STRIPES) % 1;
+      const stripe = smooth(0, STRIPE_EDGE, along) * (1 - smooth(STRIPE_WIDTH, STRIPE_WIDTH + STRIPE_EDGE, along));
+      const i = (y * n + x) * 4;
+      for (let c = 0; c < 3; c++) data[i + c] = Math.round(linearToSrgb(base[c]! + (accent[c]! - base[c]!) * stripe) * 255);
+      data[i + 3] = 255;
+    }
+  }
+  const map = new DataTexture(data, n, n);
+  map.colorSpace = SRGBColorSpace;
+  map.wrapS = map.wrapT = RepeatWrapping;
+  map.needsUpdate = true;
+  return map;
 }
 
 /**
@@ -692,6 +824,7 @@ export function disposeBakedTree(baked: Group): void {
     const material = object.material as MeshStandardMaterial;
     material.map?.dispose();
     material.normalMap?.dispose();
+    material.emissiveMap?.dispose();
     material.dispose();
   });
 }

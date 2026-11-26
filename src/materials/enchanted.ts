@@ -59,12 +59,31 @@ export class EnchantedNodeMaterial extends MeshStandardNodeMaterial {
 /** Seconds per Inner Glow pulse (one slow breath). */
 export const INNER_GLOW_PERIOD = 7;
 /** The pulse swings the glow between this share of its strength and the full strength. */
-const PULSE_LOW = 0.6;
+export const PULSE_LOW = 0.6;
+/** The pulse's mean: the steady glow of a Baked Tree (which has no Wind clock to pulse with). */
+export const STEADY_PULSE = (PULSE_LOW + 1) / 2;
 /** How bright the glow is at strength 1: the leaves' glowing cards are mostly dark, so it is boosted. */
-const LEAF_GAIN = 2.6;
-const VEIN_GAIN = 1.8;
+export const LEAF_GAIN = 2.6;
+export const VEIN_GAIN = 1.8;
 /** Leaves deep inside the crown keep this share of their glow; the thin edge of the Crown Volume glows fully. */
 const CROWN_CORE = 0.3;
+/** From this distance from the Crown Volume's centre (1 = its surface) the leaves' glow rises towards the edge. */
+const EDGE_START = 0.35;
+
+/** How much of its glow a leaf at `distance` (`crownAt(...).distance`) shows: `crownEdgeGlow`'s CPU twin. */
+export function crownEdgeGlowAt(distance: number): number {
+  const t = Math.min(Math.max((distance - EDGE_START) / (1 - EDGE_START), 0), 1);
+  return CROWN_CORE + (1 - CROWN_CORE) * t * t * (3 - 2 * t);
+}
+
+/** How much of its glow a leaf at `distance` from the Crown Volume's centre shows: strongest at the thin edge. */
+export const crownEdgeGlow = (distance: Node<'float'>): Node<'float'> => mix(float(CROWN_CORE), float(1), smoothstep(EDGE_START, 1, distance));
+
+/** The pulse (PULSE_LOW..1) at Wind time `time` (seconds) and phase (radians). */
+export function innerGlowPulse(time: Node<'float'>, phase: Node<'float'>): Node<'float'> {
+  const wave = sin(time.mul((2 * Math.PI) / INNER_GLOW_PERIOD).add(phase));
+  return mix(float(PULSE_LOW), float(1), wave.mul(0.5).add(0.5));
+}
 
 /** The Inner Glow strengths as uniforms (shared by every material of a Tree or Forest, tunable live). */
 export interface InnerGlowUniforms {
@@ -101,12 +120,12 @@ export interface InnerGlowTarget {
  *   dark centre) × `leaf`, strongest at the thin edge of the Crown Volume;
  * - bark: the tree's Season leaf colour (with its Leaf Palette) where the bark map's alpha marks a vein,
  *   × `veins` (no map, no veins);
- * both pulsing slowly with the Wind time, out of phase per tree. Bake and Impostors ignore it (#142).
+ * both pulsing slowly with the Wind time, out of phase per tree. Impostors draw it from their atlases
+ * (`impostor-material.ts`); a Baked Tree exports it steady, at the pulse's mean (`STEADY_PULSE`).
  */
 export function applyInnerGlow(strength: InnerGlowUniforms, { bark, leaf, definition, crown, growth, season, time, phase }: InnerGlowTarget): void {
-  const wave = sin(time.mul((2 * Math.PI) / INNER_GLOW_PERIOD).add(phase));
-  const pulse = mix(float(PULSE_LOW), float(1), wave.mul(0.5).add(0.5));
-  const edge = mix(float(CROWN_CORE), float(1), smoothstep(0.35, 1, crownNodes(crown, growth).distance));
+  const pulse = innerGlowPulse(time, phase);
+  const edge = crownEdgeGlow(crownNodes(crown, growth).distance);
   leaf.emissiveNode = diffuseColor.rgb.mul(strength.leaf.mul(LEAF_GAIN)).mul(edge).mul(pulse);
   if (bark.map) {
     const vein = texture(bark.map, uv().mul(vec2(...BARK_REPEAT))).a;

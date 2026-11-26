@@ -76,11 +76,11 @@ export class WhimsicalNodeMaterial extends MeshStandardNodeMaterial {
 }
 
 /** Candy stripes round each branch, and how many extra turns they wind along it on top of the Corkscrew's roll. */
-const STRIPES = 2;
-const STRIPE_TURNS = 1;
+export const STRIPES = 2;
+export const STRIPE_TURNS = 1;
 /** Share of each stripe period in the accent colour. */
-const STRIPE_WIDTH = 0.4;
-const STRIPE_EDGE = 0.04;
+export const STRIPE_WIDTH = 0.4;
+export const STRIPE_EDGE = 0.04;
 
 /**
  * The tree's accent colour: its Leaf Palette's (from the per-tree Definition, `definitionForSeed`), or
