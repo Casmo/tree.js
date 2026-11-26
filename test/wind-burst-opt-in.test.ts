@@ -5,10 +5,11 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { InstancedMesh, Mesh, PerspectiveCamera, RenderTarget, Scene, WebGPURenderer, WGSLNodeBuilder, type Material } from 'three/webgpu';
-import { createForest, createTree, Wind, type Forest, type TreeDefinitionInput } from '../src/index';
+import { createForest, createTree, DEFAULT_DEFINITION, Wind, type Forest, type TreeDefinitionInput } from '../src/index';
 import { windVelocityMRT } from '../src/scene';
 
-const definition: TreeDefinitionInput = { schemaVersion: 3, fruit: { type: 'round', count: 2 } };
+// Without Tip Branches (ADR 0019), which came later: the Impostor's shader holds the tree's size.
+const definition: TreeDefinitionInput = { schemaVersion: 3, branches: DEFAULT_DEFINITION.branches.map((level) => ({ ...level, tipBranches: 0 })), fruit: { type: 'round', count: 2 } };
 const placements = [{ position: [0, 0, 0] as [number, number, number] }, { position: [60, 0, 0] as [number, number, number] }];
 
 /** A WebGPURenderer that only builds shaders (no GPU, no canvas). */
