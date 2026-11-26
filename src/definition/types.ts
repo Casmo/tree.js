@@ -400,6 +400,23 @@ export interface SeasonProfileDefinition {
   fruit?: Keyframe<number>[];
   /** Fruit colour keyframes (ripening). Absent = a red (`DEFAULT_FRUIT_COLOR`) all year. Only used with `fruit`. */
   fruitColor?: Keyframe<HexColor>[];
+  /**
+   * Leaf Palettes: alternative leaf colours across Season (at least one). The Seed picks one per tree
+   * (see `pickLeafPalette`), whose `leafColor` then replaces the `leafColor` track above; the
+   * coverage, blossom and Fruit timing stay. Absent = every tree draws `leafColor`.
+   */
+  leafPalettes?: LeafPalette[];
+}
+
+/**
+ * A Leaf Palette: one alternative set of leaf colours across Season, with a matching accent colour
+ * (for the bark; shadings that don't use it ignore it).
+ */
+export interface LeafPalette {
+  /** Leaf colour keyframes, as the Season Profile's `leafColor`. */
+  leafColor: Keyframe<HexColor>[];
+  /** The accent colour that goes with these leaves. */
+  accent: HexColor;
 }
 
 /** Per-tree response to the scene-wide Wind. All 0 (stiff) .. 1 (very flexible). */

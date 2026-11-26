@@ -19,13 +19,13 @@ import {
   type Scene,
 } from 'three/webgpu';
 import { and, positionGeometry, varying } from 'three/tsl';
-import type { MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
+import type { LeafPalette, MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
 import { generateLightTree, generateTree, trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
 import { LiveMaterialFeatures, type MaterialFeatureNodes, type MaterialFeatureTarget } from '../materials/material-features';
 import { LiveShaderHooks, partHookTarget, ShaderHookedGroup, type ShaderHookTarget, type TreeShaderHooks } from '../materials/shader-hooks';
 import { webgpuRenderer } from '../renderer';
-import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes } from '../season';
+import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes, definitionForSeed, pickLeafPalette } from '../season';
 import { checkedSeason } from '../season/check';
 import { clampGrowth } from '../growth';
 import { textureReady, type TextureOptions } from '../textures';
@@ -194,6 +194,8 @@ export class ForestVariant {
   readonly data: TreeData;
   /** This Variant's response to the Wind (trunk height from its Seed; each tree has its own phase). */
   readonly windResponse: WindResponse;
+  /** The Leaf Palette this Variant's Seed picked (as `Tree.leafPalette`); null without Leaf Palettes. */
+  readonly leafPalette: LeafPalette | null;
   readonly barkMaterial: MeshStandardNodeMaterial;
   readonly leafMaterial: MeshStandardNodeMaterial;
   /** Fruit material, null when the Definition has no Fruit. */
@@ -226,7 +228,9 @@ export class ForestVariant {
   ) {
     this.index = index;
     this.seed = seed;
-    this.definition = definition;
+    this.leafPalette = pickLeafPalette(definition, seed);
+    // What this Seed's tree is drawn with (materials, Impostor): the Definition with its Leaf Palette's colours.
+    this.definition = definition = definitionForSeed(definition, seed);
     this.data = generateTree(definition, seed);
     const height = trunkHeight(this.data.skeleton);
     this.windResponse = new WindResponse(definition.wind, { height, phase: 0 });

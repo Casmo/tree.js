@@ -21,7 +21,7 @@ import { pow } from '../math';
 import { paintsLeafMasses } from '../materials';
 import { BEND, bendToMass, GAP_DARK, LEAF_SHADOW, leafMassPoint, paintLeafColor, SPRAY_STRENGTH, SUNLIT, WARM, WRAP, wrapLight } from '../materials/painted';
 import { isFlatShading } from '../materials/shading';
-import { fruitSeason, hexToLinear, leafSeason, partSeasonAt, wrapSeason } from '../season';
+import { definitionForSeed, fruitSeason, hexToLinear, leafSeason, partSeasonAt, wrapSeason } from '../season';
 import { srgbToLinear } from '../season/profile';
 import type { Tree } from '../tree';
 
@@ -420,7 +420,9 @@ function bakedMap(texture: Texture | null | undefined, repeat?: readonly [number
  * independent of `tree`; call `disposeBakedTree` when done with it.
  */
 export function bakeTree(tree: Tree, options: BakeOptions = {}): Group {
-  const { definition, data } = tree;
+  const { data } = tree;
+  // The tree's Definition with its Seed's Leaf Palette colours (as the tree draws it).
+  const definition = definitionForSeed(tree.definition, tree.seed);
   const source = tree.wood.material as MeshStandardMaterial; // MeshStandardNodeMaterial: same props
   const growth = clampGrowth(options.growth ?? tree.growth);
   const season = wrapSeason(options.season ?? tree.season);

@@ -28,6 +28,7 @@ export type {
   OcclusionDefinition,
   Keyframe,
   SeasonProfileDefinition,
+  LeafPalette,
   WindResponseDefinition,
   VariationDefinition,
   Sculpt,

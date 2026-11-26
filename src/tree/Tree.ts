@@ -11,14 +11,14 @@ import {
   type UniformNode,
 } from 'three/webgpu';
 import { uniform } from 'three/tsl';
-import type { MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
+import type { LeafPalette, MaterialFeatures, TranslucencyDefinition, TreeDefinition } from '../definition';
 import { trunkHeight, type GeometryBuffers, type TreeData } from '../generator';
 import { clampGrowth, growthPosition } from '../growth';
 import { createBarkMaterial, createFruitMaterial, createLeafMaterial } from '../materials';
 import { LiveMaterialFeatures } from '../materials/material-features';
 import { LiveShaderHooks, partHookTarget, ShaderHookedGroup, type TreeShaderHooks } from '../materials/shader-hooks';
 import { assertWebGPURenderer } from '../renderer';
-import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes, type SeasonUniform } from '../season';
+import { applySeasonToLeafMaterial, createFruitSeasonNodes, createSeasonNodes, definitionForSeed, pickLeafPalette, type SeasonUniform } from '../season';
 import { checkedSeason } from '../season/check';
 import { textureReady, type TextureOptions } from '../textures';
 import { seedRandom } from '../random';
@@ -97,6 +97,11 @@ export class Tree extends ShaderHookedGroup {
   readonly isTree = true;
   readonly definition: TreeDefinition;
   readonly seed: number;
+  /**
+   * The Leaf Palette this tree's Seed picked from the Definition's `season.leafPalettes` (its leaf colours
+   * across Season and accent); null without Leaf Palettes. See `pickLeafPalette`.
+   */
+  readonly leafPalette: LeafPalette | null;
   /** The generator output this object was built from (pure data). */
   readonly data: TreeData;
   /** Trunk and branches. */
@@ -127,10 +132,13 @@ export class Tree extends ShaderHookedGroup {
     this.definition = definition;
     this.seed = data.seed;
     this.data = data;
+    this.leafPalette = pickLeafPalette(definition, data.seed);
+    // What this Seed's tree is drawn with: the Definition with its picked Leaf Palette's colours.
+    const look = definitionForSeed(definition, data.seed);
 
     this.growthUniform = uniform(clampGrowth(options.growth ?? 1));
-    const bark = createBarkMaterial(definition, options.textures, this.growthUniform);
-    const leaf = createLeafMaterial(definition, options.textures);
+    const bark = createBarkMaterial(look, options.textures, this.growthUniform);
+    const leaf = createLeafMaterial(look, options.textures);
     bark.positionNode = growthPosition(this.growthUniform);
     leaf.positionNode = growthPosition(this.growthUniform);
     this.wood = treeMesh('wood', toBufferGeometry(data.wood), bark);
@@ -138,7 +146,7 @@ export class Tree extends ShaderHookedGroup {
     const textures = [bark.map, bark.normalMap, leaf.map].filter((t) => t !== null);
     this.ready = Promise.all(textures.map(textureReady)).then(() => undefined);
     this.ready.catch(() => {}); // only reported to whoever awaits it
-    const fruit = createFruitMaterial(definition);
+    const fruit = createFruitMaterial(look);
     this.fruit = treeMesh('fruit', toBufferGeometry(data.fruit), fruit);
     this.add(this.wood, this.leaves, this.fruit);
 
@@ -151,11 +159,11 @@ export class Tree extends ShaderHookedGroup {
     applyWind(this.wood.material as NodeMaterial, offset);
     applyWind(this.leaves.material, offset);
 
-    const season = createSeasonNodes(definition.season);
+    const season = createSeasonNodes(look.season);
     applySeasonToLeafMaterial(this.leaves.material, season);
     this.seasonUniform = season.season;
     // Fruit: Season scales it about its attachment point, then Growth, then Wind (with its twig).
-    const fruitSeason = createFruitSeasonNodes(definition.season, this.seasonUniform);
+    const fruitSeason = createFruitSeasonNodes(look.season, this.seasonUniform);
     fruit.colorNode = fruitSeason.color;
     fruit.positionNode = growthPosition(this.growthUniform, fruitSeason.position);
     applyWind(fruit, offset);
