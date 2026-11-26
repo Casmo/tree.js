@@ -3,6 +3,7 @@ import type { BranchLevelDefinition, TreeDefinition } from '../definition';
 import type { Random } from '../random';
 import { sampleTrack } from '../season/profile';
 import { branchFrames, pathLength, sampleBranch } from './frames';
+import { buildStems } from './trunk';
 import { twistPath, type CorkscrewAlong } from './twist';
 import type { SkeletonBranch, SkeletonPoint, Vec3 } from './types';
 import { add, normalize, scale } from './vec';
@@ -10,6 +11,16 @@ import { add, normalize, scale } from './vec';
 const DEG = Math.PI / 180;
 /** How far `gravity` = ±1 turns a branch over its whole length (sum of per-section pulls). */
 const GRAVITY_PER_BRANCH = 1.5;
+
+/**
+ * The Stems and then every branch on them, before Sculpts: the Stems from `random` ({@link buildStems}),
+ * the branches from `random.fork('branches')`, with each Corkscrew Stem passed on for Follow Twist.
+ */
+export function growStemsAndBranches(definition: TreeDefinition, random: Random): SkeletonBranch[] {
+  const corkscrews = new Map<string, CorkscrewAlong>();
+  const stems = buildStems(definition, random, corkscrews);
+  return [...stems, ...buildBranches(definition, stems, random.fork('branches'), corkscrews)];
+}
 
 /**
  * Grows all branching levels on every Stem, breadth first (level by level, over all Stems).
@@ -22,11 +33,11 @@ const GRAVITY_PER_BRANCH = 1.5;
  * `stemCorkscrews` holds each Corkscrew Stem's phase along its length (by path), which first-level
  * branches with Follow Twist pick up; a Stem without one is not followed.
  */
-export function buildBranches(
+function buildBranches(
   definition: TreeDefinition,
   stems: SkeletonBranch[],
   random: Random,
-  stemCorkscrews: ReadonlyMap<string, CorkscrewAlong> = new Map(),
+  stemCorkscrews: ReadonlyMap<string, CorkscrewAlong>,
 ): SkeletonBranch[] {
   const out: SkeletonBranch[] = [];
   const queue: SkeletonBranch[] = [...stems];

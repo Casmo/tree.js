@@ -37,7 +37,7 @@ export const FLARE_SECTIONS = 3;
  * Stem as it is placed (Trunk gravity, lean), so the first-level branches on it with Follow Twist can
  * pick it up (`buildBranches`).
  */
-export function buildStems(definition: TreeDefinition, random: Random, corkscrews = new Map<string, CorkscrewAlong>()): SkeletonBranch[] {
+export function buildStems(definition: TreeDefinition, random: Random, corkscrews: Map<string, CorkscrewAlong>): SkeletonBranch[] {
   const { trunk } = definition;
   const { stems: count = 1, spread = 0, gravity = 0 } = trunk;
   const ring = random.fork('stems');
