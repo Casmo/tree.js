@@ -127,7 +127,8 @@ export function fantasySeason(recipe: FantasyRecipe, season: TreeDefinition['sea
  */
 export function applyFantasy(recipe: FantasyRecipe, definition: TreeDefinition, form: TreeForm): TreeDefinition {
   const twist = recipe.twist[form];
-  const { innerGlow: _replaced, ...materials } = definition.materials;
+  const materials = { ...definition.materials };
+  delete materials.innerGlow;
   return {
     ...definition,
     trunk: { ...definition.trunk, ...twist.trunk },
