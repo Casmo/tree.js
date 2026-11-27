@@ -20,10 +20,11 @@ function top(definition: TreeDefinition, seed: number): number {
 }
 const meanTop = (definition: TreeDefinition) => SEEDS.reduce((sum, seed) => sum + top(definition, seed), 0) / SEEDS.length;
 
+// The two catalogue-wide tests generate every Species for several Seeds (Tip Branches add wood): slow on CI runners.
 describe('Painterly height compression (ADR 0013)', () => {
   const painted = Object.fromEntries(SPECIES_NAMES.map((id) => [id, painterly.apply(SPECIES_BY_NAME[id])]));
 
-  it('grows every Species to 2-4 m at full Growth, for every Seed', () => {
+  it('grows every Species to 2-4 m at full Growth, for every Seed', { timeout: 30_000 }, () => {
     for (const id of SPECIES_NAMES) {
       for (const seed of SEEDS) {
         const height = top(painted[id]!, seed);
@@ -33,7 +34,7 @@ describe('Painterly height compression (ADR 0013)', () => {
     }
   });
 
-  it('keeps the order: the lowest Species (juniper, with its Tip Branches) at the bottom of the range, the tallest (redwood) at the top', () => {
+  it('keeps the order: the lowest Species (juniper, with its Tip Branches) at the bottom of the range, the tallest (redwood) at the top', { timeout: 30_000 }, () => {
     const heights = Object.fromEntries(SPECIES_NAMES.map((id) => [id, meanTop(painted[id]!)]));
     const sorted = [...SPECIES_NAMES].sort((a, b) => heights[a]! - heights[b]!);
     expect(sorted[0]).toBe('juniper');
