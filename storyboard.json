@@ -1,0 +1,9 @@
+{ "title": "Tip Branches carry on every branch level", "kicker": "Tree Editor · Tip Branches",
+  "url": "http://localhost:38849/?start=oak/realistic&season=0.85",
+  "chapters": [
+    { "title": "Oak: every branch end carries on, no flat stumps", "steps": [ {"waitFor": "canvas"}, {"wait": 2500}, {"hover": "#preview canvas", "zoom": true}, {"wait": 1500} ] },
+    { "title": "Tip Branches shows 1 on level 1 and 2", "steps": [ {"scroll": "#branch-level-0 legend"}, {"hover": "[id='branches.0.tipBranches']", "zoom": true}, {"scroll": "#branch-level-1 legend"}, {"hover": "[id='branches.1.tipBranches']", "zoom": true} ] },
+    { "title": "…and now also 1 on level 3", "steps": [ {"scroll": "#branch-level-2 legend"}, {"hover": "[id='branches.2.tipBranches']", "zoom": true} ] },
+    { "title": "Tip Branches 0: the stump returns", "steps": [ {"click": "[id='branches.2.tipBranches']"}, {"press": "Backspace"}, {"type": "0", "into": "[id='branches.2.tipBranches']"}, {"press": "Enter"}, {"wait": 2500} ] },
+    { "title": "Tip Branches 2: a fork, joined without a gap", "steps": [ {"click": "[id='branches.2.tipBranches']"}, {"press": "Backspace"}, {"type": "2", "into": "[id='branches.2.tipBranches']"}, {"press": "Enter"}, {"wait": 2500} ] }
+  ] }
