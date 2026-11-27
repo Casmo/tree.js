@@ -221,12 +221,12 @@ export const MATERIAL_FEATURES: {
 ];
 
 /**
- * The fields of branching level `index` (0 = level 1); paths relative to `branches.<index>`. Tip
- * Branches shows the level's own default while absent (1 on levels 1-2, 0 deeper). The Twist group
+ * The fields of a branching level; paths relative to `branches.<index>`. Tip Branches shows the
+ * default while absent (1 on every level, ADR 0021). The Twist group
  * (Twist style, Twist, Twists, Spin, Twist curve, Follow twist) is optional (`absent`); fields that
  * only apply to a Corkscrew say so in a hint.
  */
-export function branchLevelFields(index: number): Field[] {
+export function branchLevelFields(): Field[] {
   return [
     { kind: 'number', path: 'count', label: 'Count', min: 0, max: 32, step: 1 },
     {
@@ -236,7 +236,7 @@ export function branchLevelFields(index: number): Field[] {
       min: 0,
       max: MAX_TIP_BRANCHES,
       step: 1,
-      absent: tipBranchesOf({}, index),
+      absent: tipBranchesOf({}),
       tooltip: 'Branches growing from the very tip of the parent: 0 = the parent ends in a stump, 1 = it carries on, 2+ = it forks.',
     },
     ...LEVEL_FIELDS,

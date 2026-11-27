@@ -81,7 +81,7 @@ The outline of a tree's branches, set by how branch length and branch angle chan
 _Avoid_: Silhouette, profile
 
 **Tip Branch**:
-A branch that grows from the very tip of its parent (a Stem or a branch) instead of from its side, so the parent ends in a branch rather than a cut-off stump; one Tip Branch carries the parent on, two or more fork it.
+A branch that grows from the tip of its parent (a Stem or a branch) instead of from its side, starting just inside that tip so the joint shows no gap; the parent ends in a branch rather than a cut-off stump, and one Tip Branch carries the parent on, two or more fork it.
 _Avoid_: Leader (that is the upper third of a Stem that Trunk gravity bends), terminal branch, continuation
 
 **Twist**:

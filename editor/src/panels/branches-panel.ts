@@ -104,7 +104,7 @@ export const branchesPanel: Panel = {
         legend.append(remove);
         level.append(
           legend,
-          ...branchLevelFields(i).map((field) => fieldControl(context, field, `branches.${i}.${field.path}`)),
+          ...branchLevelFields().map((field) => fieldControl(context, field, `branches.${i}.${field.path}`)),
           crownShape(context, i, edit),
         );
         return level;

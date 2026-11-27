@@ -138,7 +138,8 @@ describe('Twist on branch levels', () => {
     const def = define([{ twist: 0.8, twists: 3 }, { twist: 0.8, twists: 2 }], { schemaVersion: 3, fruit: { count: 2 } });
     const data = generateTree(def, 5);
     const byPath = new Map(data.skeleton.branches.map((b) => [b.path, b]));
-    for (const child of data.skeleton.branches.filter((b) => b.parent)) {
+    // Side branches; a Tip Branch (attach 1) starts a little inside its parent's tip (tip-branches.test.ts).
+    for (const child of data.skeleton.branches.filter((b) => b.parent && !b.tip)) {
       expectNear(child.points[0]!.position, pointAt(byPath.get(child.parent!)!, child.attach), 1e-9);
     }
     expect(data.skeleton.leaves.length).toBeGreaterThan(0);
