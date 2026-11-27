@@ -1,5 +1,5 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`the Whimsical showpieces > broadleaf: matches the golden geometry hash (determinism across releases) 1`] = `"32456b13"`;
+exports[`the Whimsical showpieces > broadleaf: matches the golden geometry hash (determinism across releases) 1`] = `"fa91c66b"`;
 
-exports[`the Whimsical showpieces > conifer: matches the golden geometry hash (determinism across releases) 1`] = `"77298c6a"`;
+exports[`the Whimsical showpieces > conifer: matches the golden geometry hash (determinism across releases) 1`] = `"35e5b3dd"`;

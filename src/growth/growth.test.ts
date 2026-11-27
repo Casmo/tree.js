@@ -231,7 +231,8 @@ describe('the leaf model: leaves ride on their growing twig from Leaf Start', ()
 
   it('leaves the wood exactly as before at every Growth (golden hashes of the grown wood)', () => {
     // The painterly oak's were re-recorded when Painterly resized its trees for Tip Branches (ADR 0013), and again
-    // when Tip Branches came to every branch level (ADR 0021): Painterly sizes a tree by its height with them.
+    // when Tip Branches came to every branch level and when they started inside their parent (ADR 0021): Painterly
+    // sizes a tree by its height with them.
     const golden: [string, TreeDefinition, (d: TreeDefinition, seed: number) => TreeData, string][] = [
       ['oak', realistic.apply(oak), generateTree, 'a1ecf30e'],
       ['oak light', realistic.apply(oak), generateLightTree, '5bb7b820'],
@@ -239,8 +240,8 @@ describe('the leaf model: leaves ride on their growing twig from Leaf Start', ()
       ['spruce light', realistic.apply(spruce), generateLightTree, 'd22f8d94'],
       ['birch', realistic.apply(birch), generateTree, '9483abf7'],
       ['birch light', realistic.apply(birch), generateLightTree, 'a956b5e6'],
-      ['painterly oak', painterly.apply(oak), generateTree, '3307b0ed'],
-      ['painterly oak light', painterly.apply(oak), generateLightTree, '2a585b46'],
+      ['painterly oak', painterly.apply(oak), generateTree, 'c11e355f'],
+      ['painterly oak light', painterly.apply(oak), generateLightTree, '1a9c9edb'],
     ];
     for (const [name, definition, generate, hash] of golden) {
       // Without Tip Branches (ADR 0019), which came later and add wood.

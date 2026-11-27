@@ -6,7 +6,7 @@ import { branchFrames, pathLength, sampleBranch, type BranchSample, type Frame }
 import { buildStems } from './trunk';
 import { twistPath, type CorkscrewAlong } from './twist';
 import type { SkeletonBranch, SkeletonPoint, Vec3 } from './types';
-import { add, normalize, scale } from './vec';
+import { add, length, lerp, normalize, scale, sub } from './vec';
 
 const DEG = Math.PI / 180;
 /** How far `gravity` = ±1 turns a branch over its whole length (sum of per-section pulls). */
@@ -59,7 +59,7 @@ const crownShape = (curve: BranchLevelDefinition['lengthProfile'], t: number) =>
 
 /**
  * Grows one parent's children: first its `count` side branches spread between the level's `start` and
- * `end`, then its Tip Branches at the very tip, at the paths after them (`<parent>.<count>`, ...), so
+ * `end`, then its Tip Branches at the very tip (starting just inside it), at the paths after them (`<parent>.<count>`, ...), so
  * turning Tip Branches on or off never moves a side branch or shifts its draws (ADR 0003, ADR 0019).
  * The Crown Shape curves (`lengthProfile`, `angleProfile`) scale each child's length and angle by where
  * it sits on the parent (ADR 0004); a Tip Branch sits at `t` = 1. Each Corkscrew child's phase goes into
@@ -98,7 +98,7 @@ function growChildren(
   // One Tip Branch carries the parent on; 2-4 fork it.
   const tips = tipBranchesOf(level, levelIndex);
   if (tips === 0) return children;
-  const at = tipOf(parent, frames);
+  const at = sunkTipOf(parent, frames);
   const turn = parentRandom.range(0, Math.PI * 2);
   for (let j = 0; j < tips; j++) {
     const path = `${parent.path}.${count + j}`;
@@ -109,16 +109,28 @@ function growChildren(
     const lean = Math.min(0.5 * level.angle * crownShape(level.angleProfile, 1) * splay, 180) * DEG;
     const start = leaning(at, lean, turn + (j * Math.PI * 2) / tips);
     const length = lengthAt(1, r);
-    // As thick as the parent's tip: the level's radius fraction does not apply, its taper does.
+    // As thick as the parent where it starts: the level's radius fraction does not apply, its taper does.
     children.push(growBranch(parent, level, { path, random: r, attach: 1, at, start, length, baseRadius: at.radius, tip: true }, followed, corkscrews));
   }
   return children;
 }
 
-/** The point, frame and radius at the very tip of `parent`: exactly its last centre-line point. */
-function tipOf(parent: SkeletonBranch, frames: Frame[]): BranchSample {
+/**
+ * Where a Tip Branch starts: inside `parent`'s tip, so its first ring never lifts off the parent's end cap
+ * (ADR 0021). Back along the parent's centre line from its last point by the parent's tip radius, but no
+ * further than the start of its last section (so never past its base either), with the parent's radius
+ * there; the frame is the parent's tip frame, so the Tip Branch heads the same way as from the tip itself.
+ */
+function sunkTipOf(parent: SkeletonBranch, frames: Frame[]): BranchSample {
   const last = parent.points[parent.points.length - 1]!;
-  return { ...sampleBranch(parent, frames, 1), position: last.position, radius: last.radius };
+  const before = parent.points[parent.points.length - 2] ?? last;
+  const section = length(sub(last.position, before.position));
+  const f = section > 0 ? Math.min(last.radius, section) / section : 0;
+  return {
+    ...sampleBranch(parent, frames, 1),
+    position: lerp(last.position, before.position, f),
+    radius: last.radius + (before.radius - last.radius) * f,
+  };
 }
 
 /** The unit direction `angle` (radians) away from `at`'s tangent, towards `azimuth` (radians) around it. */

@@ -3,7 +3,7 @@ import { extendDefinition, parseDefinition, type DefinitionPatch } from '../defi
 import { oak } from '../species';
 import { loadStyle, STYLE_NAMES } from '../styles/registry';
 import { angleBetween, carried, segments, sideAt, turnAbout, unit, sub } from '../../test/branch-geometry';
-import { generateTree, hashTreeData, type SkeletonBranch, type TreeData } from './index';
+import { generateTree, hashTreeData, type SkeletonBranch, type TreeData, type Vec3 } from './index';
 
 // Both levels grow Tip Branches by default (ADR 0021); level 2 is the outermost, so its twigs have none.
 const base = parseDefinition({ schemaVersion: 3, branches: [{ count: 4 }, { count: 2 }], leaves: { count: 3 } });
@@ -11,9 +11,29 @@ const grow = (patch: DefinitionPatch = {}, seed = 5) => generateTree(extendDefin
 const byPath = (data: TreeData) => new Map(data.skeleton.branches.map((b) => [b.path, b]));
 const last = (b: SkeletonBranch) => b.points[b.points.length - 1]!;
 const levels = (...tipBranches: number[]) => base.branches.map((level, i) => ({ ...level, tipBranches: tipBranches[i] ?? 0 }));
+const distance = (a: Vec3, b: Vec3) => Math.hypot(...sub(a, b));
+
+/**
+ * Expects `tip` to start inside `parent` (ADR 0021's joint): its first point on the parent's last section,
+ * the parent's tip radius back from its tip (or that section's start, when the section is shorter), and as
+ * thick as the parent there. Returns whether the section was shorter than the tip radius (clamped).
+ */
+function expectSunk(tip: SkeletonBranch, parent: SkeletonBranch): boolean {
+  const end = last(parent);
+  const before = parent.points[parent.points.length - 2]!;
+  const section = distance(end.position, before.position);
+  const back = distance(tip.points[0]!.position, end.position);
+  // On the centre line: the first point lies on the straight last section, between its start and the tip.
+  expect(back + distance(tip.points[0]!.position, before.position), tip.path).toBeCloseTo(section, 9);
+  expect(back, tip.path).toBeCloseTo(Math.min(end.radius, section), 9);
+  // As thick as the parent where it starts, between the section's two radii.
+  const f = section > 0 ? back / section : 0;
+  expect(tip.points[0]!.radius, tip.path).toBeCloseTo(end.radius + (before.radius - end.radius) * f, 9);
+  return end.radius > section;
+}
 
 describe('Tip Branches', () => {
-  it('grow from the very tip of each parent: first point the parent\'s last point, as thick as the parent\'s tip', () => {
+  it("start inside the tip of each parent: the parent's tip radius back along its centre line, as thick as the parent there", () => {
     const branches = byPath(grow());
     // The trunk's Tip Branch comes after its 4 side branches, a level-1 branch's after its 2.
     for (const [parentPath, tipPath] of [['0', '0.4'], ['0.0', '0.0.2'], ['0.4', '0.4.2']] as const) {
@@ -21,11 +41,21 @@ describe('Tip Branches', () => {
       const tip = branches.get(tipPath)!;
       expect(tip.parent).toBe(parentPath);
       expect(tip.attach).toBe(1);
-      expect(tip.points[0]!.position).toEqual(last(parent).position);
-      expect(tip.points[0]!.radius).toBe(last(parent).radius);
+      expect(expectSunk(tip, parent)).toBe(false);
     }
     // Level 2 is the outermost: its branches have no Tip Branch.
     expect(branches.has('0.0.0.0')).toBe(false);
+  });
+
+  it("sink no further back than the parent's last section, on parents shorter than their own thickness too", () => {
+    // Short, thick, many-Sectioned branches: their last section is shorter than their tip radius.
+    for (const angleVariation of [0, 0.5]) {
+      const data = grow({ branches: [{ count: 4, length: 0.04, radius: 0.9, sections: 8, angleVariation }, { count: 2, length: 0.3, sections: 8, angleVariation }] });
+      const all = byPath(data);
+      const tips = data.skeleton.branches.filter((b) => b.tip);
+      const clamped = tips.filter((tip) => expectSunk(tip, all.get(tip.parent!)!));
+      expect(clamped.length).toBeGreaterThan(0);
+    }
   });
 
   it('carry on every parent that has a level below it when absent, down to the 4th level; the outermost twigs keep their end (ADR 0021)', () => {
@@ -88,9 +118,9 @@ describe('Tip Branches', () => {
     }
   });
 
-  it('fork a parent with Tip Branches 2 to 4: N branches from its last point, each as thick as its tip', () => {
-    for (const n of [2, 3, 4]) {
-      const data = grow({ branches: levels(n, n) });
+  it('fork a parent with Tip Branches 2 to 4: N branches from inside its tip, each as thick as the parent there, with and without angle variation', () => {
+    for (const [n, angleVariation] of [[2, 0], [3, 0], [4, 0], [2, 0.5], [3, 0.5], [4, 0.5]] as const) {
+      const data = grow({ branches: levels(n, n).map((level) => ({ ...level, angleVariation })) });
       const all = byPath(data);
       for (const parent of data.skeleton.branches.filter((b) => b.level < 2)) {
         const count = base.branches[parent.level]!.count;
@@ -98,8 +128,7 @@ describe('Tip Branches', () => {
         expect(tips.map((b) => b.path)).toEqual(Array.from({ length: n }, (_, j) => `${parent.path}.${count + j}`));
         for (const tip of tips) {
           expect(tip.attach).toBe(1);
-          expect(tip.points[0]!.position).toEqual(last(all.get(parent.path)!).position);
-          expect(tip.points[0]!.radius).toBe(last(all.get(parent.path)!).radius);
+          expectSunk(tip, all.get(parent.path)!);
         }
       }
     }
@@ -236,7 +265,7 @@ describe('Tip Branches', () => {
     for (const stem of ['0', '1', '2']) {
       const tip = all.get(`${stem}.4`)!;
       expect(tip.tip).toBe(true);
-      expect(tip.points[0]!.position).toEqual(last(all.get(stem)!).position);
+      expectSunk(tip, all.get(stem)!);
       // It carries on the nodding direction (within the level's angle variation), not straight up.
       expect(angleBetween(tip.direction, segments(all.get(stem)!).at(-1)!)).toBeLessThanOrEqual(0.5 * 45 * 0.2 + 1e-6);
     }

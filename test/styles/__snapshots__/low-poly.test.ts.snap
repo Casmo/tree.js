@@ -1,5 +1,5 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`low-poly Style (dynamic import of the /styles/low-poly subpath) > broadleaf: matches the golden geometry hash (determinism across releases) 1`] = `"f7eb6724"`;
+exports[`low-poly Style (dynamic import of the /styles/low-poly subpath) > broadleaf: matches the golden geometry hash (determinism across releases) 1`] = `"60190379"`;
 
-exports[`low-poly Style (dynamic import of the /styles/low-poly subpath) > conifer: matches the golden geometry hash (determinism across releases) 1`] = `"50d7c3ed"`;
+exports[`low-poly Style (dynamic import of the /styles/low-poly subpath) > conifer: matches the golden geometry hash (determinism across releases) 1`] = `"7ee97699"`;
