@@ -2,10 +2,10 @@ import { cos, sin } from '../math';
 import { DEFAULT_LEAF_MASSES, type LeavesDefinition, type LeafShape, type VariationDefinition } from '../definition';
 import { leafSeasonAttribute } from '../season/profile';
 import { seedRandom } from '../random';
-import { createAttributes, writePart, type PartInfo } from './attributes';
+import { createAttributes, createLeafAttributes, leafPartGrowth, writePart, type PartInfo } from './attributes';
 import { massLeafGeometry } from './leaf-masses';
 import { leafGeometry } from './leaves';
-import type { GeometryBuffers, GrowthWindow, SkeletonLeaf, Vec3 } from './types';
+import type { GeometryBuffers, LeafGrowth, SkeletonLeaf, Vec3 } from './types';
 import { leafSway, NO_SWAY, type PartSway } from './wind';
 import { add, cross, dot, normalize, scale, sub } from './vec';
 
@@ -102,7 +102,7 @@ export function shapedLeafGeometry(
   level: number,
   seed: number,
   variation: Pick<VariationDefinition, 'season'>,
-  growth: GrowthWindow[],
+  growth: LeafGrowth[],
   branchSway: ReadonlyMap<string, PartSway>,
 ): GeometryBuffers {
   const { shape } = definition;
@@ -135,7 +135,7 @@ export function solidLeafGeometry(
   level: number,
   seed: number,
   variation: Pick<VariationDefinition, 'season'> = { season: 0 },
-  growth: GrowthWindow[] = [],
+  growth: LeafGrowth[] = [],
   branchSway: ReadonlyMap<string, PartSway> = new Map(),
 ): GeometryBuffers {
   return solidGeometry(TEMPLATES[shape], leaves, (leaf, l) => ({
@@ -144,7 +144,7 @@ export function solidLeafGeometry(
     random: seedRandom(seed, leaf.id),
     origin: leaf.position,
     season: leafSeasonAttribute(seed, variation, leaf.id),
-    growth: growth[l] ?? { start: 0, end: 0 },
+    ...leafPartGrowth(growth[l], leaf.position),
     sway: leafSway(branchSway.get(leaf.branch) ?? NO_SWAY, leaf.attach),
   }));
 }
@@ -177,12 +177,13 @@ export function solidGeometry<P extends SolidPlacement>(
   const uvs = new Float32Array(placements.length * n * 2);
   const colors = new Float32Array(placements.length * n * 3);
   const indices = new Uint32Array(placements.length * template.triangles.length * 3);
-  const attributes = createAttributes(placements.length * n);
+  const parts = placements.map((placement, l) => part(placement, l));
+  const attributes = (parts.some((info) => info.twig) ? createLeafAttributes : createAttributes)(placements.length * n);
   placements.forEach((placement, l) => {
     const side = cross(placement.normal, placement.direction); // (side, normal, direction) is right-handed, so winding is kept
     const toWorld = ([x, y, z]: Vec3): Vec3 =>
       add(add(scale(side, x), scale(placement.normal, y)), scale(placement.direction, z));
-    const info = part(placement, l);
+    const info = parts[l]!;
     for (let c = 0; c < n; c++) {
       const v = l * n + c;
       const local = template.positions[c]!;

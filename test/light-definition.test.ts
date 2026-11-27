@@ -163,10 +163,15 @@ describe('generateLightTree', () => {
       const size = full.wood.attributes[name]!.itemSize;
       expect(Array.from(light.wood.attributes[name]!.array.slice(0, size)), name).toEqual(Array.from(full.wood.attributes[name]!.array.slice(0, size)));
     }
-    // Light leaves grow within the Full leaves' Growth, and every leaf sways with flutter at its tip.
-    const fullStart = Math.min(...full.growth.leaves.map((w) => w.start));
-    for (const w of light.growth.leaves) expect(w.start).toBeGreaterThanOrEqual(fullStart);
-    expect(Math.max(...light.growth.leaves.map((w) => w.end))).toBe(Math.max(...full.growth.leaves.map((w) => w.end)));
+    // Light leaves have the Full leaves' timing: from Leaf Start (plus the same Seed/attach stagger) to Growth 1.
+    const span = (d: typeof full) => [Math.min(...d.growth.leaves.map((w) => w.start)), Math.max(...d.growth.leaves.map((w) => w.end))];
+    const stagger = oak.variation.growth * (1 - 0.1);
+    for (const w of light.growth.leaves) {
+      expect(w.start).toBeGreaterThanOrEqual(0.1);
+      expect(w.start).toBeLessThanOrEqual(0.1 + stagger + 1e-9);
+    }
+    expect(span(light)[0]).toBeCloseTo(span(full)[0]!, 1);
+    expect(span(light)[1]).toBe(span(full)[1]);
   });
 
   it('respects the lightDefinition override', () => {

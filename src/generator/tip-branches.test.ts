@@ -299,5 +299,8 @@ describe('Tip Branches in every Style', () => {
   });
 });
 
-/** Seeds 5 and 11, recorded with the generator from before Tip Branches (commit abc43a8). */
-const BEFORE_TIP_BRANCHES = ['6996ecf8', 'b4eb192d'];
+/**
+ * Seeds 5 and 11, recorded with the generator from before Tip Branches (commit abc43a8); re-recorded once
+ * when leaves rode on their twig from Leaf Start (ADR 0020, commit 9ff30a0: only the leaves' Growth attributes changed).
+ */
+const BEFORE_TIP_BRANCHES = ['483652f0', 'd72bc6fd'];

@@ -1,3 +1,3 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`generateTree > matches the golden geometry hash for the default Definition (determinism across releases) 1`] = `"018e2774"`;
+exports[`generateTree > matches the golden geometry hash for the default Definition (determinism across releases) 1`] = `"06481374"`;

@@ -49,7 +49,7 @@ The kind of bark surface a Species has, such as furrowed, smooth, papery, fibrou
 _Avoid_: Bark texture, bark style
 
 **Fruit**:
-What a tree bears on its outermost twigs after blossom, such as apples, nuts or cones; it swells, ripens and drops across Season and only appears on a fully grown tree.
+What a tree bears on its outermost twigs after blossom, such as apples, nuts or cones; it swells, ripens and drops across Season, and only appears late in Growth (from about 0.7), never before its twig is fully grown.
 _Avoid_: Produce, seeds
 
 **Fruit Type**:
@@ -115,6 +115,10 @@ _Avoid_: Inherit twist, chain twist
 **Growth**:
 How far a tree has grown, a value from 0 (sapling) to 1 (fully grown) that the app may change at any moment to animate it.
 _Avoid_: Age, progress, scale
+
+**Leaf Start**:
+The Growth at which a tree's first leaves may begin to unfold; from there leaves fill out until they are full size at Growth 1.
+_Avoid_: Leaf delay, leaf growth offset, leaf phase
 
 **Season**:
 The point in the yearly cycle, a value from 0 (first day of spring) to 1 (last day of winter), that sets a tree's leaf colour and leaf coverage.

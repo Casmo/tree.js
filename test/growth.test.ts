@@ -1,10 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { Mesh } from 'three/webgpu';
+import { Mesh, PerspectiveCamera, Scene, WebGPURenderer, WGSLNodeBuilder } from 'three/webgpu';
 import { createTree, type Tree } from '../src/index';
 
 const definition = { schemaVersion: 2 } as const;
 
 const meshes = (tree: Tree) => [tree.wood, tree.leaves] as Mesh[];
+
+/** The vertex shader (WGSL) three builds for `mesh`, without a GPU (see wind-burst-opt-in.test.ts). */
+function vertexShader(mesh: Mesh): string {
+  const canvas = { style: {}, width: 1, height: 1, addEventListener() {}, removeEventListener() {}, getContext: () => null };
+  const renderer = new WebGPURenderer({ canvas: canvas as unknown as HTMLCanvasElement });
+  (renderer as unknown as { _bindings?: unknown })._bindings = undefined;
+  (renderer.backend as unknown as { device: unknown }).device = { limits: { maxUniformBufferBindingSize: 65536 } };
+  renderer.hasFeature = () => false;
+  const builder = new (WGSLNodeBuilder as unknown as new (object: Mesh, renderer: WebGPURenderer) => { scene: Scene; camera: PerspectiveCamera; build(): void; vertexShader: string })(mesh, renderer);
+  builder.scene = new Scene();
+  builder.camera = new PerspectiveCamera();
+  builder.build();
+  return builder.vertexShader;
+}
 
 describe('Tree growth', () => {
   it('is fully grown (1) by default, and createTree takes a starting Growth', () => {
@@ -60,5 +74,13 @@ describe('Tree growth', () => {
     expect(a.growthUniform).not.toBe(b.growthUniform);
     expect(a.growthUniform.value).toBe(0.2);
     expect(b.growthUniform.value).toBe(0.9);
+  });
+
+  it('grows leaves on their twig in the shader (the leaf model) and the wood as before', () => {
+    const tree = createTree(definition, { seed: 3, growth: 0.5 });
+    expect(vertexShader(tree.leaves as Mesh)).toContain('aTwigGrowth');
+    expect(vertexShader(tree.leaves as Mesh)).toContain('aTwigOrigin');
+    expect(vertexShader(tree.wood as Mesh)).not.toContain('aTwig');
+    tree.dispose();
   });
 });

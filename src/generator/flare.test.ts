@@ -28,7 +28,7 @@ function stemOffsets(data: TreeData): number[] {
 
 const y = (g: GeometryBuffers, v: number) => g.positions[v * 3 + 1]!;
 
-/** Pre-change hashes (before Root Flare existed), seeds 7 and 42: the base ring stood on y = 0. */
+/** Pre-change hashes (before Root Flare existed), seeds 7 and 42: the base ring stood on y = 0 (Fruit re-recorded when Fruit started growing from 0.7). */
 /** Wood vertices of a Stem's sweep: its rings and tip cap, all on level 0 with the Stem's base as origin. */
 function vertexCount(data: TreeData, path: string): number {
   const [ox, oy, oz] = data.skeleton.branches.find((b) => b.path === path)!.points[0]!.position.map(Math.fround);
@@ -40,9 +40,10 @@ function vertexCount(data: TreeData, path: string): number {
   return count;
 }
 
+// The leaf hashes were re-recorded when leaves rode on their twig from Leaf Start (ADR 0020: only their Growth attributes changed).
 const BASELINE = {
-  7: { wood: '39d15aa0', leaves: '1b030d51', fruit: '6719d83f' },
-  42: { wood: 'bf0631d6', leaves: 'e2ee939d', fruit: '3e0afcd0' },
+  7: { wood: '39d15aa0', leaves: '62a7c4e9', fruit: 'f7f24dfb' },
+  42: { wood: 'bf0631d6', leaves: '7980f115', fruit: '4748d8c4' },
 } as const;
 
 describe('Root Flare: the sunk base ring', () => {

@@ -43,13 +43,14 @@ describe('Fruit placement', () => {
     expect(Math.max(...perTwig)).toBe(2);
   });
 
-  it('whole counts grow exactly the Fruit they always did (geometry hashes recorded before fractional counts, re-recorded once when the trunk base ring sank below the ground)', () => {
+  it('whole counts grow exactly the Fruit they always did (geometry hashes recorded before fractional counts, re-recorded when the trunk base ring sank below the ground and when Fruit started growing from 0.7)', () => {
+    // Re-recorded when leaves rode on their twig from Leaf Start (ADR 0020: only the leaves' Growth attributes changed).
     const golden = {
-      round: ['6181c622', '19cd87e7', '1b42f90c'],
-      pear: ['4a97c14f', '7d358b9f', '273b08eb'],
-      nut: ['0c5974f1', '82e4cda4', '348ef271'],
-      cone: ['10be874c', '4af72b6c', 'dd014a23'],
-      berry: ['bf6b2f5a', 'caac64b9', '3ed2bda8'],
+      round: ['80bfc5a6', 'c534e457', '6d031228'],
+      pear: ['c31a189b', '2ee7934f', '77d783b7'],
+      nut: ['8cc8520d', '29b6c16c', '81e8fe4d'],
+      cone: ['e38121e4', '66eeb7fc', '7384e79b'],
+      berry: ['6f45e5f2', '140ae6c9', 'f43d6430'],
     } as const;
     for (const [type, hashes] of Object.entries(golden)) {
       // Without Tip Branches (ADR 0019), which add twigs and their Fruit.
@@ -169,8 +170,12 @@ describe('Fruit and Growth', () => {
   it('a sapling or half-grown tree bears no Fruit; a fully grown tree does', () => {
     expect(largestFruit(0)).toBeCloseTo(0, 9);
     expect(largestFruit(0.5)).toBeCloseTo(0, 9);
-    expect(largestFruit(0.85)).toBeCloseTo(0, 9);
+    expect(largestFruit(0.69)).toBeCloseTo(0, 9);
     expect(largestFruit(1)).toBeGreaterThan(0.05);
+  });
+
+  it('Fruit shows from about Growth 0.7, well before the end of Growth', () => {
+    expect(largestFruit(0.85)).toBeGreaterThan(0.01);
   });
 
   it('Fruit grows only after its twig is fully grown', () => {
@@ -179,7 +184,7 @@ describe('Fruit and Growth', () => {
     expect(data.growth.fruit).toHaveLength(data.skeleton.fruit.length);
     data.skeleton.fruit.forEach((f, i) => {
       expect(data.growth.fruit[i]!.start).toBeGreaterThanOrEqual(twig.get(f.branch)!.end);
-      expect(data.growth.fruit[i]!.start).toBeGreaterThanOrEqual(0.9);
+      expect(data.growth.fruit[i]!.start).toBeGreaterThanOrEqual(0.7);
       expect(data.growth.fruit[i]!.end).toBe(1);
     });
   });

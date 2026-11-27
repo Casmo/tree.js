@@ -42,11 +42,16 @@ describe('Growth timing (per part)', () => {
     }
   });
 
-  it('brings leaves late: after their branch is grown, and not before the second half of Growth', () => {
+  it('unfolds leaves from Leaf Start (0.1 by default) to Growth 1, without waiting for their twig', () => {
     for (const leaf of leaves) {
-      expect(leaf.growth.start).toBeGreaterThanOrEqual(byPath.get(leaf.branch)!.growth.end);
-      expect(leaf.growth.start).toBeGreaterThanOrEqual(0.5);
+      expect(leaf.growth.start).toBeGreaterThanOrEqual(0.1);
+      expect(leaf.growth.end).toBe(1);
     }
+    expect(leaves.some((leaf) => leaf.growth.start < byPath.get(leaf.branch)!.growth.end)).toBe(true);
+    const late = generateTree(extendDefinition(def, { leaves: { growthStart: 0.7 } }), 3);
+    for (const w of late.growth.leaves) expect(w.start).toBeGreaterThanOrEqual(0.7);
+    // Leaf Start moves only the leaves: the branches keep their windows.
+    expect(late.growth.branches).toEqual(data.growth.branches);
   });
 
   it("lets the Seed shift timing only within the Definition's variation.growth range", () => {
@@ -89,14 +94,19 @@ describe('aGrowth attribute', () => {
 
 describe('aGrowth on solid leaf shapes', () => {
   for (const shape of ['clump', 'needle'] as const) {
-    it(`${shape}: every leaf vertex carries its leaf's (late) Growth window`, () => {
+    it(`${shape}: every leaf vertex carries its leaf's Growth window (from Leaf Start) and its twig's`, () => {
       const data = generateTree(extendDefinition(def, { leaves: { shape } }), 2);
-      const { aGrowth } = data.leaves.attributes;
+      const { aGrowth, aTwigGrowth, aTwigOrigin } = data.leaves.attributes;
       expect(aGrowth.array.length).toBe(data.leaves.positions.length);
+      expect(aTwigGrowth!.array.length).toBe((data.leaves.positions.length / 3) * 2);
+      expect(aTwigOrigin!.array.length).toBe(data.leaves.positions.length);
       for (let v = 0; v < aGrowth.array.length / 3; v++) {
-        expect(aGrowth.array[v * 3]).toBeGreaterThanOrEqual(0.5);
-        expect(aGrowth.array[v * 3 + 1]).toBeLessThanOrEqual(1);
+        expect(aGrowth.array[v * 3]).toBeGreaterThanOrEqual(0.1);
+        expect(aGrowth.array[v * 3 + 1]).toBe(1);
+        expect(aTwigGrowth!.array[v * 2]).toBeLessThanOrEqual(aTwigGrowth!.array[v * 2 + 1]!);
       }
+      // The wood carries no twig attributes.
+      expect(data.wood.attributes.aTwigGrowth).toBeUndefined();
     });
   }
 });
