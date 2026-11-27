@@ -9,6 +9,17 @@ describe('branching levels', () => {
     expect(addBranchLevel([level(5), level(3)])).toEqual([level(5), level(3), level(3)]);
   });
 
+  it('adds a level without the deepest level\'s Tip Branches, so it takes the default of its own depth', () => {
+    expect(addBranchLevel([level(5), { ...level(3), tipBranches: 2 }])).toEqual([level(5), { ...level(3), tipBranches: 2 }, level(3)]);
+  });
+
+  it('keeps each level\'s Tip Branches when a level is removed', () => {
+    expect(removeBranchLevel([level(5), { ...level(3), tipBranches: 3 }, { ...level(2), tipBranches: 0 }], 0)).toEqual([
+      { ...level(3), tipBranches: 3 },
+      { ...level(2), tipBranches: 0 },
+    ]);
+  });
+
   it('adds the default level to a bare trunk', () => {
     expect(addBranchLevel([])).toEqual([DEFAULT_BRANCH_LEVEL]);
   });

@@ -8,7 +8,7 @@ import type { GrowthTiming, GrowthWindow, LeafGrowth, SkeletonBranch, SkeletonLe
 const BRANCH_STAGGER = 0.6;
 /** Time a branch takes from sprouting to full size. */
 const BRANCH_DURATION = 1;
-// The leaf windows of the old timing (a leaf waited for its twig). Leaves no longer use them (ADR 0019),
+// The leaf windows of the old timing (a leaf waited for its twig). Leaves no longer use them (ADR 0020),
 // but the timeline is still normalised over them, so the branch windows stay exactly as they were.
 const LEAF_DELAY = 0.3;
 const LEAF_STAGGER = 0.5;
@@ -18,9 +18,9 @@ const LEAF_DURATION = 0.6;
  * When each part grows, as Growth windows (0..1) parallel to the skeleton arrays.
  *
  * Order: the trunk is there from Growth 0 (it only scales with the whole tree); a branch sprouts
- * once its parent is fully grown, lower branches first. So a branch always sprouts from a fully-grown
- * parent and never floats. Leaves don't wait for their twig: they unfold from Leaf Start and ride on
- * their twig while it sprouts (see {@link leafWindow}, ADR 0019).
+ * once its parent is fully grown, lower branches first and a Tip Branch at once. So a branch always
+ * sprouts from a fully-grown parent and never floats. Leaves don't wait for their twig: they unfold from
+ * Leaf Start and ride on their twig while it sprouts (see {@link leafWindow}, ADR 0020).
  *
  * Seed (within `variation.growth` = v): each branch's start is delayed by up to v/2 of its own window
  * (its end stays put, so the order above holds), and the whole timeline is warped by `t^k`,
@@ -36,7 +36,8 @@ export function growthTiming(
   const branchWindows = branches.map((branch) => {
     let window: GrowthWindow = { start: 0, end: 0 };
     if (branch.parent !== null) {
-      const start = raw.get(branch.parent)!.end + branch.attach * BRANCH_STAGGER;
+      // A Tip Branch carries its parent on: it sprouts as soon as the parent is grown, like a branch at its base.
+      const start = raw.get(branch.parent)!.end + (branch.tip ? 0 : branch.attach) * BRANCH_STAGGER;
       window = { start, end: start + BRANCH_DURATION };
     }
     raw.set(branch.path, window); // breadth first: parents come before children

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition, TreeDefinitionError } from '../definition';
+import { withoutTipBranches } from '../../test/definitions';
 import { generateTree, hashGeometry, hashTreeData, type GeometryBuffers, type TreeData, type Vec3 } from './index';
 
 const base = parseDefinition({
@@ -39,7 +40,7 @@ function vertexCount(data: TreeData, path: string): number {
   return count;
 }
 
-// The leaf hashes were re-recorded when leaves rode on their twig from Leaf Start (ADR 0019: only their Growth attributes changed).
+// The leaf hashes were re-recorded when leaves rode on their twig from Leaf Start (ADR 0020: only their Growth attributes changed).
 const BASELINE = {
   7: { wood: '39d15aa0', leaves: '62a7c4e9', fruit: 'f7f24dfb' },
   42: { wood: 'bf0631d6', leaves: '7980f115', fruit: '4748d8c4' },
@@ -53,7 +54,8 @@ describe('Root Flare: the sunk base ring', () => {
 
   it('only the bottom ring of each Stem changed since before the flare: it sinks 0.1 × trunk radius below the ground', () => {
     for (const seed of [7, 42] as const) {
-      const data = grow(undefined, seed);
+      // Without Tip Branches, as before them too.
+      const data = grow(undefined, seed, withoutTipBranches(base));
       expect(hashGeometry(data.leaves)).toBe(BASELINE[seed].leaves);
       expect(hashGeometry(data.fruit)).toBe(BASELINE[seed].fruit);
       const wood = structuredClone(data.wood);

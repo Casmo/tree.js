@@ -15,6 +15,7 @@ import { generateTree } from '../src/generator';
 import { growPositions } from '../src/growth';
 import { parseDefinition } from '../src/definition';
 import { installGltfExporterGlobals } from './fixtures/node-gltf';
+import { withoutTipBranches } from './definitions';
 
 // GLTFExporter writes its buffers through FileReader, which plain Node lacks (browsers have it).
 beforeAll(() => {
@@ -329,7 +330,8 @@ describe('Baked Tree: Material Features', () => {
 describe('Baked Tree: Material Features off', () => {
   // Hash (glbHash) of the .glb as exported before Material Features existed: with none set, nothing changes.
   // The two growing trees (Growth < 1) were re-recorded once when leaves started riding on their twig from
-  // Leaf Start (ADR 0019); the fully grown one is unchanged.
+  // Leaf Start (ADR 0020); the fully grown one is unchanged.
+  // Without Tip Branches (ADR 0019), which came later and add branches.
   const golden: [string, () => TreeDefinition, { seed: number; growth?: number; season?: number }, string][] = [
     ['low-poly broadleaf', () => lowPoly.broadleaf, { seed: 42, growth: 0.8, season: 0.3 }, 'd3c1b9d3a3dd5dfbce5f74a56bccfb37aaa382fdaebe2fef60b045e02c8d6d3e'],
     ['stylized broadleaf', () => stylized.broadleaf, { seed: 3, growth: 0.9, season: 0.02 }, '3721bf75189110c5f00f9f7f467167916947e4a1ffa9bd9deb152c47b0f48b80'],
@@ -337,7 +339,7 @@ describe('Baked Tree: Material Features off', () => {
   ];
   for (const [name, definition, options, hash] of golden) {
     it(`exports the same glTF as before (${name})`, async () => {
-      const tree = createTree(definition(), options);
+      const tree = createTree(withoutTipBranches(definition()), options);
       const glb = await exportBakedTree(tree, { occlusionInVertexColors: true });
       expect(glbHash(glb)).toBe(hash);
       tree.dispose();

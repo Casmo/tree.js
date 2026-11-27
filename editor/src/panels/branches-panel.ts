@@ -5,7 +5,7 @@
 import { MAX_BRANCH_LEVELS } from '@casmo/tree.js';
 import { errorMessage, fieldControl } from './controls';
 import { applyCrownShape, CROWN_SHAPES } from './crown-shapes';
-import { BRANCH_LEVEL_CURVES, BRANCH_LEVEL_FIELDS } from './fields';
+import { BRANCH_LEVEL_CURVES, branchLevelFields } from './fields';
 import { widestGap } from './keyframes';
 import { addBranchLevel, removeBranchLevel } from './levels';
 import { trackEditor } from './track-editor';
@@ -104,7 +104,7 @@ export const branchesPanel: Panel = {
         legend.append(remove);
         level.append(
           legend,
-          ...BRANCH_LEVEL_FIELDS.map((field) => fieldControl(context, field, `branches.${i}.${field.path}`)),
+          ...branchLevelFields(i).map((field) => fieldControl(context, field, `branches.${i}.${field.path}`)),
           crownShape(context, i, edit),
         );
         return level;

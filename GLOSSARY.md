@@ -80,6 +80,10 @@ _Avoid_: Moss, dirt, base colour
 The outline of a tree's branches, set by how branch length and branch angle change from the base to the tip of the parent they grow from, such as a cone, a ball, a column, a vase or a flat top.
 _Avoid_: Silhouette, profile
 
+**Tip Branch**:
+A branch that grows from the very tip of its parent (a Stem or a branch) instead of from its side, so the parent ends in a branch rather than a cut-off stump; one Tip Branch carries the parent on, two or more fork it.
+_Avoid_: Leader (that is the upper third of a Stem that Trunk gravity bends), terminal branch, continuation
+
 **Twist**:
 The smooth twists and turns a branch or Stem makes along its length, a set number of times (its Twists), in one of two Twist Styles: Snake or Corkscrew; unlike bark that spirals around a branch, a Twist moves where the branch goes.
 _Avoid_: Curve (that is a Crown Shape curve), meander, wobble, bend (that is Bend, the random jitter at every Section)

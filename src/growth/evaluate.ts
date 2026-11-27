@@ -10,7 +10,7 @@ import type { GeometryBuffers } from '../generator';
  *    (`aGrowth.xy`), so a part grows out of a point on its (already grown) parent;
  * 3. size: scale the whole tree about its base (local origin) by `treeScale(g)`.
  *
- * Leaves (the buffers that carry `aTwigGrowth` and `aTwigOrigin`, ADR 0019) don't wait for their twig;
+ * Leaves (the buffers that carry `aTwigGrowth` and `aTwigOrigin`, ADR 0020) don't wait for their twig;
  * they ride on it. Instead of step 2 a leaf is
  *
  * 2a. unfolded about its own attachment point (`aOrigin`) by its size, `leafProgress(g, start, end)`

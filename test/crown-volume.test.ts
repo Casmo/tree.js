@@ -91,7 +91,7 @@ describe('Crown Volume', () => {
     const { crown, ...rest } = data;
     expect(JSON.parse(JSON.stringify(crown))).toEqual(crown);
     expect(hashTreeData({ ...rest, crown: { center: [0, 0, 0], radii: [1, 1, 1] } })).toBe(hashTreeData(data));
-    // Leaves carry the wood's attributes plus the twig they ride on (ADR 0019).
+    // Leaves carry the wood's attributes plus the twig they ride on (ADR 0020).
     expect(Object.keys(data.leaves.attributes).sort()).toEqual([...Object.keys(generateTree(definition, 9).wood.attributes), 'aTwigGrowth', 'aTwigOrigin'].sort());
   });
 

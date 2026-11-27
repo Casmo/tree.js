@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition } from '../definition';
 import { growPositions } from '../growth/evaluate';
+import { withoutTipBranches } from '../../test/definitions';
 import { generateTree, hashGeometry, hashTreeData } from './index';
 
 const plain = parseDefinition({ schemaVersion: 3, branches: [{ count: 5 }, { count: 3, start: 0.2 }] });
@@ -14,7 +15,8 @@ describe('Fruit placement', () => {
   it('grows `count` Fruit on every outermost twig and none elsewhere', () => {
     const { skeleton } = generateTree(fruiting, 7);
     const twigs = skeleton.branches.filter((b) => b.level === 2);
-    expect(twigs.length).toBe(15);
+    // 5 side branches and a Tip Branch on the trunk, each with 3 side twigs and a Tip Branch twig.
+    expect(twigs.length).toBe(24);
     expect(skeleton.fruit).toHaveLength(twigs.length * 2);
     for (const twig of twigs) expect(skeleton.fruit.filter((f) => f.branch === twig.path)).toHaveLength(2);
   });
@@ -42,7 +44,7 @@ describe('Fruit placement', () => {
   });
 
   it('whole counts grow exactly the Fruit they always did (geometry hashes recorded before fractional counts, re-recorded when the trunk base ring sank below the ground and when Fruit started growing from 0.7)', () => {
-    // Re-recorded when leaves rode on their twig from Leaf Start (ADR 0019: only the leaves' Growth attributes changed).
+    // Re-recorded when leaves rode on their twig from Leaf Start (ADR 0020: only the leaves' Growth attributes changed).
     const golden = {
       round: ['80bfc5a6', 'c534e457', '6d031228'],
       pear: ['c31a189b', '2ee7934f', '77d783b7'],
@@ -51,7 +53,8 @@ describe('Fruit placement', () => {
       berry: ['6f45e5f2', '140ae6c9', 'f43d6430'],
     } as const;
     for (const [type, hashes] of Object.entries(golden)) {
-      const definition = extendDefinition(fruiting, { fruit: { type: type as keyof typeof golden } });
+      // Without Tip Branches (ADR 0019), which add twigs and their Fruit.
+      const definition = extendDefinition(withoutTipBranches(fruiting), { fruit: { type: type as keyof typeof golden } });
       expect([1, 7, 42].map((seed) => hashTreeData(generateTree(definition, seed))), type).toEqual(hashes);
     }
   });

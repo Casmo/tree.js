@@ -34,7 +34,7 @@ export function createAttributes(vertexCount: number): TreeAttributes {
 
 /**
  * Allocates the per-vertex attributes of a leaf mesh for `vertexCount` vertices: those of
- * {@link createAttributes} plus the twig a leaf rides on (`aTwigGrowth`, `aTwigOrigin`, ADR 0019).
+ * {@link createAttributes} plus the twig a leaf rides on (`aTwigGrowth`, `aTwigOrigin`, ADR 0020).
  */
 export function createLeafAttributes(vertexCount: number): TreeAttributes {
   return {

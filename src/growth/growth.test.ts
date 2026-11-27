@@ -6,6 +6,7 @@ import { birch, oak, spruce } from '../species';
 import painterly from '../styles/painterly';
 import realistic from '../styles/realistic';
 import { growPositions, treeScale } from './index';
+import { withoutTipBranches } from '../../test/definitions';
 
 const def = parseDefinition({ schemaVersion: 2 });
 const data = generateTree(def, 4);
@@ -80,7 +81,7 @@ describe('growPositions (Growth evaluated on the CPU, twin of the TSL graph)', (
   });
 });
 
-// --- The leaf model (Leaf Start, ADR 0019): measured on grown geometry only ---------------------------
+// --- The leaf model (Leaf Start, ADR 0020): measured on grown geometry only ---------------------------
 
 type Vec = [number, number, number];
 const at = (p: ArrayLike<number>, v: number): Vec => [p[v * 3]!, p[v * 3 + 1]!, p[v * 3 + 2]!];
@@ -229,6 +230,7 @@ describe('the leaf model: leaves ride on their growing twig from Leaf Start', ()
   });
 
   it('leaves the wood exactly as before at every Growth (golden hashes of the grown wood)', () => {
+    // The painterly oak's were re-recorded when Painterly resized its trees for Tip Branches (ADR 0013).
     const golden: [string, TreeDefinition, (d: TreeDefinition, seed: number) => TreeData, string][] = [
       ['oak', realistic.apply(oak), generateTree, 'a1ecf30e'],
       ['oak light', realistic.apply(oak), generateLightTree, '5bb7b820'],
@@ -236,11 +238,12 @@ describe('the leaf model: leaves ride on their growing twig from Leaf Start', ()
       ['spruce light', realistic.apply(spruce), generateLightTree, 'd22f8d94'],
       ['birch', realistic.apply(birch), generateTree, '9483abf7'],
       ['birch light', realistic.apply(birch), generateLightTree, 'a956b5e6'],
-      ['painterly oak', painterly.apply(oak), generateTree, 'a7e46ad3'],
-      ['painterly oak light', painterly.apply(oak), generateLightTree, '2a743963'],
+      ['painterly oak', painterly.apply(oak), generateTree, '5afbf3c3'],
+      ['painterly oak light', painterly.apply(oak), generateLightTree, 'bfdbeb8'],
     ];
     for (const [name, definition, generate, hash] of golden) {
-      const data = generate(parseDefinition(definition), 7);
+      // Without Tip Branches (ADR 0019), which came later and add wood.
+      const data = generate(parseDefinition(withoutTipBranches(definition)), 7);
       let h: number | undefined;
       for (const g of [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1]) h = hashBytes(new Uint8Array(growPositions(data.wood, g).buffer), h);
       expect(h!.toString(16), name).toBe(hash);

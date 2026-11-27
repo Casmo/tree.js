@@ -34,9 +34,9 @@ describe('Growth timing (per part)', () => {
       const parent = byPath.get(branch.parent)!;
       expect(branch.growth.start).toBeGreaterThanOrEqual(parent.growth.end);
     }
-    // Without Seed timing variation, a lower sibling never starts after a higher one.
+    // Without Seed timing variation, a lower side sibling never starts after a higher one (a Tip Branch starts first, tip-branches.test.ts).
     const exact = generateTree(extendDefinition(def, { variation: { growth: 0 } }), 3);
-    const siblings = timed(exact).branches.filter((b) => b.parent === '0').sort((a, b) => a.attach - b.attach);
+    const siblings = timed(exact).branches.filter((b) => b.parent === '0' && !b.tip).sort((a, b) => a.attach - b.attach);
     for (let i = 1; i < siblings.length; i++) {
       expect(siblings[i]!.growth.start).toBeGreaterThanOrEqual(siblings[i - 1]!.growth.start);
     }

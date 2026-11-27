@@ -11,7 +11,9 @@ import {
   MAX_INNER_GLOW,
   SHADINGS,
   SPINS,
+  MAX_TIP_BRANCHES,
   TWIST_STYLES,
+  tipBranchesOf,
   type BranchLevelDefinition,
   type HexColor,
   type Keyframe,
@@ -26,6 +28,7 @@ import {
  * shows `absent` while absent; switching it to `absent` removes the field again.
  * `labels` (choice fields): the text a choice shows instead of its value, where given.
  * `hint`: a short note shown under the control (e.g. when the field applies).
+ * `tooltip`: a longer explanation shown when hovering the control.
  */
 export type Field = (
   | { kind: 'number'; path: string; label: string; min: number; max: number; step: number; absent?: number }
@@ -36,7 +39,7 @@ export type Field = (
   | { kind: 'text'; path: string; label: string }
   /** A checkbox for a boolean field. */
   | { kind: 'toggle'; path: string; label: string; absent?: boolean }
-) & { hint?: string };
+) & { hint?: string; tooltip?: string };
 
 export interface FieldGroup {
   /** Panel id (DOM id `panel-<id>`). */
@@ -218,11 +221,29 @@ export const MATERIAL_FEATURES: {
 ];
 
 /**
- * The fields of one branching level; paths relative to `branches.<i>`. The Twist group (Twist style,
- * Twist, Twists, Spin, Twist curve, Follow twist) is optional (`absent`); fields that only apply to a Corkscrew say so in a hint.
+ * The fields of branching level `index` (0 = level 1); paths relative to `branches.<index>`. Tip
+ * Branches shows the level's own default while absent (1 on levels 1-2, 0 deeper). The Twist group
+ * (Twist style, Twist, Twists, Spin, Twist curve, Follow twist) is optional (`absent`); fields that
+ * only apply to a Corkscrew say so in a hint.
  */
-export const BRANCH_LEVEL_FIELDS: Field[] = [
-  { kind: 'number', path: 'count', label: 'Count', min: 0, max: 32, step: 1 },
+export function branchLevelFields(index: number): Field[] {
+  return [
+    { kind: 'number', path: 'count', label: 'Count', min: 0, max: 32, step: 1 },
+    {
+      kind: 'number',
+      path: 'tipBranches',
+      label: 'Tip Branches',
+      min: 0,
+      max: MAX_TIP_BRANCHES,
+      step: 1,
+      absent: tipBranchesOf({}, index),
+      tooltip: 'Branches growing from the very tip of the parent: 0 = the parent ends in a stump, 1 = it carries on, 2+ = it forks.',
+    },
+    ...LEVEL_FIELDS,
+  ];
+}
+
+const LEVEL_FIELDS: Field[] = [
   { kind: 'number', path: 'start', label: 'Start', min: 0, max: 1, step: 0.01 },
   { kind: 'number', path: 'end', label: 'End', min: 0, max: 1, step: 0.01 },
   { kind: 'number', path: 'angle', label: 'Angle', min: 0, max: 180, step: 1 },

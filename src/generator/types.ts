@@ -29,6 +29,11 @@ export interface SkeletonBranch {
    * branches, leaves and Fruit roll with it. Absent (no roll) for a Snake, without Twist and for Roots.
    */
   roll?: number;
+  /**
+   * True for a Tip Branch (GLOSSARY.md): it grows from the very tip of its parent (`attach` 1) and carries
+   * it on, and sprouts as soon as its parent is grown. Absent for side branches, Stems and Roots.
+   */
+  tip?: true;
 }
 
 /**
@@ -119,7 +124,7 @@ export interface VertexAttribute {
  * (float, 0 = occluded .. 1 = open), baked on the fully grown tree with every leaf on from the depth in the
  * Crown Volume and the leaf cover above; independent of Season and of the strength (the material mixes that in).
  *
- * Leaf buffers also carry the twig each leaf rides on while it sprouts (ADR 0019): `aTwigGrowth` (vec2: the
+ * Leaf buffers also carry the twig each leaf rides on while it sprouts (ADR 0020): `aTwigGrowth` (vec2: the
  * twig's Growth window, start and end) and `aTwigOrigin` (vec3: the twig's base point, the pivot that carries
  * the leaf). A leaf's size is its own leaf curve times its twig's progress (see `growPositions`).
  */
@@ -173,7 +178,7 @@ export interface GrowthWindow {
 }
 
 /**
- * How one leaf grows (ADR 0019): its own window (from Leaf Start to Growth 1) and its twig's sprout,
+ * How one leaf grows (ADR 0020): its own window (from Leaf Start to Growth 1) and its twig's sprout,
  * which carries it: the twig's window and base point.
  */
 export interface LeafGrowth {
@@ -185,7 +190,7 @@ export interface LeafGrowth {
 /** Growth windows per part, parallel to `TreeSkeleton.branches`, `.leaves` and `.fruit`. */
 export interface GrowthTiming {
   branches: GrowthWindow[];
-  /** Each leaf's own window, from Leaf Start (plus its stagger) to Growth 1; it also rides on its twig's sprout (ADR 0019). */
+  /** Each leaf's own window, from Leaf Start (plus its stagger) to Growth 1; it also rides on its twig's sprout (ADR 0020). */
   leaves: GrowthWindow[];
   /** Fruit grows only in the last part of Growth (from about 0.7), on a fully grown twig. */
   fruit: GrowthWindow[];

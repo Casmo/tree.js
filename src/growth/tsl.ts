@@ -30,7 +30,7 @@ function leafProgress(g: Node<'float'>, start: Node<'float'>, end: Node<'float'>
  * Growth in TSL: the vertex position of a tree part at Growth `growth` (a float node, usually the
  * tree's Growth uniform; a Forest can pass a per-instance attribute instead). Same model and steps
  * as `growPositions` (see `./evaluate.ts`), driven by the Generator's `aGrowth` and `aOrigin` attributes;
- * on a geometry with `aTwigGrowth` (leaves, ADR 0019) by the leaf model, which rides on the twig. Which
+ * on a geometry with `aTwigGrowth` (leaves, ADR 0020) by the leaf model, which rides on the twig. Which
  * of the two is decided when the shader is built for a geometry, so Growth stays a single uniform.
  *
  * `position` is the input position (default `positionLocal`). To compose with other vertex effects,
