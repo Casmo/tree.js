@@ -6,9 +6,13 @@ import { framing, HERO_FRAME } from '../scripts/promo-video/timeline';
 
 describe('promo video formats', () => {
   it('has a landscape, an Instagram (Reels, 9:16) and a LinkedIn (square) resolution', () => {
-    expect(FORMATS.landscape).toEqual({ width: 1920, height: 1080, out: 'promo-video.mp4' });
-    expect(FORMATS.instagram).toEqual({ width: 1080, height: 1920, out: 'promo-video-instagram.mp4' });
-    expect(FORMATS.linkedin).toEqual({ width: 1080, height: 1080, out: 'promo-video-linkedin.mp4' });
+    expect(FORMATS.landscape).toEqual({ width: 1920, height: 1080, out: 'docs/promo/promo-video.mp4' });
+    expect(FORMATS.instagram).toEqual({ width: 1080, height: 1920, out: 'docs/promo/promo-video-instagram.mp4' });
+    expect(FORMATS.linkedin).toEqual({ width: 1080, height: 1080, out: 'docs/promo/promo-video-linkedin.mp4' });
+  });
+
+  it('writes every video to docs/promo/, the folder Git LFS tracks', () => {
+    for (const format of Object.values(FORMATS)) expect(format.out).toMatch(/^docs\/promo\/promo-video[\w-]*\.mp4$/);
   });
 
   it('picks formats from --format (landscape by default, a list or all)', () => {

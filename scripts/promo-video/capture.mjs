@@ -1,7 +1,7 @@
 // Captures the promo video (scripts/promo-video/main.ts) frame by frame into an H.264 MP4 that loops:
-//   npm run promo-video                                   # promo-video.mp4: 1920x1080, 60 fps, 30 s
-//   npm run promo-video -- --format instagram             # promo-video-instagram.mp4: 1080x1920 (9:16, Reels)
-//   npm run promo-video -- --format linkedin              # promo-video-linkedin.mp4: 1080x1080 (1:1)
+//   npm run promo-video                                   # docs/promo/promo-video.mp4: 1920x1080, 60 fps, 30 s
+//   npm run promo-video -- --format instagram             # docs/promo/promo-video-instagram.mp4: 1080x1920 (9:16, Reels)
+//   npm run promo-video -- --format linkedin              # docs/promo/promo-video-linkedin.mp4: 1080x1080 (1:1)
 //   npm run promo-video -- --format all                   # all three (or a list: --format instagram,linkedin)
 //   npm run promo-video -- --out my.mp4 --from 20 --to 26 # a part (seconds)
 //   npm run promo-video -- --stills 2,9,15,19,24,28      # PNG stills only (promo-<t>.png, promo-<format>-<t>.png), for a quick look
@@ -11,7 +11,8 @@
 // at 60 fps whatever the machine; a GPU makes it minutes instead of hours. Needs ffmpeg with libx264.
 /* global window, navigator, process, console */
 import { spawn } from 'node:child_process';
-import { resolve } from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { chromium } from '@playwright/test';
 import { createServer } from 'vite';
 import { FORMATS, parseFormats } from './formats.mjs';
@@ -65,6 +66,7 @@ try {
     } else {
       const first = Math.round(Number(option('from', 0)) * state.fps);
       const last = Math.min(state.frames, Math.round(Number(option('to', state.frames / state.fps)) * state.fps));
+      mkdirSync(dirname(out), { recursive: true });
       const ffmpeg = spawn('ffmpeg', [
         '-y', '-loglevel', 'error',
         '-f', 'image2pipe', '-framerate', String(state.fps), '-c:v', 'png', '-i', '-',
