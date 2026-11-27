@@ -1900,7 +1900,8 @@ The README's screenshots and GIFs (`docs/images/`) are rendered by `npm run read
 `README_MEDIA_PORT=<port>` when its dev server port 5198 is taken).
 The promo video (`promo-video.mp4`: a 30 s loop at 1920x1080 and 60 fps, a hero tree growing through six
 Styles, the Seasons, weather and Scene Pipelines on a turntable) is rendered frame by frame by `npm run promo-video`
-(Playwright on the GPU + ffmpeg with libx264; `-- --stills 3,15,24` for a few PNG stills, `-- --from 20 --to 26` for a
+(Playwright on the GPU + ffmpeg with libx264; `-- --format instagram` for 1080x1920 (9:16, Reels), `-- --format linkedin`
+for 1080x1080 (1:1), `-- --format all` for all three; `-- --stills 3,15,24` for a few PNG stills, `-- --from 20 --to 26` for a
 part, `-- --swiftshader` without a GPU). Open `/scripts/promo-video/?live=1` on `npm run dev` to watch it play live.
 Design decisions live in [`docs/adr`](docs/adr), the vocabulary in [`GLOSSARY.md`](GLOSSARY.md).
 

@@ -1,4 +1,4 @@
-// The promo video: a 30 second loop at 1920x1080 / 60 fps, captured frame by frame by
+// The promo video: a 30 second loop at 60 fps (1920x1080, or the viewport's size and aspect ratio), captured frame by frame by
 // scripts/promo-video/capture.mjs (or played live in a browser).
 // One hero tree in the centre on a turntable, a fixed camera, and a backdrop that only sets the mood
 // (a ring of Forest trees, a ground disc, weather particles). Six acts, each a Style with its own
@@ -48,6 +48,7 @@ import {
   FPS,
   FRAMES,
   envelope,
+  framing,
   loopTime,
   ripple,
   sample,
@@ -288,7 +289,7 @@ interface Particles {
   update(t: number, amount: number): void;
 }
 
-function createParticles(kind: keyof typeof PARTICLES, group: THREE.Group): Particles {
+function createParticles(kind: keyof typeof PARTICLES, group: THREE.Group, top: number): Particles {
   const spec = PARTICLES[kind];
   const random = createRandom(kind.length * 977 + kind.charCodeAt(0));
   const count = kind === 'rain' ? 900 : kind === 'fireflies' ? 90 : 420;
@@ -331,7 +332,6 @@ function createParticles(kind: keyof typeof PARTICLES, group: THREE.Group): Part
   const position = new THREE.Vector3();
   const quaternion = new THREE.Quaternion();
   const scale = new THREE.Vector3();
-  const top = 12;
   const fall = { petals: 0.9, rain: 16, leaves: 1.3, snow: 1.1, confetti: 1.6, fireflies: 0 }[kind];
   group.add(mesh);
   return {
@@ -413,10 +413,12 @@ async function main(): Promise<void> {
   sun.shadow.normalBias = 0.02;
   scene.add(sun);
 
-  // Fixed camera: a little below the crown centre, so the trees tower a bit.
-  const camera = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, 0.1, 400);
-  camera.position.set(0, 3.1, 16.5);
-  camera.lookAt(0, 3.75, 0);
+  // Fixed camera: a little below the crown centre, so the trees tower a bit (a wider view in a
+  // square or portrait frame, so the hero still fits: see framing()).
+  const frame = framing(innerWidth / innerHeight);
+  const camera = new THREE.PerspectiveCamera(frame.fov, innerWidth / innerHeight, 0.1, 400);
+  camera.position.set(...frame.position);
+  camera.lookAt(...frame.target);
 
   // The world turns; the camera and the sun don't.
   const world = new THREE.Group();
@@ -455,7 +457,7 @@ async function main(): Promise<void> {
   // The backdrop sways with a Wind of its own that has no Wind Bursts (those are for the hero).
   const ringWind = new Wind();
   const rings = ACTS.map((act) => createRing(act, world, ringWind));
-  const particles = (Object.keys(PARTICLES) as (keyof typeof PARTICLES)[]).map((kind) => createParticles(kind, world));
+  const particles = (Object.keys(PARTICLES) as (keyof typeof PARTICLES)[]).map((kind) => createParticles(kind, world, frame.particleTop));
   await Promise.all([...heroes.map(({ tree }) => tree.ready), ...rings.flatMap((ring) => ring.forests.map(({ forest }) => forest.ready))]);
 
   const pipeline: ScenePipeline = createScenePipeline(renderer, scene, camera, { style: 'stylized', sun });

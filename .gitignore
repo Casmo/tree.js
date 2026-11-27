@@ -6,5 +6,5 @@ test-results/
 species-renders/
 
 # Promo video output (npm run promo-video)
-/promo-video.mp4
+/promo-video*.mp4
 /promo-*.png

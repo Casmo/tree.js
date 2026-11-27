@@ -113,3 +113,29 @@ export function turntable(speed: (t: number) => number, duration = DURATION, ste
 
 /** Wraps a time into the loop, [0, DURATION). */
 export const loopTime = (t: number, duration = DURATION): number => ((t % duration) + duration) % duration;
+
+/**
+ * What the camera must show of the hero tree at its distance, whatever the aspect ratio (m): the
+ * hero is at most 8 m tall and 11 m wide (scripts/promo-video/main.ts), with a little room around.
+ */
+export const HERO_FRAME = { width: 12, height: 10.5 };
+
+/** The camera of the landscape (16:9) video. */
+const CAMERA = { fov: 36, position: [0, 3.1, 16.5] as [number, number, number], target: [0, 3.75, 0] as [number, number, number] };
+
+/**
+ * The fixed camera for a viewport aspect ratio (width / height): the landscape camera, with a wider
+ * (vertical) field of view where the frame is too narrow for the hero tree (square, portrait).
+ * `particleTop` is the height weather particles fall from: above the top of the frame.
+ */
+export function framing(aspect: number): { fov: number; position: [number, number, number]; target: [number, number, number]; particleTop: number } {
+  const [, y, z] = CAMERA.position;
+  const distance = Math.hypot(y - CAMERA.target[1], z - CAMERA.target[2]);
+  const base = Math.tan((CAMERA.fov * Math.PI) / 360);
+  const needed = Math.max(HERO_FRAME.height / 2, HERO_FRAME.width / 2 / aspect) / distance;
+  const tanHalf = Math.max(base, needed);
+  const fov = tanHalf === base ? CAMERA.fov : (360 / Math.PI) * Math.atan(tanHalf);
+  // Particles out to 8 m behind the hero still start above the frame.
+  const particleTop = Math.max(12, Math.ceil(CAMERA.target[1] + (distance + 8) * tanHalf));
+  return { fov, position: [...CAMERA.position], target: [...CAMERA.target], particleTop };
+}
