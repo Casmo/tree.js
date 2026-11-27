@@ -190,10 +190,10 @@ describe('Definition defaults', () => {
   it("keeps a branch level's optional Tip Branches: absent stays absent and means 1 on every branch level (ADR 0021)", () => {
     const def = parseDefinition({ schemaVersion: 3, branches: [{}, {}, {}, {}] });
     for (const level of def.branches) expect('tipBranches' in level).toBe(false);
-    expect(def.branches.map((level, i) => tipBranchesOf(level, i))).toEqual([1, 1, 1, 1]);
+    expect(def.branches.map((level) => tipBranchesOf(level))).toEqual([1, 1, 1, 1]);
     const given = parseDefinition({ schemaVersion: 3, branches: [{ tipBranches: 0 }, { tipBranches: 4 }, { tipBranches: 2 }, { tipBranches: 3 }] });
     expect(given.branches.map((level) => level.tipBranches)).toEqual([0, 4, 2, 3]);
-    expect(given.branches.map((level, i) => tipBranchesOf(level, i))).toEqual([0, 4, 2, 3]);
+    expect(given.branches.map((level) => tipBranchesOf(level))).toEqual([0, 4, 2, 3]);
     // Exports keep writing a value once it is set.
     expect(parseDefinition(JSON.parse(JSON.stringify(given)))).toEqual(given);
   });

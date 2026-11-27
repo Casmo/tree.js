@@ -47,7 +47,7 @@ function buildBranches(
     const parent = queue[q]!;
     const level = definition.branches[parent.level];
     if (!level) continue;
-    const children = growChildren(parent, level, parent.level, random, corkscrews);
+    const children = growChildren(parent, level, random, corkscrews);
     out.push(...children);
     queue.push(...children);
   }
@@ -59,17 +59,16 @@ const crownShape = (curve: BranchLevelDefinition['lengthProfile'], t: number) =>
 
 /**
  * Grows one parent's children: first its `count` side branches spread between the level's `start` and
- * `end`, then its Tip Branches at the very tip (starting just inside it), at the paths after them (`<parent>.<count>`, ...), so
- * turning Tip Branches on or off never moves a side branch or shifts its draws (ADR 0003, ADR 0019).
- * The Crown Shape curves (`lengthProfile`, `angleProfile`) scale each child's length and angle by where
- * it sits on the parent (ADR 0004); a Tip Branch sits at `t` = 1. Each Corkscrew child's phase goes into
- * `corkscrews` under its path, so its own children can follow it (Follow Twist). `levelIndex` is where
- * `level` sits in the Definition's `branches` (the parent's level), for its default Tip Branches (ADR 0021).
+ * `end`, then its Tip Branches at the very tip (starting just inside it, ADR 0021), at the paths after
+ * them (`<parent>.<count>`, ...), so turning Tip Branches on or off never moves a side branch or shifts
+ * its draws (ADR 0003, ADR 0019). The Crown Shape curves (`lengthProfile`, `angleProfile`) scale each
+ * child's length and angle by where it sits on the parent (ADR 0004); a Tip Branch sits at `t` = 1. Each
+ * Corkscrew child's phase goes into `corkscrews` under its path, so its own children can follow it
+ * (Follow Twist).
  */
 function growChildren(
   parent: SkeletonBranch,
   level: BranchLevelDefinition,
-  levelIndex: number,
   random: Random,
   corkscrews: Map<string, CorkscrewAlong>,
 ): SkeletonBranch[] {
@@ -96,7 +95,7 @@ function growChildren(
   }
 
   // One Tip Branch carries the parent on; 2-4 fork it.
-  const tips = tipBranchesOf(level, levelIndex);
+  const tips = tipBranchesOf(level);
   if (tips === 0) return children;
   const at = sunkTipOf(parent, frames);
   const turn = parentRandom.range(0, Math.PI * 2);
@@ -125,11 +124,13 @@ function sunkTipOf(parent: SkeletonBranch, frames: Frame[]): BranchSample {
   const last = parent.points[parent.points.length - 1]!;
   const before = parent.points[parent.points.length - 2] ?? last;
   const section = length(sub(last.position, before.position));
-  const f = section > 0 ? Math.min(last.radius, section) / section : 0;
+  const sinkDepth = Math.min(last.radius, section);
+  // How far back along the last section that is, from its tip end (0) to its start (1).
+  const backFraction = section > 0 ? sinkDepth / section : 0;
   return {
     ...sampleBranch(parent, frames, 1),
-    position: lerp(last.position, before.position, f),
-    radius: last.radius + (before.radius - last.radius) * f,
+    position: lerp(last.position, before.position, backFraction),
+    radius: last.radius + (before.radius - last.radius) * backFraction,
   };
 }
 

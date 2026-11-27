@@ -62,8 +62,8 @@ test('every Definition field can be edited and the preview regenerates', async (
   let { definition, treeId } = await waitForEditor(page);
   const fields = [
     ...PARAMETER_GROUPS.flatMap((group) => group.fields.map((field) => [field, field.path] as const)),
-    ...branchLevelFields(0).map((field) => [field, `branches.0.${field.path}`] as const),
-    ...branchLevelFields(1).map((field) => [field, `branches.1.${field.path}`] as const),
+    ...branchLevelFields().map((field) => [field, `branches.0.${field.path}`] as const),
+    ...branchLevelFields().map((field) => [field, `branches.1.${field.path}`] as const),
     [{ kind: 'color', path: 'season.blossomColor', label: '' } as Field, 'season.blossomColor'] as const,
   ];
   for (const [field, path] of fields) {

@@ -185,13 +185,8 @@ export const MAX_TIP_BRANCHES = 4;
 /** The Tip Branches of a branch level whose `tipBranches` is absent, on every level (ADR 0021). */
 const DEFAULT_TIP_BRANCHES = 1;
 
-/**
- * The Tip Branches of `level`, the `index`-th branch level (0 = `branches[0]`, growing from the Stems):
- * its `tipBranches`, or when absent 1 on every level (ADR 0021). `index` is kept so the default can
- * depend on the depth again without changing callers.
- */
-export function tipBranchesOf(level: Pick<BranchLevelDefinition, 'tipBranches'>, index: number): number {
-  void index;
+/** The Tip Branches of a branch `level`: its `tipBranches`, or when absent 1 on every level (ADR 0021). */
+export function tipBranchesOf(level: Pick<BranchLevelDefinition, 'tipBranches'>): number {
   return level.tipBranches ?? DEFAULT_TIP_BRANCHES;
 }
 

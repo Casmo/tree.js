@@ -3,7 +3,8 @@ import { extendDefinition, parseDefinition, type DefinitionPatch } from '../defi
 import { oak } from '../species';
 import { loadStyle, STYLE_NAMES } from '../styles/registry';
 import { angleBetween, carried, segments, sideAt, turnAbout, unit, sub } from '../../test/branch-geometry';
-import { generateTree, hashTreeData, type SkeletonBranch, type TreeData, type Vec3 } from './index';
+import { generateTree, hashTreeData, type SkeletonBranch, type TreeData } from './index';
+import { length } from './vec';
 
 // Both levels grow Tip Branches by default (ADR 0021); level 2 is the outermost, so its twigs have none.
 const base = parseDefinition({ schemaVersion: 3, branches: [{ count: 4 }, { count: 2 }], leaves: { count: 3 } });
@@ -11,24 +12,27 @@ const grow = (patch: DefinitionPatch = {}, seed = 5) => generateTree(extendDefin
 const byPath = (data: TreeData) => new Map(data.skeleton.branches.map((b) => [b.path, b]));
 const last = (b: SkeletonBranch) => b.points[b.points.length - 1]!;
 const levels = (...tipBranches: number[]) => base.branches.map((level, i) => ({ ...level, tipBranches: tipBranches[i] ?? 0 }));
-const distance = (a: Vec3, b: Vec3) => Math.hypot(...sub(a, b));
 
 /**
- * Expects `tip` to start inside `parent` (ADR 0021's joint): its first point on the parent's last section,
- * the parent's tip radius back from its tip (or that section's start, when the section is shorter), and as
- * thick as the parent there. Returns whether the section was shorter than the tip radius (clamped).
+ * Expects `tip` to start inside `parent` (ADR 0021's joint): its first point on the centre line of the parent's
+ * last section, min(the parent's tip radius, that section's length) back from the tip, and as thick as the
+ * parent there (between the radii of the section's two ends). Returns whether the section was shorter than the
+ * tip radius (clamped).
  */
 function expectSunk(tip: SkeletonBranch, parent: SkeletonBranch): boolean {
   const end = last(parent);
   const before = parent.points[parent.points.length - 2]!;
-  const section = distance(end.position, before.position);
-  const back = distance(tip.points[0]!.position, end.position);
+  const first = tip.points[0]!;
+  const section = length(sub(end.position, before.position));
+  const sinkDepth = length(sub(first.position, end.position));
+  const fromStart = length(sub(first.position, before.position));
   // On the centre line: the first point lies on the straight last section, between its start and the tip.
-  expect(back + distance(tip.points[0]!.position, before.position), tip.path).toBeCloseTo(section, 9);
-  expect(back, tip.path).toBeCloseTo(Math.min(end.radius, section), 9);
-  // As thick as the parent where it starts, between the section's two radii.
-  const f = section > 0 ? back / section : 0;
-  expect(tip.points[0]!.radius, tip.path).toBeCloseTo(end.radius + (before.radius - end.radius) * f, 9);
+  expect(sinkDepth + fromStart, tip.path).toBeCloseTo(section, 9);
+  expect(sinkDepth, tip.path).toBeCloseTo(Math.min(end.radius, section), 9);
+  // As thick as the parent there: between the section's two end radii, which the section tapers linearly.
+  expect(first.radius, tip.path).toBeGreaterThanOrEqual(Math.min(end.radius, before.radius) - 1e-12);
+  expect(first.radius, tip.path).toBeLessThanOrEqual(Math.max(end.radius, before.radius) + 1e-12);
+  if (section > 0) expect(first.radius, tip.path).toBeCloseTo(before.radius + ((end.radius - before.radius) * fromStart) / section, 9);
   return end.radius > section;
 }
 
@@ -73,9 +77,10 @@ describe('Tip Branches', () => {
       for (const twig of branches.filter((b) => b.level === 4)) expect(branches.some((b) => b.parent === twig.path), twig.path).toBe(false);
     }
     // Explicit values win: 0 leaves a stump, 2 forks, on the deep levels as well.
-    const set = generateTree(extendDefinition(deep, { branches: deep.branches.map((level, i) => ({ ...level, tipBranches: [1, 2, 0, 3][i] })) }), 5).skeleton.branches;
+    const explicit = [1, 2, 0, 3];
+    const set = generateTree(extendDefinition(deep, { branches: deep.branches.map((level, i) => ({ ...level, tipBranches: explicit[i] })) }), 5).skeleton.branches;
     for (const parent of set.filter((b) => b.level < 4)) {
-      expect(set.filter((b) => b.parent === parent.path && b.tip), parent.path).toHaveLength([1, 2, 0, 3][parent.level]!);
+      expect(set.filter((b) => b.parent === parent.path && b.tip), parent.path).toHaveLength(explicit[parent.level]!);
     }
   });
 
@@ -222,6 +227,21 @@ describe('Tip Branches', () => {
     // Deleting the trunk's Tip Branch takes it and its twigs away, and nothing else.
     const pruned = grow({ sculpts: [{ seed: 5, path: '0.4', action: 'delete' }] }).skeleton.branches;
     expect(pruned).toEqual(data.skeleton.branches.filter((b) => b.path !== '0.4' && !b.path.startsWith('0.4.')));
+  });
+
+  it('turn about their sunk first point when Sculpted: it stays inside the parent, the rest of the branch moves', () => {
+    const turn = { seed: 5, path: '0.4', action: 'move' as const, rotation: [0.4, 0, -0.3] as [number, number, number], scale: 1 };
+    const still = byPath(grow({}, 5));
+    const moved = byPath(grow({ sculpts: [turn] }, 5));
+    const [was, now] = [still.get('0.4')!, moved.get('0.4')!];
+    expect(now.points[0]).toEqual(was.points[0]);
+    expectSunk(now, moved.get('0')!);
+    for (let i = 1; i < was.points.length; i++) {
+      // Rotated about the first point: as far from it as before, but somewhere else.
+      const reach = (b: SkeletonBranch) => length(sub(b.points[i]!.position, b.points[0]!.position));
+      expect(reach(now), `point ${i}`).toBeCloseTo(reach(was), 9);
+      expect(length(sub(now.points[i]!.position, was.points[i]!.position)), `point ${i}`).toBeGreaterThan(1e-3);
+    }
   });
 
   it("start growing when their parent is fully grown, as a side branch at its base would", () => {

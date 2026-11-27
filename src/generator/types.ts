@@ -32,7 +32,8 @@ export interface SkeletonBranch {
   /**
    * True for a Tip Branch (GLOSSARY.md): it grows from the very tip of its parent (`attach` 1) and carries
    * it on, and sprouts as soon as its parent is grown. Its first point sits a little inside the parent, the
-   * parent's tip radius back along its centre line (at most its last section), so the joint shows no gap (ADR 0021). Absent for side branches, Stems and Roots.
+   * parent's tip radius back along its centre line (at most its last section), so the joint shows no gap
+   * (ADR 0021). Absent for side branches, Stems and Roots.
    */
   tip?: true;
 }

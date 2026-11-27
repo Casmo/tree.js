@@ -1,5 +1,5 @@
 ---
-status: superseded by ADR-0021 (which levels default to 1)
+status: superseded by ADR 0021 (which levels default to 1)
 ---
 
 # Tip Branches are on by default, also for saved Tree Definitions
