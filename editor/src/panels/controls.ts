@@ -272,9 +272,10 @@ export function definitionUrl(context: PanelContext, path: string, label: string
   });
 }
 
-/** The control for one entry of the field table (`fields.ts`) with its hint, if any; `path` overrides the field's own path. */
+/** The control for one entry of the field table (`fields.ts`) with its hint and tooltip, if any; `path` overrides the field's own path. */
 export function fieldControl(context: PanelContext, field: Field, path = field.path): HTMLElement {
   const row = bareFieldControl(context, field, path);
+  if (field.tooltip) row.title = field.tooltip;
   if (field.hint) {
     const hint = document.createElement('small');
     hint.className = 'hint';

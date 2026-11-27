@@ -29,6 +29,11 @@ export interface SkeletonBranch {
    * branches, leaves and Fruit roll with it. Absent (no roll) for a Snake, without Twist and for Roots.
    */
   roll?: number;
+  /**
+   * True for a Tip Branch (GLOSSARY.md): it grows from the very tip of its parent (`attach` 1) and carries
+   * it on, and sprouts as soon as its parent is grown. Absent for side branches, Stems and Roots.
+   */
+  tip?: true;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition, TreeDefinitionError } from '../definition';
+import { withoutTipBranches } from '../../test/definitions';
 import { generateTree, hashGeometry, hashTreeData, type GeometryBuffers, type TreeData, type Vec3 } from './index';
 
 const base = parseDefinition({
@@ -52,7 +53,8 @@ describe('Root Flare: the sunk base ring', () => {
 
   it('only the bottom ring of each Stem changed since before the flare: it sinks 0.1 × trunk radius below the ground', () => {
     for (const seed of [7, 42] as const) {
-      const data = grow(undefined, seed);
+      // Without Tip Branches, as before them too.
+      const data = grow(undefined, seed, withoutTipBranches(base));
       expect(hashGeometry(data.leaves)).toBe(BASELINE[seed].leaves);
       expect(hashGeometry(data.fruit)).toBe(BASELINE[seed].fruit);
       const wood = structuredClone(data.wood);

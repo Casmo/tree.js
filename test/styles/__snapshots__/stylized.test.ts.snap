@@ -1,5 +1,5 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`stylized Style (dynamic import of the /styles/stylized subpath) > broadleaf: matches the golden geometry hash (determinism across releases) 1`] = `"3a1c929a"`;
+exports[`stylized Style (dynamic import of the /styles/stylized subpath) > broadleaf: matches the golden geometry hash (determinism across releases) 1`] = `"f8bab2b4"`;
 
-exports[`stylized Style (dynamic import of the /styles/stylized subpath) > conifer: matches the golden geometry hash (determinism across releases) 1`] = `"580ca620"`;
+exports[`stylized Style (dynamic import of the /styles/stylized subpath) > conifer: matches the golden geometry hash (determinism across releases) 1`] = `"e67483c0"`;

@@ -8,9 +8,9 @@ import { generateTree } from '../../generator';
 
 /**
  * Real heights (metres, see {@link treeHeight}) of the lowest and the tallest Species in the catalogue
- * (peach and redwood), drawn in Painterly before scaling. A test keeps them in step with the Species.
+ * (juniper and redwood, with their Tip Branches), drawn in Painterly before scaling. A test keeps them in step with the Species.
  */
-export const CATALOGUE_HEIGHTS = { min: 4.58, max: 15.42 } as const;
+export const CATALOGUE_HEIGHTS = { min: 5.45, max: 16.22 } as const;
 
 /**
  * Where the catalogue's real heights land. Inside 2-4 m by the Seed's variation of a tree's height

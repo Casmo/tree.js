@@ -123,8 +123,16 @@ export interface TrunkDefinition extends TwistSettings {
  * level-1 branches, and so on (at most {@link MAX_BRANCH_LEVELS} levels).
  */
 export interface BranchLevelDefinition extends TwistSettings {
-  /** Child branches per parent branch (integer >= 0). */
+  /** Side branches per parent branch (integer >= 0); the level's Tip Branches come on top of these. */
   count: number;
+  /**
+   * Tip Branches (GLOSSARY.md): how many of this level's branches grow from the very tip of each parent
+   * (a Stem or a branch) instead of from its side, integer 0..{@link MAX_TIP_BRANCHES}. 0 leaves the
+   * parent ending in a stump, 1 carries it on. They take the paths after the side branches
+   * (`<parent>.<count>`, ...), so side branches never move (ADR 0003). Absent = 1 on branch levels 1
+   * and 2, 0 deeper (ADR 0019); read it with {@link tipBranchesOf}.
+   */
+  tipBranches?: number;
   /** Where along the parent children start, as a fraction of the parent length (0..1). */
   start: number;
   /** Where along the parent children stop, as a fraction of the parent length (0..1, >= start). */
@@ -170,6 +178,20 @@ export interface BranchLevelDefinition extends TwistSettings {
 
 /** Maximum number of branching levels below the trunk. */
 export const MAX_BRANCH_LEVELS = 4;
+
+/** Most Tip Branches a branch level can grow on each parent. */
+export const MAX_TIP_BRANCHES = 4;
+
+/** Branch levels (from the first) whose absent `tipBranches` means 1; deeper levels default to 0 (ADR 0019). */
+const TIP_BRANCH_DEFAULT_LEVELS = 2;
+
+/**
+ * The Tip Branches of `level`, the `index`-th branch level (0 = `branches[0]`, growing from the Stems):
+ * its `tipBranches`, or when absent 1 on the first two levels and 0 deeper (ADR 0019).
+ */
+export function tipBranchesOf(level: Pick<BranchLevelDefinition, 'tipBranches'>, index: number): number {
+  return level.tipBranches ?? (index < TIP_BRANCH_DEFAULT_LEVELS ? 1 : 0);
+}
 
 /**
  * How a leaf is drawn: a flat card, a faceted clump of foliage, a needle cluster, a puff

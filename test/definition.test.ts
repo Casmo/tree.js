@@ -14,8 +14,10 @@ import {
   fetchDefinition,
   parseDefinition,
   TreeDefinitionError,
+  tipBranchesOf,
   type TreeDefinitionInput,
 } from '../src/index';
+import { withoutTipBranches } from './definitions';
 
 const fixture = (name: string): unknown =>
   JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'));
@@ -94,6 +96,7 @@ describe('Definition migration', () => {
 
   // Golden hashes recorded with the v2 generator (special-cased `form: 'conifer'`) before the migration existed;
   // re-recorded once when the trunk's base ring sank below the ground (ADR 0007: only that ring changed).
+  // Tip Branches (ADR 0019) add branches to these trees; turned off, the trees are exactly as before.
   const before = {
     broadleaf: { 1: '376931fb', 7: '37e4b84b', 42: '66fa5e97' },
     conifer: { 1: 'd7549c0d', 7: '00a6864a', 42: '72b65ae6' },
@@ -102,7 +105,7 @@ describe('Definition migration', () => {
     it(`a migrated v2 ${form} grows exactly the same tree as before (geometry hash)`, () => {
       const def = parseDefinition(fixture(`definition-v2-${form}.json`));
       for (const [seed, hash] of Object.entries(hashes)) {
-        expect(hashTreeData(generateTree(def, Number(seed)))).toBe(hash);
+        expect(hashTreeData(generateTree(withoutTipBranches(def), Number(seed)))).toBe(hash);
       }
     });
   }
@@ -165,6 +168,17 @@ describe('Definition defaults', () => {
     expect([def.branches[1]!.followTwist, def.branches[2]!.followTwist]).toEqual([true, false]);
   });
 
+  it("keeps a branch level's optional Tip Branches: absent stays absent and means 1 on levels 1-2, 0 deeper (ADR 0019)", () => {
+    const def = parseDefinition({ schemaVersion: 3, branches: [{}, {}, {}, {}] });
+    for (const level of def.branches) expect('tipBranches' in level).toBe(false);
+    expect(def.branches.map((level, i) => tipBranchesOf(level, i))).toEqual([1, 1, 0, 0]);
+    const given = parseDefinition({ schemaVersion: 3, branches: [{ tipBranches: 0 }, { tipBranches: 4 }, { tipBranches: 2 }, { tipBranches: 3 }] });
+    expect(given.branches.map((level) => level.tipBranches)).toEqual([0, 4, 2, 3]);
+    expect(given.branches.map((level, i) => tipBranchesOf(level, i))).toEqual([0, 4, 2, 3]);
+    // Exports keep writing a value once it is set.
+    expect(parseDefinition(JSON.parse(JSON.stringify(given)))).toEqual(given);
+  });
+
   it('never returns objects shared with the defaults or the input', () => {
     const input = { schemaVersion: 2, trunk: { length: 3 } };
     const def = parseDefinition(input);
@@ -224,6 +238,10 @@ describe('Definition validation names the bad field', () => {
     ['branch Twist Curve below 0', { schemaVersion: 3, branches: [{}, { twistCurve: -0.1 }] }, 'branches[1].twistCurve'],
     ['branch Follow Twist not a boolean', { schemaVersion: 3, branches: [{}, { followTwist: 'yes' }] }, 'branches[1].followTwist'],
     ['branch Follow Twist as a number', { schemaVersion: 3, branches: [{ followTwist: 1 }] }, 'branches[0].followTwist'],
+    ['Tip Branches negative', { schemaVersion: 3, branches: [{ tipBranches: -1 }] }, 'branches[0].tipBranches'],
+    ['Tip Branches above 4', { schemaVersion: 3, branches: [{}, { tipBranches: 5 }] }, 'branches[1].tipBranches'],
+    ['Tip Branches not an integer', { schemaVersion: 3, branches: [{ tipBranches: 1.5 }] }, 'branches[0].tipBranches'],
+    ['Tip Branches on the trunk', { schemaVersion: 3, trunk: { tipBranches: 1 } }, 'trunk.tipBranches'],
     ['Follow Twist on the trunk', { schemaVersion: 3, trunk: { followTwist: true } }, 'trunk.followTwist'],
     ['trunk twist above 1', { schemaVersion: 3, trunk: { twist: 1.2 } }, 'trunk.twist'],
     ['trunk twist below 0', { schemaVersion: 3, trunk: { twist: -0.1 } }, 'trunk.twist'],

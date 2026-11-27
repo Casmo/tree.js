@@ -156,7 +156,8 @@ describe('branching skeleton', () => {
       for (const parent of skeleton.branches) {
         const level = three.branches[parent.level];
         if (!level) continue;
-        const children = skeleton.branches.filter((b) => b.parent === parent.path);
+        // Side branches; the Tip Branches have their own rules (tip-branches.test.ts).
+        const children = skeleton.branches.filter((b) => b.parent === parent.path && !b.tip);
         expect(children).toHaveLength(level.count);
         for (const child of children) {
           expect(child.attach).toBeGreaterThanOrEqual(level.start);
@@ -382,7 +383,8 @@ describe('Crown Shape curves', () => {
   const level = { count: 12, start: 0.1, end: 0.95, angle: 60, lengthVariation: 0, angleVariation: 0, bend: 0 };
   const grow = (branch: Record<string, unknown> = {}, seed = 4) =>
     generateTree(parseDefinition({ schemaVersion: 3, trunk: { bend: 0 }, branches: [{ ...level, ...branch }] }), seed);
-  const firstLevel = (data: ReturnType<typeof generateTree>) => data.skeleton.branches.filter((b) => b.level === 1);
+  /** The trunk's side branches (its Tip Branch is not spread along it, see tip-branches.test.ts). */
+  const firstLevel = (data: ReturnType<typeof generateTree>) => data.skeleton.branches.filter((b) => b.level === 1 && !b.tip);
   const DEG = 180 / Math.PI;
   /** Angle between a branch and the (straight, vertical) trunk, degrees. */
   const angleOf = (b: SkeletonBranch) => Math.acos(b.direction[1]) * DEG;

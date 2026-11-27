@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { hashTreeData, parseDefinition, type SpeciesDefinition, type TreeData } from '../../src/index';
 import { generateTree } from '../../src/generator';
+import { withoutTipBranches } from '../definitions';
 import * as collection from '../../src/species';
 import lowPoly from '../../src/styles/low-poly';
 import stylized from '../../src/styles/stylized';
@@ -43,6 +44,13 @@ describe('the Species collection', () => {
 
     it(`${id}: loadSpecies('${id}') resolves to the named export`, async () => {
       expect(await loadSpecies(id)).toEqual(json(id));
+    });
+
+    it(`${id}: takes the per-level default Tip Branches in every Style, setting none of its own (ADR 0019)`, () => {
+      expect(json(id).branches.map((level) => level.tipBranches)).toEqual(json(id).branches.map(() => undefined));
+      for (const style of Object.values(styles)) {
+        expect(style.apply(json(id)).branches.map((level) => level.tipBranches), id).toEqual(json(id).branches.map(() => undefined));
+      }
     });
   }
 
@@ -113,6 +121,14 @@ describe('the Species collection', () => {
  * Per Style: triangles of its own generic broadleaf / conifer (the larger), at the test Seeds, given a
  * Root Flare and Roots like every Species has (the generic trees have neither; the flare's extra trunk rings
  * and the Roots are not crown detail). The Roots are a light-tier Species' (apple's), in the Style's own detail.
+ *
+ * Tip Branches (ADR 0019) are counted in two steps. Measured as shipped on both sides, 68 of the 168 Species /
+ * Style pairs are over +50% (olive in stylized 2.41×, almond 2.19×, oak 2.14×): a default Tip Branch adds one
+ * branch per parent on levels 1-2, which is ×(count + 1) / count per level, so it costs a Species with few
+ * branches per level (olive ×1.83) far more than a Style's many-branched generic trees (×1.04-1.43). Species are
+ * not re-tuned for that (spec #147), so the +50% holds for what the Species author sets, the trees with Tip
+ * Branches off on both sides (at most 1.48× now); and the shipped tree may add at most TIP_BRANCH_COST to it.
+ * Every Species takes the per-level default (checked above), so a Species can't buy Tip Branches past it.
  */
 const withFlareAndRoots = <T extends { trunk: object }>(d: T, style: (typeof styles)[keyof typeof styles]): T => ({
   ...d,
@@ -129,11 +145,13 @@ const ownTriangles = Object.fromEntries(
     name,
     Math.max(
       ...[style.broadleaf, style.conifer].flatMap((d) =>
-        SEEDS.map((seed) => triangles(generateTree(parseDefinition(withFlareAndRoots(d, style)), seed))),
+        SEEDS.map((seed) => triangles(generateTree(parseDefinition(withoutTipBranches(withFlareAndRoots(d, style))), seed))),
       ),
     ),
   ]),
 );
+/** How much the default Tip Branches may add to a Species' tree (measured: at most ×1.83, olive). */
+const TIP_BRANCH_COST = 2;
 const styleTriangles = Object.fromEntries(Object.keys(styles).map((name) => [name, ownTriangles[BUDGET_OF[name] ?? name]!]));
 
 describe.each(SPECIES_NAMES)('Species %s in every Style', (id) => {
@@ -153,9 +171,11 @@ describe.each(SPECIES_NAMES)('Species %s in every Style', (id) => {
         await expect(JSON.stringify({ seeds: SEEDS, hashes }, null, 2) + '\n').toMatchFileSnapshot(`./__snapshots__/${id}.${name}.json`);
       });
 
-      it(`stays within the triangle budget (at most +50% of the ${BUDGET_OF[name] ?? name} Style's own trees)`, () => {
+      it(`stays within the triangle budget (at most +50% of the ${BUDGET_OF[name] ?? name} Style's own trees, then at most ×${TIP_BRANCH_COST} for its Tip Branches)`, () => {
         for (const seed of SEEDS) {
-          expect(triangles(generateTree(parseDefinition(definition), seed))).toBeLessThanOrEqual(styleTriangles[name]! * 1.5);
+          const stumps = triangles(generateTree(parseDefinition(withoutTipBranches(definition)), seed));
+          expect(stumps).toBeLessThanOrEqual(styleTriangles[name]! * 1.5);
+          expect(triangles(generateTree(parseDefinition(definition), seed))).toBeLessThanOrEqual(stumps * TIP_BRANCH_COST);
         }
       });
 

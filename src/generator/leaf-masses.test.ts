@@ -118,7 +118,8 @@ describe("leaf shape 'mass': Leaf Masses of spray cards (ADR 0014)", () => {
       parseDefinition({
         schemaVersion: 2,
         trunk: { length: 4 },
-        branches: [{ count: 20, start: 0.2, end: 1, angle: 90, length: 0.3 }],
+        // Level branches only: a Tip Branch would stand a column of leaves on the top.
+        branches: [{ count: 20, start: 0.2, end: 1, angle: 90, length: 0.3, tipBranches: 0 }],
         leaves: { count: 30, shape: 'mass', size: 0.4, masses: 8, ...(massLayering === undefined ? {} : { massLayering }) },
       });
     const flatness = (massLayering?: number) => {

@@ -352,6 +352,32 @@ and `angle` (linear between keyframes, flat = 1 when absent). A cone is
 `lengthProfile: [{ t: 0.2, value: 1 }, { t: 1, value: 0.1 }]` on the first level; a ball, column, vase
 or flat top are other curves.
 
+A branch level's **Tip Branches** (`tipBranches`, integer 0..4) are how many of its branches grow from the
+very tip of each parent (a Stem for the first level, a branch of the level above for the others), so the
+parent ends in a branch instead of a flat, cut-off stump:
+
+| `tipBranches` | The parent's tip |
+| --- | --- |
+| 0 | ends in a stump |
+| 1 | carries on: one Tip Branch along the parent's tip direction (`angleVariation` lets it wander a little) |
+| 2..4 | forks: the Tip Branches lean out by half the level's `angle` (times `angleProfile` at 1), spread evenly round the parent and turned by the Seed |
+
+Absent, it is 1 on branch levels 1 and 2 (`branches[0]` and `branches[1]`) and 0 on deeper levels
+(`tipBranchesOf(level, index)` gives that value; `MAX_TIP_BRANCHES` is 4). `count` still means the side
+branches: Tip Branches come on top of it and take the paths after them (`<parent>.<count>`, ...), so turning
+them on or off never moves a side branch, its leaves, Fruit or Sculpts. A Tip Branch starts exactly as
+thick as its parent's tip and is otherwise an ordinary branch of its level: its length is the parent's length
+× `length` × `lengthProfile` at 1, and it takes the level's taper, Bend, Gravity, Twist, sections and sides,
+grows its own children from the next level (or leaves and Fruit on the outermost level), sways with its
+parent in the Wind and starts to grow as soon as its parent is fully grown. Every Stem of a multi-Stem tree
+gets its own. The Tree Editor has a Tip Branches slider in each branch level's panel.
+
+> **Changed in this release:** Stems and first-level branches now end in a Tip Branch instead of a stump,
+> also in existing Species, Style starters and saved or exported Tree Definitions, which have no
+> `tipBranches` yet and so take the new default ([ADR 0019](docs/adr/0019-tip-branches-on-by-default.md)).
+> Existing branches stay where they were; the trees only gain branches (and get a little taller). To keep
+> the old stump, set `tipBranches: 0` on the level, e.g. on `branches[0]` for the trunk.
+
 The trunk and every branch level can also **Twist**: its Stems or branches make smooth twists and turns
 along their length (unlike bark that spirals round a branch, a Twist moves where the branch goes). All the
 Twist fields are optional; absent, a tree does not Twist (the [Fantasy Styles](#fantasy-styles) write their own):

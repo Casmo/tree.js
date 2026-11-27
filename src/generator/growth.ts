@@ -19,7 +19,7 @@ const LEAF_DURATION = 0.6;
  * When each part grows, as Growth windows (0..1) parallel to the skeleton arrays.
  *
  * Order: the trunk is there from Growth 0 (it only scales with the whole tree); a branch sprouts
- * once its parent is fully grown, lower branches first; leaves come after their branch. So a part
+ * once its parent is fully grown, lower branches first and a Tip Branch at once; leaves come after their branch. So a part
  * always sprouts from a fully-grown parent and never floats. The last part finishes at Growth 1.
  *
  * Seed (within `variation.growth` = v): each part's start is delayed by up to v/2 of its own window
@@ -36,7 +36,8 @@ export function growthTiming(
   const branchWindows = branches.map((branch) => {
     let window: GrowthWindow = { start: 0, end: 0 };
     if (branch.parent !== null) {
-      const start = raw.get(branch.parent)!.end + branch.attach * BRANCH_STAGGER;
+      // A Tip Branch carries its parent on: it sprouts as soon as the parent is grown, like a branch at its base.
+      const start = raw.get(branch.parent)!.end + (branch.tip ? 0 : branch.attach) * BRANCH_STAGGER;
       window = { start, end: start + BRANCH_DURATION };
     }
     raw.set(branch.path, window); // breadth first: parents come before children

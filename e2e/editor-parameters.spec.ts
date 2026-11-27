@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { BRANCH_LEVEL_FIELDS, PARAMETER_GROUPS, type Field } from '../editor/src/panels/fields';
+import { branchLevelFields, PARAMETER_GROUPS, type Field } from '../editor/src/panels/fields';
 
 /** Waits until the preview has drawn the latest change, then returns the editor's state. */
 async function waitForEditor(page: Page) {
@@ -23,7 +23,7 @@ function newValue(field: Field, current: unknown): string {
       const steps = Math.round((field.max - field.min) / field.step);
       const value = field.min + Math.round(steps * 0.25) * field.step;
       const rounded = Number(value.toFixed(6));
-      return String(rounded === current ? rounded + field.step : rounded);
+      return String(rounded === (current ?? field.absent) ? rounded + field.step : rounded);
     }
     case 'choice':
       return field.options.find((option) => option !== current)!;
@@ -62,8 +62,8 @@ test('every Definition field can be edited and the preview regenerates', async (
   let { definition, treeId } = await waitForEditor(page);
   const fields = [
     ...PARAMETER_GROUPS.flatMap((group) => group.fields.map((field) => [field, field.path] as const)),
-    ...BRANCH_LEVEL_FIELDS.map((field) => [field, `branches.0.${field.path}`] as const),
-    ...BRANCH_LEVEL_FIELDS.map((field) => [field, `branches.1.${field.path}`] as const),
+    ...branchLevelFields(0).map((field) => [field, `branches.0.${field.path}`] as const),
+    ...branchLevelFields(1).map((field) => [field, `branches.1.${field.path}`] as const),
     [{ kind: 'color', path: 'season.blossomColor', label: '' } as Field, 'season.blossomColor'] as const,
   ];
   for (const [field, path] of fields) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { extendDefinition, parseDefinition, type BranchLevelDefinition, type TreeDefinitionInput } from '../definition';
-import { angleBetween, apart, cross, DEG, dot, expectNoKinks, mean, scale, segments, sub, turnAbout, unit } from '../../test/branch-geometry';
+import { angleBetween, apart, carried, cross, DEG, dot, expectNoKinks, mean, scale, segments, sideAt, sub, turnAbout, turned, turnsAround, unit } from '../../test/branch-geometry';
 import { generateTree, hashTreeData, type SkeletonBranch, type Vec3 } from './index';
 
 /** Turns of a branch: the local peaks of how far its segments swing away from its start direction. */
@@ -17,7 +17,8 @@ const levels = [
 const define = (twists: Partial<BranchLevelDefinition>[] = [], extra: TreeDefinitionInput = { schemaVersion: 3 }) =>
   parseDefinition({ ...extra, schemaVersion: 3, branches: levels.map((level, i) => ({ ...level, ...twists[i] })), leaves: { count: 4 } });
 const grow = (twists: Partial<BranchLevelDefinition>[] = [], seed = 5) => generateTree(define(twists), seed);
-const onLevel = (data: ReturnType<typeof generateTree>, level: number) => data.skeleton.branches.filter((b) => b.level === level);
+/** The side branches on `level` (a Tip Branch leaves its parent straight on, see tip-branches.test.ts). */
+const onLevel = (data: ReturnType<typeof generateTree>, level: number) => data.skeleton.branches.filter((b) => b.level === level && !b.tip);
 const sectionsOf = (b: SkeletonBranch) => b.points.length - 1;
 const lengthOf = (b: SkeletonBranch) => segmentLengths(b).reduce((a, l) => a + l, 0);
 const segmentLengths = (b: SkeletonBranch) => b.points.slice(1).map((p, i) => Math.hypot(...sub(p.position, b.points[i]!.position)));
@@ -196,17 +197,6 @@ describe('Twist on branch levels', () => {
     expect(data.skeleton.leaves.some((l) => gone(l.branch))).toBe(false);
   });
 });
-
-/**
- * How many times a straight-course branch's segments go round its start direction, signed: positive
- * clockwise seen from its base looking along it (right-handed about the direction), negative counter-clockwise.
- */
-function turnsAround(b: SkeletonBranch): number {
-  const sides = segments(b).map((d) => sub(d, scale(b.direction, dot(d, b.direction))));
-  let total = 0;
-  for (let i = 1; i < sides.length; i++) total += Math.atan2(dot(cross(sides[i - 1]!, sides[i]!), b.direction), dot(sides[i - 1]!, sides[i]!));
-  return total / (2 * Math.PI);
-}
 
 describe('Corkscrew Twist on branch levels', () => {
   const corkscrew = (twist: number, twists?: number, more: Partial<BranchLevelDefinition> = {}): Partial<BranchLevelDefinition> => ({
@@ -478,30 +468,6 @@ describe('Follow Twist between Corkscrew branch levels', () => {
   const straight = (more: Partial<BranchLevelDefinition>[], seed = 5) =>
     generateTree(define(more.map((m, i) => ({ sections: i === 0 ? 2 : 7, bend: 0, gravity: 0, ...m }))), seed);
   const parentOf = (data: ReturnType<typeof generateTree>, b: SkeletonBranch) => data.skeleton.branches.find((p) => p.path === b.parent)!;
-  /** Unit `v` turned right-handed by `angle` radians about unit `axis`. */
-  const turned = (v: Vec3, axis: Vec3, angle: number): Vec3 => {
-    const c = Math.cos(angle);
-    const s = Math.sin(angle);
-    const k = dot(axis, v) * (1 - c);
-    const x = cross(axis, v);
-    return [v[0] * c + x[0] * s + axis[0] * k, v[1] * c + x[1] * s + axis[1] * k, v[2] * c + x[2] * s + axis[2] * k];
-  };
-  /** Unit `v` (across `from`) taken along by the smallest rotation from unit `from` onto unit `to`. */
-  const carried = (v: Vec3, from: Vec3, to: Vec3) => turned(v, unit(cross(from, to)), Math.acos(Math.min(1, Math.max(-1, dot(from, to)))));
-  /**
-   * The side a straight-course Corkscrew leans to at fraction `u`: every segment's lean side (across
-   * its start direction), turned on to `u` by its Spin at one turn per Twists, averaged.
-   */
-  function sideAt(b: SkeletonBranch, u: number, twists: number): Vec3 {
-    const spin = Math.sign(turnsAround(b));
-    const n = sectionsOf(b);
-    const sum = segments(b).reduce((a, d, k) => {
-      const across = sub(d, scale(b.direction, dot(d, b.direction)));
-      const side = turned(across, b.direction, spin * 2 * Math.PI * twists * (u - (k + 0.5) / n));
-      return [a[0] + side[0], a[1] + side[1], a[2] + side[2]] as Vec3;
-    }, [0, 0, 0] as Vec3);
-    return unit(sum);
-  }
 
   it('takes the parent\'s Spin, ignoring its own', () => {
     const data = straight([corkscrew({ spin: 'clockwise' }), following({ spin: 'counterclockwise', twists: 3 })]);

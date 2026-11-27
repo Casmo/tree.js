@@ -4,6 +4,7 @@ import { createForest, DetailLevel, selectDetailLevel, Wind, type Forest, type F
 import { ditherThreshold, showsPixel } from '../src/forest/lod';
 import { windMotionOf } from '../src/wind/motion';
 import { uniform } from 'three/tsl';
+import { withoutTipBranches } from './definitions';
 
 // light 10, impostor 40, fade 0.2: bands 9..11 (Full -> Light) and 36..44 (Light -> Impostor).
 const settings = { light: 10, impostor: 40, fade: 0.2 };
@@ -124,9 +125,11 @@ function fingerprint(forest: Forest) {
 
 describe('a Forest without lod', () => {
   it('draws exactly the meshes, geometry, instance data and materials it drew before Detail Levels', () => {
-    const forest = createForest(definition, placements, { variants: 3, seed: 5, growth: 0.8, season: 0.3 });
+    // Without Tip Branches (ADR 0019), as the tree was before them too.
+    const stumps = withoutTipBranches(definition);
+    const forest = createForest(stumps, placements, { variants: 3, seed: 5, growth: 0.8, season: 0.3 });
     expect(fingerprint(forest)).toMatchSnapshot();
-    expect(fingerprint(createForest(definition, placements, { variants: 3, seed: 5, growth: 0.8, season: 0.3, lod: false }))).toEqual(fingerprint(forest));
+    expect(fingerprint(createForest(stumps, placements, { variants: 3, seed: 5, growth: 0.8, season: 0.3, lod: false }))).toEqual(fingerprint(forest));
   });
 });
 

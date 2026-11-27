@@ -33,12 +33,12 @@ describe('Painterly height compression (ADR 0013)', () => {
     }
   });
 
-  it('keeps the order: the lowest Species (peach) at the bottom of the range, the tallest (redwood) at the top', () => {
+  it('keeps the order: the lowest Species (juniper, with its Tip Branches) at the bottom of the range, the tallest (redwood) at the top', () => {
     const heights = Object.fromEntries(SPECIES_NAMES.map((id) => [id, meanTop(painted[id]!)]));
     const sorted = [...SPECIES_NAMES].sort((a, b) => heights[a]! - heights[b]!);
-    expect(sorted[0]).toBe('peach');
+    expect(sorted[0]).toBe('juniper');
     expect(sorted.at(-1)).toBe('redwood');
-    expect(Math.abs(heights.peach! - 2.2)).toBeLessThan(0.15);
+    expect(Math.abs(heights.juniper! - 2.2)).toBeLessThan(0.15);
     expect(Math.abs(heights.redwood! - 3.8)).toBeLessThan(0.15);
     // Real heights: the same Species drawn in a real-sized Style. Clearly different heights keep their order.
     const real = Object.fromEntries(SPECIES_NAMES.map((id) => [id, meanTop(realistic.apply(SPECIES_BY_NAME[id]))]));
@@ -81,9 +81,9 @@ describe('Painterly size in Tree Definitions', () => {
   });
 
   it('keeps the order for any height: a 3.9 m tree ends no taller than a 4.2 m one', () => {
-    // Peach drawn in Painterly before scaling is CATALOGUE_HEIGHTS.min tall (checked above): scale it to
+    // Juniper drawn in Painterly before scaling is CATALOGUE_HEIGHTS.min tall (checked above): scale it to
     // trees that are 3.9 m and 4.2 m tall as Painterly measures them, from a real-sized (realistic) Definition.
-    const real = realistic.apply(SPECIES_BY_NAME.peach);
+    const real = realistic.apply(SPECIES_BY_NAME.juniper);
     const low = scaleDefinition(real, 3.9 / CATALOGUE_HEIGHTS.min);
     const high = scaleDefinition(real, 4.2 / CATALOGUE_HEIGHTS.min);
     const [paintedLow, paintedHigh] = [meanTop(painterly.apply(low)), meanTop(painterly.apply(high))];

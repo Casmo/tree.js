@@ -30,7 +30,7 @@ describe('<Tree> (React Three Fiber)', () => {
     renderer = await ReactThreeTestRenderer.create(<Tree definition={definition} seed={3} />, { gl });
     const tree = sceneTree(renderer);
     expect(tree.seed).toBe(3);
-    expect(tree.data.skeleton.branches.length).toBe(3);
+    expect(tree.data.skeleton.branches.length).toBe(4); // the trunk, 2 side branches and a Tip Branch
   });
 
   it('changing growth or season only updates the same tree', async () => {
@@ -79,7 +79,7 @@ describe('<Tree> (React Three Fiber)', () => {
     await renderer.update(<Tree definition={{ ...definition, branches: [{ count: 4 }] }} />);
     const after = sceneTree(renderer);
     expect(after).not.toBe(before);
-    expect(after.data.skeleton.branches.length).toBe(5);
+    expect(after.data.skeleton.branches.length).toBe(6); // the trunk, 4 side branches and a Tip Branch
   });
 
   it('unmounting disposes of the tree', async () => {

@@ -12,6 +12,7 @@ import enchanted from '../src/styles/enchanted';
 import whimsical from '../src/styles/whimsical';
 import { definitionForSeed, evaluateSeason } from '../src/season';
 import { installGltfExporterGlobals } from './fixtures/node-gltf';
+import { withoutTipBranches } from './definitions';
 
 // GLTFExporter writes its buffers through FileReader, which plain Node lacks (browsers have it).
 beforeAll(() => {
@@ -310,6 +311,7 @@ describe('Baked Tree: Material Features', () => {
 
 describe('Baked Tree: Material Features off', () => {
   // Hash (glbHash) of the .glb as exported before Material Features existed: with none set, nothing changes.
+  // Without Tip Branches (ADR 0019), which came later and add branches.
   const golden: [string, () => TreeDefinition, { seed: number; growth?: number; season?: number }, string][] = [
     ['low-poly broadleaf', () => lowPoly.broadleaf, { seed: 42, growth: 0.8, season: 0.3 }, '68a85e2222cb1cba08f6b1131a84334fd68f0e8a52d704c94042a60f31dd3645'],
     ['stylized broadleaf', () => stylized.broadleaf, { seed: 3, growth: 0.9, season: 0.02 }, '4e1f2517bb5684580e8eb5a754aec1e811422fa976897bd5cd4d9d31fc136bd7'],
@@ -317,7 +319,7 @@ describe('Baked Tree: Material Features off', () => {
   ];
   for (const [name, definition, options, hash] of golden) {
     it(`exports the same glTF as before (${name})`, async () => {
-      const tree = createTree(definition(), options);
+      const tree = createTree(withoutTipBranches(definition()), options);
       const glb = await exportBakedTree(tree, { occlusionInVertexColors: true });
       expect(glbHash(glb)).toBe(hash);
       tree.dispose();
