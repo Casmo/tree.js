@@ -1,0 +1,9 @@
+{"title":"Tip Branches: stems end in a branch, not a stump","kicker":"New · Tree Editor","url":"http://localhost:41733/?start=broadleaf/low-poly&season=0.95",
+ "chapters":[
+  {"title":"The trunk now carries on into the crown","steps":[{"wait":2500}]},
+  {"title":"New Tip Branches slider on Level 1","steps":[{"scroll":"[id=\"branches.0.tipBranches\"]"},{"hover":"[id=\"branches.0.tipBranches\"]","zoom":true}]},
+  {"title":"0: the trunk ends in a stump","steps":[{"click":"[id=\"branches.0.tipBranches\"]"},{"press":"ArrowDown"},{"press":"Tab"},{"wait":1500}]},
+  {"title":"1: the trunk carries on again","steps":[{"click":"[id=\"branches.0.tipBranches\"]"},{"press":"ArrowUp"},{"press":"Tab"},{"wait":1500}]},
+  {"title":"3: the trunk tip forks into three","steps":[{"click":"[id=\"branches.0.tipBranches\"]"},{"press":"ArrowUp"},{"press":"ArrowUp"},{"press":"Tab"},{"wait":2000}]},
+  {"title":"Conifers grow on to the top","steps":[{"goto":"/?start=conifer/low-poly"},{"wait":3000}]}
+ ]}
