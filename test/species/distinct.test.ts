@@ -34,7 +34,7 @@ const crowns = (tipBranches: boolean) =>
       return [id, { height: mean('height'), width: mean('width'), ratio: mean('ratio'), trunk: mean('trunk') }];
     }),
   ) as Record<SpeciesName, ReturnType<typeof measure>>;
-/** The shipped trees, with the Tip Branches every tree gets by default (ADR 0019). */
+/** The shipped trees, with the Tip Branches every tree gets by default (ADR 0019, ADR 0021). */
 const crown = crowns(true);
 /**
  * The crowns as the Species set them, without Tip Branches: only where the shipped trees fail a check.

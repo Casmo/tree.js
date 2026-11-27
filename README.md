@@ -362,9 +362,9 @@ parent ends in a branch instead of a flat, cut-off stump:
 | 1 | carries on: one Tip Branch along the parent's tip direction (`angleVariation` lets it wander a little) |
 | 2..4 | forks: the Tip Branches lean out by half the level's `angle` (times `angleProfile` at 1), spread evenly round the parent and turned by the Seed |
 
-Absent, it is 1 on branch levels 1 and 2 (`branches[0]` and `branches[1]`) and 0 on deeper levels
-(`tipBranchesOf(level, index)` gives that value; `MAX_TIP_BRANCHES` is 4). `count` still means the side
-branches: Tip Branches come on top of it and take the paths after them (`<parent>.<count>`, ...), so turning
+Absent, it is 1 on every branch level, so every Stem and every branch with a level below it is carried on
+and only the outermost twigs keep their end (`tipBranchesOf(level, index)` gives that value;
+`MAX_TIP_BRANCHES` is 4). `count` still means the side branches: Tip Branches come on top of it and take the paths after them (`<parent>.<count>`, ...), so turning
 them on or off never moves a side branch, its leaves, Fruit or Sculpts. A Tip Branch starts exactly as
 thick as its parent's tip and is otherwise an ordinary branch of its level: its length is the parent's length
 × `length` × `lengthProfile` at 1, and it takes the level's taper, Bend, Gravity, Twist, sections and sides,
@@ -372,9 +372,10 @@ grows its own children from the next level (or leaves and Fruit on the outermost
 parent in the Wind and starts to grow as soon as its parent is fully grown. Every Stem of a multi-Stem tree
 gets its own. The Tree Editor has a Tip Branches slider in each branch level's panel.
 
-> **Changed in this release:** Stems and first-level branches now end in a Tip Branch instead of a stump,
-> also in existing Species, Style starters and saved or exported Tree Definitions, which have no
-> `tipBranches` yet and so take the new default ([ADR 0019](docs/adr/0019-tip-branches-on-by-default.md)).
+> **Changed in this release:** branches on the third and fourth levels now end in a Tip Branch too, like
+> Stems and first- and second-level branches, also in existing Species, Style starters and saved or exported
+> Tree Definitions, which have no `tipBranches` yet and so take the new default
+> ([ADR 0021](docs/adr/0021-tip-branches-on-every-branch-level.md), after [ADR 0019](docs/adr/0019-tip-branches-on-by-default.md)).
 > Existing branches stay where they were; the trees only gain branches (and get a little taller). To keep
 > the old stump, set `tipBranches: 0` on the level, e.g. on `branches[0]` for the trunk.
 

@@ -64,7 +64,7 @@ const crownShape = (curve: BranchLevelDefinition['lengthProfile'], t: number) =>
  * The Crown Shape curves (`lengthProfile`, `angleProfile`) scale each child's length and angle by where
  * it sits on the parent (ADR 0004); a Tip Branch sits at `t` = 1. Each Corkscrew child's phase goes into
  * `corkscrews` under its path, so its own children can follow it (Follow Twist). `levelIndex` is where
- * `level` sits in the Definition's `branches` (the parent's level), for its default Tip Branches.
+ * `level` sits in the Definition's `branches` (the parent's level), for its default Tip Branches (ADR 0021).
  */
 function growChildren(
   parent: SkeletonBranch,

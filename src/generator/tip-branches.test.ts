@@ -5,7 +5,7 @@ import { loadStyle, STYLE_NAMES } from '../styles/registry';
 import { angleBetween, carried, segments, sideAt, turnAbout, unit, sub } from '../../test/branch-geometry';
 import { generateTree, hashTreeData, type SkeletonBranch, type TreeData } from './index';
 
-// Level 1 grows Tip Branches by default, level 2 too; a third level does not.
+// Both levels grow Tip Branches by default (ADR 0021); level 2 is the outermost, so its twigs have none.
 const base = parseDefinition({ schemaVersion: 3, branches: [{ count: 4 }, { count: 2 }], leaves: { count: 3 } });
 const grow = (patch: DefinitionPatch = {}, seed = 5) => generateTree(extendDefinition(base, patch), seed);
 const byPath = (data: TreeData) => new Map(data.skeleton.branches.map((b) => [b.path, b]));
@@ -26,6 +26,27 @@ describe('Tip Branches', () => {
     }
     // Level 2 is the outermost: its branches have no Tip Branch.
     expect(branches.has('0.0.0.0')).toBe(false);
+  });
+
+  it('carry on every parent that has a level below it when absent, down to the 4th level; the outermost twigs keep their end (ADR 0021)', () => {
+    const deep = parseDefinition({ schemaVersion: 3, branches: [{ count: 3 }, { count: 2 }, { count: 2 }, { count: 1 }], leaves: { count: 0 } });
+    for (const seed of [5, 9]) {
+      const { branches } = generateTree(deep, seed).skeleton;
+      // Every Stem and every branch of levels 1-3 has exactly one Tip Branch, after its side branches.
+      for (const parent of branches.filter((b) => b.level < 4)) {
+        const tips = branches.filter((b) => b.parent === parent.path && b.tip);
+        expect(tips.map((b) => b.path), parent.path).toEqual([`${parent.path}.${deep.branches[parent.level]!.count}`]);
+      }
+      // Tip Branches grow on the 3rd and 4th levels too; the 4th-level twigs have no children at all.
+      expect(new Set(branches.filter((b) => b.tip).map((b) => b.level))).toEqual(new Set([1, 2, 3, 4]));
+      expect(branches.filter((b) => b.level === 4).length).toBeGreaterThan(0);
+      for (const twig of branches.filter((b) => b.level === 4)) expect(branches.some((b) => b.parent === twig.path), twig.path).toBe(false);
+    }
+    // Explicit values win: 0 leaves a stump, 2 forks, on the deep levels as well.
+    const set = generateTree(extendDefinition(deep, { branches: deep.branches.map((level, i) => ({ ...level, tipBranches: [1, 2, 0, 3][i] })) }), 5).skeleton.branches;
+    for (const parent of set.filter((b) => b.level < 4)) {
+      expect(set.filter((b) => b.parent === parent.path && b.tip), parent.path).toHaveLength([1, 2, 0, 3][parent.level]!);
+    }
   });
 
   it("start along the parent's tip tangent, deviating only within the level's angle variation", () => {
@@ -284,11 +305,11 @@ describe('Tip Branches', () => {
 describe('Tip Branches in every Style', () => {
   it.each(STYLE_NAMES)('%s passes a level\'s Tip Branches through like its count and draws them', async (name) => {
     const style = await loadStyle(name);
-    // Absent on the Species: the default, Tip Branches on the first two levels.
+    // Absent on the Species: the default, Tip Branches on every level (ADR 0021).
     const drawn = style.apply(oak);
     expect(drawn.branches.map((level) => level.tipBranches)).toEqual(oak.branches.map(() => undefined));
     const tips = generateTree(drawn, 1).skeleton.branches.filter((b) => b.tip);
-    expect(new Set(tips.map((b) => b.level))).toEqual(new Set([1, 2].filter((level) => level <= drawn.branches.length)));
+    expect(new Set(tips.map((b) => b.level))).toEqual(new Set(drawn.branches.map((_, i) => i + 1)));
     // Set on the Species: kept, and 0 everywhere draws no Tip Branch.
     const set = style.apply({ ...oak, branches: oak.branches.map((level, i) => ({ ...level, tipBranches: i === 0 ? 3 : 0 })) });
     expect(set.branches.map((level) => level.tipBranches)).toEqual(oak.branches.map((_, i) => (i === 0 ? 3 : 0)));

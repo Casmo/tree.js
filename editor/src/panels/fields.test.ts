@@ -226,9 +226,9 @@ describe('parameter panels', () => {
     });
   });
 
-  it('show the Tip Branches default of each level while it is absent: 1 on levels 1-2, 0 deeper', () => {
+  it('show the Tip Branches default of each level while it is absent: 1 on every level (ADR 0021)', () => {
     const shown = [0, 1, 2, 3].map((index) => branchLevelFields(index).find((f) => f.path === 'tipBranches'));
-    expect(shown.map((field) => field && 'absent' in field && field.absent)).toEqual([1, 1, 0, 0]);
+    expect(shown.map((field) => field && 'absent' in field && field.absent)).toEqual([1, 1, 1, 1]);
   });
 
   it('offer the Twist group right after Gravity on each branch level: Twist style, Twist, Twists, Spin, Twist curve, Follow twist, showing Snake / no Twist / Random / 0 / off while absent', () => {

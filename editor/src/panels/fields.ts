@@ -222,7 +222,7 @@ export const MATERIAL_FEATURES: {
 
 /**
  * The fields of branching level `index` (0 = level 1); paths relative to `branches.<index>`. Tip
- * Branches shows the level's own default while absent (1 on levels 1-2, 0 deeper). The Twist group
+ * Branches shows the level's own default while absent (1 on every level, ADR 0021). The Twist group
  * (Twist style, Twist, Twists, Spin, Twist curve, Follow twist) is optional (`absent`); fields that
  * only apply to a Corkscrew say so in a hint.
  */
