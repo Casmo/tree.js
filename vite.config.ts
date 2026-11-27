@@ -81,5 +81,8 @@ export default defineConfig(({ command }) => ({
   test: {
     include: ['src/**/*.test.{ts,tsx}', 'test/**/*.test.{ts,tsx}', 'editor/**/*.test.ts'],
     environment: 'node',
+    // Catalogue-wide tests generate every Species for several Seeds: well past vitest's 5 s default
+    // on slow (CI) machines.
+    testTimeout: 60_000,
   },
 }));

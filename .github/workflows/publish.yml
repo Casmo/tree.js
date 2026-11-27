@@ -30,12 +30,12 @@ jobs:
     env:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ env.TAG }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          # Same Node as CI, so prepublishOnly's tests run where they're known to pass.
+          # Same Node as CI, so the checks below run where they're known to pass.
           node-version: 22
           cache: npm
           registry-url: https://registry.npmjs.org
@@ -59,10 +59,28 @@ jobs:
           # Only the published package gets this version; package.json in the repo is not changed.
           npm version "$VERSION" --no-git-tag-version --allow-same-version
 
-      # prepublishOnly runs lint, typecheck, unit tests and the build.
+      # The checks prepublishOnly would run, as separate steps so a failure shows which one.
+      # The release tag's code was already tested by CI on main; here the unit tests get a generous
+      # timeout, because the catalogue-wide tests (every Species, several Seeds) can take longer than
+      # vitest's 5 s default on a shared runner. Passed on the command line so retrying an older tag
+      # (whose test files have no per-test timeouts) passes too.
+      - name: Lint
+        if: steps.version.outputs.published != 'true'
+        run: npm run lint
+      - name: Typecheck
+        if: steps.version.outputs.published != 'true'
+        run: npm run typecheck
+      - name: Unit tests
+        if: steps.version.outputs.published != 'true'
+        run: npm test -- --testTimeout=120000 --hookTimeout=120000
+      - name: Build
+        if: steps.version.outputs.published != 'true'
+        run: npm run build
+
+      # --ignore-scripts: prepublishOnly would run all the checks above again (with the short timeout).
       # GitHub pre-releases (and tags like v1.2.3-beta.1) go to the "next" dist-tag so they don't become "latest".
       - name: Publish
         if: steps.version.outputs.published != 'true'
         env:
           DIST_TAG: ${{ inputs.dist-tag || ((github.event.release.prerelease || contains(env.TAG, '-')) && 'next' || 'latest') }}
-        run: npm publish --provenance --tag "$DIST_TAG"
+        run: npm publish --provenance --ignore-scripts --tag "$DIST_TAG"
