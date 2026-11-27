@@ -98,6 +98,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "readme-media": "node scripts/readme-media/capture.mjs",
+    "promo-video": "node scripts/promo-video/capture.mjs",
     "prepublishOnly": "npm run lint && npm run typecheck && npm test && npm run build",
     "species": "node scripts/generate-species.mjs",
     "gallery": "node scripts/render-gallery.mjs"
